@@ -57,6 +57,11 @@ deploy/charts/*/Chart.lock
 *.safetensors
 models/
 
+# ─── generated ─────────────────────────────────────────────
+# Regenerate with `make dashboard`. Not committed: it embeds a "days since"
+# figure that changes daily and would churn history for no benefit.
+docs/dashboard.html
+
 # ─── local artifacts ───────────────────────────────────────
 *.log
 *.db

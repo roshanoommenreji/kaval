@@ -18,11 +18,12 @@ Guardrails before anything that can cost money.
 - [x] `CLAUDE.md` — conventions for Claude Code in this repo
 - [x] `docs/00-start-here.md`, ADR process established
 - [x] ADR-0001 record decisions · ADR-0002 k3s + EKS · ADR-0003 region
-- [x] `.gitignore`, `.env.example`, gitleaks pre-commit hook
-- [ ] `git init` + first commit
+- [x] `.gitignore`, `.gitattributes`, `.env.example`, gitleaks pre-commit hook
+- [x] `git init` + first commit
+- [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24 *(written, not applied)*
+- [x] Progress dashboard — `scripts/dashboard.py`, derived from this file
 - [ ] Jira Cloud free tier, project `KAV`, 9 epics
 - [ ] **Fix AWS credentials** — new IAM user, MFA, named profile *(currently expired)*
-- [ ] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24
 - [ ] `terraform apply` the budget module and fire a test alert
 
 **Exit gate:** `terraform apply` has created only a budget alarm, and it demonstrably fires.

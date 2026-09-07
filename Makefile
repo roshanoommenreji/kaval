@@ -125,6 +125,10 @@ evals: ## Run the LLM eval harness against the golden incident set
 # ─────────────────────────────────────────────────────────────
 ##@ Housekeeping
 
+.PHONY: dashboard
+dashboard: ## Regenerate docs/dashboard.html from ROADMAP.md, ADRs, labs, journal and git
+	@python scripts/dashboard.py
+
 .PHONY: lab
 lab: ## Scaffold a new lab doc + journal entry. Usage: make lab NAME=setup-flux
 	@test -n "$(NAME)" || (echo "set NAME=<slug>" && exit 1)

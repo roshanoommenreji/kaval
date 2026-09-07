@@ -1,0 +1,74 @@
+# Configuration for scripts/dashboard.py
+#
+# Everything the dashboard cannot derive from the repository lives here.
+# Status is NEVER recorded in this file — ROADMAP.md is the single source of
+# truth for what is done. This holds links and figures only.
+
+[project]
+name        = "Kaval"
+tagline     = "കാവൽ — the watch"
+started     = "2026-08-22"
+target_v1   = "2027-03-31"
+phase_count = 10
+
+[cost]
+ceiling_usd        = 25
+projected_total    = 47
+budget_with_buffer = 70
+mtd_usd            = 0.0        # updated from `make cost-report`; 0 while nothing is provisioned
+provisioned        = false
+
+# Run posture per phase — see docs/cost/budget-plan.md
+[posture]
+0 = { state = "local",      cost = "$0" }
+1 = { state = "local",      cost = "$0" }
+2 = { state = "local",      cost = "$0" }
+3 = { state = "local",      cost = "$0" }
+4 = { state = "paused",     cost = "~$2.20/mo" }
+5 = { state = "paused",     cost = "~$2.20/mo" }
+6 = { state = "paused",     cost = "~$2.20/mo" }
+7 = { state = "always-on",  cost = "~$14/mo" }
+8 = { state = "always-on",  cost = "~$14/mo + $4/lab" }
+9 = { state = "always-on",  cost = "~$14/mo" }
+
+# External links. Empty entries are rendered as "not yet created" rather than
+# hidden — a missing Jira project is information, not an absence.
+[[links]]
+label = "Jira — project KAV"
+url   = ""
+note  = "Free tier. Nine epics, one per phase."
+
+[[links]]
+label = "GitHub repository"
+url   = ""
+note  = "Private until v1."
+
+[[links]]
+label = "AWS Billing — free tier"
+url   = "https://console.aws.amazon.com/billing/home#/freetier"
+note  = "Check allowance; see Lab 01."
+
+[[links]]
+label = "AWS Budgets"
+url   = "https://console.aws.amazon.com/billing/home#/budgets"
+note  = "Alerts at $18 / $22, hard stop at $24."
+
+[[links]]
+label = "Bedrock — model access"
+url   = "https://console.aws.amazon.com/bedrock/home#/modelaccess"
+note  = "Settles ADR-0003."
+
+[[links]]
+label = "This dashboard, published"
+url   = "https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c"
+note  = "Opens on the phone. Republish after `make dashboard`."
+
+[[links]]
+label = "Full project plan"
+url   = "file:///C:/Users/rosha/.claude/plans/i-want-to-do-twinkly-thompson.md"
+note  = "The reasoning behind every decision here."
+
+[[links]]
+label = "Vault note"
+url   = "file:///C:/Users/rosha/Desktop/Claude/vault/projects/kaval.md"
+note  = "How this connects to the AI career track."

@@ -30,7 +30,7 @@ signals ──▶ correlate ──▶ context ──▶ LLM ──▶ proposal �
 | **Running cost** | $0 (nothing provisioned yet) |
 | **Visibility** | Private until v1 |
 
-Live progress: [ROADMAP.md](ROADMAP.md)
+Live progress: [ROADMAP.md](ROADMAP.md) · **[Dashboard](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c)** — regenerate with `make dashboard`
 
 ---
 
