@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(aws sts get-caller-identity:*)",
+      "Bash(aws ce get-cost-and-usage:*)",
+      "Bash(aws budgets describe-budgets:*)",
+      "Bash(aws logs tail:*)",
+      "Bash(aws ec2 describe-*:*)",
+      "Bash(aws autoscaling describe-*:*)",
+      "Bash(aws ecr describe-*:*)",
+      "Bash(aws iam list-*:*)",
+      "Bash(aws iam get-*:*)",
+
+      "Bash(terraform fmt:*)",
+      "Bash(terraform validate:*)",
+      "Bash(terraform plan:*)",
+      "Bash(terraform output:*)",
+      "Bash(terraform init:*)",
+
+      "Bash(kubectl get:*)",
+      "Bash(kubectl describe:*)",
+      "Bash(kubectl logs:*)",
+      "Bash(kubectl top:*)",
+      "Bash(kubectl explain:*)",
+      "Bash(helm list:*)",
+      "Bash(helm template:*)",
+      "Bash(helm lint:*)",
+      "Bash(helm diff:*)",
+
+      "Bash(docker ps:*)",
+      "Bash(docker images:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose logs:*)",
+
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+
+      "Bash(make help:*)",
+      "Bash(make test:*)",
+      "Bash(make lint:*)",
+      "Bash(make cost-report:*)",
+
+      "Bash(ruff check:*)",
+      "Bash(mypy:*)",
+      "Bash(pytest:*)",
+      "Bash(opa test:*)",
+      "Bash(gitleaks detect:*)",
+      "Bash(gitleaks protect:*)"
+    ],
+    "ask": [
+      "Bash(terraform apply:*)",
+      "Bash(terraform destroy:*)",
+      "Bash(kubectl delete:*)",
+      "Bash(kubectl apply:*)",
+      "Bash(aws lambda invoke:*)",
+      "Bash(make up:*)",
+      "Bash(make down:*)",
+      "Bash(make nuke:*)",
+      "Bash(make lab-up:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}

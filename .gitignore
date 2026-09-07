@@ -1,0 +1,74 @@
+# ─── secrets ───────────────────────────────────────────────
+# Anything here going public at v1. History must be clean, not just HEAD.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.keystore
+credentials
+kubeconfig
+*.kubeconfig
+secrets.yaml
+secrets.yml
+!**/secrets.example.*
+
+# ─── terraform ─────────────────────────────────────────────
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+tfplan
+*.tfplan
+
+# ─── python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ─── node / expo ───────────────────────────────────────────
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# ─── helm ──────────────────────────────────────────────────
+charts/*.tgz
+deploy/charts/*/charts/
+deploy/charts/*/Chart.lock
+
+# ─── models (large, redownloadable) ────────────────────────
+*.gguf
+*.safetensors
+models/
+
+# ─── local artifacts ───────────────────────────────────────
+*.log
+*.db
+*.sqlite3
+pgdata/
+.DS_Store
+Thumbs.db
+
+# ─── editors ───────────────────────────────────────────────
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ─── claude code local overrides ───────────────────────────
+.claude/settings.local.json

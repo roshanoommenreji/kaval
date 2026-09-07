@@ -1,0 +1,26 @@
+# Default: normalise to LF in the repository, native in the working tree.
+* text=auto eol=lf
+
+# These MUST be LF. A CRLF shell script fails with a confusing
+# "bad interpreter: /usr/bin/env bash^M" that costs an hour the first time.
+*.sh          text eol=lf
+Makefile      text eol=lf
+*.py          text eol=lf
+*.tf          text eol=lf
+*.yaml        text eol=lf
+*.yml         text eol=lf
+Dockerfile*   text eol=lf
+.env.example  text eol=lf
+
+# Windows-native tooling
+*.ps1  text eol=crlf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# Binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.mp4 binary
+*.gguf binary
+*.zip binary

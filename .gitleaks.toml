@@ -1,0 +1,65 @@
+# gitleaks configuration.
+#
+# This repository goes public at v1, so the HISTORY must be clean, not just the
+# working tree. Rewriting history later is painful and easy to get wrong; the
+# cheap moment to be strict is now, at commit one.
+#
+#   gitleaks protect --staged     pre-commit (fast, staged changes only)
+#   gitleaks detect               full history scan
+#   make secrets-scan             the same, via make
+
+[extend]
+useDefault = true
+
+# ─── project-specific rules ──────────────────────────────────
+
+[[rules]]
+id = "aws-account-id"
+description = "AWS account ID in a committed file"
+regex = '''(?i)(aws_?account_?id|account[_-]?id)["'\s:=]+["']?([0-9]{12})["']?'''
+tags = ["aws", "identifier"]
+
+[[rules]]
+id = "aws-arn-with-account"
+description = "ARN containing a real 12-digit account ID"
+regex = '''arn:aws[a-z-]*:[a-z0-9-]+:[a-z0-9-]*:(?!0{12})[0-9]{12}:'''
+tags = ["aws", "identifier"]
+
+[[rules]]
+id = "cognito-pool-id"
+description = "Cognito user pool ID"
+regex = '''[a-z]{2}-[a-z]+-[0-9]_[A-Za-z0-9]{9}'''
+tags = ["aws", "cognito"]
+
+[[rules]]
+id = "expo-push-token"
+description = "Expo push token"
+regex = '''Expo(nent)?PushToken\[[A-Za-z0-9_-]+\]'''
+tags = ["expo", "token"]
+
+[[rules]]
+id = "cloudflare-tunnel-token"
+description = "Cloudflare tunnel token"
+regex = '''(?i)(cloudflared?|tunnel)[_-]?token["'\s:=]+["']?[A-Za-z0-9_\-\.]{40,}["']?'''
+tags = ["cloudflare"]
+
+# ─── allowlist ───────────────────────────────────────────────
+
+[allowlist]
+description = "Placeholders, examples, and documentation"
+
+paths = [
+  '''\.gitleaks\.toml$''',
+  '''\.env\.example$''',
+  '''.*\.tfvars\.example$''',
+  '''docs/.*\.md$''',        # docs must never contain real values anyway — see CLAUDE.md
+]
+
+regexes = [
+  '''000000000000''',                 # placeholder account ID
+  '''(?i)you@example\.com''',
+  '''(?i)change-?me''',
+  '''(?i)<[a-z_-]+>''',               # <your-key-here>
+  '''(?i)xxx+''',
+  '''(?i)placeholder''',
+]

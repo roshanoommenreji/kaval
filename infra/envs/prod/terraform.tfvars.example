@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+# No real email addresses, account IDs, or ARNs in this example file.
+
+region      = "ap-south-1"
+profile     = "kaval"
+alert_email = "you@example.com"
+
+monthly_limit_usd = 25
+alert_1_usd       = 18
+alert_2_usd       = 22
+hard_stop_usd     = 24
