@@ -127,8 +127,8 @@ resource "aws_iam_role" "hard_stop" {
 # Deliberately narrow: this role can stop things, and nothing else.
 data "aws_iam_policy_document" "hard_stop" {
   statement {
-    sid     = "ScaleAsgToZero"
-    effect  = "Allow"
+    sid    = "ScaleAsgToZero"
+    effect = "Allow"
     actions = [
       "autoscaling:DescribeAutoScalingGroups",
       "autoscaling:UpdateAutoScalingGroup",
