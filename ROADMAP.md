@@ -22,6 +22,7 @@ Guardrails before anything that can cost money.
 - [x] `git init` + first commit
 - [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24 *(written, not applied)*
 - [x] Progress dashboard — `scripts/dashboard.py`, derived from this file
+- [x] Learning layer — a concept page per phase in `docs/learn/`
 - [ ] Jira Cloud free tier, project `KAV`, 9 epics
 - [ ] **Fix AWS credentials** — new IAM user, MFA, named profile *(currently expired)*
 - [ ] `terraform apply` the budget module and fire a test alert
@@ -38,6 +39,7 @@ Prove the loop on the laptop. AWS still costs $0.
 - [ ] Synthetic signal generator (fake pod crashes, cost spikes)
 - [ ] Data model migrations: signal · incident · proposal · action · decision · execution · outcome
 - [ ] Gateway REST skeleton, health checks, OpenAPI
+- [ ] `docs/learn/phase-1-local-first.md` — flip **Written from** to `experience`
 
 **Exit gate:** a fake incident flows end-to-end and lands in the database.
 
@@ -53,6 +55,7 @@ The hard, interesting part. Still no AWS.
 - [ ] Policy engine: `auto` / `ask` / `never`, blast-radius classification
 - [ ] Eval harness + 20 golden incidents
 - [ ] Bedrock escalation path for low-confidence cases
+- [ ] `docs/learn/phase-2-the-agent-loop.md` — flip **Written from** to `experience`
 
 **Exit gate:** 20 synthetic incidents produce valid, sane proposals; evals pass.
 
@@ -65,6 +68,7 @@ The hard, interesting part. Still no AWS.
 - [ ] Real K8s events + Prometheus as signal sources
 - [ ] Executor with scoped RBAC — the privilege split made real
 - [ ] `arm64` multi-arch image builds *(Graviton is coming in Phase 4)*
+- [ ] `docs/learn/phase-3-kubernetes-local.md` — flip **Written from** to `experience`
 
 **Exit gate:** kill a pod locally → agent proposes → you approve → executor fixes it.
 
@@ -80,6 +84,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Cloudflare Tunnel — no ALB, no NAT Gateway
 - [ ] Postgres PV on EBS + nightly dump to S3
 - [ ] `make up` / `make down`
+- [ ] `docs/learn/phase-4-aws-landing.md` — flip **Written from** to `experience`
 
 **Exit gate:** terminate the node by hand; it rebuilds itself from Git in under 5 minutes.
 
@@ -94,6 +99,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Screens: Pulse · Inbox · Detail · Timeline · Ask · Settings
 - [ ] Push notifications via Expo
 - [ ] Approve / deny round trip
+- [ ] `docs/learn/phase-5-mobile-app.md` — flip **Written from** to `experience`
 
 **Exit gate:** phone buzzes for a real incident and you approve it from bed.
 
@@ -107,6 +113,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Blast-radius containment — chaos confined to a labelled namespace
 - [ ] MTTR measurement and dashboard
 - [ ] Runbooks written for each failure class *(also the agent's RAG corpus)*
+- [ ] `docs/learn/phase-6-chaos-and-proof.md` — flip **Written from** to `experience`
 
 **Exit gate:** five chaos types handled end-to-end, MTTR charted.
 
@@ -121,6 +128,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Waste detection: idle nodes, orphaned volumes, unused snapshots
 - [ ] Cost proposals through the same approve/execute path
 - [ ] Hard-stop Lambda wired to the live ASG
+- [ ] `docs/learn/phase-7-finops.md` — flip **Written from** to `experience`
 
 **Exit gate:** the agent finds real waste in your own account and you approve the fix.
 
@@ -134,6 +142,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Deploy the **identical** Helm chart, unmodified
 - [ ] Screenshot and record everything
 - [ ] `terraform destroy`, verified clean 24 h later
+- [ ] `docs/learn/phase-8-eks-chapter.md` — flip **Written from** to `experience`
 
 **Exit gate:** same chart runs on EKS with zero edits; teardown leaves zero billable resources.
 
@@ -149,6 +158,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] **Repo public**
 - [ ] Resume bullets written from what actually shipped
 - [ ] Jira retrospective; course outline from `docs/labs/`
+- [ ] `docs/learn/phase-9-harden-and-publish.md` — flip **Written from** to `experience`
 
 **Exit gate:** repo public, video recorded, bullets written.
 

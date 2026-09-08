@@ -68,6 +68,7 @@ Segment 2 is the differentiator. Segment 4 is what makes it trustworthy.
 
 ## Raw material
 
+- `docs/learn/` — **the concepts**; one page per phase, already structured as episode content
 - `docs/labs/` — the reproducible steps
 - `docs/adr/` — the arguments
 - `docs/journal/` — what actually happened, including the wrong turns

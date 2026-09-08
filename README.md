@@ -65,6 +65,7 @@ See [docs/00-start-here.md](docs/00-start-here.md) before touching anything.
 | Path | What lives there |
 |---|---|
 | [docs/](docs/) | **Start here.** Labs, ADRs, architecture, runbooks, cost, journal |
+| [docs/learn/](docs/learn/) | **The why.** One concept page per phase — theory, glossary, interview answers |
 | [services/](services/) | Application code — one directory per container |
 | [inference/](inference/) | Gemma serving configuration |
 | [mobile/](mobile/) | Expo / React Native operator console |

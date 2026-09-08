@@ -174,6 +174,167 @@ def git_log(n: int = 8) -> list[dict]:
 
 
 # ─────────────────────────────────────────────────────────────
+# Markdown
+# ─────────────────────────────────────────────────────────────
+#
+# Hand-rolled against stdlib only. The input is our own documents, not
+# arbitrary Markdown, so a focused converter is enough -- and it keeps the
+# zero-dependency property that lets this run on a machine with no pip.
+# Supports: headings, paragraphs, lists, fenced code, tables, blockquotes,
+# horizontal rules, and inline code/bold/italic/links.
+
+def _inline(s: str) -> str:
+    s = html.escape(s, quote=False)
+    # Code first: its contents must not be touched by the other rules.
+    holds: list[str] = []
+
+    def stash(m: re.Match) -> str:
+        holds.append(f"<code>{m[1]}</code>")
+        return f"\x00{len(holds) - 1}\x00"
+
+    s = re.sub(r"`([^`]+)`", stash, s)
+
+    def link(m: re.Match) -> str:
+        text, href = m[1], m[2]
+        # Repo-relative links are dead once this is published as a single page.
+        # Keep the reference visible as a path instead of a broken anchor.
+        if not re.match(r"^(https?://|#|mailto:)", href):
+            return f"<code>{text}</code>"
+        return f'<a href="{href}">{text}</a>'
+
+    s = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", link, s)
+    s = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", s)
+    s = re.sub(r"(?<![*\w])\*([^*\n]+)\*(?!\w)", r"<em>\1</em>", s)
+    return re.sub(r"\x00(\d+)\x00", lambda m: holds[int(m[1])], s)
+
+
+def _cells(row: str) -> list[str]:
+    return [c.strip() for c in row.strip().strip("|").split("|")]
+
+
+def markdown_to_html(md: str) -> str:
+    out: list[str] = []
+    lines = md.split("\n")
+    i, n = 0, len(lines)
+
+    while i < n:
+        line = lines[i]
+
+        # fenced code
+        if line.startswith("```"):
+            i += 1
+            body = []
+            while i < n and not lines[i].startswith("```"):
+                body.append(lines[i])
+                i += 1
+            i += 1
+            out.append(f"<pre><code>{html.escape(chr(10).join(body))}</code></pre>")
+            continue
+
+        # table -- header, separator, then rows
+        if line.startswith("|") and i + 1 < n and re.match(r"^\|[\s:|-]+\|$", lines[i + 1]):
+            head = _cells(line)
+            i += 2
+            rows = []
+            while i < n and lines[i].startswith("|"):
+                rows.append(_cells(lines[i]))
+                i += 1
+            th = "".join(f"<th>{_inline(c)}</th>" for c in head)
+            tb = "".join(
+                "<tr>" + "".join(f"<td>{_inline(c)}</td>" for c in r) + "</tr>" for r in rows
+            )
+            out.append(f'<div class="tw"><table><thead><tr>{th}</tr></thead><tbody>{tb}</tbody></table></div>')
+            continue
+
+        # heading
+        if m := re.match(r"^(#{1,4}) +(.+)", line):
+            lvl = len(m[1])
+            out.append(f"<h{lvl}>{_inline(m[2])}</h{lvl}>")
+            i += 1
+            continue
+
+        # horizontal rule
+        if re.match(r"^-{3,}$", line.strip()):
+            out.append("<hr>")
+            i += 1
+            continue
+
+        # blockquote
+        if line.startswith(">"):
+            body = []
+            while i < n and lines[i].startswith(">"):
+                body.append(lines[i].lstrip("> ").rstrip())
+                i += 1
+            out.append("<blockquote>" + "<br>".join(_inline(b) for b in body if b) + "</blockquote>")
+            continue
+
+        # list -- ordered or unordered, one level
+        if re.match(r"^(\d+\.|[-*]) +", line):
+            ordered = bool(re.match(r"^\d+\.", line))
+            items: list[str] = []
+            while i < n and re.match(r"^(\d+\.|[-*]) +", lines[i]):
+                items.append(re.sub(r"^(\d+\.|[-*]) +", "", lines[i]))
+                i += 1
+                # fold wrapped continuation lines into the current item
+                while i < n and lines[i].strip() and not re.match(r"^(\d+\.|[-*]|#|\||>|```)", lines[i]):
+                    items[-1] += " " + lines[i].strip()
+                    i += 1
+            tag = "ol" if ordered else "ul"
+            body = "".join(f"<li>{_inline(x)}</li>" for x in items)
+            out.append(f"<{tag}>{body}</{tag}>")
+            continue
+
+        # blank
+        if not line.strip():
+            i += 1
+            continue
+
+        # paragraph
+        para = [line]
+        i += 1
+        while i < n and lines[i].strip() and not re.match(r"^(#{1,4} |[-*] |\d+\.|\||>|```|-{3,}$)", lines[i]):
+            para.append(lines[i])
+            i += 1
+        out.append(f"<p>{_inline(' '.join(x.strip() for x in para))}</p>")
+
+    return "\n".join(out)
+
+
+@dataclass
+class Learn:
+    num: int
+    slug: str
+    title: str
+    written_from: str
+    body: str
+    terms: int
+
+
+def read_learn(d: Path) -> list[Learn]:
+    if not d.is_dir():
+        return []
+    out = []
+    for f in sorted(d.glob("phase-*.md")):
+        text = f.read_text(encoding="utf-8")
+        t = re.search(r"^# Phase (\d+) — (.+)", text, re.M)
+        if not t:
+            continue
+        wf = re.search(r"\*\*Written from:\*\* *(\w+)", text)
+        # Glossary rows: table lines under the Glossary heading.
+        gl = re.search(r"^## Glossary\s*\n(.*?)(?=\n## |\Z)", text, re.M | re.S)
+        terms = len(re.findall(r"^\| \*\*", gl[1], re.M)) if gl else 0
+        out.append(Learn(
+            num=int(t[1]),
+            slug=f.stem,
+            title=t[2].strip(),
+            written_from=(wf[1] if wf else "theory"),
+            body=markdown_to_html(text),
+            terms=terms,
+        ))
+    return sorted(out, key=lambda x: x.num)
+
+
+# ─────────────────────────────────────────────────────────────
 # Rendering
 # ─────────────────────────────────────────────────────────────
 
@@ -359,6 +520,64 @@ section{margin-top:44px}
 .links .dead .lab::after{content:" — not yet created"; font-family:"IBM Plex Mono",monospace;
                          font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--warn)}
 
+/* ── learn: link on a phase row ────────────────────────── */
+.learn-link{font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:500;
+  letter-spacing:.09em; text-transform:uppercase; text-decoration:none;
+  color:var(--accent); border:1px solid var(--accent); border-radius:3px;
+  padding:2px 7px; white-space:nowrap}
+.learn-link:hover{background:var(--accent); color:var(--surface)}
+.pmeta .learn-link{margin-left:6px}
+
+/* ── learn: the concept page itself ───────────────────── */
+.view[hidden]{display:none}
+.lnav{display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+      padding-bottom:14px; border-bottom:1px solid var(--rule-strong); margin-bottom:8px}
+.lnav a{font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.06em;
+        text-transform:uppercase; text-decoration:none}
+.lnav a:hover{text-decoration:underline}
+.lnav .spacer{margin-left:auto}
+.lnav .off{color:var(--ink-3); pointer-events:none}
+.wf{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.08em;
+    text-transform:uppercase; padding:2px 7px; border-radius:3px}
+.wf.experience{background:var(--accent-soft); color:var(--accent)}
+.wf.theory{background:var(--warn-soft); color:var(--warn)}
+
+.prose{max-width:68ch}
+.prose h1{font-size:27px; font-weight:700; letter-spacing:-.02em; margin:22px 0 0}
+.prose h2{font-size:19px; font-weight:600; letter-spacing:-.01em; margin:42px 0 0;
+          padding-bottom:7px; border-bottom:1px solid var(--rule)}
+.prose h3{font-size:15.5px; font-weight:600; margin:30px 0 0; color:var(--accent)}
+.prose h4{font-size:14px; font-weight:600; margin:22px 0 0}
+.prose p{margin:13px 0 0}
+.prose ul,.prose ol{margin:13px 0 0; padding-left:24px; display:flex;
+                    flex-direction:column; gap:7px}
+.prose li{padding-left:3px}
+.prose blockquote{margin:16px 0 0; padding:11px 15px; background:var(--raised);
+  border-left:3px solid var(--accent); border-radius:0 4px 4px 0;
+  font-size:13px; color:var(--ink-2)}
+.prose blockquote code{background:transparent; padding:0}
+.prose pre{margin:16px 0 0; padding:13px 15px; background:var(--raised);
+  border:1px solid var(--rule); border-radius:5px; overflow-x:auto; font-size:12.5px;
+  line-height:1.5}
+.prose pre code{background:transparent; padding:0; font-size:inherit}
+.prose hr{margin:38px 0 0; border:0; border-top:1px solid var(--rule)}
+.prose .tw{margin:16px 0 0; overflow-x:auto; border:1px solid var(--rule); border-radius:5px}
+.prose table{border-collapse:collapse; width:100%; font-size:13px}
+.prose th{text-align:left; font-family:"IBM Plex Mono",monospace; font-size:10.5px;
+  font-weight:500; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3);
+  padding:9px 13px; background:var(--raised); border-bottom:1px solid var(--rule)}
+.prose td{padding:9px 13px; border-bottom:1px solid var(--rule); vertical-align:top}
+.prose tbody tr:last-child td{border-bottom:0}
+.prose a{text-decoration:underline; text-underline-offset:2px}
+
+.index{display:grid; grid-template-columns:repeat(auto-fit,minmax(232px,1fr)); gap:1px;
+       background:var(--rule); border:1px solid var(--rule); border-radius:6px; overflow:hidden}
+.index a{background:var(--surface); padding:13px 15px; text-decoration:none; display:block}
+.index a:hover{background:var(--accent-soft)}
+.index .n{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--ink-3)}
+.index .t{font-size:13.5px; font-weight:500; color:var(--ink); margin-top:2px}
+.index .m{font-size:11.5px; color:var(--ink-3); margin-top:4px}
+
 footer{margin-top:56px; padding-top:16px; border-top:1px solid var(--rule);
        font-size:12px; color:var(--ink-3); display:flex; flex-wrap:wrap; gap:14px}
 
@@ -378,7 +597,8 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-o
 
 
 def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
-           sessions: list[dict], threads: list[str], commits: list[dict]) -> str:
+           sessions: list[dict], threads: list[str], commits: list[dict],
+           learn: list[Learn]) -> str:
     proj = cfg["project"]
     cost = cfg["cost"]
     posture = cfg.get("posture", {})
@@ -408,8 +628,11 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
     ceiling = float(cost["ceiling_usd"])
     pct_cost = min(100, round(100 * mtd / ceiling)) if ceiling else 0
 
+    by_num = {l.num: l for l in learn}
+
     # ── masthead ──
     parts = [f"""<div class="wrap">
+<div class="view" id="view-board">
 <header class="mast">
   <div>
     <div class="eyebrow">Progress · phase {current.num} of {len(phases)}</div>
@@ -456,11 +679,13 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
             cls += " done"
         pill = pst.get("state", "")
         pill_cls = pill.replace("-", "")
+        lrn = by_num.get(p.num)
+        lnk = f'<a class="learn-link" href="#phase-{p.num}">Learn</a>' if lrn else ""
         rows.append(f"""  <div class="{cls}">
     <div class="pnum">{p.num}</div>
     <div>
       <div class="pname">{e(p.title)}</div>
-      <div class="pmeta">weeks {e(p.weeks)} · <span class="pill {pill_cls}">{e(pill)}</span> {e(pst.get("cost",""))}</div>
+      <div class="pmeta">weeks {e(p.weeks)} · <span class="pill {pill_cls}">{e(pill)}</span> {e(pst.get("cost",""))}{lnk}</div>
     </div>
     <div class="barwrap"><div class="bar"><span style="width:{p.pct}%"></span></div></div>
     <div class="ptally">{p.done}/{p.total}</div>
@@ -484,6 +709,24 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
     <div class="count">{done_tasks}/{total_tasks} tasks</div></div>
   <div class="ladder">
 {chr(10).join(rows)}
+  </div>
+</section>""")
+
+    # ── learning index ──
+    if learn:
+        from_exp = sum(1 for l in learn if l.written_from == "experience")
+        cards = "\n".join(
+            f'  <a href="#phase-{l.num}"><div class="n">Phase {l.num}</div>'
+            f'<div class="t">{e(l.title)}</div>'
+            f'<div class="m">{l.terms} terms · written from {e(l.written_from)}</div></a>'
+            for l in learn
+        )
+        parts.append(f"""
+<section>
+  <div class="sec-head"><div class="eyebrow">Concepts, not steps</div><h2>Learn</h2>
+    <div class="count">{from_exp}/{len(learn)} from experience</div></div>
+  <div class="index">
+{cards}
   </div>
 </section>""")
 
@@ -593,13 +836,54 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
 {chr(10).join(link_cards)}
   </div>
 </section>
+</div>""")
 
+    # ── concept pages ──
+    for idx, l in enumerate(learn):
+        prev = learn[idx - 1] if idx > 0 else None
+        nxt = learn[idx + 1] if idx + 1 < len(learn) else None
+        pv = (f'<a href="#phase-{prev.num}">← Phase {prev.num}</a>'
+              if prev else '<a class="off">← Phase 0</a>')
+        nx = (f'<a href="#phase-{nxt.num}">Phase {nxt.num} →</a>'
+              if nxt else '<a class="off">End →</a>')
+        parts.append(f"""
+<div class="view" id="view-phase-{l.num}" hidden>
+  <nav class="lnav">
+    <a href="#board">↑ Board</a>
+    <span class="wf {e(l.written_from)}">written from {e(l.written_from)}</span>
+    <span class="spacer"></span>
+    {pv}
+    {nx}
+  </nav>
+  <article class="prose">
+{l.body}
+  </article>
+  <nav class="lnav" style="border:0;border-top:1px solid var(--rule-strong);
+       padding:14px 0 0;margin:40px 0 0">
+    <a href="#board">↑ Board</a><span class="spacer"></span>{pv}{nx}
+  </nav>
+</div>""")
+
+    parts.append(f"""
 <footer>
   <span>Generated {today:%Y-%m-%d} from the repository.</span>
   <span>Status lives in <code>ROADMAP.md</code> — this page only reflects it.</span>
   <span>Regenerate with <code>make dashboard</code>.</span>
 </footer>
-</div>""")
+</div>
+<script>
+(function () {{
+  var views = document.querySelectorAll('.view');
+  function show() {{
+    var id = (location.hash || '#board').slice(1);
+    var target = document.getElementById('view-' + id) || document.getElementById('view-board');
+    views.forEach(function (v) {{ v.hidden = (v !== target); }});
+    window.scrollTo(0, 0);
+  }}
+  window.addEventListener('hashchange', show);
+  show();
+}})();
+</script>""")
 
     return f"""<title>Kaval Watchtower</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -615,14 +899,20 @@ def main() -> None:
     labs = read_labs(ROOT / "docs" / "labs")
     sessions, threads = read_journal(ROOT / "docs" / "journal")
     commits = git_log()
+    learn = read_learn(ROOT / "docs" / "learn")
 
-    OUT.write_text(render(cfg, phases, adrs, labs, sessions, threads, commits), encoding="utf-8")
+    OUT.write_text(
+        render(cfg, phases, adrs, labs, sessions, threads, commits, learn), encoding="utf-8"
+    )
 
     done = sum(p.done for p in phases)
     total = sum(p.total for p in phases)
+    exp = sum(1 for l in learn if l.written_from == "experience")
     print(f"  {OUT.relative_to(ROOT)}")
     print(f"  {len(phases)} phases · {done}/{total} tasks · {len(adrs)} ADRs "
           f"({sum(a['open'] for a in adrs)} open) · {len(labs)} labs · {len(threads)} open threads")
+    print(f"  {len(learn)} concept pages ({exp} from experience) · "
+          f"{sum(l.terms for l in learn)} glossary terms")
 
 
 if __name__ == "__main__":
