@@ -296,7 +296,7 @@ row = 8
 credentials = "scoped write"
 inputs = ["Nightly pg_dump"]
 outputs = ["Restorable database snapshots"]
-note = "A backup is not verified until you have restored one. That restore belongs in a lab, not a plan."
+note = "Nightly pg_dump. RPO is 24 hours — a decision, not a default (ADR-0005). Every `make staging-up` restores this snapshot into staging, so the backup is verified several times a month rather than never."
 
 [[system.node]]
 id = "guardrail"
@@ -832,7 +832,7 @@ kind = "platform"
 phase = 4
 col = 2
 row = 7
-note = "Terraform creates a second t4g.medium spot node with its own k3s, etcd, database and VPC. About five minutes. Self-destructs after four idle hours, which is why it costs roughly $1 a month."
+note = "Terraform creates a second t4g.medium spot node with its own k3s, etcd, database and VPC, then restores the latest production snapshot through scripts/anonymise.sql. Staging gets real data shape and volume, and the backup gets restore-tested on every release. About five minutes."
 
 [[delivery.node]]
 id = "d-stg"
@@ -1012,7 +1012,7 @@ label = ""
 [[delivery.edge]]
 from = "d-stgup"
 to = "d-stg"
-label = "Flux reconciles"
+label = "restore + sanitise + Flux"
 
 [[delivery.edge]]
 from = "d-stg"

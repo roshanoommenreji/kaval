@@ -95,6 +95,21 @@ lab-down: ## Destroy the EKS lab. ALWAYS run this. Verify with cost-report tomor
 	cd $(TF_LAB) && terraform destroy
 
 # ─────────────────────────────────────────────────────────────
+##@ Data
+
+.PHONY: backup
+backup: ## Dump the prod database to S3 (RPO 24h — see ADR-0005)
+	@bash scripts/backup.sh
+
+.PHONY: restore-staging
+restore-staging: ## Seed staging from the latest sanitised prod snapshot
+	@bash scripts/restore.sh staging
+
+.PHONY: restore-prod
+restore-prod: ## DISASTER RECOVERY. Replaces the live database. Prompts.
+	@bash scripts/restore.sh prod
+
+# ─────────────────────────────────────────────────────────────
 ##@ Cost
 
 .PHONY: cost-report

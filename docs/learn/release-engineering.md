@@ -60,13 +60,35 @@ The differences that matter, roughly in order of how often they bite:
 | Network topology | Timeouts, DNS, TLS |
 | Secrets and IAM | Permission errors found in production |
 
-This project buys exact parity on instance type, memory and model — the top two — and **explicitly
-accepts a gap on data volume**, because staging is created fresh each release and holds nothing.
-Problems that only appear after months of accumulated data will not be caught there.
+This project buys exact parity on instance type, memory and model — the top two — and closes the
+data gap by **seeding staging from the latest sanitised production snapshot** on every
+`make staging-up`. Staging gets real data shape and real volume, so slow queries and index
+behaviour surface before production sees them.
 
-Naming the gap you accept is the difference between a considered design and an unexamined one. In
-an interview, "staging is identical except for accumulated data, and here's how I compensate" is a
-much better answer than "staging is just like prod."
+That gap was originally recorded as accepted. It did not survive being questioned: the nightly
+production dump already existed, so restoring it was a handful of lines rather than a constraint.
+[ADR-0004](../adr/0004-environment-strategy-and-promotion.md) still carries the original
+paragraph, struck through, because a decision reversed with a reason is more useful than one that
+appears to have been right first time.
+
+**The restore pays a second dividend.** Because it runs on every release, the backup is verified
+several times a month instead of never — which is how the claim *a backup is not verified until
+you have restored one* stops being advice and becomes a property of the system.
+
+The gap that genuinely remains is **freshness**: the snapshot is up to 24 hours old, so staging
+never holds the last day of production. In an interview, "staging is identical including data
+shape and volume, seeded from a sanitised prod snapshot that's up to a day old" is a much better
+answer than "staging is just like prod."
+
+### Sanitising on the way in
+
+Copying production data into a lower environment unsanitised is the practice auditors flag. The
+anonymisation runs **before anything can read the database**, not after, and it asserts its own
+coverage — if a 12-digit account ID or a credential-shaped string survives, the restore aborts
+rather than leaving a partially-sanitised staging database readable.
+
+The maintenance hazard is that a new column holding something sensitive is a new line in the
+script, and forgetting is silent. The assertions are the guard against that.
 
 ### Build once, promote the artifact
 
@@ -252,6 +274,8 @@ three.
 | **Backward-compatible migration** | A schema change the previous version still runs against |
 | **Change record** | The document of what changed, who approved, and how to undo |
 | **Rollback** | Returning to the previous known-good release |
+| **RPO / RTO** | How much data you can lose / how long recovery takes |
+| **Data masking** | Replacing sensitive values when copying to a lower environment |
 | **Time to restore** | Measured duration from failure to recovery |
 | **DORA** | DevOps Research and Assessment; the four-metric framework |
 | **Deployment frequency** | How often you reach production |

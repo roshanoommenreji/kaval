@@ -25,6 +25,7 @@ Guardrails before anything that can cost money.
 - [x] Learning layer — a concept page per phase in `docs/learn/`
 - [x] Architecture diagrams — `architecture.toml`, system + journey + delivery views
 - [x] ADR-0004 environment strategy and promotion path
+- [x] ADR-0005 data durability and staging seeding
 - [ ] Jira Cloud free tier, project `KAV`, 9 epics
 - [ ] **Fix AWS credentials** — new IAM user, MFA, named profile *(currently expired)*
 - [ ] `terraform apply` the budget module and fire a test alert
@@ -72,6 +73,7 @@ The hard, interesting part. Still no AWS.
 - [ ] Helm umbrella chart, `local` values
 - [ ] Real K8s events + Prometheus as signal sources
 - [ ] Executor with scoped RBAC — the privilege split made real
+- [ ] **Executor redacts `stdout` at write time** — prod must never store a secret (ADR-0005)
 - [ ] `arm64` multi-arch image builds *(Graviton is coming in Phase 4)*
 - [ ] Split values: `deploy/environments/staging` and `prod`, each pinning image digests
 - [ ] Promotion mechanics rehearsed on k3d — deploy staging, gate, deploy prod
@@ -90,7 +92,9 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] k3s bootstrap via cloud-init
 - [ ] Flux GitOps reconciliation
 - [ ] Cloudflare Tunnel — no ALB, no NAT Gateway
-- [ ] Postgres PV on EBS + nightly dump to S3
+- [ ] Postgres PV on EBS + nightly dump to S3 (`scripts/backup.sh`, RPO 24 h)
+- [ ] `scripts/restore.sh` + `anonymise.sql` — staging seeded from a sanitised prod snapshot
+- [ ] **Restore drill** — measured RTO recorded, and `restore-from-backup` runbook verified
 - [ ] `make up` / `make down`
 - [ ] `infra/envs/staging` — second spot node, own VPC, own k3s, 10 GB EBS
 - [ ] `make staging-up` / `staging-down`, self-destruct after 4 idle hours

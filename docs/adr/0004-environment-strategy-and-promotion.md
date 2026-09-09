@@ -79,10 +79,16 @@ three sessions of work, folded into Phases 1, 3 and 4.
 
 **Cost.** ~$1/month, project total ~$47 → ~$52. Ceiling unchanged at $25.
 
-**Accepted limitation.** Staging is created fresh each time, so it holds no accumulated data. It
-cannot catch problems that only appear with months of production data — index bloat, table growth,
-retention. Those need to be caught in production monitoring instead, and that is a real gap rather
-than a solved one.
+**~~Accepted limitation.~~ Superseded by [ADR-0005](0005-data-durability-and-staging-seeding.md).**
+This originally read: *"staging is created fresh each time, so it holds no accumulated data… that
+is a real gap rather than a solved one."* Roshan questioned it, and it did not survive the
+question — the nightly production snapshot already existed, so seeding staging from it was a
+handful of lines rather than a constraint. `make staging-up` now restores the latest sanitised
+production dump, which closes most of the gap and makes the backup restore-tested on every
+release.
+
+The paragraph is left visible rather than edited away, because a decision reversed with a reason
+is more useful to a reader than a decision that appears to have been right first time.
 
 **Revisit if:** releases become frequent enough that five minutes of spin-up per release is
 material friction, or if a data-shaped bug reaches production that a long-lived staging

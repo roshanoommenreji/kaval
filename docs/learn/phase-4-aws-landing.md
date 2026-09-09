@@ -188,8 +188,38 @@ The node can vanish. Postgres cannot.
 - A nightly `pg_dump` to **S3** guards against volume loss and human error
 - EBS is zone-locked, so the ASG must be constrained to the volume's availability zone
 
-**Backups are not verified until you have restored one.** That restore belongs in a lab, not in a
-plan.
+**Backups are not verified until you have restored one.** In this project that restore is not a
+lab exercise — `make staging-up` performs it on every release, so the backup is verified several
+times a month automatically.
+
+### RPO and RTO, stated rather than assumed
+
+Two numbers every system has, and most teams have never written down.
+
+**RPO — recovery point objective.** How much data you can afford to lose, measured backwards from
+the failure. It is decided by backup *frequency*. A nightly dump means an RPO of 24 hours: a
+failure at 23:00 loses the whole day.
+
+**RTO — recovery time objective.** How long recovery takes, measured forwards. It is decided by
+restore *speed*, and it is only real if you have measured it.
+
+This project chose **RPO 24 hours** deliberately — see
+[ADR-0005](../adr/0005-data-durability-and-staging-seeding.md) — because the likely failure is
+spot reclamation and the EBS volume already survives that. Continuous WAL archiving would give an
+RPO of seconds, but costs ~100 MB of a 1.2 GB memory budget and adds a sidecar that can fail
+silently, at which point you have a backup that stopped working three weeks ago.
+
+The distinction worth internalising: **the volume protects against instance loss; the dump
+protects against volume loss.** They are different failures and one mechanism does not cover both.
+
+| Mechanism | Protects against | Does not protect against |
+|---|---|---|
+| EBS volume separate from root | Spot reclamation, instance termination | Volume corruption, `DROP TABLE`, AZ loss |
+| Nightly `pg_dump` to S3 | Volume loss, human error, AZ loss | The last 24 hours |
+| EBS snapshot | Volume corruption, fast rollback | The gap since the snapshot |
+
+Knowing which of your mechanisms covers which failure — and being able to say which failure is
+*likely* rather than merely possible — is the difference between a backup strategy and a backup.
 
 ---
 
@@ -233,6 +263,10 @@ plan.
 | **`exec format error`** | The kernel refusing a binary built for another architecture |
 | **Cloudflare Tunnel** | Outbound-only connection exposing a service without open inbound ports |
 | **EBS** | Network-attached block storage, zone-locked |
+| **RPO** | Recovery point objective — how much data you can afford to lose |
+| **RTO** | Recovery time objective — how long recovery takes, once measured |
+| **`pg_dump`** | Logical Postgres backup; portable, restorable selectively |
+| **WAL archiving** | Streaming the write-ahead log for point-in-time recovery |
 
 ## Check yourself
 
@@ -244,6 +278,8 @@ plan.
 6. Give three concrete reasons pull-based GitOps is safer than a pushing pipeline.
 7. Why Flux rather than ArgoCD here — and would that answer change on an 8 GB node?
 8. Your EBS volume is in `ap-south-1a` and the ASG spans three zones. What goes wrong?
+9. Which failures does the separate EBS volume protect against, and which does it not? Name the mechanism that covers the rest.
+10. Your RPO is 24 hours and your last dump ran at 02:00. The volume dies at 23:00. What exactly have you lost, and which table hurts most?
 
 ## In an interview
 
