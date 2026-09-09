@@ -22,7 +22,10 @@ tags = ["aws", "identifier"]
 [[rules]]
 id = "aws-arn-with-account"
 description = "ARN containing a real 12-digit account ID"
-regex = '''arn:aws[a-z-]*:[a-z0-9-]+:[a-z0-9-]*:(?!0{12})[0-9]{12}:'''
+# Go's re2 has no lookahead, so this can't exclude 000000000000 inline like
+# a PCRE engine could. Match any 12-digit account ID instead, and let the
+# allowlist regex for "000000000000" (below) clear the placeholder case.
+regex = '''arn:aws[a-z-]*:[a-z0-9-]+:[a-z0-9-]*:[0-9]{12}:'''
 tags = ["aws", "identifier"]
 
 [[rules]]

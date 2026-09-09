@@ -21,7 +21,11 @@ cat > "$HOOK" <<'EOF'
 set -euo pipefail
 
 if command -v gitleaks >/dev/null 2>&1; then
-  if ! gitleaks protect --staged --redact --config .gitleaks.toml --no-banner; then
+  # gitleaks v8.20+ moved the working scan logic to `git`/`dir`/`stdin`.
+  # `protect`/`detect` still parse flags and exit 0 without erroring, but
+  # they no longer scan anything — a silent no-op, not a missing-tool
+  # warning. `git --staged` is the real equivalent of the old `protect --staged`.
+  if ! gitleaks git --staged --redact --config .gitleaks.toml --no-banner; then
     echo ""
     echo "  Commit blocked: a possible secret is staged."
     echo ""
