@@ -741,3 +741,351 @@ from = "j-deny"
 to = "j-feedback"
 label = "denial is evidence"
 kind = "feedback"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# DELIVERY VIEW — how a change reaches production
+# ═══════════════════════════════════════════════════════════════════════
+#
+# Deliberately the same shape as the product: validate, gate, human-approve,
+# execute, verify. See ADR-0004 and docs/learn/release-engineering.md.
+
+[[delivery.node]]
+id = "d-local"
+label = "Local · k3d"
+kind = "source"
+phase = 3
+col = 2
+row = 0
+note = "The inner loop. A full cluster on the laptop, costing nothing, where manifests and RBAC are proven before any cloud is involved."
+
+[[delivery.node]]
+id = "d-pr"
+label = "Pull request"
+kind = "service"
+phase = 1
+col = 2
+row = 1
+note = "Short-lived branch, merged to main frequently. Long-lived feature branches produce large merges, and large merges are where incidents come from."
+
+[[delivery.node]]
+id = "d-ci"
+label = "CI · lint test scan"
+kind = "service"
+phase = 1
+col = 2
+row = 2
+inputs = ["The pull request head commit"]
+outputs = ["Pass or fail. Builds an arm64 image but never pushes it."]
+note = "ruff · mypy · pytest · opa test · gitleaks · docker buildx arm64 · Trivy. Deliberately builds without pushing: a PR must prove it compiles for Graviton without publishing an artifact."
+
+[[delivery.node]]
+id = "d-cigate"
+label = "CI green?"
+kind = "decision"
+phase = 1
+col = 2
+row = 3
+note = "A mechanical criterion, so it blocks automatically. No human judgement is involved or wanted here."
+
+[[delivery.node]]
+id = "d-blocked"
+label = "Blocked · fix and push"
+kind = "terminal"
+phase = 1
+col = 0.6
+row = 4
+note = "Nothing is published. The branch stays a branch."
+
+[[delivery.node]]
+id = "d-merge"
+label = "Merge to main"
+kind = "service"
+phase = 1
+col = 2
+row = 4
+note = "Conventional commits plus a Jira smart commit, so release notes and the issue transition both generate themselves from one action rather than three."
+
+[[delivery.node]]
+id = "d-build"
+label = "Build once → ECR"
+kind = "service"
+phase = 4
+col = 2
+row = 5
+outputs = ["One arm64 image, tagged sha-<short>, referenced by digest"]
+note = "BUILD ONCE. A rebuild from the same commit can differ — base images move, dependencies resolve differently — so a rebuild is a different artifact, and staging then tested something else."
+
+[[delivery.node]]
+id = "d-sign"
+label = "SBOM + cosign sign"
+kind = "service"
+phase = 9
+col = 2
+row = 6
+note = "syft generates the bill of materials, cosign signs keylessly against the CI identity. Together they answer 'are we affected?' in minutes when the next widely-publicised CVE lands."
+
+[[delivery.node]]
+id = "d-stgup"
+label = "make staging-up"
+kind = "platform"
+phase = 4
+col = 2
+row = 7
+note = "Terraform creates a second t4g.medium spot node with its own k3s, etcd, database and VPC. About five minutes. Self-destructs after four idle hours, which is why it costs roughly $1 a month."
+
+[[delivery.node]]
+id = "d-stg"
+label = "Deploy to staging"
+kind = "target"
+phase = 4
+col = 2
+row = 8
+note = "Exact parity with prod: same instance type, same 4 GB, same Gemma 3 1B. That matters because memory pressure is this project's binding constraint, and a smaller staging node would miss precisely that."
+
+[[delivery.node]]
+id = "d-smoke"
+label = "Smoke + policy tests?"
+kind = "decision"
+phase = 4
+col = 2
+row = 9
+note = "Does the loop actually work on a real cluster, and does OPA still refuse every never-class action?"
+
+[[delivery.node]]
+id = "d-stgfail"
+label = "Destroyed · nothing ships"
+kind = "terminal"
+phase = 4
+col = 0.6
+row = 10
+note = "Staging is torn down, the digest is never promoted, and the failure is the signal."
+
+[[delivery.node]]
+id = "d-notes"
+label = "Release notes generated"
+kind = "service"
+phase = 4
+col = 2
+row = 10
+note = "From conventional commits since the last tag, plus Jira issues from smart commits. Generated, so it is accurate and costs nothing per release."
+
+[[delivery.node]]
+id = "d-approve"
+label = "Human approves?"
+kind = "decision"
+phase = 4
+col = 2
+row = 11
+note = "workflow_dispatch today — a deliberate manual run is the gate. Becomes GitHub Environments with required reviewers once the repo is public, since deployment protection rules are a paid feature on private repos."
+
+[[delivery.node]]
+id = "d-held"
+label = "Held · no deploy"
+kind = "terminal"
+phase = 4
+col = 0.6
+row = 12
+note = "A gate that has never refused anything is a step wearing a gate's clothes."
+
+[[delivery.node]]
+id = "d-promote"
+label = "promote.yml"
+kind = "service"
+phase = 4
+col = 2
+row = 12
+note = "Deploys the artifact. It does not build one."
+
+[[delivery.node]]
+id = "d-digest"
+label = "Same digest as staging?"
+kind = "decision"
+phase = 4
+col = 2
+row = 13
+note = "The check that makes build-once real rather than aspirational. Tested with a deliberate negative case — promoting an unproven digest must be refused."
+
+[[delivery.node]]
+id = "d-refused"
+label = "REFUSED"
+kind = "terminal"
+phase = 4
+col = 0.6
+row = 14
+note = "An artifact that did not pass staging cannot reach production, regardless of who asks."
+
+[[delivery.node]]
+id = "d-prod"
+label = "Deploy to prod"
+kind = "target"
+phase = 4
+col = 2
+row = 14
+note = "Rolling update. Two versions coexist for a few seconds, which is why migrations must be backward-compatible — expand, migrate, then contract in a later release, never the same one."
+
+[[delivery.node]]
+id = "d-verify"
+label = "Post-deploy verify?"
+kind = "decision"
+phase = 4
+col = 2
+row = 15
+note = "Health, smoke, and the agent loop still functioning. Verified after the fact rather than assumed."
+
+[[delivery.node]]
+id = "d-rollback"
+label = "rollback.yml · timed"
+kind = "terminal"
+phase = 3
+col = 0.6
+row = 16
+note = "helm rollback to the previous revision, measuring time-to-restore. That measured figure goes into the next change record, because 'we would roll back' is not a plan."
+
+[[delivery.node]]
+id = "d-record"
+label = "Change record written"
+kind = "store"
+phase = 4
+col = 2
+row = 16
+note = "docs/releases/YYYY-MM-DD-vX.Y.Z.md — digests, changes, linked issues, derived risk, staging evidence, the rollback plan with its last measured time, and the verification result."
+
+[[delivery.node]]
+id = "d-jira"
+label = "Jira version released"
+kind = "store"
+phase = 1
+col = 2
+row = 17
+note = "Fix Version marked released, issues transitioned to Done. The board reflects reality without anyone dragging a card across it."
+
+[[delivery.node]]
+id = "d-dora"
+label = "DORA metrics updated"
+kind = "store"
+phase = 4
+col = 2
+row = 18
+note = "Deployment frequency and lead time measure speed; change failure rate and time to restore measure stability. Reporting only one pair is how teams justify shipping recklessly, or never shipping at all."
+
+[[delivery.edge]]
+from = "d-local"
+to = "d-pr"
+label = "push branch"
+
+[[delivery.edge]]
+from = "d-pr"
+to = "d-ci"
+label = ""
+
+[[delivery.edge]]
+from = "d-ci"
+to = "d-cigate"
+label = ""
+
+[[delivery.edge]]
+from = "d-cigate"
+to = "d-blocked"
+label = "no"
+
+[[delivery.edge]]
+from = "d-cigate"
+to = "d-merge"
+label = "yes"
+
+[[delivery.edge]]
+from = "d-merge"
+to = "d-build"
+label = ""
+
+[[delivery.edge]]
+from = "d-build"
+to = "d-sign"
+label = "digest"
+
+[[delivery.edge]]
+from = "d-sign"
+to = "d-stgup"
+label = ""
+
+[[delivery.edge]]
+from = "d-stgup"
+to = "d-stg"
+label = "Flux reconciles"
+
+[[delivery.edge]]
+from = "d-stg"
+to = "d-smoke"
+label = ""
+
+[[delivery.edge]]
+from = "d-smoke"
+to = "d-stgfail"
+label = "fail"
+
+[[delivery.edge]]
+from = "d-smoke"
+to = "d-notes"
+label = "pass"
+
+[[delivery.edge]]
+from = "d-notes"
+to = "d-approve"
+label = ""
+
+[[delivery.edge]]
+from = "d-approve"
+to = "d-held"
+label = "no"
+
+[[delivery.edge]]
+from = "d-approve"
+to = "d-promote"
+label = "yes"
+
+[[delivery.edge]]
+from = "d-promote"
+to = "d-digest"
+label = ""
+
+[[delivery.edge]]
+from = "d-digest"
+to = "d-refused"
+label = "mismatch"
+
+[[delivery.edge]]
+from = "d-digest"
+to = "d-prod"
+label = "match"
+
+[[delivery.edge]]
+from = "d-prod"
+to = "d-verify"
+label = ""
+
+[[delivery.edge]]
+from = "d-verify"
+to = "d-rollback"
+label = "fail"
+
+[[delivery.edge]]
+from = "d-verify"
+to = "d-record"
+label = "pass"
+
+[[delivery.edge]]
+from = "d-rollback"
+to = "d-record"
+label = "recorded too"
+kind = "feedback"
+
+[[delivery.edge]]
+from = "d-record"
+to = "d-jira"
+label = ""
+
+[[delivery.edge]]
+from = "d-jira"
+to = "d-dora"
+label = ""

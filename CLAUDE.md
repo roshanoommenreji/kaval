@@ -36,6 +36,7 @@ say so explicitly and update `docs/cost/budget-plan.md`.
 | EKS control plane (persistent) | $73/mo | k3s; EKS only in `infra/envs/lab`, ephemeral |
 | RDS | $12+/mo | Postgres in-cluster on an EBS PV |
 | GPU instances | $0.30+/hr | CPU inference; Bedrock for heavy lifting |
+| **Always-on staging node** | $11/mo | On-demand staging — `make staging-up`, ~$1/mo |
 
 ### 2. Images must be `linux/arm64`
 
@@ -53,7 +54,22 @@ This is the architecture, not a preference:
 If a change would let `agent` call the Kubernetes or AWS write APIs, that change is wrong.
 Say so rather than implementing it.
 
-### 4. Secrets never enter git
+### 4. Nothing reaches prod without passing staging
+
+The promotion path is `local` → `staging` → `prod`. `lab-eks` is a portability chapter, **not** a
+promotion tier.
+
+**Build once, promote the artifact.** Images are built once and tagged by commit SHA. The digest
+that passed staging is the digest deployed to prod — never a rebuild, because a rebuild is a
+different artifact and staging then tested something else. `promote.yml` refuses any digest that
+did not pass staging.
+
+Environments differ **only** by a Helm values file and a pinned digest. A template change needed
+for one environment and not another is a defect, not a special case.
+
+See [ADR-0004](docs/adr/0004-environment-strategy-and-promotion.md).
+
+### 5. Secrets never enter git
 
 The repo goes public at v1, so **history** must be clean, not just the current tree. No real
 account IDs, ARNs, endpoints, or keys in any committed file. `.env.example` carries placeholders
@@ -89,6 +105,7 @@ Every unit of work, before it counts as finished:
 4. Entry appended to `docs/journal/YYYY-MM-DD.md`
 5. Cost impact noted in `docs/cost/` if spend changed
 6. `architecture.toml` updated **if a component was added, removed or rewired** — the diagram grows because this is a gate, not because anyone remembers
+7. **Deployed to `staging` and verified before `prod`.** Never straight to prod, ever.
 
 `docs/runbooks/` is dual-purpose: human documentation *and* the corpus the agent retrieves from.
 Writing a runbook improves the product, not just the docs.

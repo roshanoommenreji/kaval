@@ -2,7 +2,7 @@
 
 **Ceiling: $25/month.** Enforced by the system against itself, not by discipline.
 
-Total projected cost for the whole project, Aug 2026 → Mar 2027: **~$47**. Budget **$70** to
+Total projected cost for the whole project, Aug 2026 → Mar 2027: **~$52**. Budget **$70** to
 absorb one mistake.
 
 ---
@@ -68,8 +68,28 @@ Paused, the same account costs **~$2.20/month** — storage only.
 | Nov 2026–Jan 2027 | 4–6 | Paused | ~$5 |
 | Feb–Mar 2027 | 7–9 | Always-on | ~$22 |
 | Occasional | EKS lab × 3 | Ephemeral | ~$15 |
+| **Per release** | **staging cluster** | **On demand** | **~$5** |
 | Throughout | Bedrock | — | ~$5 |
-| | | **Total** | **~$47** |
+| | | **Total** | **~$52** |
+
+### The staging cluster
+
+A genuine second cluster — its own `t4g.medium` spot node, its own k3s, own etcd, own database,
+own VPC. Exact parity with prod, because memory pressure on 4 GB is this project's binding
+constraint and a smaller staging node would miss precisely that.
+
+It exists **on demand**: `make staging-up` builds it in ~5 minutes, and it self-destructs after
+four idle hours.
+
+| | |
+|---|---|
+| `t4g.medium` spot, ~8 hrs/month | $0.10 |
+| EBS gp3 10 GB (persisted between releases) | $0.80 |
+| **Per month** | **~$1** |
+
+Always-on it would be ~$11/month and idle roughly 95% of the time — which would take the project
+total to ~$102 and require raising the ceiling. See
+[ADR-0004](../adr/0004-environment-strategy-and-promotion.md).
 
 After v1: ~$14/month to keep the demo live. Worth paying during an active job search;
 `make down` otherwise.

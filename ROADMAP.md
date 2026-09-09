@@ -23,7 +23,8 @@ Guardrails before anything that can cost money.
 - [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24 *(written, not applied)*
 - [x] Progress dashboard — `scripts/dashboard.py`, derived from this file
 - [x] Learning layer — a concept page per phase in `docs/learn/`
-- [x] Architecture diagrams — `architecture.toml`, system + journey views
+- [x] Architecture diagrams — `architecture.toml`, system + journey + delivery views
+- [x] ADR-0004 environment strategy and promotion path
 - [ ] Jira Cloud free tier, project `KAV`, 9 epics
 - [ ] **Fix AWS credentials** — new IAM user, MFA, named profile *(currently expired)*
 - [ ] `terraform apply` the budget module and fire a test alert
@@ -40,6 +41,9 @@ Prove the loop on the laptop. AWS still costs $0.
 - [ ] Synthetic signal generator (fake pod crashes, cost spikes)
 - [ ] Data model migrations: signal · incident · proposal · action · decision · execution · outcome
 - [ ] Gateway REST skeleton, health checks, OpenAPI
+- [ ] `.github/workflows/ci.yml` — ruff · mypy · pytest · gitleaks · arm64 build · Trivy
+- [ ] Jira project `KAV` workflow: Backlog → Ready → In Progress → In Review → In Staging → Ready for Prod → Done
+- [ ] Conventional commits + semantic versioning + Jira smart commits
 - [ ] `docs/learn/phase-1-local-first.md` — flip **Written from** to `experience`
 
 **Exit gate:** a fake incident flows end-to-end and lands in the database.
@@ -69,6 +73,9 @@ The hard, interesting part. Still no AWS.
 - [ ] Real K8s events + Prometheus as signal sources
 - [ ] Executor with scoped RBAC — the privilege split made real
 - [ ] `arm64` multi-arch image builds *(Graviton is coming in Phase 4)*
+- [ ] Split values: `deploy/environments/staging` and `prod`, each pinning image digests
+- [ ] Promotion mechanics rehearsed on k3d — deploy staging, gate, deploy prod
+- [ ] **First rollback drill, timed** — `helm rollback`, record time-to-restore
 - [ ] `docs/learn/phase-3-kubernetes-local.md` — flip **Written from** to `experience`
 
 **Exit gate:** kill a pod locally → agent proposes → you approve → executor fixes it.
@@ -85,6 +92,12 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Cloudflare Tunnel — no ALB, no NAT Gateway
 - [ ] Postgres PV on EBS + nightly dump to S3
 - [ ] `make up` / `make down`
+- [ ] `infra/envs/staging` — second spot node, own VPC, own k3s, 10 GB EBS
+- [ ] `make staging-up` / `staging-down`, self-destruct after 4 idle hours
+- [ ] `release.yml` — build once, push by digest, deploy staging, smoke test, release notes
+- [ ] `promote.yml` — the gate. **Refuses a digest that did not pass staging**
+- [ ] `rollback.yml` — measured time-to-restore
+- [ ] Generated change records in `docs/releases/`
 - [ ] `docs/learn/phase-4-aws-landing.md` — flip **Written from** to `experience`
 
 **Exit gate:** terminate the node by hand; it rebuilds itself from Git in under 5 minutes.
@@ -159,6 +172,8 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] **Repo public**
 - [ ] Resume bullets written from what actually shipped
 - [ ] Jira retrospective; course outline from `docs/labs/`
+- [ ] Switch the promotion gate to GitHub Environments with required reviewers *(needs a public repo)*
+- [ ] `docs/learn/release-engineering.md` — flip **Written from** to `experience`
 - [ ] `docs/learn/phase-9-harden-and-publish.md` — flip **Written from** to `experience`
 
 **Exit gate:** repo public, video recorded, bullets written.
@@ -175,3 +190,4 @@ Documentation is a merge gate, not willpower.
 - [ ] Journal entry appended
 - [ ] Cost impact noted in `docs/cost/`
 - [ ] `architecture.toml` updated if components changed
+- [ ] **Deployed to staging and verified before prod** — never straight to prod

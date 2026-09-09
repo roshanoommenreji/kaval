@@ -13,10 +13,41 @@ phase_count = 10
 
 [cost]
 ceiling_usd        = 25
-projected_total    = 47
+projected_total    = 52
 budget_with_buffer = 70
 mtd_usd            = 0.0        # updated from `make cost-report`; 0 while nothing is provisioned
 provisioned        = false
+
+# Promotion path. `promotion = false` means it is a deployment target but NOT
+# a quality gate — lab-eks proves chart portability, it does not gate anything.
+# See ADR-0004.
+[[environments]]
+name      = "local"
+where     = "k3d on the laptop"
+lifetime  = "while working"
+promotion = true
+cost      = "$0"
+
+[[environments]]
+name      = "staging"
+where     = "2nd t4g.medium spot node · own k3s, etcd, DB, VPC"
+lifetime  = "per release, self-destructs after 4 idle hrs"
+promotion = true
+cost      = "~$1/mo"
+
+[[environments]]
+name      = "prod"
+where     = "t4g.medium spot node · own k3s"
+lifetime  = "paused → always-on from Phase 7"
+promotion = true
+cost      = "~$14/mo"
+
+[[environments]]
+name      = "lab-eks"
+where     = "ephemeral EKS"
+lifetime  = "per Phase 8 session"
+promotion = false
+cost      = "~$4/session"
 
 # Run posture per phase — see docs/cost/budget-plan.md
 [posture]
@@ -36,7 +67,7 @@ provisioned        = false
 [[links]]
 label = "Jira — project KAV"
 url   = ""
-note  = "Free tier. Nine epics, one per phase."
+note  = "Nine epics. Workflow: Backlog → Ready → In Progress → In Review → In Staging → Ready for Prod → Done."
 
 [[links]]
 label = "GitHub repository"

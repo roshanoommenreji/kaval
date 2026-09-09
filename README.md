@@ -30,7 +30,7 @@ signals ──▶ correlate ──▶ context ──▶ LLM ──▶ proposal �
 | **Running cost** | $0 (nothing provisioned yet) |
 | **Visibility** | Private until v1 |
 
-Live progress: [ROADMAP.md](ROADMAP.md) · **[Dashboard](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c)** · [System diagram](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#system) · [Incident journey](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#journey)
+Live progress: [ROADMAP.md](ROADMAP.md) · **[Dashboard](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c)** · [System](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#system) · [Journey](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#journey) · [Delivery](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#delivery)
 
 Regenerate all of it with `make dashboard`.
 
@@ -69,6 +69,7 @@ See [docs/00-start-here.md](docs/00-start-here.md) before touching anything.
 | [docs/](docs/) | **Start here.** Labs, ADRs, architecture, runbooks, cost, journal |
 | [docs/learn/](docs/learn/) | **The why.** One concept page per phase — theory, glossary, interview answers |
 | [architecture.toml](architecture.toml) | The architecture as data — nodes, edges, and the phase each arrives in |
+| [docs/releases/](docs/releases/) | Generated change records, one per production deploy |
 | [services/](services/) | Application code — one directory per container |
 | [inference/](inference/) | Gemma serving configuration |
 | [mobile/](mobile/) | Expo / React Native operator console |
@@ -80,7 +81,7 @@ See [docs/00-start-here.md](docs/00-start-here.md) before touching anything.
 
 ---
 
-## Two rules that shape everything
+## Three rules that shape everything
 
 **1. Cost guardrails exist before compute does.** The budget alarms and the auto-shutdown Lambda
 were the first infrastructure provisioned, before a single container ran. Ceiling is **$25/month**,
@@ -88,6 +89,11 @@ enforced by the system against itself.
 
 **2. The agent cannot touch the cluster.** Reasoning is read-only. All mutation flows through the
 executor, gated by policy. This is not a detail — it is the architecture.
+
+**3. Nothing reaches prod without passing staging.** `local` → `staging` → `prod`, where staging is
+a genuine second cluster created per release. The promotion gate refuses any artifact digest that
+did not pass staging — and that refusal is tested. See
+[ADR-0004](docs/adr/0004-environment-strategy-and-promotion.md).
 
 ---
 
