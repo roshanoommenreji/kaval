@@ -23,6 +23,7 @@ Guardrails before anything that can cost money.
 - [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24 *(written, not applied)*
 - [x] Progress dashboard — `scripts/dashboard.py`, derived from this file
 - [x] Learning layer — a concept page per phase in `docs/learn/`
+- [x] Architecture diagrams — `architecture.toml`, system + journey views
 - [ ] Jira Cloud free tier, project `KAV`, 9 epics
 - [ ] **Fix AWS credentials** — new IAM user, MFA, named profile *(currently expired)*
 - [ ] `terraform apply` the budget module and fire a test alert
@@ -173,3 +174,4 @@ Documentation is a merge gate, not willpower.
 - [ ] ADR written *if a decision was made*
 - [ ] Journal entry appended
 - [ ] Cost impact noted in `docs/cost/`
+- [ ] `architecture.toml` updated if components changed

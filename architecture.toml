@@ -1,0 +1,743 @@
+# Kaval architecture, as data.
+#
+# scripts/dashboard.py renders this into the #system and #journey views and
+# derives each node's state (built / in progress / planned) from that phase's
+# marker in ROADMAP.md. Nothing here records status -- ROADMAP.md does.
+#
+# When a component is added, removed or rewired, update this file. That is a
+# Definition of Done item, which is why the diagram stays true.
+#
+# col and row place the node on a grid; both accept fractions.
+# kind: source | service | store | external | platform | target | decision | terminal
+
+# ═══════════════════════════════════════════════════════════════════════
+# SYSTEM VIEW — what exists and what talks to what
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── row 0: signal sources ──────────────────────────────────────────────
+
+[[system.node]]
+id = "k8s-events"
+label = "Kubernetes events"
+kind = "source"
+phase = 3
+col = 0
+row = 0
+credentials = "read-only · watch verb"
+inputs = ["Cluster state changes from the API server"]
+outputs = ["Event objects: reason, involvedObject, count, message"]
+note = "Events expire after roughly an hour and are deduplicated with a count field. They are a stream to consume, never a store to query."
+
+[[system.node]]
+id = "prometheus"
+label = "Prometheus"
+kind = "source"
+phase = 3
+col = 1
+row = 0
+credentials = "none · in-cluster HTTP"
+inputs = ["Scraped metrics from kubelet, cAdvisor and the services"]
+outputs = ["Instant and range query results over /api/v1/query"]
+note = "Retention is trimmed deliberately — the node has 4 GB and Prometheus is budgeted at ~400 MB."
+
+[[system.node]]
+id = "alertmanager"
+label = "Alertmanager"
+kind = "source"
+phase = 3
+col = 2
+row = 0
+credentials = "none · webhook receiver"
+inputs = ["Firing alert rules from Prometheus"]
+outputs = ["Webhook POST with alert labels, annotations and status"]
+note = "The push half of the signal path. Prometheus is polled; Alertmanager pushes."
+
+[[system.node]]
+id = "cost-explorer"
+label = "AWS Cost Explorer"
+kind = "source"
+phase = 7
+col = 3
+row = 0
+credentials = "read-only IAM · ce:GetCostAndUsage"
+inputs = ["Account billing data"]
+outputs = ["Daily cost grouped by service and tag"]
+note = "Daily granularity, ~24 h lag, and $0.01 per API call. This is why the FinOps phase needs the node always-on, and why nothing polls it in a loop."
+
+# ── row 1: ingest ──────────────────────────────────────────────────────
+
+[[system.node]]
+id = "collector"
+label = "collector"
+kind = "service"
+phase = 1
+col = 1.5
+row = 1
+credentials = "read-only — Kubernetes RBAC and IAM"
+inputs = [
+  "Kubernetes events API (watch)",
+  "Prometheus /api/v1/query",
+  "Alertmanager webhook receiver",
+  "Cost Explorer GetCostAndUsage",
+]
+outputs = ["signal rows — INSERT only"]
+tables = ["signal"]
+note = "Normalises four unlike sources into one shape. The database is the record; the event stream is only the feed."
+
+# ── row 2: the store ───────────────────────────────────────────────────
+
+[[system.node]]
+id = "db"
+label = "Postgres + pgvector"
+kind = "store"
+phase = 1
+col = 1.5
+row = 2
+credentials = "per-service roles"
+inputs = ["Writes from collector, agent, gateway and executor"]
+outputs = ["Signals, incidents, runbook embeddings, proposal and outcome history"]
+tables = ["signal", "incident", "proposal", "action", "decision", "execution", "outcome"]
+note = "Append-only. Nothing is updated in place, so the tables ARE the audit trail — which is what makes the ISO 42001 human-oversight claim true rather than aspirational."
+
+# ── row 3: reasoning ───────────────────────────────────────────────────
+
+[[system.node]]
+id = "inference"
+label = "Gemma 3 1B (Ollama)"
+kind = "service"
+phase = 1
+col = 0
+row = 3
+credentials = "none"
+inputs = ["Prompt with retrieved context, OpenAI-compatible API"]
+outputs = ["Completion tokens, token counts"]
+note = "q4 quantized, ~900 MB, roughly 8-12 tokens/sec on the ARM node. Viable because diagnosis is asynchronous — nobody is watching a cursor blink."
+
+[[system.node]]
+id = "agent"
+label = "agent"
+kind = "service"
+phase = 2
+col = 1.5
+row = 3
+credentials = "READ-ONLY — no write verb exists in any binding"
+inputs = [
+  "signal rows awaiting correlation",
+  "Runbook chunks retrieved by vector similarity",
+  "Similar past incidents and their measured outcomes",
+]
+outputs = ["proposal rows — INSERT only. This is its ONLY possible output."]
+tables = ["signal", "incident", "proposal", "action"]
+note = "The component that thinks has no hands. Even fully compromised, it can only write a suggestion into a table — which is the mitigation for prompt injection through telemetry, the primary threat to this system."
+
+[[system.node]]
+id = "bedrock"
+label = "Amazon Bedrock"
+kind = "external"
+phase = 2
+col = 3
+row = 3
+credentials = "read-only IAM · bedrock:InvokeModel"
+inputs = ["Prompt for novel or low-confidence incidents"]
+outputs = ["Completion, token counts, measured cost"]
+note = "Escalation path only. Cost is recorded on both routes, so the saving from cost-aware routing is measured rather than claimed."
+
+# ── row 4: governance ──────────────────────────────────────────────────
+
+[[system.node]]
+id = "policy"
+label = "OPA policy"
+kind = "service"
+phase = 2
+col = 1.5
+row = 4
+credentials = "none · pure evaluation"
+inputs = ["A proposed action: type, target, blast_radius, reversible, confidence"]
+outputs = ["A class: auto | ask | never"]
+note = "Evaluated twice — once by the agent when composing, once by the executor before acting. Two enforcement points, one definition. never ignores confidence entirely, because a confident model proposing to delete a PVC is more dangerous than an uncertain one."
+
+# ── row 5: the human interface ─────────────────────────────────────────
+
+[[system.node]]
+id = "gateway"
+label = "gateway (FastAPI)"
+kind = "service"
+phase = 1
+col = 1.5
+row = 5
+credentials = "own database role · Cognito JWT verification"
+inputs = ["Pending proposals from the database", "Approve/deny from the mobile app"]
+outputs = ["REST + WebSocket to the app", "Push dispatch", "decision rows"]
+tables = ["proposal", "decision"]
+note = "Verifies the JWT signature against Cognito's public keys — decoding a token and trusting its claims is the classic vulnerability."
+
+[[system.node]]
+id = "tunnel"
+label = "Cloudflare Tunnel"
+kind = "platform"
+phase = 4
+col = 3
+row = 5
+credentials = "tunnel token"
+inputs = ["Outbound connection from inside the cluster"]
+outputs = ["Public HTTPS hostname, stable across node replacement"]
+note = "Replaces an $18/month Application Load Balancer. No inbound port is open — the security group needs no ingress rule at all."
+
+[[system.node]]
+id = "mobile"
+label = "Expo app"
+kind = "external"
+phase = 5
+col = 4.2
+row = 5
+credentials = "Cognito tokens · refresh token in the device keystore"
+inputs = ["Push notification carrying only an incident ID", "REST responses"]
+outputs = ["Approve or deny, with an optional reason"]
+note = "The push payload carries an ID and nothing else — delivery is best-effort and the path is not trusted with incident detail. The approval screen must state what happens if you decline, not only if you approve."
+
+# ── row 6: action ──────────────────────────────────────────────────────
+
+[[system.node]]
+id = "executor"
+label = "executor"
+kind = "service"
+phase = 3
+col = 1.5
+row = 6
+credentials = "SCOPED WRITE — RoleBinding in the app namespace only; IRSA on EKS"
+inputs = ["Approved proposals", "A second policy evaluation before every action"]
+outputs = ["Cluster and AWS mutations", "execution and outcome rows"]
+tables = ["execution", "outcome"]
+note = "The only component that changes anything, and it never calls an LLM. Bound with a RoleBinding rather than a ClusterRoleBinding, so it structurally cannot touch kube-system — blast radius is enforced below the application code."
+
+[[system.node]]
+id = "chaos"
+label = "chaos CronJobs"
+kind = "service"
+phase = 6
+col = 3.6
+row = 6
+credentials = "scoped write · labelled namespace only"
+inputs = ["A schedule, or a manual make chaos-run"]
+outputs = ["Injected faults: OOM kill, crashloop, disk fill, latency, node drain"]
+note = "Confined to namespaces labelled kaval.io/chaos=enabled. The containment is tested before the experiments are trusted, because the chaos tooling is itself dangerous."
+
+# ── row 7: what gets changed ───────────────────────────────────────────
+
+[[system.node]]
+id = "cluster"
+label = "Kubernetes cluster"
+kind = "target"
+phase = 3
+col = 0.5
+row = 7
+credentials = "acted on by executor only"
+inputs = ["patch, delete, scale, cordon — from the executor"]
+outputs = ["New state, which becomes new events"]
+note = "k3s on one spot instance in production; EKS during the Phase 8 chapter. The same Helm chart deploys to both, differing only by values file."
+
+[[system.node]]
+id = "aws-apis"
+label = "AWS APIs"
+kind = "target"
+phase = 7
+col = 2.5
+row = 7
+credentials = "scoped IAM via IRSA — no static keys"
+inputs = ["Cost remediation: stop idle, delete orphaned volumes, scale down"]
+outputs = ["Changed resources, changed bill"]
+note = "IRSA gives the executor a per-ServiceAccount role through OIDC federation, so no long-lived credential exists anywhere in the cluster."
+
+# ── row 8: platform ────────────────────────────────────────────────────
+
+[[system.node]]
+id = "node"
+label = "t4g.medium spot"
+kind = "platform"
+phase = 4
+col = 0
+row = 8
+credentials = "instance role"
+inputs = ["cloud-init user data", "Container images from ECR"]
+outputs = ["A k3s cluster, rebuilt from Git in under 5 minutes"]
+note = "ARM/Graviton — every image must be linux/arm64 or it fails at runtime with exec format error. ~$9.20/month on spot against ~$24 on-demand. AWS may reclaim it with two minutes' notice, which chaos-tests the rebuild path continuously and for free."
+
+[[system.node]]
+id = "ebs"
+label = "EBS gp3"
+kind = "platform"
+phase = 4
+col = 1
+row = 8
+credentials = "attached volume"
+inputs = ["Postgres data directory"]
+outputs = ["Durable storage surviving instance termination"]
+note = "Zone-locked, so the ASG must be constrained to the volume's availability zone. On a separate volume from the root, deliberately."
+
+[[system.node]]
+id = "ecr"
+label = "ECR"
+kind = "platform"
+phase = 4
+col = 2
+row = 8
+credentials = "IAM-authenticated pull"
+inputs = ["arm64 images pushed by CI"]
+outputs = ["Images pulled by the node"]
+note = "First 500 MB free."
+
+[[system.node]]
+id = "s3"
+label = "S3 backups"
+kind = "platform"
+phase = 4
+col = 3
+row = 8
+credentials = "scoped write"
+inputs = ["Nightly pg_dump"]
+outputs = ["Restorable database snapshots"]
+note = "A backup is not verified until you have restored one. That restore belongs in a lab, not a plan."
+
+[[system.node]]
+id = "guardrail"
+label = "budget guardrail"
+kind = "platform"
+phase = 0
+col = 4.2
+row = 8
+credentials = "autoscaling:UpdateAutoScalingGroup only"
+inputs = ["AWS Budgets threshold breach via SNS"]
+outputs = ["ASG desired capacity set to zero at $24"]
+note = "The first thing built, before any compute existed. Ships with DRY_RUN=true and no target, so the first invocation is a safe no-op that still proves the whole path — budget, SNS, subscription, function, log."
+
+# ── system edges ───────────────────────────────────────────────────────
+
+[[system.edge]]
+from = "k8s-events"
+to = "collector"
+label = "events (watch)"
+
+[[system.edge]]
+from = "prometheus"
+to = "collector"
+label = "metric queries"
+
+[[system.edge]]
+from = "alertmanager"
+to = "collector"
+label = "webhook"
+
+[[system.edge]]
+from = "cost-explorer"
+to = "collector"
+label = "daily cost"
+
+[[system.edge]]
+from = "collector"
+to = "db"
+label = "INSERT signal"
+
+[[system.edge]]
+from = "db"
+to = "agent"
+label = "signals · runbooks · history"
+
+[[system.edge]]
+from = "agent"
+to = "inference"
+label = "prompt"
+kind = "call"
+
+[[system.edge]]
+from = "agent"
+to = "bedrock"
+label = "escalate"
+kind = "call"
+
+[[system.edge]]
+from = "agent"
+to = "policy"
+label = "classify actions"
+
+[[system.edge]]
+from = "policy"
+to = "db"
+label = "INSERT proposal + class"
+
+[[system.edge]]
+from = "db"
+to = "gateway"
+label = "pending proposals"
+
+[[system.edge]]
+from = "gateway"
+to = "tunnel"
+label = "outbound HTTPS"
+
+[[system.edge]]
+from = "tunnel"
+to = "mobile"
+label = "push · REST"
+
+[[system.edge]]
+from = "mobile"
+to = "gateway"
+label = "approve / deny"
+kind = "return"
+
+[[system.edge]]
+from = "gateway"
+to = "executor"
+label = "approved → act"
+
+[[system.edge]]
+from = "executor"
+to = "policy"
+label = "re-check"
+kind = "call"
+
+[[system.edge]]
+from = "executor"
+to = "cluster"
+label = "patch · delete (RBAC)"
+
+[[system.edge]]
+from = "executor"
+to = "aws-apis"
+label = "cost actions (IRSA)"
+
+[[system.edge]]
+from = "chaos"
+to = "cluster"
+label = "inject fault"
+
+[[system.edge]]
+from = "cluster"
+to = "k8s-events"
+label = "new state → new events"
+kind = "feedback"
+
+[[system.edge]]
+from = "db"
+to = "ebs"
+label = "PV"
+kind = "platform"
+
+[[system.edge]]
+from = "db"
+to = "s3"
+label = "nightly dump"
+kind = "platform"
+
+[[system.edge]]
+from = "guardrail"
+to = "node"
+label = "scale to 0 at $24"
+kind = "platform"
+
+[[system.edge]]
+from = "ecr"
+to = "node"
+label = "arm64 images"
+kind = "platform"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# JOURNEY VIEW — one incident, every branch
+# ═══════════════════════════════════════════════════════════════════════
+
+[[journey.node]]
+id = "fault"
+label = "Fault occurs"
+kind = "source"
+phase = 6
+col = 1
+row = 0
+note = "Real, or injected by a chaos CronJob. Chaos experiments carry a falsifiable hypothesis — 'the agent detects this within 30 seconds' — which is what separates an experiment from an outage you caused."
+
+[[journey.node]]
+id = "j-signal"
+label = "Signal recorded"
+kind = "service"
+phase = 1
+col = 1
+row = 1
+note = "Target: within 30 seconds. The database is the record; the event stream is only the feed, because Kubernetes events expire in about an hour."
+
+[[journey.node]]
+id = "j-correlate"
+label = "Correlate → incident"
+kind = "service"
+phase = 2
+col = 1
+row = 2
+note = "One failure produces many signals. A stable fingerprint groups repeat occurrences — too broad and unrelated failures merge, too narrow and history never accumulates and retrieval finds nothing."
+
+[[journey.node]]
+id = "j-context"
+label = "Build context (RAG)"
+kind = "service"
+phase = 2
+col = 1
+row = 3
+note = "Runbook chunks by vector similarity, similar past incidents WITH their outcomes, recent changes. The outcome of a similar past incident is the single most useful element — stronger evidence than any amount of general knowledge."
+
+[[journey.node]]
+id = "j-known"
+label = "Seen before?"
+kind = "decision"
+phase = 2
+col = 1
+row = 4
+note = "pgvector similarity against the incident history. This routing decision is what makes a 1B model sufficient for most cases."
+
+[[journey.node]]
+id = "j-local"
+label = "Gemma 3 1B · local"
+kind = "service"
+phase = 1
+col = 0
+row = 5
+note = "Effectively free — amortised node cost only. Handles incidents resembling ones already seen."
+
+[[journey.node]]
+id = "j-bedrock"
+label = "Bedrock · escalated"
+kind = "external"
+phase = 2
+col = 2
+row = 5
+note = "Novel or low-confidence cases. Tokens and cost recorded, so cost-per-incident is measurable on both paths."
+
+[[journey.node]]
+id = "j-validate"
+label = "Schema validation"
+kind = "service"
+phase = 2
+col = 1
+row = 6
+note = "Pydantic. Invalid output is rejected, logged and retried; it never reaches the database. Note that schema validity is not semantic validity — confidence: 1.5 parses perfectly."
+
+[[journey.node]]
+id = "j-policy"
+label = "Policy class?"
+kind = "decision"
+phase = 2
+col = 1
+row = 7
+note = "OPA evaluates each action against blast_radius, reversible and confidence. Everything starts in ask; a class only graduates to auto when the outcome table has evidence, documented in an ADR."
+
+[[journey.node]]
+id = "j-never"
+label = "DROP + log"
+kind = "terminal"
+phase = 2
+col = -0.15
+row = 8
+note = "never ignores confidence entirely. Delete a PVC or namespace, mutate IAM, terminate EC2, touch billing — refused regardless of how certain the model is."
+
+[[journey.node]]
+id = "j-ask"
+label = "Human decides"
+kind = "decision"
+phase = 5
+col = 1.1
+row = 8
+note = "Push to phone within 60 seconds. This stage is unbounded and usually dominates wall-clock MTTR — which is the architecture working as designed, not a defect, but it means MTTR is honestly two numbers."
+
+[[journey.node]]
+id = "j-auto"
+label = "Auto-approved"
+kind = "service"
+phase = 6
+col = 2.4
+row = 8
+note = "blast_radius=pod AND reversible AND confidence>0.9 AND outcome evidence exists. Nothing is born auto."
+
+[[journey.node]]
+id = "j-deny"
+label = "Denied + logged"
+kind = "terminal"
+phase = 5
+col = 0.4
+row = 9
+note = "A denial is data. It is recorded with its reason and becomes evidence against promoting that action class to auto."
+
+[[journey.node]]
+id = "j-approve"
+label = "Approved"
+kind = "service"
+phase = 5
+col = 1.7
+row = 9
+note = "Recorded with actor and timestamp in the decision table, append-only."
+
+[[journey.node]]
+id = "j-recheck"
+label = "Executor re-checks policy"
+kind = "service"
+phase = 3
+col = 1.7
+row = 10
+note = "The same policy definition, a second enforcement point. Not redundant — this is what makes a compromised agent harmless."
+
+[[journey.node]]
+id = "j-exec"
+label = "Execute · record before/after"
+kind = "service"
+phase = 3
+col = 1.7
+row = 11
+note = "Scoped RBAC, namespace-bound. Before and after state captured so the action is auditable and, where reversible, undoable."
+
+[[journey.node]]
+id = "j-ok"
+label = "Success"
+kind = "service"
+phase = 3
+col = 1
+row = 12
+note = ""
+
+[[journey.node]]
+id = "j-fail"
+label = "Failure → escalate"
+kind = "terminal"
+phase = 3
+col = 2.4
+row = 12
+note = "Execution failure is itself a signal. It re-enters the loop rather than being swallowed."
+
+[[journey.node]]
+id = "j-outcome"
+label = "Outcome measured at +5 min"
+kind = "store"
+phase = 6
+col = 1.7
+row = 13
+note = "resolved true or false, mttr_sec, regression. Measured, not assumed — an action that ran successfully but did not fix the incident is a different outcome from one that did."
+
+[[journey.node]]
+id = "j-feedback"
+label = "Feeds the next context"
+kind = "store"
+phase = 2
+col = 1.7
+row = 14
+note = "This is what closes the loop and what makes progressive autonomy possible — the evidence for promoting a class to auto lives in these rows."
+
+[[journey.edge]]
+from = "fault"
+to = "j-signal"
+label = "detected ≤30s"
+
+[[journey.edge]]
+from = "j-signal"
+to = "j-correlate"
+label = ""
+
+[[journey.edge]]
+from = "j-correlate"
+to = "j-context"
+label = "fingerprint"
+
+[[journey.edge]]
+from = "j-context"
+to = "j-known"
+label = ""
+
+[[journey.edge]]
+from = "j-known"
+to = "j-local"
+label = "yes · similar found"
+
+[[journey.edge]]
+from = "j-known"
+to = "j-bedrock"
+label = "no · or low confidence"
+
+[[journey.edge]]
+from = "j-local"
+to = "j-validate"
+label = ""
+
+[[journey.edge]]
+from = "j-bedrock"
+to = "j-validate"
+label = ""
+
+[[journey.edge]]
+from = "j-validate"
+to = "j-policy"
+label = "valid proposal"
+
+[[journey.edge]]
+from = "j-policy"
+to = "j-never"
+label = "never"
+
+[[journey.edge]]
+from = "j-policy"
+to = "j-ask"
+label = "ask"
+
+[[journey.edge]]
+from = "j-policy"
+to = "j-auto"
+label = "auto"
+
+[[journey.edge]]
+from = "j-ask"
+to = "j-deny"
+label = "deny"
+
+[[journey.edge]]
+from = "j-ask"
+to = "j-approve"
+label = "approve"
+
+[[journey.edge]]
+from = "j-auto"
+to = "j-recheck"
+label = "no human"
+
+[[journey.edge]]
+from = "j-approve"
+to = "j-recheck"
+label = ""
+
+[[journey.edge]]
+from = "j-recheck"
+to = "j-exec"
+label = "still allowed"
+
+[[journey.edge]]
+from = "j-exec"
+to = "j-ok"
+label = "ok"
+
+[[journey.edge]]
+from = "j-exec"
+to = "j-fail"
+label = "error"
+
+[[journey.edge]]
+from = "j-ok"
+to = "j-outcome"
+label = ""
+
+[[journey.edge]]
+from = "j-fail"
+to = "j-outcome"
+label = "recorded too"
+
+[[journey.edge]]
+from = "j-outcome"
+to = "j-feedback"
+label = "resolved? mttr?"
+
+[[journey.edge]]
+from = "j-deny"
+to = "j-feedback"
+label = "denial is evidence"
+kind = "feedback"

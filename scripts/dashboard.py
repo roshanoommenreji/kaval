@@ -15,6 +15,7 @@ Python 3.11 stdlib only. No pip install.
 from __future__ import annotations
 
 import html
+import json
 import re
 import subprocess
 import tomllib
@@ -335,6 +336,152 @@ def read_learn(d: Path) -> list[Learn]:
 
 
 # ─────────────────────────────────────────────────────────────
+# Architecture diagrams
+# ─────────────────────────────────────────────────────────────
+#
+# Nodes and edges are declared in architecture.toml; each node names the
+# phase it arrives in, and its drawn state is derived from that phase's
+# marker in ROADMAP.md. So the diagram fills in as phases complete and
+# cannot drift from reality -- the same discipline as the board.
+
+NODE_W, NODE_H = 156, 50
+COL_GAP, ROW_GAP = 30, 52
+PAD = 16
+
+
+def _status_for(phase: int | None, phases: list[Phase]) -> str:
+    if phase is None:
+        return "planned"
+    for p in phases:
+        if p.num == phase:
+            return {"x": "built", "~": "active"}.get(p.marker, "planned")
+    return "planned"
+
+
+def _xy(node: dict) -> tuple[float, float]:
+    return (
+        PAD + float(node["col"]) * (NODE_W + COL_GAP),
+        PAD + float(node["row"]) * (NODE_H + ROW_GAP),
+    )
+
+
+def _edge_path(a: dict, b: dict) -> tuple[str, float, float]:
+    """Orthogonal path from node a to node b, plus a label anchor point."""
+    ax, ay = _xy(a)
+    bx, by = _xy(b)
+    acx, bcx = ax + NODE_W / 2, bx + NODE_W / 2
+
+    if abs(float(a["row"]) - float(b["row"])) < 0.01:          # same lane
+        if bx > ax:
+            x1, x2 = ax + NODE_W, bx
+        else:
+            x1, x2 = ax, bx + NODE_W
+        y = ay + NODE_H / 2
+        return f"M {x1} {y} L {x2} {y}", (x1 + x2) / 2, y - 7
+
+    if float(b["row"]) > float(a["row"]):                       # downward
+        y1, y2 = ay + NODE_H, by
+    else:                                                       # upward
+        y1, y2 = ay, by + NODE_H
+
+    mid = (y1 + y2) / 2
+    if abs(acx - bcx) < 1:
+        return f"M {acx} {y1} L {acx} {y2}", acx, (y1 + y2) / 2
+    return (
+        f"M {acx} {y1} L {acx} {mid} L {bcx} {mid} L {bcx} {y2}",
+        (acx + bcx) / 2,
+        mid - 7,
+    )
+
+
+def render_diagram(view: str, nodes: list[dict], edges: list[dict],
+                   phases: list[Phase]) -> tuple[str, dict]:
+    by_id = {n["id"]: n for n in nodes}
+    width = PAD * 2 + max(float(n["col"]) for n in nodes) * (NODE_W + COL_GAP) + NODE_W
+    minx = min(float(n["col"]) for n in nodes) * (NODE_W + COL_GAP)
+    height = PAD * 2 + max(float(n["row"]) for n in nodes) * (NODE_H + ROW_GAP) + NODE_H
+
+    out = [
+        f'<svg class="diagram" viewBox="{minx - PAD} 0 {width - minx + PAD} {height}" '
+        f'width="{width - minx + PAD}" height="{height}" '
+        f'role="img" aria-label="{e(view)} diagram">',
+        '<defs>'
+        '<marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" '
+        'markerHeight="7" orient="auto-start-reverse">'
+        '<path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker>'
+        '</defs>',
+    ]
+
+    for ed in edges:
+        a, b = by_id.get(ed["from"]), by_id.get(ed["to"])
+        if not a or not b:
+            continue
+        d, lx, ly = _edge_path(a, b)
+        kind = ed.get("kind", "flow")
+        state = "built" if (_status_for(a.get("phase"), phases) == "built"
+                            and _status_for(b.get("phase"), phases) == "built") else "planned"
+        out.append(f'<path class="ed {kind} {state}" d="{d}" marker-end="url(#ah)"/>')
+        if ed.get("label"):
+            out.append(
+                f'<text class="edl {state}" x="{lx}" y="{ly}" text-anchor="middle">'
+                f'{e(ed["label"])}</text>'
+            )
+
+    detail = {}
+    for n in nodes:
+        x, y = _xy(n)
+        st = _status_for(n.get("phase"), phases)
+        kind = n.get("kind", "service")
+        label = n["label"]
+        # Wrap the label onto two lines if it is long.
+        if len(label) > 20 and " " in label:
+            cut = label.rfind(" ", 0, 22) or label.find(" ")
+            lines = [label[:cut], label[cut + 1:]]
+        else:
+            lines = [label]
+        ty = y + NODE_H / 2 + (5 if len(lines) == 1 else -3)
+
+        out.append(f'<g class="nd {kind} {st}" data-id="{e(n["id"])}" tabindex="0">')
+        out.append(
+            f'<rect x="{x}" y="{y}" width="{NODE_W}" height="{NODE_H}" rx="6"/>'
+        )
+        for i, ln in enumerate(lines):
+            out.append(
+                f'<text class="ndl" x="{x + NODE_W / 2}" y="{ty + i * 14}" '
+                f'text-anchor="middle">{e(ln)}</text>'
+            )
+        if st != "built" and n.get("phase") is not None:
+            out.append(
+                f'<text class="ndp" x="{x + NODE_W - 7}" y="{y + 13}" '
+                f'text-anchor="end">P{n["phase"]}</text>'
+            )
+        out.append("</g>")
+
+        detail[n["id"]] = {
+            "label": label,
+            "kind": kind,
+            "phase": n.get("phase"),
+            "status": st,
+            "credentials": n.get("credentials", ""),
+            "inputs": n.get("inputs", []),
+            "outputs": n.get("outputs", []),
+            "tables": n.get("tables", []),
+            "note": n.get("note", ""),
+            "edges_in": [
+                {"from": by_id[x2["from"]]["label"], "label": x2.get("label", "")}
+                for x2 in edges if x2["to"] == n["id"] and x2["from"] in by_id
+            ],
+            "edges_out": [
+                {"to": by_id[x2["to"]]["label"], "label": x2.get("label", "")}
+                for x2 in edges if x2["from"] == n["id"] and x2["to"] in by_id
+            ],
+        }
+
+    out.append("</svg>")
+    return "\n".join(out), detail
+
+
+# ─────────────────────────────────────────────────────────────
 # Rendering
 # ─────────────────────────────────────────────────────────────
 
@@ -578,6 +725,76 @@ section{margin-top:44px}
 .index .t{font-size:13.5px; font-weight:500; color:var(--ink); margin-top:2px}
 .index .m{font-size:11.5px; color:var(--ink-3); margin-top:4px}
 
+/* ── architecture diagrams ────────────────────────────── */
+.dwrap{overflow-x:auto; border:1px solid var(--rule); border-radius:6px;
+       background:var(--surface); padding:6px 2px}
+.diagram{display:block; max-width:none}
+
+.nd rect{fill:var(--surface); stroke:var(--rule-strong); stroke-width:1.5}
+.nd .ndl{font-family:Archivo,sans-serif; font-size:11.5px; font-weight:500;
+         fill:var(--ink); pointer-events:none}
+.nd .ndp{font-family:"IBM Plex Mono",monospace; font-size:8.5px; font-weight:500;
+         fill:var(--ink-3); letter-spacing:.06em; pointer-events:none}
+.nd{cursor:pointer}
+.nd:hover rect{stroke:var(--accent); stroke-width:2}
+.nd:focus{outline:none}
+.nd:focus rect{stroke:var(--accent); stroke-width:2.5}
+.nd.sel rect{stroke:var(--accent); stroke-width:2.5; fill:var(--accent-soft)}
+
+.nd.planned rect{stroke-dasharray:5 3; stroke:var(--rule-strong); fill:var(--paper)}
+.nd.planned .ndl{fill:var(--ink-3)}
+.nd.active rect{stroke:var(--accent); stroke-width:2}
+.nd.built.store rect,.nd.active.store rect{fill:var(--accent-soft)}
+.nd.built.decision rect,.nd.active.decision rect{fill:var(--warn-soft); stroke:var(--warn)}
+.nd.planned.decision rect{stroke:var(--warn)}
+.nd.decision .ndl{font-style:italic}
+.nd.built.terminal rect,.nd.active.terminal rect{fill:var(--crit-soft); stroke:var(--crit)}
+.nd.planned.terminal rect{stroke:var(--crit)}
+.nd.built.source rect,.nd.active.source rect{fill:var(--raised)}
+.nd.external rect{stroke-dasharray:2 2}
+.nd.built.platform rect,.nd.active.platform rect{fill:var(--raised)}
+
+.ed{fill:none; stroke:var(--rule-strong); stroke-width:1.4; color:var(--rule-strong)}
+.ed.planned{stroke:var(--rule); color:var(--rule); stroke-dasharray:4 3}
+.ed.built{stroke:var(--accent); color:var(--accent)}
+.ed.feedback{stroke-dasharray:3 3}
+.ed.platform{stroke-width:1}
+.edl{font-family:"IBM Plex Mono",monospace; font-size:8.5px; fill:var(--ink-3);
+     letter-spacing:.02em}
+.edl.planned{fill:var(--ink-3); opacity:.65}
+
+.dlegend{display:flex; flex-wrap:wrap; gap:16px; margin-top:12px;
+         font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--ink-3)}
+.dlegend b{font-weight:500; color:var(--ink-2)}
+
+.ndetail{margin-top:18px; border:1px solid var(--rule); border-radius:6px;
+         background:var(--surface); padding:16px 18px; min-height:96px}
+.ndetail .hint{color:var(--ink-3); font-size:13px}
+.ndetail h3{font-size:16px; font-weight:600; margin:0}
+.ndetail .top{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+              padding-bottom:11px; border-bottom:1px solid var(--rule)}
+.ndetail dl{display:grid; grid-template-columns:104px 1fr; gap:9px 14px; margin:13px 0 0}
+.ndetail dt{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.1em;
+            text-transform:uppercase; color:var(--ink-3); padding-top:2px}
+.ndetail dd{margin:0; font-size:13.5px}
+.ndetail dd ul{margin:0; padding-left:16px; display:flex; flex-direction:column; gap:4px}
+.ndetail .note{margin:15px 0 0; padding:11px 14px; background:var(--raised);
+               border-left:3px solid var(--accent); border-radius:0 4px 4px 0;
+               font-size:13px; color:var(--ink-2); line-height:1.55}
+.ndetail .warn{color:var(--crit); font-weight:600}
+.st{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.08em;
+    text-transform:uppercase; padding:2px 7px; border-radius:3px}
+.st.built{background:var(--accent-soft); color:var(--accent)}
+.st.active{background:var(--warn-soft); color:var(--warn)}
+.st.planned{background:var(--track); color:var(--ink-3)}
+
+.tabs{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap}
+.tabs a{font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.06em;
+        text-transform:uppercase; text-decoration:none; padding:6px 13px;
+        border:1px solid var(--rule-strong); border-radius:4px; color:var(--ink-2)}
+.tabs a:hover{border-color:var(--accent); color:var(--accent)}
+.tabs a.on{background:var(--accent); border-color:var(--accent); color:var(--surface)}
+
 footer{margin-top:56px; padding-top:16px; border-top:1px solid var(--rule);
        font-size:12px; color:var(--ink-3); display:flex; flex-wrap:wrap; gap:14px}
 
@@ -589,6 +806,9 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-o
   .ph .barwrap{grid-column:1/-1}
   .ptally{text-align:left; grid-column:1/-1}
   .detail{padding-left:22px}
+  .dwrap{margin-left:-15px; margin-right:-15px; border-radius:0; border-left:0; border-right:0}
+  .ndetail dl{grid-template-columns:1fr; gap:3px 0}
+  .ndetail dt{padding-top:9px}
   .two{grid-template-columns:1fr; gap:34px}
   .row{flex-wrap:wrap}
 }
@@ -598,7 +818,7 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-o
 
 def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
            sessions: list[dict], threads: list[str], commits: list[dict],
-           learn: list[Learn]) -> str:
+           learn: list[Learn], arch: dict) -> str:
     proj = cfg["project"]
     cost = cfg["cost"]
     posture = cfg.get("posture", {})
@@ -724,7 +944,8 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
         parts.append(f"""
 <section>
   <div class="sec-head"><div class="eyebrow">Concepts, not steps</div><h2>Learn</h2>
-    <div class="count">{from_exp}/{len(learn)} from experience</div></div>
+    <div class="count"><a href="#system">System diagram</a> · <a href="#journey">Journey</a>
+    · {from_exp}/{len(learn)} from experience</div></div>
   <div class="index">
 {cards}
   </div>
@@ -864,6 +1085,58 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
   </nav>
 </div>""")
 
+    # ── architecture views ──
+    details: dict = {}
+    for view, title, blurb in (
+        ("system", "System",
+         "What exists and what talks to what. Every edge is labelled with what flows "
+         "and under which credential — which is where the read-only/write split stops "
+         "being a claim and becomes visible."),
+        ("journey", "Journey",
+         "One incident from fault to measured outcome, including the paths people leave "
+         "out: policy refusal, human denial, escalation, execution failure."),
+    ):
+        block = arch.get(view, {})
+        nodes, edges = block.get("node", []), block.get("edge", [])
+        if not nodes:
+            continue
+        svg, det = render_diagram(view, nodes, edges, phases)
+        details[view] = det
+        built = sum(1 for n in nodes if _status_for(n.get("phase"), phases) == "built")
+        active = sum(1 for n in nodes if _status_for(n.get("phase"), phases) == "active")
+        tally = f"{built} built" + (f" · {active} in progress" if active else "")
+        other = "journey" if view == "system" else "system"
+        othert = "Journey" if view == "system" else "System"
+        parts.append(f"""
+<div class="view" id="view-{view}" hidden>
+  <nav class="lnav">
+    <a href="#board">↑ Board</a>
+    <span class="spacer"></span>
+    <span class="wf {'experience' if built else 'theory'}">{tally} of {len(nodes)}</span>
+  </nav>
+  <div class="tabs">
+    <a class="on" href="#{view}">{title}</a>
+    <a href="#{other}">{othert}</a>
+  </div>
+  <p class="sub" style="margin:0 0 18px;max-width:64ch;color:var(--ink-2);font-size:13.5px">{blurb}</p>
+  <div class="dwrap">
+{svg}
+  </div>
+  <div class="dlegend">
+    <span><b>solid</b> built</span>
+    <span><b>dashed + P<i>n</i></b> arrives in phase <i>n</i></span>
+    <span><b>amber</b> decision</span>
+    <span><b>red</b> terminal path</span>
+    <span>tap any box for its inputs, outputs and credentials</span>
+  </div>
+  <div class="ndetail" id="det-{view}">
+    <p class="hint">Select a component above to see every input, output and credential it holds.</p>
+  </div>
+</div>""")
+
+    # "</" is split so the JSON can never terminate the <script> element early.
+    detail_json = json.dumps(details).replace("</", "<\/")
+
     parts.append(f"""
 <footer>
   <span>Generated {today:%Y-%m-%d} from the repository.</span>
@@ -882,6 +1155,70 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
   }}
   window.addEventListener('hashchange', show);
   show();
+
+  var DETAIL = {detail_json};
+
+  function esc(s) {{
+    return String(s).replace(/[&<>"]/g, function (c) {{
+      return {{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}}[c];
+    }});
+  }}
+
+  function list(items) {{
+    if (!items || !items.length) return '<dd>—</dd>';
+    return '<dd><ul>' + items.map(function (i) {{
+      return '<li>' + esc(i) + '</li>';
+    }}).join('') + '</ul></dd>';
+  }}
+
+  function flows(items, key) {{
+    if (!items || !items.length) return '<dd>—</dd>';
+    return '<dd><ul>' + items.map(function (i) {{
+      return '<li>' + esc(i[key]) + (i.label ? ' <span style="color:var(--ink-3)">— '
+        + esc(i.label) + '</span>' : '') + '</li>';
+    }}).join('') + '</ul></dd>';
+  }}
+
+  Object.keys(DETAIL).forEach(function (view) {{
+    var panel = document.getElementById('det-' + view);
+    var svg = document.querySelector('#view-' + view + ' .diagram');
+    if (!panel || !svg) return;
+
+    function select(g) {{
+      var d = DETAIL[view][g.getAttribute('data-id')];
+      if (!d) return;
+      svg.querySelectorAll('.nd').forEach(function (n) {{ n.classList.remove('sel'); }});
+      g.classList.add('sel');
+
+      var cred = esc(d.credentials || '—');
+      if (/READ-ONLY|SCOPED WRITE/.test(d.credentials || '')) {{
+        cred = '<span class="warn">' + cred + '</span>';
+      }}
+      var ph = (d.phase === null || d.phase === undefined) ? '' :
+        '<a href="#phase-' + d.phase + '" style="font-size:12px">Phase ' + d.phase + ' concepts →</a>';
+
+      panel.innerHTML =
+        '<div class="top"><h3>' + esc(d.label) + '</h3>' +
+        '<span class="st ' + d.status + '">' + d.status + '</span>' +
+        '<span style="margin-left:auto">' + ph + '</span></div>' +
+        '<dl>' +
+        '<dt>Credentials</dt><dd>' + cred + '</dd>' +
+        '<dt>Receives</dt>' + flows(d.edges_in, 'from') +
+        '<dt>Sends to</dt>' + flows(d.edges_out, 'to') +
+        (d.inputs.length ? '<dt>Inputs</dt>' + list(d.inputs) : '') +
+        (d.outputs.length ? '<dt>Outputs</dt>' + list(d.outputs) : '') +
+        (d.tables.length ? '<dt>Tables</dt>' + list(d.tables) : '') +
+        '</dl>' +
+        (d.note ? '<p class="note">' + esc(d.note) + '</p>' : '');
+    }}
+
+    svg.querySelectorAll('.nd').forEach(function (g) {{
+      g.addEventListener('click', function () {{ select(g); }});
+      g.addEventListener('keydown', function (ev) {{
+        if (ev.key === 'Enter' || ev.key === ' ') {{ ev.preventDefault(); select(g); }}
+      }});
+    }});
+  }});
 }})();
 </script>""")
 
@@ -900,9 +1237,12 @@ def main() -> None:
     sessions, threads = read_journal(ROOT / "docs" / "journal")
     commits = git_log()
     learn = read_learn(ROOT / "docs" / "learn")
+    af = ROOT / "architecture.toml"
+    arch = tomllib.loads(af.read_text(encoding="utf-8")) if af.exists() else {}
 
     OUT.write_text(
-        render(cfg, phases, adrs, labs, sessions, threads, commits, learn), encoding="utf-8"
+        render(cfg, phases, adrs, labs, sessions, threads, commits, learn, arch),
+        encoding="utf-8",
     )
 
     done = sum(p.done for p in phases)
@@ -913,6 +1253,12 @@ def main() -> None:
           f"({sum(a['open'] for a in adrs)} open) · {len(labs)} labs · {len(threads)} open threads")
     print(f"  {len(learn)} concept pages ({exp} from experience) · "
           f"{sum(l.terms for l in learn)} glossary terms")
+    for v in ("system", "journey"):
+        ns = arch.get(v, {}).get("node", [])
+        if ns:
+            b = sum(1 for n in ns if _status_for(n.get("phase"), phases) == "built")
+            print(f"  {v}: {len(ns)} nodes ({b} built) · "
+                  f"{len(arch[v].get('edge', []))} edges")
 
 
 if __name__ == "__main__":

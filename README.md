@@ -30,7 +30,9 @@ signals ──▶ correlate ──▶ context ──▶ LLM ──▶ proposal �
 | **Running cost** | $0 (nothing provisioned yet) |
 | **Visibility** | Private until v1 |
 
-Live progress: [ROADMAP.md](ROADMAP.md) · **[Dashboard](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c)** — regenerate with `make dashboard`
+Live progress: [ROADMAP.md](ROADMAP.md) · **[Dashboard](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c)** · [System diagram](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#system) · [Incident journey](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#journey)
+
+Regenerate all of it with `make dashboard`.
 
 ---
 
@@ -66,6 +68,7 @@ See [docs/00-start-here.md](docs/00-start-here.md) before touching anything.
 |---|---|
 | [docs/](docs/) | **Start here.** Labs, ADRs, architecture, runbooks, cost, journal |
 | [docs/learn/](docs/learn/) | **The why.** One concept page per phase — theory, glossary, interview answers |
+| [architecture.toml](architecture.toml) | The architecture as data — nodes, edges, and the phase each arrives in |
 | [services/](services/) | Application code — one directory per container |
 | [inference/](inference/) | Gemma serving configuration |
 | [mobile/](mobile/) | Expo / React Native operator console |

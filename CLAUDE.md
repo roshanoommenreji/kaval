@@ -88,6 +88,7 @@ Every unit of work, before it counts as finished:
 3. ADR in `docs/adr/` **if a decision was made** (see ADR-0001 for the format)
 4. Entry appended to `docs/journal/YYYY-MM-DD.md`
 5. Cost impact noted in `docs/cost/` if spend changed
+6. `architecture.toml` updated **if a component was added, removed or rewired** — the diagram grows because this is a gate, not because anyone remembers
 
 `docs/runbooks/` is dual-purpose: human documentation *and* the corpus the agent retrieves from.
 Writing a runbook improves the product, not just the docs.

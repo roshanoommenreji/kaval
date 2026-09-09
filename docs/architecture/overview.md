@@ -1,5 +1,10 @@
 # Architecture overview
 
+> **Live diagrams:** [system topology](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#system) · [incident journey](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#journey)
+> Generated from [`architecture.toml`](../../architecture.toml), with each component's state
+> derived from `ROADMAP.md` — so they show what exists today, not just the target.
+> Tap any component for its inputs, outputs and credentials.
+
 ## The loop
 
 ```
