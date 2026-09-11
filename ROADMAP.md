@@ -27,7 +27,7 @@ Guardrails before anything that can cost money.
 - [x] ADR-0004 environment strategy and promotion path
 - [x] ADR-0005 data durability and staging seeding
 - [ ] Jira Cloud free tier, project `KAV`, 9 epics
-- [ ] **Fix AWS credentials** — new IAM user, MFA, named profile *(currently expired)*
+- [x] **Fix AWS credentials** — new IAM user, MFA, named profile
 - [ ] `terraform apply` the budget module and fire a test alert
 
 **Exit gate:** `terraform apply` has created only a budget alarm, and it demonstrably fires.

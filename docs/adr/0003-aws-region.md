@@ -1,7 +1,7 @@
 # ADR-0003 — AWS region
 
-- **Status:** Proposed — pending verification in Lab 01
-- **Date:** 2026-08-22
+- **Status:** Accepted
+- **Date:** 2026-08-22 (accepted 2026-09-11, after the Lab 01 Bedrock check)
 - **Deciders:** Roshan
 
 ## Context
@@ -30,28 +30,37 @@ bind" is a better answer than silence.
 
 ## Decision
 
-**Proposed:** `ap-south-1` (Mumbai) for all compute, storage, and networking.
+**`ap-south-1` (Mumbai) for all compute, storage, and networking.**
 
-For Bedrock escalation, verify in Lab 01 which of these holds and record the answer here:
+Checked directly in the Bedrock console, Model catalog, region set to Asia Pacific (Mumbai):
 
-1. The intended model is available directly in `ap-south-1` → use it, single region, done.
-2. It is not, but a cross-region inference profile covers it → use that, and document the
-   latency and any data-transfer implication.
-3. Neither → call Bedrock in a different region explicitly. Escalation is a low-frequency,
-   asynchronous path, so a few hundred milliseconds of additional latency is acceptable there in
-   a way it would not be for the interactive chat screen.
+- **Claude Sonnet 5** (`anthropic.claude-sonnet-5`) appears in the catalog for this region, but its
+  **Inference type is "Cross-region inference," not a direct regional invocation**. This is
+  scenario 2 from the three checked above: the model isn't called with a plain single-region model
+  ID — Bedrock routes the request through its cross-region inference profile mechanism. Deployment
+  type is Serverless; no capacity to provision, no idle cost.
+- **One-time account gate, unrelated to region:** Bedrock shows *"Anthropic requires first-time
+  customers to submit use case details before invoking a model, once per account."* This has to be
+  clicked through once, before Phase 2's first live escalation call — worth doing during Lab 01
+  while already on that screen, rather than hitting it as a surprise mid-implementation.
 
-Do not resolve this from memory. Check the Bedrock console and use the `claude-api` skill for
-current model IDs and pricing.
+So: **`ap-south-1` stands**, escalation calls go through the cross-region inference profile rather
+than a bare model ID. The added latency is a few hundred milliseconds at most on an
+already-asynchronous, low-frequency escalation path — acceptable in a way it would not be for the
+interactive mobile chat screen, which never touches Bedrock directly.
+
+Model ID and pricing were read directly from the console at decision time rather than recalled;
+re-verify with the `claude-api` skill when Phase 2 actually wires the Bedrock client, since IDs and
+pricing can change between now and then.
 
 ## Consequences
 
 **Easier.** A responsive mobile app, which matters disproportionately because the app is the part
 of this project people will actually see.
 
-**Harder.** Possibly a split-region setup if Bedrock forces it, which means an extra client
-configuration and a note in the architecture docs explaining why. Some AWS features and pricing
-promotions reach `ap-south-1` later than US regions.
+**Harder.** Bedrock escalation calls go through a cross-region inference profile rather than a bare
+model ID — one extra piece of client configuration in the `agent` service, to document when Phase 2
+wires it. Some AWS features and pricing promotions reach `ap-south-1` later than US regions.
 
 **Cost.** Broadly neutral. Some services run marginally more expensive in Mumbai than in US
 regions; the difference at this scale is cents. Cross-region Bedrock calls would add negligible

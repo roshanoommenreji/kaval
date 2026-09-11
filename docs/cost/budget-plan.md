@@ -145,11 +145,24 @@ quietly bills forever is an anti-credential.
 
 ---
 
-## Open question
+## Free plan (checked in Lab 01, 2026-09-11)
 
-**Does this AWS account still carry free-tier allowance?** AWS restructured the free tier in 2025
-and terms differ between older and newer accounts. Verify in Lab 01 rather than assuming — it can
-only move the number down.
+This account is on AWS's newer **Free Plan**, not the classic per-service free tier:
+
+| | |
+|---|---|
+| Credit balance | **$100.00** |
+| Days remaining | **182** (expires ≈ 2027-03-12) |
+| Charging model | Usage draws down the credit balance; nothing bills a card until the credit is spent or the plan expires |
+
+That expiry lines up almost exactly with the project's target finish. In practice this means the
+**entire ~$52 projected spend above is very likely absorbed by this credit alone** — the $25/mo
+ceiling and its Lambda hard-stop stay in force regardless, as an independent guardrail, but the
+realistic out-of-pocket exposure for the whole project is close to $0 rather than $52.
+
+Re-check this figure periodically — a credit-based plan can behave differently from classic free
+tier at the edges, and the number should be verified against the console rather than assumed to
+still read $100 by the time Phase 7 goes always-on.
 
 ---
 
