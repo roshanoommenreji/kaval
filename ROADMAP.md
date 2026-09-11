@@ -184,6 +184,17 @@ First real spend. **Posture: paused between sessions** (`make down`).
 
 ---
 
+## Beyond v1 — future scope · `[ ]`
+
+Not committed. Work that is out of scope for Phases 0–9 but worth doing afterward —
+mostly the Forward Deployed / AI-platform readiness gaps a solo greenfield project can't
+close on its own (integration mini-projects, demo craft, client-facing reps, a
+multi-tenant chapter).
+
+See [docs/future-scope.md](docs/future-scope.md).
+
+---
+
 ## Definition of Done — every story
 
 Documentation is a merge gate, not willpower.
