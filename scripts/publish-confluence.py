@@ -333,18 +333,21 @@ def main() -> None:
         upsert_page(space_id, f"Runbook -- {title}", adf, runbooks_id)
 
     # ── Meeting / Session Notes ──────────────────────────────────────────
-    notes_home = doc(
-        p("Native to this space -- these notes have no equivalent in the repo. The repo's "
-          "docs/journal/ covers what changed technically each session; this page is for anything "
-          "that isn't code or documentation history (decisions still being talked through, things "
-          "to raise next session, stakeholder-facing framing)."),
-        h(2, "2026-09-14"),
-        p("Jira and Confluence stood up. Jira: 10 epics, 5 Phase 0 stories, real acceptance "
-          "criteria, story points, assignee -- built via the REST API rather than by hand after "
-          "the first pass was correctly called out as not up to standard. Confluence: this space, "
-          "published the same way -- generated from the repo rather than hand-authored, so it "
-          "can't drift."),
-    )
+    # Derived from docs/journal/*.md, newest first -- same source the dashboard
+    # reads. No content is authored in this script; rerunning after any new
+    # journal entry picks it up automatically.
+    journal_files = sorted((ROOT / "docs/journal").glob("[0-9]*.md"), reverse=True)
+    notes_content: list[dict] = [
+        p("Derived from docs/journal/*.md -- newest first. Nothing here is authored in this "
+          "script; add a journal entry in the repo and rerun publish-confluence.py to bring it "
+          "in. The journal covers what changed technically each session."),
+    ]
+    for jf in journal_files:
+        raw = jf.read_text(encoding="utf-8")
+        body_lines = raw.splitlines()[1:]  # drop the "# YYYY-MM-DD" H1, use filename as heading instead
+        notes_content.append(h(2, jf.stem))
+        notes_content.extend(md_to_adf("\n".join(body_lines)))
+    notes_home = doc(notes_content)
     upsert_page(space_id, "Meeting -- Session Notes", notes_home, home_id)
 
     # ── Release Notes ────────────────────────────────────────────────────
