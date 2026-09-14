@@ -66,8 +66,8 @@ cost      = "~$4/session"
 # hidden — a missing Jira project is information, not an absence.
 [[links]]
 label = "Jira — project KAV"
-url   = ""
-note  = "Nine epics. Workflow: Backlog → Ready → In Progress → In Review → In Staging → Ready for Prod → Done."
+url   = "https://roshanoommenreji.atlassian.net/jira/software/projects/KAV/boards/1"
+note  = "Ten epics (KAV-5..14), one per phase. Workflow: To Do → In Definition → In Review → Ready → In Progress → In Staging → Ready for Prod → Done."
 
 [[links]]
 label = "GitHub repository"

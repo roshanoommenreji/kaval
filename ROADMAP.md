@@ -26,7 +26,7 @@ Guardrails before anything that can cost money.
 - [x] Architecture diagrams — `architecture.toml`, system + journey + delivery views
 - [x] ADR-0004 environment strategy and promotion path
 - [x] ADR-0005 data durability and staging seeding
-- [ ] Jira Cloud free tier, project `KAV`, 9 epics
+- [x] Jira Cloud free tier, project `KAV`, 10 epics
 - [x] **Fix AWS credentials** — new IAM user, MFA, named profile
 - [ ] `terraform apply` the budget module and fire a test alert
 
