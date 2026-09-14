@@ -108,7 +108,9 @@ Every unit of work, before it counts as finished:
 7. **Deployed to `staging` and verified before `prod`.** Never straight to prod, ever.
 
 `docs/runbooks/` is dual-purpose: human documentation *and* the corpus the agent retrieves from.
-Writing a runbook improves the product, not just the docs.
+Writing a runbook improves the product, not just the docs. If a runbook is added or changed, rerun
+`python scripts/publish-confluence.py` so the Confluence mirror doesn't go stale — the repo copy
+stays authoritative; Confluence is a generated, human-facing view over it, never hand-edited there.
 
 ---
 

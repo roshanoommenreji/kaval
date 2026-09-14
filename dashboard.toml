@@ -70,6 +70,11 @@ url   = "https://roshanoommenreji.atlassian.net/jira/software/projects/KAV/board
 note  = "Ten epics (KAV-5..14), one per phase. Workflow: To Do → In Definition → In Review → Ready → In Progress → In Staging → Ready for Prod → Done."
 
 [[links]]
+label = "Confluence — Kaval space"
+url   = "https://roshanoommenreji.atlassian.net/wiki/spaces/KAV/overview"
+note  = "Project home, decisions log, runbooks, session notes. Published from the repo — rerun `python scripts/publish-confluence.py` after any change."
+
+[[links]]
 label = "GitHub repository"
 url   = ""
 note  = "Private until v1."
