@@ -660,7 +660,10 @@ section{margin-top:44px}
 .ladder{display:flex; flex-direction:column; gap:1px; background:var(--rule);
         border:1px solid var(--rule); border-radius:6px; overflow:hidden}
 .ph{background:var(--surface); padding:13px 16px; display:grid;
-    grid-template-columns:34px 1fr 132px 74px; gap:14px; align-items:center}
+    grid-template-columns:34px 1fr 132px 74px; gap:14px; align-items:center;
+    list-style:none; cursor:pointer}
+.ph::-webkit-details-marker{display:none}
+.ph:hover{background:var(--raised)}
 .ph.now{background:var(--raised); box-shadow:inset 3px 0 0 var(--accent)}
 .ph.done .pname{color:var(--ink-2)}
 .pnum{font-family:"IBM Plex Mono",monospace; font-size:17px; font-weight:500;
@@ -997,7 +1000,14 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
         pill_cls = pill.replace("-", "")
         lrn = by_num.get(p.num)
         lnk = f'<a class="learn-link" href="#phase-{p.num}">Learn</a>' if lrn else ""
-        rows.append(f"""  <div class="{cls}">
+        tasks = "\n".join(
+            f'      <li class="{"ok" if ok else ""}"><span class="box">{"[x]" if ok else "[ ]"}</span>'
+            f"<span>{md_inline(t)}</span></li>"
+            for ok, t in p.tasks
+        )
+        open_attr = " open" if p is current else ""
+        rows.append(f"""  <details{open_attr}>
+  <summary class="{cls}">
     <div class="pnum">{p.num}</div>
     <div>
       <div class="pname">{e(p.title)}</div>
@@ -1005,23 +1015,18 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
     </div>
     <div class="barwrap"><div class="bar"><span style="width:{p.pct}%"></span></div></div>
     <div class="ptally">{p.done}/{p.total}</div>
-  </div>""")
-        if p is current:
-            tasks = "\n".join(
-                f'      <li class="{"ok" if ok else ""}"><span class="box">{"[x]" if ok else "[ ]"}</span>'
-                f"<span>{md_inline(t)}</span></li>"
-                for ok, t in p.tasks
-            )
-            rows.append(f"""  <div class="detail">
+  </summary>
+  <div class="detail">
     <ul class="tasks">
 {tasks}
     </ul>
     <div class="gate"><b>Exit gate</b>{md_inline(p.exit_gate)}</div>
-  </div>""")
+  </div>
+  </details>""")
 
     parts.append(f"""
 <section>
-  <div class="sec-head"><div class="eyebrow">Sequential · gated</div><h2>Phases</h2>
+  <div class="sec-head"><div class="eyebrow">Sequential · gated · click a phase to expand</div><h2>Phases</h2>
     <div class="count">{done_tasks}/{total_tasks} tasks</div></div>
   <div class="ladder">
 {chr(10).join(rows)}
