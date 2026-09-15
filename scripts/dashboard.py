@@ -1000,6 +1000,11 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
         pill_cls = pill.replace("-", "")
         lrn = by_num.get(p.num)
         lnk = f'<a class="learn-link" href="#phase-{p.num}">Learn</a>' if lrn else ""
+        plinks = cfg.get("phase_links", {}).get(str(p.num), {})
+        if plinks.get("jira"):
+            lnk += f' <a class="learn-link" href="{e(plinks["jira"])}" target="_blank" rel="noopener">Jira</a>'
+        if plinks.get("confluence"):
+            lnk += f' <a class="learn-link" href="{e(plinks["confluence"])}" target="_blank" rel="noopener">Wiki</a>'
         tasks = "\n".join(
             f'      <li class="{"ok" if ok else ""}"><span class="box">{"[x]" if ok else "[ ]"}</span>'
             f"<span>{md_inline(t)}</span></li>"
