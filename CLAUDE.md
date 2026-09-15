@@ -106,11 +106,22 @@ Every unit of work, before it counts as finished:
 5. Cost impact noted in `docs/cost/` if spend changed
 6. `architecture.toml` updated **if a component was added, removed or rewired** — the diagram grows because this is a gate, not because anyone remembers
 7. **Deployed to `staging` and verified before `prod`.** Never straight to prod, ever.
+8. **Jira reflects reality** — the relevant story/epic transitioned to its true status (Done,
+   In Progress, whatever actually happened), its acceptance criteria checked off to match, without
+   being asked. A Jira board that lags the repo is worse than no board.
+9. **Dashboard and Confluence regenerated and republished** if anything they derive from changed —
+   `python scripts/dashboard.py` (then republish the artifact) and
+   `python scripts/publish-confluence.py`. Both are generated mirrors of the repo; a stale mirror
+   that looks current is a worse failure than an honestly empty one, so this happens as part of
+   finishing the work, not as a separate favor when asked.
 
-`docs/runbooks/` is dual-purpose: human documentation *and* the corpus the agent retrieves from.
-Writing a runbook improves the product, not just the docs. If a runbook is added or changed, rerun
-`python scripts/publish-confluence.py` so the Confluence mirror doesn't go stale — the repo copy
-stays authoritative; Confluence is a generated, human-facing view over it, never hand-edited there.
+This is not "check in occasionally" — it means: after every meaningful change, before considering
+the turn finished, actually run the regeneration commands and actually touch the Jira issue, the
+same way `git commit` isn't optional just because no one asked for this specific commit.
+
+`docs/runbooks/` and `docs/labs/` are dual-purpose: human documentation *and*, for runbooks, the
+corpus the agent retrieves from. Writing either improves the product, not just the docs — which is
+exactly why item 9 isn't optional when they change.
 
 ---
 
