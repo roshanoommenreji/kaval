@@ -10,7 +10,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ---
 
-## Phase 0 — Foundations · weeks 1–2 · `[~]`
+## Phase 0 — Foundations · weeks 1–2 · `[x]`
 
 Guardrails before anything that can cost money.
 
@@ -20,7 +20,7 @@ Guardrails before anything that can cost money.
 - [x] ADR-0001 record decisions · ADR-0002 k3s + EKS · ADR-0003 region
 - [x] `.gitignore`, `.gitattributes`, `.env.example`, gitleaks pre-commit hook
 - [x] `git init` + first commit
-- [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24 *(written, not applied)*
+- [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24, applied 2026-09-15
 - [x] Progress dashboard — `scripts/dashboard.py`, derived from this file
 - [x] Learning layer — a concept page per phase in `docs/learn/`
 - [x] Architecture diagrams — `architecture.toml`, system + journey + delivery views
@@ -28,9 +28,12 @@ Guardrails before anything that can cost money.
 - [x] ADR-0005 data durability and staging seeding
 - [x] Jira Cloud free tier, project `KAV`, 10 epics
 - [x] **Fix AWS credentials** — new IAM user, MFA, named profile
-- [ ] `terraform apply` the budget module and fire a test alert
+- [x] `terraform apply` the budget module and fire a test alert
 
-**Exit gate:** `terraform apply` has created only a budget alarm, and it demonstrably fires.
+**Exit gate:** `terraform apply` has created only a budget alarm, and it demonstrably fires. ✅
+10 resources created (SNS topic, policy, 2 subscriptions, budget, IAM role, IAM role policy,
+Lambda, permission, log group) — nothing billable. Lambda invoked manually, CloudWatch log
+confirms `dry_run=True`, correct warning message. **Phase 0 complete 2026-09-15.**
 
 ---
 

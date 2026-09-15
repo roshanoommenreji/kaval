@@ -9,6 +9,11 @@ absorb one mistake.
 
 ## Guardrails (Phase 0 — built before any compute exists)
 
+**Status: applied and proven, 2026-09-15.** `terraform apply` created 10 resources (SNS topic +
+policy, 2 subscriptions, the budget, IAM role + policy, the Lambda, its permission, and a log
+group) — nothing billable. The Lambda was invoked manually; the CloudWatch log confirms it ran
+with `dry_run=True` and the correct "nothing to scale" warning, since no compute exists yet.
+
 | Trigger | Action |
 |---|---|
 | MTD ≥ $18 | Email alert |

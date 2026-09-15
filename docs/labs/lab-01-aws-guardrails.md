@@ -166,6 +166,14 @@ Read the log to confirm it actually ran:
 aws logs tail "/aws/lambda/$FN" --profile kaval --since 5m
 ```
 
+**On Windows Git Bash**, this fails with a confusing `InvalidParameterException` about the
+`logGroupName` regex, even though the string is clean — the actual cause is MSYS silently
+rewriting a leading-`/` argument into a Windows path before it reaches `aws.exe`. Fix:
+
+```bash
+MSYS_NO_PATHCONV=1 aws logs tail "/aws/lambda/$FN" --profile kaval --since 5m
+```
+
 ---
 
 ## Step 8 — Set a calendar reminder
