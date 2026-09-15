@@ -123,6 +123,28 @@ def md_to_adf(md: str) -> list[dict]:
             content.append({"type": "heading", "attrs": {"level": level}, "content": inline(m.group(2))})
             i += 1
             continue
+        if line.strip().startswith("|") and line.strip().endswith("|"):
+            table_lines = []
+            while i < len(lines) and lines[i].strip().startswith("|"):
+                table_lines.append(lines[i])
+                i += 1
+            rows = [[c.strip() for c in ln.strip().strip("|").split("|")] for ln in table_lines]
+            # second row is the `---|---` separator -- drop it, it carries no content
+            if len(rows) > 1 and all(re.match(r"^:?-+:?$", c) for c in rows[1]):
+                header, body = rows[0], rows[2:]
+            else:
+                header, body = rows[0], rows[1:]
+            table_rows = [{
+                "type": "tableRow",
+                "content": [{"type": "tableHeader", "content": [{"type": "paragraph", "content": inline(c)}]} for c in header],
+            }]
+            for r in body:
+                table_rows.append({
+                    "type": "tableRow",
+                    "content": [{"type": "tableCell", "content": [{"type": "paragraph", "content": inline(c)}]} for c in r],
+                })
+            content.append({"type": "table", "attrs": {"layout": "default"}, "content": table_rows})
+            continue
         if line.startswith("> "):
             quote_lines = []
             while i < len(lines) and lines[i].startswith("> "):
@@ -271,6 +293,7 @@ def main() -> None:
             "Requirements & Scope -- what this project is and isn't",
             "Decisions Log -- one line per ADR, links to the full record in-repo",
             "Runbooks -- published from docs/runbooks/, for troubleshooting without repo access",
+            "Labs -- published from docs/labs/, what got built, where to verify it, and why",
             "Meeting / Session Notes -- native to this space, not duplicated anywhere",
             "Release Notes -- links to each generated release record once releases begin",
         ]),
@@ -331,6 +354,26 @@ def main() -> None:
         body_md = "\n".join(f.read_text(encoding="utf-8").splitlines()[1:])
         adf = doc(md_to_adf(body_md))
         upsert_page(space_id, f"Runbook -- {title}", adf, runbooks_id)
+
+    # ── Labs (parent + one child per file) ──────────────────────────────
+    # Same reasoning as Runbooks: docs/labs/ is what makes a step reproducible
+    # from zero, and is dual-purpose the same way -- a human doing the step,
+    # and a record of exactly what got created and why, for later reference.
+    labs_home = doc(
+        p("Published from docs/labs/ in the repo -- the repo copy is authoritative. Each lab is "
+          "written to be reproducible by a stranger from zero, and doubles as a reference for "
+          "what actually got created and why."),
+        h(2, "Available labs"),
+    )
+    lab_files = sorted(f for f in (ROOT / "docs/labs").glob("*.md") if f.name != "README.md")
+    labs_home["content"].append(bullets([f.stem.replace("-", " ") for f in lab_files]) if lab_files else p("None published yet."))
+    labs_id = upsert_page(space_id, "Labs", labs_home, home_id)
+
+    for f in lab_files:
+        title = f.read_text(encoding="utf-8").splitlines()[0].lstrip("# ").strip()
+        body_md = "\n".join(f.read_text(encoding="utf-8").splitlines()[1:])
+        adf = doc(md_to_adf(body_md))
+        upsert_page(space_id, f"Lab -- {title}", adf, labs_id)
 
     # ── Meeting / Session Notes ──────────────────────────────────────────
     # Derived from docs/journal/*.md, newest first -- same source the dashboard

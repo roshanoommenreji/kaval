@@ -176,6 +176,29 @@ MSYS_NO_PATHCONV=1 aws logs tail "/aws/lambda/$FN" --profile kaval --since 5m
 
 ---
 
+## What actually got created, and why each piece exists
+
+Ten resources, all in `ap-south-1` (check the console's region selector — an empty list there
+usually means you're looking at the wrong region, not that nothing was created).
+
+| Resource | Console location | What it's for |
+|---|---|---|
+| SNS Topic `kaval-budget-alarm` | **SNS** → Topics | The single channel every alert flows through. Budgets publishes here; anyone or anything subscribed gets a copy — that decoupling is why the same threshold breach can reach both an inbox and a Lambda without either knowing the other exists. |
+| SNS Topic Policy | Same topic page → Access policy tab | Grants `budgets.amazonaws.com` permission to publish to the topic. Without it, AWS Budgets could not deliver its alerts here at all. |
+| SNS Subscription — email | **SNS** → Subscriptions | You, the human in the loop, for this specific alarm. Inert until confirmed — see the note above about `PendingConfirmation`. |
+| SNS Subscription — Lambda | Same place | The machine in the loop. Fires automatically on every threshold breach, no confirmation needed for this protocol. |
+| Budget `kaval-monthly` | **Billing and Cost Management** → Budgets | The actual $25 ceiling and its four thresholds ($18, $22, $24 actual; $25 forecasted). This is what AWS evaluates daily against real spend — everything else exists to react to what this decides. |
+| IAM Role `kaval-budget-hard-stop` | **IAM** → Roles | The identity the Lambda runs as. Deliberately narrow — see the policy below — rather than reusing a broad role out of convenience. |
+| IAM Role Policy (inline) | Same role → Permissions tab | Exactly two permission groups: `autoscaling:*` (to zero out an ASG later) and `logs:*` (so it can write its own audit trail). Cannot touch billing, cannot touch IAM, cannot touch anything outside its one job. |
+| Lambda Function `kaval-budget-hard-stop` | **Lambda** → Functions | The actual hard stop. Ships disarmed (`DRY_RUN=true`, no ASG target) on purpose — Phase 0 has nothing to protect yet, so the safe behaviour is a no-op that still proves the path works. |
+| Lambda Permission (resource-based) | Same function → Configuration → Permissions tab | The other half of the SNS→Lambda link — grants SNS itself permission to invoke the function. The subscription alone isn't enough; both sides have to agree. |
+| CloudWatch Log Group `/aws/lambda/kaval-budget-hard-stop` | **CloudWatch** → Log groups | Where every invocation's reasoning ends up — "why did/didn't I scale anything down." Retention set to 14 days explicitly; the default is *never expire*, which is its own slow, silent cost. |
+
+This table is also in `KAV-18` (Jira) and the Confluence Labs section — same content, generated
+from this file, not retyped by hand.
+
+---
+
 ## Step 8 — Set a calendar reminder
 
 Monthly, on the 1st: run `make cost-report` and record actuals in `docs/cost/actuals/`.
