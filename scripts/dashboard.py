@@ -730,6 +730,16 @@ section{margin-top:44px}
 .links .dead .lab::after{content:" — not yet created"; font-family:"IBM Plex Mono",monospace;
                          font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--warn)}
 
+/* ── architecture entry cards ─────────────────────────── */
+.archcards{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px}
+.archcard{display:block; text-decoration:none; background:var(--surface); border:1px solid var(--rule-strong);
+  border-top:3px solid var(--accent); border-radius:6px; padding:16px 17px; transition:border-color .1s}
+.archcard:hover{border-color:var(--accent); background:var(--accent-soft)}
+.archcard .at{font-size:15px; font-weight:600; color:var(--ink)}
+.archcard .ad{font-size:12.5px; color:var(--ink-2); margin-top:5px; line-height:1.5}
+.archcard .as{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--ink-3);
+  margin-top:11px; padding-top:10px; border-top:1px solid var(--rule)}
+
 /* ── learn: link on a phase row ────────────────────────── */
 .learn-link{font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:500;
   letter-spacing:.09em; text-transform:uppercase; text-decoration:none;
@@ -950,6 +960,29 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
     else:
         parts.append("""
 <section><div class="blockers clear"><h2>Nothing blocked</h2></div></section>""")
+
+    # ── architecture entry cards ──
+    arch_cards = [
+        ("system", "System topology", "What exists and what talks to what — every credential and data flow, labelled."),
+        ("journey", "Incident journey", "One incident, every branch: policy never/ask/auto, escalation, human decision, outcome."),
+        ("delivery", "Delivery pipeline", "PR → CI → staging → gate → prod → verify, with the rollback path."),
+    ]
+    cards_html = []
+    for view, title, desc in arch_cards:
+        ns = arch.get(view, {}).get("node", [])
+        built = sum(1 for n in ns if _status_for(n.get("phase"), phases) == "built")
+        cards_html.append(f"""  <a class="archcard" href="#{view}">
+    <div class="at">{e(title)}</div>
+    <div class="ad">{e(desc)}</div>
+    <div class="as">{len(ns)} nodes · {built} built</div>
+  </a>""")
+    parts.append(f"""
+<section>
+  <div class="sec-head"><div class="eyebrow">What the thing actually is</div><h2>Architecture</h2></div>
+  <div class="archcards">
+{chr(10).join(cards_html)}
+  </div>
+</section>""")
 
     # ── phase ladder ──
     rows = []

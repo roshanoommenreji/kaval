@@ -16,7 +16,9 @@ secrets.yml
 
 # ─── terraform ─────────────────────────────────────────────
 .terraform/
-.terraform.lock.hcl
+# .terraform.lock.hcl is intentionally NOT ignored -- it pins exact provider
+# versions for reproducibility, and Terraform's own init output recommends
+# committing it. Ignoring it was backwards; fixed 2026-09-15.
 *.tfstate
 *.tfstate.*
 *.tfvars
@@ -25,6 +27,7 @@ crash.log
 crash.*.log
 tfplan
 *.tfplan
+.build/
 
 # ─── python ────────────────────────────────────────────────
 __pycache__/
