@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-09-09
 - **Deciders:** Roshan
+- **Amended by:** [ADR-0008](0008-production-database-on-its-own-server.md) (2026-09-26): staging and prod each get their own database server from the same module. Dev keeps Postgres in a container on the dev server. That is a *placement* difference, not an engine one (same `pgvector/pgvector:pg16` image everywhere), so the parity rule holds. The $25 ceiling cited below is now $40.
 
 ## Context
 

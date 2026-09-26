@@ -49,8 +49,9 @@ module "budget" {
   asg_name          = ""
   hard_stop_dry_run = true
 
-  # Armed 2026-09-26 (KAV-30): at $24 the Lambda stops every running Project=kaval
-  # instance outside an ASG -- today, the dev server (ADR-0007). Stop, not terminate.
+  # Armed 2026-09-26 (KAV-30): at the hard-stop threshold ($38 since ADR-0008) the Lambda stops every running Project=kaval
+  # instance outside an ASG -- today, the dev server (ADR-0007); from Phase 4 also the
+  # database server (ADR-0008). Stop, not terminate.
   stop_tagged_instances = true
 }
 

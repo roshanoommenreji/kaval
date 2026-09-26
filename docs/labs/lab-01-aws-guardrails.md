@@ -187,7 +187,7 @@ usually means you're looking at the wrong region, not that nothing was created).
 | SNS Topic Policy | Same topic page → Access policy tab | Grants `budgets.amazonaws.com` permission to publish to the topic. Without it, AWS Budgets could not deliver its alerts here at all. |
 | SNS Subscription — email | **SNS** → Subscriptions | You, the human in the loop, for this specific alarm. Inert until confirmed — see the note above about `PendingConfirmation`. |
 | SNS Subscription — Lambda | Same place | The machine in the loop. Fires automatically on every threshold breach, no confirmation needed for this protocol. |
-| Budget `kaval-monthly` | **Billing and Cost Management** → Budgets | The actual $25 ceiling and its four thresholds ($18, $22, $24 actual; $25 forecasted). This is what AWS evaluates daily against real spend — everything else exists to react to what this decides. |
+| Budget `kaval-monthly` | **Billing and Cost Management** → Budgets | The monthly ceiling and its four thresholds: $40, with $30, $35, $38 actual and $40 forecasted since 2026-09-26 ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)). Phase 0 built it at $25, with $18, $22, $24 and $25. This is what AWS evaluates daily against real spend — everything else exists to react to what this decides. |
 | IAM Role `kaval-budget-hard-stop` | **IAM** → Roles | The identity the Lambda runs as. Deliberately narrow — see the policy below — rather than reusing a broad role out of convenience. |
 | IAM Role Policy (inline) | Same role → Permissions tab | Exactly two permission groups: `autoscaling:*` (to zero out an ASG later) and `logs:*` (so it can write its own audit trail). Cannot touch billing, cannot touch IAM, cannot touch anything outside its one job. |
 | Lambda Function `kaval-budget-hard-stop` | **Lambda** → Functions | The actual hard stop. Ships disarmed (`DRY_RUN=true`, no ASG target) on purpose — Phase 0 has nothing to protect yet, so the safe behaviour is a no-op that still proves the path works. **Since 2026-09-26 it also stops running `Project=kaval` servers outside an ASG, armed for real.** See "Arming the hard stop for standalone servers" below |
@@ -262,6 +262,55 @@ lesson: re-check a control after the fact, don't assume it stayed put.
 
 ---
 
+## Raising the ceiling to $40 (added 2026-09-26, `KAV-31`)
+
+When the production database moved to its own server
+([ADR-0008](../adr/0008-production-database-on-its-own-server.md)), prod's steady state rose from
+~$14 to ~$28 a month, so the ceiling rose with it. Changing a budget is a small Terraform change,
+but it goes to **prod**, so the plan is read before anything is applied.
+
+In `infra/envs/prod/terraform.tfvars`:
+
+```hcl
+monthly_limit_usd = 40   # was 25
+alert_1_usd       = 30   # was 18
+alert_2_usd       = 35   # was 22
+hard_stop_usd     = 38   # was 24
+```
+
+```bash
+terraform plan -out=budget.tfplan
+```
+
+The plan must read **`0 to add, 1 to change, 0 to destroy`**, and the one change must be
+`module.budget.aws_budgets_budget.monthly`. The notifications show as removed and re-added,
+because Terraform stores them as a set and any change to a member replaces it. That's expected.
+The four new values are 30, 35 and 38 (actual) and 40 (forecasted). Anything else in the plan is
+a reason to stop.
+
+```bash
+terraform apply budget.tfplan
+terraform plan -detailed-exitcode   # exit 0 = no drift
+```
+
+Then check it from AWS's side, not Terraform's:
+
+```bash
+ACCT=$(aws sts get-caller-identity --query Account --output text)   # keep it in the shell, never in a file
+aws budgets describe-budget --account-id "$ACCT" --budget-name kaval-monthly   --query 'Budget.BudgetLimit'
+aws budgets describe-notifications-for-budget --account-id "$ACCT" --budget-name kaval-monthly   --query 'Notifications[].[NotificationType,Threshold]' --output text
+```
+
+2026-09-26 result: limit `40.0 USD`; `ACTUAL 30`, `ACTUAL 35`, `ACTUAL 38`, `FORECASTED 40`.
+The email and Lambda SNS subscriptions were both still confirmed.
+
+**Then re-fire the hard stop**, because a budget edit replaces the notifications that feed SNS,
+and "it probably still works" is exactly the assumption this lab exists to kill. With the dev
+server started, the Lambda invoked by hand returned `instances: stopped`, and the server was
+stopped within about 10 seconds.
+
+---
+
 ## Done when
 
 - [ ] `aws sts get-caller-identity --profile kaval` succeeds
@@ -274,6 +323,7 @@ lesson: re-check a control after the fact, don't assume it stayed put.
 - [ ] Monthly cost-review reminder set
 - [ ] Journal entry appended
 - [ ] Jira story moved to Done
+- [ ] *(2026-09-26 addition)* Ceiling raised to $40 with alerts at $30 / $35 and hard stop at $38, verified from AWS, hard stop re-fired
 
 ---
 

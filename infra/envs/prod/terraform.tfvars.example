@@ -5,7 +5,7 @@ region      = "ap-south-1"
 profile     = "kaval"
 alert_email = "you@example.com"
 
-monthly_limit_usd = 25
-alert_1_usd       = 18
-alert_2_usd       = 22
-hard_stop_usd     = 24
+monthly_limit_usd = 40
+alert_1_usd       = 30
+alert_2_usd       = 35
+hard_stop_usd     = 38

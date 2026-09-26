@@ -16,7 +16,7 @@ Roughly 70% of the hard-skills bar for both roles:
 | Skill | Where Kaval covers it |
 |---|---|
 | Kubernetes ops, Helm, multi-env promotion | k3s, umbrella chart, `local → staging → prod` with digest pinning |
-| Cloud + IaC under real constraints | Terraform modules/envs; the $25/mo ceiling forces the same trade-off reasoning FDEs use daily (Graviton/arm64, no NAT GW, ephemeral EKS) |
+| Cloud + IaC under real constraints | Terraform modules/envs; the $40/mo ceiling forces the same trade-off reasoning FDEs use daily (Graviton/arm64, no NAT GW, ephemeral EKS) |
 | LLM integration | Self-hosted Gemma, Pydantic-validated output, runbook RAG, Bedrock escalation |
 | Safe agent design | Read-only `agent` vs. scoped `executor`, human-in-the-loop, evidence-gated autonomy |
 | Release engineering | Build-once-promote-artifact, `promote.yml` gate, gitleaks, clean history |

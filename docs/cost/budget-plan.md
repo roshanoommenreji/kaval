@@ -1,9 +1,11 @@
 # Budget plan
 
-**Ceiling: $25/month.** Enforced by the system against itself, not by discipline.
+**Ceiling: $40/month.** Enforced by the system against itself, not by discipline. Raised from
+$25 on 2026-09-26, when the production database moved to its own server
+([ADR-0008](../adr/0008-production-database-on-its-own-server.md)).
 
-Total projected cost for the whole project, Aug 2026 → Mar 2027: **~$52**. Budget **$70** to
-absorb one mistake.
+Total projected cost for the whole project, Aug 2026 → Mar 2027: **~$110**. The budget is the
+**$140 AWS credit** (expires 2027-09-11), which leaves ~$30 to absorb a mistake.
 
 ---
 
@@ -16,9 +18,14 @@ with `dry_run=True` and the correct "nothing to scale" warning, since no compute
 
 | Trigger | Action |
 |---|---|
-| MTD ≥ $18 | Email alert |
-| MTD ≥ $22 | Second email alert |
-| MTD ≥ $24 | Lambda scales the ASG to zero (from Phase 4; dry-run until then) **and stops every running `Project=kaval` server outside an ASG**, e.g. the dev server. Armed and fired for real 2026-09-26 (`KAV-30`) |
+| MTD ≥ $30 | Email alert |
+| MTD ≥ $35 | Second email alert |
+| MTD ≥ $38 | Lambda scales the ASG to zero (from Phase 4; dry-run until then) **and stops every running `Project=kaval` server outside an ASG**, e.g. the dev server and, from Phase 4, the database server. Armed and fired for real 2026-09-26 (`KAV-30`) |
+| Forecast ≥ $40 | Email alert that the month is heading over the ceiling |
+
+Thresholds were $18 / $22 / $24 / $25 until 2026-09-26. They moved to $30 / $35 / $38 / $40 with
+the ceiling (ADR-0008). The first alert sits at $30 rather than lower because the always-on
+steady state is now ~$28, and an alert that fires on normal spend trains you to ignore it.
 
 This ordering is deliberate. The thing that stops the bill was provisioned and tested *before* the
 first thing that could create one.
@@ -61,9 +68,20 @@ indefinitely and resumes without loss.
 | Bedrock escalations (light use) | 1.50 |
 | Jev risk rating — TypeSafe API, ~12M input tokens ([ADR-0006](../adr/0006-jev-as-proposal-risk-rater.md)) | 0.50 |
 | Data transfer | 1.00 |
-| **Total** | **~$14** |
+| **App node subtotal** | **~$14** |
+| Database server `t4g.small` on-demand, 730 hrs ($0.0112/hr) | 8.18 |
+| Database server root disk, 8 GB gp3 | 0.73 |
+| Database data volume, 20 GB gp3 ($0.0912/GB-month) | 1.82 |
+| Database server public IPv4 ($0.005/hr) | 3.65 |
+| Database EBS snapshots, daily, keep 7 (incremental; price to verify in Phase 4) | ~0.30 |
+| **Total** | **~$28** |
 
-Paused, the same account costs **~$2.20/month** — storage only.
+The database server ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)) is
+**on-demand, never spot**, because a database must not be reclaimable at two minutes' notice.
+Prices are from the AWS Price List API for ap-south-1, 2026-09-26.
+
+Paused, the same account costs **~$4.80/month**: storage only, the app node's ~$2.20 plus the
+database server's two disks (~$2.55).
 
 ---
 
@@ -78,7 +96,13 @@ Paused, the same account costs **~$2.20/month** — storage only.
 | Occasional | EKS lab × 3 | Ephemeral | ~$15 |
 | **Per release** | **staging cluster** | **On demand** | **~$5** |
 | Throughout | Bedrock | — | ~$5 |
-| | | **Total** | **~$67** |
+| Nov 2026–Jan 2027 | 4–6 | **Database server, paused with prod (ADR-0008)** | **~$12** |
+| Feb–Mar 2027 | 7–9 | **Database server, always-on** | **~$29** |
+| Per release | staging database server | On demand | ~$1 |
+| | | **Total** | **~$110** |
+
+The database rows were added on 2026-09-26. The plan that proposed them estimated ~$100–105; the
+itemised sum is ~$110, and ~$110 is the figure used everywhere.
 
 ### The dev server (ADR-0007)
 
@@ -95,14 +119,14 @@ Left running around the clock by mistake, the compute alone would be $16.35/mont
 exists to make that mistake impossible. Behind it, three layers:
 
 1. The **idle stop** on the server itself: 60 minutes with nobody connected.
-2. **Email alerts** at $18 and $22.
-3. The **$24 hard-stop Lambda**, which stops the server automatically (`KAV-30`).
+2. **Email alerts** at $30 and $35 (were $18 and $22 before ADR-0008).
+3. The **$38 hard-stop Lambda** (was $24), which stops the server automatically (`KAV-30`).
 
 The Lambda reacts within hours rather than minutes, because AWS Budgets data lags.
 
 About 3 months of Phases 1–3 at ~$5/month adds ~$15, so the projected total rises from ~$52 to
-~$67. That's still inside the $70 budget-with-buffer, but the buffer shrinks from $18 to $3,
-which is thin. `make devbox-down` at the end of each session is the easiest saving. All of it
+~$67. (That was inside the $70 budget-with-buffer of the time. ADR-0008 later took the
+projection to ~$110 against the $140 credit.) `make devbox-down` at the end of each session is the easiest saving. All of it
 comes out of the $140 of AWS credit (expires 2027-09-11), so the expected out-of-pocket cost is still close to
 zero.
 
@@ -140,11 +164,12 @@ fraction of it.
 | NAT Gateway | $32/mo | Public subnet + security groups |
 | Application Load Balancer | $18/mo | Cloudflare Tunnel (free, HTTPS, no inbound ports) |
 | EKS control plane, persistent | $73/mo | k3s; EKS only as an ephemeral chapter |
-| RDS | $12+/mo | Postgres in-cluster on an EBS PV, nightly dump to S3 |
+| RDS | ~$18/mo Single-AZ, ~$36/mo Multi-AZ | Self-managed Postgres on its own `t4g.small` EC2 server (~$14/mo), snapshots + nightly dump to S3 ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)). Until 2026-09-26 the plan was Postgres inside the app node |
 | GPU instance | $0.30+/hr | CPU inference; Bedrock for anything heavy |
 | On-demand EC2 | $24/mo | Spot at ~$9/mo |
 
-Conventional equivalent of this stack: **~$153/month**. This one: **~$14**.
+Conventional equivalent of this stack: **~$153/month**. This one: **~$28** with the database on
+its own server (~$14 before ADR-0008).
 
 ---
 
@@ -191,8 +216,8 @@ This account is on AWS's newer **Free Plan**, not the classic per-service free t
 | Charging model | Usage draws down the credit balance; nothing bills a card until the credit is spent or the plan expires |
 
 That expiry lines up almost exactly with the project's target finish. In practice this means the
-**entire ~$52 projected spend above is very likely absorbed by this credit alone** — the $25/mo
-ceiling and its Lambda hard-stop stay in force regardless, as an independent guardrail, but the
+**entire ~$52 projected spend (as it stood then) is very likely absorbed by this credit alone** — the monthly
+ceiling (then $25, now $40) and its Lambda hard-stop stay in force regardless, as an independent guardrail, but the
 realistic out-of-pocket exposure for the whole project is close to $0 rather than $52.
 
 ### Corrected 2026-09-26, from Billing → Credits
@@ -208,14 +233,15 @@ credits' life.** The Credits page shows:
 | **Total remaining** | **$140.00** ($0.00 used) | |
 
 The two $20 credits were earned by Phase 0's own work: the hard-stop Lambda and the budget.
-The credit outlives the project's March 2027 target by six months, and the ~$67 projection
-(including the dev server, ADR-0007) leaves about $73 unused. **Expected out-of-pocket cost:
+The credit outlives the project's March 2027 target by six months. The ~$67 projection
+(including the dev server, ADR-0007) left about $73 unused; with the database server
+(ADR-0008) the projection is ~$110, which leaves about $30. **Expected out-of-pocket cost:
 still $0.**
 
 The Free Plan limits EC2 to free-tier sizes, so `t4g.medium` was refused (`InvalidParameterCombination: not eligible for Free Tier`).
 Running it needs the account on the **paid plan**. That upgrade has no fee, keeps these credits,
 and cannot be undone. After it, spend beyond the credit bills the card instead of stopping the
-account, which makes this project's own guardrails (alerts at $18/$22, hard stop at $24, the dev
+account, which makes this project's own guardrails (alerts at $30/$35, hard stop at $38, the dev
 server's idle stop) the only brake.
 
 Re-check this figure periodically — a credit-based plan can behave differently from classic free

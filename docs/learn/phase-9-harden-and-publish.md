@@ -184,7 +184,7 @@ Weak: *"Built an AI-powered Kubernetes automation platform."*
 
 Strong: *"Built an autonomous Kubernetes remediation agent with human-in-the-loop approval —
 self-hosted Gemma 3 on AWS, sub-5-minute MTTR across five injected failure classes, held under
-$25/month against a ~$150 conventional baseline."*
+$40/month against a ~$150 conventional baseline."*
 
 The difference is that the second contains numbers you measured and can defend. The first invites
 "what does powered mean?" — the second invites "how did you measure MTTR?", which is a question

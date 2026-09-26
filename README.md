@@ -114,7 +114,8 @@ and commits work: [docs/contributing.md](docs/contributing.md).
 ## Three rules that shape everything
 
 **1. Cost guardrails exist before compute does.** The budget alarms and the auto-shutdown Lambda
-were the first infrastructure provisioned, before a single container ran. Ceiling is **$25/month**,
+were the first infrastructure provisioned, before a single container ran. Ceiling is **$40/month**
+(raised from $25 by [ADR-0008](docs/adr/0008-production-database-on-its-own-server.md) when the database got its own server),
 enforced by the system against itself.
 
 **2. The agent cannot touch the cluster.** Reasoning is read-only. All mutation flows through the

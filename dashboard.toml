@@ -12,11 +12,14 @@ target_v1   = "2027-03-31"
 phase_count = 10
 
 [cost]
-ceiling_usd        = 25
-projected_total    = 67         # was 52; +$15 for the dev server, ADR-0007
-budget_with_buffer = 70
+ceiling_usd        = 40         # was 25; raised by ADR-0008 (database on its own server)
+projected_total    = 110        # was 52; +$15 dev server (ADR-0007); +$42 database server (ADR-0008)
+budget_with_buffer = 140        # the AWS credit, expires 2027-09-11
+alert_1_usd        = 30         # must match infra/envs/prod/terraform.tfvars
+alert_2_usd        = 35
+hard_stop_usd      = 38
 mtd_usd            = 0.0        # updated from `make cost-report`; 0 while nothing is provisioned
-provisioned        = false
+provisioned        = true       # the dev server (ADR-0007) since 2026-09-26
 
 # Promotion path. `promotion = false` means it is a deployment target but NOT
 # a quality gate — lab-eks proves chart portability, it does not gate anything.
@@ -108,7 +111,7 @@ note  = "Check allowance; see Lab 01."
 [[links]]
 label = "AWS Budgets"
 url   = "https://console.aws.amazon.com/billing/home#/budgets"
-note  = "Alerts at $18 / $22, hard stop at $24."
+note  = "Alerts at $30 / $35, hard stop at $38, ceiling $40 (ADR-0008)."
 
 [[links]]
 label = "Bedrock — model access"

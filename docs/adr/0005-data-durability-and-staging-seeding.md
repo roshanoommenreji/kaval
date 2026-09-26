@@ -4,6 +4,7 @@
 - **Date:** 2026-09-09
 - **Deciders:** Roshan
 - **Amends:** [ADR-0004](0004-environment-strategy-and-promotion.md) — supersedes its "accepted limitation" on staging data
+- **Amended by:** [ADR-0008](0008-production-database-on-its-own-server.md) (2026-09-26): the data volume, the nightly dump and the staging restore now target a dedicated database server. Daily EBS snapshots (DLM, keep 7) and a snapshot before every stop are added alongside the dump. RPO stays 24 h.
 
 ## Context
 

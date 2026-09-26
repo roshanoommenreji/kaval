@@ -10,7 +10,7 @@
 set -euo pipefail
 
 PROFILE="${AWS_PROFILE:-kaval}"
-CEILING="${BUDGET_MONTHLY_USD:-25}"
+CEILING="${BUDGET_MONTHLY_USD:-40}"
 ASSERT=false
 [[ "${1:-}" == "--assert" ]] && ASSERT=true
 
