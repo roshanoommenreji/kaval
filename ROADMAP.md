@@ -62,7 +62,8 @@ The hard, interesting part. Still no AWS.
 - [ ] Context builder: runbook RAG (pgvector) + past incidents + recent changes
 - [ ] JSON-schema-enforced proposal output — the model must not ramble
 - [ ] Policy engine: `auto` / `ask` / `never`, blast-radius classification
-- [ ] Eval harness + 20 golden incidents
+- [ ] Jev risk rating feeding the policy engine ([ADR-0006](docs/adr/0006-jev-as-proposal-risk-rater.md)) — `typesafe-sdk`, pinned version, redaction, rules-only fallback
+- [ ] Eval harness + 20 golden incidents — including Jev calibration vs the rules-only baseline
 - [ ] Bedrock escalation path for low-confidence cases
 - [ ] `docs/learn/phase-2-the-agent-loop.md` — flip **Written from** to `experience`
 

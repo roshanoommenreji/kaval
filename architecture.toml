@@ -142,6 +142,18 @@ inputs = ["Prompt for novel or low-confidence incidents"]
 outputs = ["Completion, token counts, measured cost"]
 note = "Escalation path only. Cost is recorded on both routes, so the saving from cost-aware routing is measured rather than claimed."
 
+[[system.node]]
+id = "jev"
+label = "Jev (TypeSafe API)"
+kind = "external"
+phase = 2
+col = 3
+row = 4
+credentials = "API key · read-only decision call"
+inputs = ["Redacted incident state + proposed action, with typed questions"]
+outputs = ["blast_radius choice, reversible and fit probabilities, input-token cost"]
+note = "Rates risk, never decides it. Its ratings can only make a policy class stricter; never is decided from the action type, and nothing Jev returns promotes ask to auto. If it's unavailable, everything goes to ask. ADR-0006."
+
 # ── row 4: governance ──────────────────────────────────────────────────
 
 [[system.node]]
@@ -356,6 +368,12 @@ kind = "call"
 
 [[system.edge]]
 from = "agent"
+to = "jev"
+label = "rate risk"
+kind = "call"
+
+[[system.edge]]
+from = "agent"
 to = "policy"
 label = "classify actions"
 
@@ -525,7 +543,7 @@ kind = "decision"
 phase = 2
 col = 1
 row = 7
-note = "OPA evaluates each action against blast_radius, reversible and confidence. Everything starts in ask; a class only graduates to auto when the outcome table has evidence, documented in an ADR."
+note = "OPA evaluates each action against blast_radius, reversible and confidence, which Jev rates (ADR-0006) and which can only make a class stricter. Everything starts in ask; a class only graduates to auto when the outcome table has evidence, documented in an ADR."
 
 [[journey.node]]
 id = "j-never"
