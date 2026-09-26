@@ -96,8 +96,8 @@ note  = "Project home, decisions log, runbooks, session notes. Published from th
 
 [[links]]
 label = "GitHub repository"
-url   = ""
-note  = "Private until v1."
+url   = "https://github.com/roshanoommenreji/kaval"
+note  = "Private until v1, public in Phase 9."
 
 [[links]]
 label = "AWS Billing — free tier"
