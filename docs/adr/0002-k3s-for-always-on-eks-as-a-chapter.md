@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-22
 - **Deciders:** Roshan
+- **Amended by:** [ADR-0008](0008-production-database-on-its-own-server.md) (2026-09-26): Postgres moves off the k3s node onto its own EC2 server from Phase 4, and the ceiling rises from $25 to $40. The k3s-vs-EKS decision itself stands.
 
 ## Context
 

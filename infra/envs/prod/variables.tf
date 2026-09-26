@@ -16,21 +16,22 @@ variable "alert_email" {
 }
 
 variable "monthly_limit_usd" {
-  type    = number
-  default = 25
+  description = "Raised from 25 to 40 on 2026-09-26 by ADR-0008 (database on its own server)."
+  type        = number
+  default     = 40
 }
 
 variable "alert_1_usd" {
   type    = number
-  default = 18
+  default = 30
 }
 
 variable "alert_2_usd" {
   type    = number
-  default = 22
+  default = 35
 }
 
 variable "hard_stop_usd" {
   type    = number
-  default = 24
+  default = 38
 }

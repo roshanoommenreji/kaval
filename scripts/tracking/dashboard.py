@@ -1060,6 +1060,12 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
 
     # ── cost ──
     prov = "Nothing provisioned yet." if not cost.get("provisioned") else "Live."
+    ticks = "".join(
+        f"<span>${cost.get(k, 0):.0f} {label}</span>"
+        for k, label in (("alert_1_usd", "alert"), ("alert_2_usd", "alert"),
+                         ("hard_stop_usd", "hard stop"))
+    )
+    spare = cost["budget_with_buffer"] - cost["projected_total"]
     parts.append(f"""
 <section>
   <div class="sec-head"><div class="eyebrow">Guardrails before compute</div><h2>Cost</h2>
@@ -1067,10 +1073,11 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
   <div class="gauge">
     <div class="top"><span class="amt">${mtd:.2f}</span><span class="of">month to date, of ${ceiling:.0f} ceiling</span></div>
     <div class="track"><span style="width:{pct_cost}%"></span></div>
-    <div class="ticks"><span>$0</span><span>$18 alert</span><span>$22 alert</span><span>$24 hard stop</span></div>
+    <div class="ticks"><span>$0</span>{ticks}</div>
     <p class="costnote">{prov} Projected total for the whole project,
     {started:%b&nbsp;%Y} → {target:%b&nbsp;%Y}: <strong>~${cost["projected_total"]}</strong>;
-    budget <strong>${cost["budget_with_buffer"]}</strong> to absorb one mistake. Phase
+    budget <strong>${cost["budget_with_buffer"]}</strong>, leaving ~${spare} to absorb a
+    mistake. Phase
     {current.num} run posture is <strong>{e(posture.get(str(current.num),{}).get("state","—"))}</strong>
     at {e(posture.get(str(current.num),{}).get("cost","—"))}.</p>
   </div>

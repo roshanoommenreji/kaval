@@ -22,7 +22,10 @@ The full plan lives at `C:\Users\rosha\.claude\plans\i-want-to-do-twinkly-thomps
 
 ## Non-negotiable constraints
 
-### 1. Cost ceiling is $25/month
+### 1. Cost ceiling is $40/month
+
+Raised from $25 on 2026-09-26 by [ADR-0008](docs/adr/0008-production-database-on-its-own-server.md)
+(the production database moved to its own server). Alerts at $30 / $35, hard stop at $38.
 
 Before proposing *any* AWS resource, state its monthly cost. If a change adds recurring spend,
 say so explicitly and update `docs/cost/budget-plan.md`.
@@ -34,7 +37,7 @@ say so explicitly and update `docs/cost/budget-plan.md`.
 | NAT Gateway | $32/mo | Public subnet + security groups |
 | Application Load Balancer | $18/mo | Cloudflare Tunnel |
 | EKS control plane (persistent) | $73/mo | k3s; EKS only in `infra/envs/lab-eks`, ephemeral |
-| RDS | $12+/mo | Postgres in-cluster on an EBS PV |
+| RDS | ~$18+/mo | Decided in [ADR-0008](docs/adr/0008-production-database-on-its-own-server.md): self-managed Postgres on its own `t4g.small` EC2 server (~$14/mo) |
 | GPU instances | $0.30+/hr | CPU inference; Bedrock for heavy lifting |
 | **Always-on staging node** | $11/mo | On-demand staging — `make staging-up`, ~$1/mo |
 
@@ -124,6 +127,13 @@ Every unit of work, before it counts as finished:
    `scripts/tracking/publish-confluence.py`), then republish the artifact. Both are generated mirrors of the repo; a stale mirror
    that looks current is a worse failure than an honestly empty one, so this happens as part of
    finishing the work, not as a separate favor when asked.
+
+10. **Documentation sweep, unasked.** When a fact changes (a price, a limit, a location, a design
+   choice), grep the whole repo for every statement of the old fact (excluding dated journals,
+   which are records of their day) and correct each one in the same change. Then walk every
+   surface: repo docs (ADRs, labs, learn pages, runbooks, cost, roadmap, architecture, repo guide,
+   README), Jira, Confluence, dashboard, vault, GitHub. The end-of-turn summary names the surfaces
+   updated, so a gap is visible without anyone having to ask.
 
 This is not "check in occasionally" — it means: after every meaningful change, before considering
 the turn finished, actually run the regeneration commands and actually touch the Jira issue, the

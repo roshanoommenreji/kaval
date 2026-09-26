@@ -97,7 +97,7 @@ credentials = "per-service roles"
 inputs = ["Writes from collector, agent, gateway and executor"]
 outputs = ["Signals, incidents, runbook embeddings, proposal and outcome history"]
 tables = ["signal", "incident", "proposal", "action", "decision", "execution", "outcome"]
-note = "Append-only. Nothing is updated in place, so the tables ARE the audit trail — which is what makes the ISO 42001 human-oversight claim true rather than aspirational."
+note = "Append-only. Nothing is updated in place, so the tables ARE the audit trail — which is what makes the ISO 42001 human-oversight claim true rather than aspirational. Placement (ADR-0008): a container on the dev server in Phases 1–3; its own t4g.small server (db-host) from Phase 4, never inside the app node. Same pgvector/pgvector:pg16 image everywhere."
 
 # ── row 3: reasoning ───────────────────────────────────────────────────
 
@@ -275,16 +275,28 @@ outputs = ["A k3s cluster, rebuilt from Git in under 5 minutes"]
 note = "ARM/Graviton — every image must be linux/arm64 or it fails at runtime with exec format error. ~$9.20/month on spot against ~$24 on-demand. AWS may reclaim it with two minutes' notice, which chaos-tests the rebuild path continuously and for free."
 
 [[system.node]]
-id = "ebs"
-label = "EBS gp3"
+id = "db-host"
+label = "DB server · t4g.small"
 kind = "platform"
 phase = 4
 col = 1
 row = 8
+credentials = "instance role (SSM only) · no SSH"
+inputs = ["Postgres connections on 5432, only from the app node's security group", "Admin sessions via SSM Session Manager"]
+outputs = ["Postgres 16 + pgvector over TLS", "Daily EBS snapshots and a snapshot before every stop"]
+note = "ADR-0008. On-demand, never spot: a database must not be reclaimable at two minutes' notice. ~$14.40/month always-on. Termination protection on; passwords in SSM Parameter Store. No idle stop, because its user is the app: it stops only with make down, the paused-posture nightly auto-stop, or the $38 hard stop, each taking a snapshot first. Staging gets its own from the same module."
+
+[[system.node]]
+id = "ebs"
+label = "EBS gp3 data volume"
+kind = "platform"
+phase = 4
+col = 1
+row = 9
 credentials = "attached volume"
-inputs = ["Postgres data directory"]
-outputs = ["Durable storage surviving instance termination"]
-note = "Zone-locked, so the ASG must be constrained to the volume's availability zone. On a separate volume from the root, deliberately."
+inputs = ["Postgres data directory on the DB server"]
+outputs = ["Durable storage surviving instance replacement", "DLM snapshots, keep 7"]
+note = "20 GB encrypted gp3, prevent_destroy, same AZ as the app node. Separate from the DB server's root disk, so replacing the instance never touches the data (ADR-0008)."
 
 [[system.node]]
 id = "ecr"
@@ -319,8 +331,8 @@ col = 4.2
 row = 8
 credentials = "autoscaling:UpdateAutoScalingGroup only"
 inputs = ["AWS Budgets threshold breach via SNS"]
-outputs = ["ASG desired capacity set to zero at $24"]
-note = "The first thing built, before any compute existed. Ships with DRY_RUN=true and no target, so the first invocation is a safe no-op that still proves the whole path — budget, SNS, subscription, function, log. Applied and proven 2026-09-15 — 10 resources, full console-location + purpose table in Lab 01. Armed 2026-09-26 (KAV-30) to stop running Project=kaval servers outside an ASG, e.g. the dev server; fired for real and proven."
+outputs = ["ASG desired capacity set to zero at $38", "Project=kaval servers outside an ASG stopped at $38 (dev server; DB server from Phase 4)"]
+note = "The first thing built, before any compute existed. Ships with DRY_RUN=true and no target, so the first invocation is a safe no-op that still proves the whole path — budget, SNS, subscription, function, log. Applied and proven 2026-09-15 — 10 resources, full console-location + purpose table in Lab 01. Armed 2026-09-26 (KAV-30) to stop running Project=kaval servers outside an ASG, e.g. the dev server; fired for real and proven. Thresholds moved to $30/$35/$38 with the $40 ceiling on 2026-09-26 (ADR-0008)."
 
 # ── system edges ───────────────────────────────────────────────────────
 
@@ -437,8 +449,20 @@ kind = "feedback"
 
 [[system.edge]]
 from = "db"
+to = "db-host"
+label = "runs on"
+kind = "platform"
+
+[[system.edge]]
+from = "node"
+to = "db-host"
+label = "5432 · TLS · app SG only"
+kind = "platform"
+
+[[system.edge]]
+from = "db-host"
 to = "ebs"
-label = "PV"
+label = "data volume"
 kind = "platform"
 
 [[system.edge]]
@@ -450,13 +474,19 @@ kind = "platform"
 [[system.edge]]
 from = "guardrail"
 to = "node"
-label = "scale to 0 at $24"
+label = "scale to 0 at $38"
 kind = "platform"
 
 [[system.edge]]
 from = "ecr"
 to = "node"
 label = "arm64 images"
+kind = "platform"
+
+[[system.edge]]
+from = "guardrail"
+to = "db-host"
+label = "snapshot + stop at $38"
 kind = "platform"
 
 

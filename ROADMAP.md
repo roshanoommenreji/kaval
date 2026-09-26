@@ -20,7 +20,7 @@ Guardrails before anything that can cost money.
 - [x] ADR-0001 record decisions · ADR-0002 k3s + EKS · ADR-0003 region
 - [x] `.gitignore`, `.gitattributes`, `.env.example`, gitleaks pre-commit hook
 - [x] `git init` + first commit
-- [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24, applied 2026-09-15
+- [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24, applied 2026-09-15 (now $30/$35/$38 with the $40 ceiling, ADR-0008)
 - [x] Progress dashboard — `scripts/tracking/dashboard.py`, derived from this file
 - [x] Learning layer — a concept page per phase in `docs/learn/`
 - [x] Architecture diagrams — `architecture.toml`, system + journey + delivery views
@@ -43,7 +43,8 @@ Prove the loop on the AWS dev server ([ADR-0007](docs/adr/0007-develop-on-an-aws
 changed from "the laptop" on 2026-09-26). About $5/month, and it stops itself when idle.
 
 - [x] AWS dev server — `infra/envs/dev`, `t4g.medium`, SSM-only access, idle stop, `make devbox-*` (applied and verified 2026-09-26, Lab 03)
-- [ ] `docker-compose` — Ollama + local model shortlist (Gemma 3 1B · Gemma 4 E2B · Qwen3 1.7B · Llama 3.2 1B), Postgres + pgvector, gateway
+- [x] Decision: production database on its own server, ceiling $25 → $40 ([ADR-0008](docs/adr/0008-production-database-on-its-own-server.md), `KAV-31`; the server itself is built in Phase 4)
+- [ ] `docker-compose` — Ollama + local model shortlist (Gemma 3 1B · Gemma 4 E2B · Qwen3 1.7B · Llama 3.2 1B), Postgres + pgvector, gateway. Model memory is measured **without** Postgres, since prod won't host it on the app node
 - [ ] Synthetic signal generator (fake pod crashes, cost spikes)
 - [x] Data model migrations: signal · incident · proposal · action · decision · execution · outcome
 - [ ] Gateway REST skeleton, health checks, OpenAPI
@@ -98,11 +99,15 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] k3s bootstrap via cloud-init
 - [ ] Flux GitOps reconciliation
 - [ ] Cloudflare Tunnel — no ALB, no NAT Gateway
-- [ ] Postgres PV on EBS + nightly dump to S3 (`scripts/ops/backup.sh`, RPO 24 h)
+- [ ] **Database server** — `infra/modules/database` ([ADR-0008](docs/adr/0008-production-database-on-its-own-server.md), `KAV-32`): `t4g.small` on-demand, separate encrypted 20 GB data volume (`prevent_destroy`), security group allowing 5432 only from the app node, SSM only (no SSH), termination protection, Postgres TLS, passwords in SSM Parameter Store, per-service roles, graceful shutdown (`stop_grace_period: 60s`)
+- [ ] DB backups — DLM daily EBS snapshots (keep 7) + nightly dump to S3 (`scripts/ops/backup.sh`, RPO 24 h)
+- [ ] **Pre-stop snapshot** in every stop path — `make down`, the nightly auto-stop and the hard-stop Lambda (`ec2:CreateSnapshot` scoped to `Project=kaval`)
+- [ ] **Nightly auto-stop** at 02:00 IST while paused — EventBridge Scheduler, switched off by a Terraform variable from Phase 7
+- [ ] **Start-up health check** — `pg_isready` + sanity query on `make up` and at boot; restore the latest pre-stop snapshot **only on failure** (`make db-restore-snapshot`, per the restore runbook)
 - [ ] `scripts/ops/restore.sh` + `anonymise.sql` — staging seeded from a sanitised prod snapshot
 - [ ] **Restore drill** — measured RTO recorded, and `restore-from-backup` runbook verified
 - [ ] `make up` / `make down`
-- [ ] `infra/envs/staging` — second spot node, own VPC, own k3s, 10 GB EBS
+- [ ] `infra/envs/staging` — second spot node, own VPC, own k3s, 10 GB EBS, **plus its own database server** from `infra/modules/database`
 - [ ] `make staging-up` / `staging-down`, self-destruct after 4 idle hours
 - [ ] `release.yml` — build once, push by digest, deploy staging, smoke test, release notes
 - [ ] `promote.yml` — the gate. **Refuses a digest that did not pass staging**
@@ -136,6 +141,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Chaos CronJobs: OOM kill · crashloop · disk fill · latency injection · node drain
 - [ ] Blast-radius containment — chaos confined to a labelled namespace
 - [ ] MTTR measurement and dashboard
+- [ ] Database server monitoring — `postgres_exporter` + `node_exporter` → Prometheus, disk-space alert; SSM Patch Manager schedule; connection and failed-auth logging reviewed (ADR-0008)
 - [ ] Runbooks written for each failure class *(also the agent's RAG corpus)*
 - [ ] `docs/learn/phase-6-chaos-and-proof.md` — flip **Written from** to `experience`
 

@@ -49,7 +49,7 @@ polling loop.
 Parquet, updated a few times a day. Every line item, every resource, every discount applied. It is
 the authoritative source and it is large — millions of rows for a modest account.
 
-For this project Cost Explorer is right: the account has a handful of resources and a $25 ceiling.
+For this project Cost Explorer is right: the account has a handful of resources and a $40 ceiling.
 The CUR is the correct answer at organisational scale, usually queried through Athena. Knowing
 which is which — and that CUR exists at all — is the differentiator in a FinOps conversation.
 

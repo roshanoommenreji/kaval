@@ -106,15 +106,27 @@ budgeted against it.
 |---|---|
 | k3s control plane + system | ~700 MB |
 | Gemma 3 1B (q4) | ~900 MB |
-| Postgres + pgvector | ~250 MB |
 | kaval services (4 × ~120 MB) | ~480 MB |
 | Prometheus (trimmed retention) | ~400 MB |
 | Flux | ~100 MB |
-| **Total** | **~2.8 GB** |
-| Headroom | ~1.2 GB |
+| **Total** | **~2.6 GB** |
+| Headroom | ~1.4 GB |
 
-Choices this forced: Gemma **1B** not 4B; Flux rather than ArgoCD; Prometheus retention trimmed;
-Loki deferred; Postgres in-cluster rather than RDS.
+Postgres + pgvector (~250 MB) is **not** on this node. Since
+[ADR-0008](../adr/0008-production-database-on-its-own-server.md) it runs on its own server:
+
+| Server | Size | Runs | Reached by |
+|---|---|---|---|
+| App node | `t4g.medium` spot, 4 GB | k3s, the services, the local model, Prometheus, Flux | Cloudflare Tunnel (no inbound ports) |
+| Database server | `t4g.small` on-demand, 2 GB | Postgres 16 + pgvector (`pgvector/pgvector:pg16`), 20 GB data volume | Port 5432 from the app node's security group only, TLS; admin via SSM |
+
+Staging gets the same pair from the same modules. In Phases 1–3, Postgres is a container on the
+dev server ([ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md)): same image, different
+placement.
+
+Choices this forced: Gemma **1B** not 4B (the `KAV-22` shortlist is measured without Postgres,
+since prod doesn't host it on the node); Flux rather than ArgoCD; Prometheus retention trimmed;
+Loki deferred; Postgres on its own self-managed server rather than RDS (ADR-0008).
 
 ## Related
 

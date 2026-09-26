@@ -56,7 +56,7 @@ variable "stop_tagged_instances" {
   description = <<-EOT
     When true, the hard stop also STOPS (never terminates) running EC2 instances tagged
     stop_tag_key = stop_tag_value that are not in an Auto Scaling Group, e.g. the dev server.
-    Armed for real, not dry-run: a standalone server has no other automatic brake at $24.
+    Armed for real, not dry-run: a standalone server has no other automatic brake at the hard-stop threshold.
   EOT
   type        = bool
   default     = false

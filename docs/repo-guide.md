@@ -123,8 +123,9 @@ Run `make migrate` to bring a database up to date.
 
 | Path | What it is | Status |
 |---|---|---|
-| `infra/modules/budget/` | Budget alarms at $18 and $22, and a Lambda function that shuts compute down at $24. Built **before** anything that can cost money. `lambda/hard_stop.py` is that function. Today it **stops the dev server** (and any other `Project=kaval` server outside a server group), and it scales the Phase 4 group to zero once that exists | Working, applied and fired for real |
+| `infra/modules/budget/` | Budget alarms at $30 and $35, and a Lambda function that shuts compute down at $38 (raised from $18 / $22 / $24 with the $40 ceiling, ADR-0008). Built **before** anything that can cost money. `lambda/hard_stop.py` is that function. Today it **stops the dev server** (and any other `Project=kaval` server outside a server group), and it scales the Phase 4 group to zero once that exists | Working, applied and fired for real |
 | `infra/modules/devbox/` | The development server: a `t4g.medium` with **no open ports** (reached only through AWS Session Manager) that stops itself after an idle hour. `user_data.sh.tftpl` is its first-boot setup: Docker, your SSH key, the idle-stop timer | Working, applied in AWS (Lab 03) |
+| `infra/modules/database/` | The production **database server**: its own `t4g.small`, a separate encrypted data volume, a firewall that only lets the app server in, daily snapshots and a snapshot before every stop ([ADR-0008](adr/0008-production-database-on-its-own-server.md)). Staging gets one from the same module | Placeholder, Phase 4 (`KAV-32`) |
 | `infra/modules/network/` | The VPC, subnets and firewall rules. No NAT Gateway, which alone would cost $32/month | Placeholder, Phase 4 |
 | `infra/modules/node/` | The single cheap `t4g.medium` spot server that runs k3s | Placeholder, Phase 4 |
 | `infra/modules/ecr/` | Where container images are stored in AWS | Placeholder, Phase 4 |
@@ -169,12 +170,12 @@ Run `make migrate` to bring a database up to date.
 | `docs/future-scope.md` | Ideas deliberately left out of the plan for after v1 | Working |
 | `docs/labs/` | **Step-by-step guides**, one per session, detailed enough for a stranger to repeat from zero. Also mirrored to Confluence | Working (Labs 00–03) |
 | `docs/learn/` | **Concept pages**, one per phase: *why* things work the way they do, glossary, self-check questions, interview answers. Each is marked "written from theory" until the phase is done, then rewritten from experience | Working (all 11 written) |
-| `docs/adr/` | **Architecture Decision Records**: each big decision, why it was made, what was rejected. Numbered, never deleted | Working (0001–0006) |
+| `docs/adr/` | **Architecture Decision Records**: each big decision, why it was made, what was rejected. Numbered, never deleted | Working (0001–0008) |
 | `docs/journal/` | **One dated entry per work session**: what was done, what broke, what's still open. The "Open threads" section of the newest entry feeds the dashboard's Blockers panel | Working |
 | `docs/architecture/overview.md` | How the system fits together, in words and sketches | Working |
 | `docs/architecture/diagrams/` | Exported diagram images. The live diagrams come from `architecture.toml` and appear on the dashboard | Placeholder, Phase 9 |
 | `docs/runbooks/` | **Troubleshooting guides**, one per failure type. Written for humans, **and** the AI agent reads them when diagnosing incidents | Working (1 runbook); more in Phase 6 |
-| `docs/cost/budget-plan.md` | Every expected cost, the $25/month ceiling, and how it's enforced | Working |
+| `docs/cost/budget-plan.md` | Every expected cost, the $40/month ceiling, and how it's enforced | Working |
 | `docs/cost/actuals/` | The real bill, one file per month | Placeholder. Starts with the first real spend, in Phase 4 |
 | `docs/releases/` | A change record for every production release, generated automatically: what changed, who approved it, how to roll back | Format in `README.md`; the first record comes in Phase 4 |
 | `docs/course/outline.md` | The plan for turning the labs into a course or video series | Working |
@@ -186,7 +187,7 @@ Run `make migrate` to bring a database up to date.
 | Path | What it does | Status |
 |---|---|---|
 | **`scripts/ops/`** | **AWS and the database** | |
-| `scripts/ops/cost-report.sh` | Month-to-date AWS spend against the $25 ceiling (`make cost-report`) | Working |
+| `scripts/ops/cost-report.sh` | Month-to-date AWS spend against the $40 ceiling (`make cost-report`) | Working |
 | `scripts/ops/backup.sh` | Nightly database dump to S3 (`make backup`) | Written, not yet run. Needs the production database from Phase 4 |
 | `scripts/ops/restore.sh` | Restores a backup into staging (made anonymous first) or, in an emergency, into production | Written, not yet run (Phase 4) |
 | `scripts/ops/anonymise.sql` | Strips personal and secret data from a copy before staging gets it | Written, not yet run (Phase 4) |

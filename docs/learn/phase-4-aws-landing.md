@@ -19,7 +19,7 @@ overnight cost data, and the ability to hand someone your phone.
 - **k3s bootstrapped by cloud-init** — the node builds itself
 - **Flux** reconciling the cluster from Git
 - **Cloudflare Tunnel** for ingress — no load balancer
-- Postgres on an EBS volume, nightly dump to S3
+- **Postgres on its own database server** (`t4g.small`, on-demand) with a separate EBS data volume, daily snapshots and a nightly dump to S3 ([ADR-0008](../adr/0008-production-database-on-its-own-server.md))
 - `linux/arm64` images
 - `make up` / `make down`
 
@@ -183,11 +183,40 @@ would not be for a high-throughput API is the useful part.
 
 ### Persistence on an ephemeral node
 
-The node can vanish. Postgres cannot.
+The node can vanish. Postgres cannot. So they don't live together.
 
-- The database lives on a **separate EBS volume**, not the root volume, so it survives instance termination and is reattached by the replacement
-- A nightly `pg_dump` to **S3** guards against volume loss and human error
-- EBS is zone-locked, so the ASG must be constrained to the volume's availability zone
+- The database runs on **its own server**, not inside the spot node
+  ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)). It's **on-demand**, because a
+  database must never be reclaimable at two minutes' notice, and the app's memory spikes can't
+  OOM-kill it. Only the app node's security group can reach port 5432, and there's no SSH.
+- Its data sits on a **separate EBS volume**, not the root volume, so replacing the database
+  server never touches the data
+- Daily **EBS snapshots** (Data Lifecycle Manager, keep 7) and a nightly `pg_dump` to **S3** guard
+  against volume loss and human error
+- EBS is zone-locked, so the database server and its volume stay in one availability zone, next
+  to the app node
+
+### Why the database has no idle stop
+
+The dev server stops itself after an hour with nobody connected, because its users are people. A
+database's user is the application, all the time. An idle stop would either never fire or pull the
+database out from under a running app. So the database stops only **deliberately** (`make down`),
+through the **paused-posture nightly stop** (02:00 IST, for a forgotten `make down`), or through
+the **$38 hard stop**. Each path snapshots the data volume first.
+
+Stopping an EC2 instance keeps its EBS volumes, so a normal start resumes from the same disk and
+there is nothing to restore. Three things keep that true:
+
+- **Graceful shutdown.** An EC2 stop sends an ACPI shutdown. systemd stops Docker, Docker sends
+  SIGTERM with a 60 s grace period, and Postgres does a fast shutdown with a checkpoint. If it was
+  cut short anyway, WAL crash recovery replays on start.
+- **A snapshot before every stop**, tagged `Reason=pre-stop`.
+- **A health check on start** (`pg_isready` plus a sanity query). It restores the pre-stop
+  snapshot **only if the check fails**. Restoring on every start would be slower and would throw
+  away good data.
+
+That gives no data loss and a clean resume. It does **not** give uninterrupted service while
+paused, because the app is stopped too. Continuous service is the always-on posture from Phase 7.
 
 **Backups are not verified until you have restored one.** In this project that restore is not a
 lab exercise — `make staging-up` performs it on every release, so the backup is verified several
@@ -215,9 +244,10 @@ protects against volume loss.** They are different failures and one mechanism do
 
 | Mechanism | Protects against | Does not protect against |
 |---|---|---|
-| EBS volume separate from root | Spot reclamation, instance termination | Volume corruption, `DROP TABLE`, AZ loss |
+| Database on its own server | App-node spot reclamation, app memory spikes | Loss of the database server itself |
+| EBS volume separate from root | Instance replacement or termination | Volume corruption, `DROP TABLE`, AZ loss |
 | Nightly `pg_dump` to S3 | Volume loss, human error, AZ loss | The last 24 hours |
-| EBS snapshot | Volume corruption, fast rollback | The gap since the snapshot |
+| EBS snapshot (daily + before every stop) | Volume corruption, fast rollback, a bad stop | The gap since the snapshot |
 
 Knowing which of your mechanisms covers which failure — and being able to say which failure is
 *likely* rather than merely possible — is the difference between a backup strategy and a backup.
@@ -268,6 +298,8 @@ Knowing which of your mechanisms covers which failure — and being able to say 
 | **RTO** | Recovery time objective — how long recovery takes, once measured |
 | **`pg_dump`** | Logical Postgres backup; portable, restorable selectively |
 | **WAL archiving** | Streaming the write-ahead log for point-in-time recovery |
+| **DLM** | Data Lifecycle Manager — AWS's scheduler for EBS snapshots and their retention |
+| **Termination protection** | `disable_api_termination`: the instance refuses a terminate call until it's switched off |
 
 ## Check yourself
 
@@ -281,13 +313,14 @@ Knowing which of your mechanisms covers which failure — and being able to say 
 8. Your EBS volume is in `ap-south-1a` and the ASG spans three zones. What goes wrong?
 9. Which failures does the separate EBS volume protect against, and which does it not? Name the mechanism that covers the rest.
 10. Your RPO is 24 hours and your last dump ran at 02:00. The volume dies at 23:00. What exactly have you lost, and which table hurts most?
+11. Why does the dev server get an idle stop but the database server doesn't? What stops the database instead, and what does each stop path do first?
 
 ## In an interview
 
 **"You ran production on spot instances. Wasn't that risky?"**
 
 > "It was the point. Spot means AWS can take the node with two minutes' notice, so I built for
-> that: all state on a separate EBS volume and in S3, all configuration in Git, an ASG that
+> that: the database on its own on-demand server, all state on EBS and in S3, all configuration in Git, an ASG that
 > replaces the instance, cloud-init that installs k3s, and Flux that reconciles the workloads.
 > The exit gate for the phase was terminating the node by hand and watching it come back in under
 > five minutes. The result is that AWS chaos-tests my recovery path continuously and for free —

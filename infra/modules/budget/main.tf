@@ -3,9 +3,11 @@
 # This module is provisioned BEFORE any compute exists. Nothing here can create
 # a bill; everything here exists to stop one.
 #
-#   $18  -> email
-#   $22  -> email
-#   $24  -> Lambda scales the ASG to zero. The cluster stops.
+#   $30  -> email                (alert_1_usd)
+#   $35  -> email                (alert_2_usd)
+#   $38  -> Lambda scales the ASG to zero and stops standalone Project=kaval
+#           servers (hard_stop_usd). Figures are prod's, set in infra/envs/prod;
+#           $18/$22/$24 until the ceiling rose to $40 (ADR-0008).
 #
 # See docs/cost/budget-plan.md.
 
