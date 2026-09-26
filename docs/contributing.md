@@ -28,12 +28,17 @@ make test && make lint                   # must be green
 git checkout main
 git merge --no-ff feat/KAV-22-docker-compose
 git branch -d feat/KAV-22-docker-compose
+git push                                 # main -> GitHub, the off-laptop copy
 python scripts/tracking/jira-sync.py transition KAV-22 Done
 ```
 
 `--no-ff` keeps a merge commit, so `git log --first-parent main` reads as one line per finished
-story. Once the repo has a GitHub remote, the same branches become pull requests and CI runs on
-them. Nothing else changes.
+story.
+
+The remote is [github.com/roshanoommenreji/kaval](https://github.com/roshanoommenreji/kaval). It
+stays **private until v1**, then goes public in Phase 9. Push after every merge; an unpushed
+commit exists only on one laptop. Once CI exists (`KAV-24`), branches get pushed too and merge
+through pull requests, so the checks run before anything reaches `main`.
 
 ### What there is deliberately no branch for
 
