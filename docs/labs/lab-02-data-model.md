@@ -80,13 +80,13 @@ necessary during this lab (Step 5) rather than added speculatively.
 ## Step 3 — Alembic, pointed at the models
 
 ```bash
-alembic.ini            # script_location = migrations; no sqlalchemy.url — see env.py
+pyproject.toml             # [tool.alembic]: script_location = migrations; no database URL, see env.py
 migrations/env.py          # builds the URL from POSTGRES_* at runtime, imports Base.metadata
 migrations/script.py.mako  # the revision template
 migrations/versions/       # generated migrations live here
 ```
 
-One root cause this avoids: a hardcoded `sqlalchemy.url` in `alembic.ini` would be a second place
+One root cause this avoids: a hardcoded `sqlalchemy.url` in the Alembic config would be a second place
 a connection string could drift from what the services actually use. `env.py` calls the same
 `database_url()` function `db.py` uses, so there is exactly one place a Postgres URL is assembled.
 

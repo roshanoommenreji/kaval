@@ -101,7 +101,10 @@ branches. See [docs/contributing.md](docs/contributing.md).
 
 **Where things go** — the README's repository map is authoritative. Scripts are split by what
 they touch: `scripts/ops/` (AWS, database), `scripts/tracking/` (Jira, Confluence, dashboard),
-`scripts/dev/` (local setup). Migrations live in `migrations/`. `docs/repo-guide.md` explains
+`scripts/dev/` (local setup). Migrations live in `migrations/`. **The top level holds only files a
+tool requires there** (README, CLAUDE.md, ROADMAP, Makefile, pyproject.toml, `compose.yaml`, dotfiles);
+a tool's own config lives next to that tool, e.g. `scripts/tracking/dashboard.toml`,
+`docs/architecture/architecture.toml`, Alembic in `pyproject.toml`. `docs/repo-guide.md` explains
 every folder and file; update it in the same change whenever a folder is added, moved or starts
 being used.
 
@@ -116,7 +119,7 @@ Every unit of work, before it counts as finished:
 3. ADR in `docs/adr/` **if a decision was made** (see ADR-0001 for the format)
 4. Entry appended to `docs/journal/YYYY-MM-DD.md`
 5. Cost impact noted in `docs/cost/` if spend changed
-6. `architecture.toml` updated **if a component was added, removed or rewired** — the diagram grows because this is a gate, not because anyone remembers
+6. `docs/architecture/architecture.toml` updated **if a component was added, removed or rewired** — the diagram grows because this is a gate, not because anyone remembers
 7. **Deployed to `staging` and verified before `prod`.** Never straight to prod, ever.
 8. **Jira reflects reality** — the relevant story/epic transitioned to its true status (Done,
    In Progress, whatever actually happened), its acceptance criteria checked off to match, without

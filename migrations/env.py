@@ -1,4 +1,4 @@
-from logging.config import fileConfig
+import logging
 
 from alembic import context
 from kaval_shared.db import database_url
@@ -7,8 +7,10 @@ from sqlalchemy import engine_from_config, pool
 
 config = context.config
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# Configuration lives in pyproject.toml ([tool.alembic]); there is no alembic.ini.
+# Logging is set here instead: Alembic's progress at INFO, everything else at WARNING.
+logging.basicConfig(format="%(levelname)-5.5s [%(name)s] %(message)s", level=logging.WARNING)
+logging.getLogger("alembic").setLevel(logging.INFO)
 
 config.set_main_option("sqlalchemy.url", database_url())
 

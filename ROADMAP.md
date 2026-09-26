@@ -23,7 +23,7 @@ Guardrails before anything that can cost money.
 - [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24, applied 2026-09-15 (now $30/$35/$38 with the $40 ceiling, ADR-0008)
 - [x] Progress dashboard — `scripts/tracking/dashboard.py`, derived from this file
 - [x] Learning layer — a concept page per phase in `docs/learn/`
-- [x] Architecture diagrams — `architecture.toml`, system + journey + delivery views
+- [x] Architecture diagrams — `docs/architecture/architecture.toml`, system + journey + delivery views
 - [x] ADR-0004 environment strategy and promotion path
 - [x] ADR-0005 data durability and staging seeding
 - [x] Jira Cloud free tier, project `KAV`, 10 epics
@@ -216,5 +216,5 @@ Documentation is a merge gate, not willpower.
 - [ ] ADR written *if a decision was made*
 - [ ] Journal entry appended
 - [ ] Cost impact noted in `docs/cost/`
-- [ ] `architecture.toml` updated if components changed
+- [ ] `docs/architecture/architecture.toml` updated if components changed
 - [ ] **Deployed to staging and verified before prod** — never straight to prod

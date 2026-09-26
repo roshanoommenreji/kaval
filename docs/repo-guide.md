@@ -56,14 +56,12 @@ are never edited by hand. If they disagree with the repo, the repo is right.
 | `ROADMAP.md` | All 10 phases as checklists. **The only place progress is recorded.** The dashboard, Jira mirror and architecture diagrams all read their status from here | Working |
 | `CLAUDE.md` | Instructions for Claude Code: the cost ceiling, the security rules, conventions and the Definition of Done | Working |
 | `Makefile` | Short commands for everything (`make help` lists them): `make test`, `make migrate`, `make docs-sync`, `make jira`, `make plan`... | Working. Some targets wait on later phases (see below) |
-| `pyproject.toml` | Python project settings: dependencies, and the rules for `ruff`, `mypy` and `pytest` | Working |
-| `alembic.ini` | Settings for Alembic, the database migration tool. Points it at `migrations/` | Working |
-| `architecture.toml` | The system's architecture written as data: every component and connection, and which phase it arrives in. The dashboard draws the three diagrams from this | Working |
-| `dashboard.toml` | Things the dashboard can't work out by itself: links, cost figures, per-phase Jira/Confluence links | Working |
+| `pyproject.toml` | Python project settings: dependencies, the rules for `ruff`, `mypy` and `pytest`, and Alembic's settings (`[tool.alembic]`, pointing it at `migrations/`; there is no `alembic.ini`) | Working |
 | `.env.example` | A template listing every setting and secret the project needs, with fake values. Copy it to `.env` and fill it in | Working |
 | `.env` | **Your real settings and secrets** (Jira token, database password). Not in Git, and never will be | Working, local only |
 | `.gitignore` | Tells Git which files never to save: secrets, Terraform state, caches, generated files | Working |
 | `.gitattributes` | Line-ending rules. Stops Windows from adding `\r` characters that break shell scripts on Linux | Working |
+| `.vscode/settings.json` | Hides tool caches (`.venv`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `__pycache__`, `.terraform`) from VS Code's file tree so the top level stays readable. They still exist on disk and are gitignored | Working |
 | `.gitleaks.toml` | Rules for gitleaks, the scanner that blocks any commit containing a secret | Working |
 
 ## `.claude/` and `.github/`
@@ -173,7 +171,8 @@ Run `make migrate` to bring a database up to date.
 | `docs/adr/` | **Architecture Decision Records**: each big decision, why it was made, what was rejected. Numbered, never deleted | Working (0001–0008) |
 | `docs/journal/` | **One dated entry per work session**: what was done, what broke, what's still open. The "Open threads" section of the newest entry feeds the dashboard's Blockers panel | Working |
 | `docs/architecture/overview.md` | How the system fits together, in words and sketches | Working |
-| `docs/architecture/diagrams/` | Exported diagram images. The live diagrams come from `architecture.toml` and appear on the dashboard | Placeholder, Phase 9 |
+| `docs/architecture/architecture.toml` | The system's architecture written as data: every component and connection, and which phase it arrives in. The dashboard draws the three diagrams from this. Update it whenever a component is added, removed or rewired (Definition of Done item 6) | Working |
+| `docs/architecture/diagrams/` | Exported diagram images. The live diagrams come from `docs/architecture/architecture.toml` and appear on the dashboard | Placeholder, Phase 9 |
 | `docs/runbooks/` | **Troubleshooting guides**, one per failure type. Written for humans, **and** the AI agent reads them when diagnosing incidents | Working (1 runbook); more in Phase 6 |
 | `docs/cost/budget-plan.md` | Every expected cost, the $40/month ceiling, and how it's enforced | Working |
 | `docs/cost/actuals/` | The real bill, one file per month | Placeholder. Starts with the first real spend, in Phase 4 |
@@ -193,6 +192,7 @@ Run `make migrate` to bring a database up to date.
 | `scripts/ops/anonymise.sql` | Strips personal and secret data from a copy before staging gets it | Written, not yet run (Phase 4) |
 | **`scripts/tracking/`** | **Jira, Confluence and the dashboard** | |
 | `scripts/tracking/dashboard.py` | Builds the progress dashboard from the repo (`make dashboard`) | Working |
+| `scripts/tracking/dashboard.toml` | Things the dashboard can't work out by itself: links, cost figures and budget thresholds, per-phase Jira/Confluence links | Working |
 | `scripts/tracking/publish-confluence.py` | Publishes the repo's docs to the Confluence space (`make docs-sync` runs both) | Working |
 | `scripts/tracking/jira-sync.py` | Lists, creates and moves Jira stories, and ticks their acceptance criteria (`make jira EPIC=KAV-6`) | Working |
 | `scripts/tracking/atlassian.py` | The Jira/Confluence login code, shared by the two scripts above | Working |

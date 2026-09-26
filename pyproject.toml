@@ -24,6 +24,12 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["services/shared/kaval_shared"]
 
+[tool.alembic]
+# Database migrations (was alembic.ini, moved here 2026-09-26, KAV-33). The database URL
+# is not here: migrations/env.py builds it from the POSTGRES_* environment variables.
+script_location = "%(here)s/migrations"
+prepend_sys_path = ["."]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

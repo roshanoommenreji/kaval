@@ -402,7 +402,7 @@ def read_learn(d: Path) -> list[Learn]:
 # Architecture diagrams
 # ─────────────────────────────────────────────────────────────
 #
-# Nodes and edges are declared in architecture.toml; each node names the
+# Nodes and edges are declared in docs/architecture/architecture.toml; each node names the
 # phase it arrives in, and its drawn state is derived from that phase's
 # marker in ROADMAP.md. So the diagram fills in as phases complete and
 # cannot drift from reality -- the same discipline as the board.
@@ -1412,14 +1412,14 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
 
 
 def main() -> None:
-    cfg = tomllib.loads((ROOT / "dashboard.toml").read_text(encoding="utf-8"))
+    cfg = tomllib.loads((ROOT / "scripts" / "tracking" / "dashboard.toml").read_text(encoding="utf-8"))
     phases = read_roadmap(ROOT / "ROADMAP.md")
     adrs = read_adrs(ROOT / "docs" / "adr")
     labs = read_labs(ROOT / "docs" / "labs")
     sessions, threads = read_journal(ROOT / "docs" / "journal")
     commits = git_log()
     learn = read_learn(ROOT / "docs" / "learn")
-    af = ROOT / "architecture.toml"
+    af = ROOT / "docs" / "architecture" / "architecture.toml"
     arch = tomllib.loads(af.read_text(encoding="utf-8")) if af.exists() else {}
     releases = read_releases(ROOT / "docs" / "releases")
 
