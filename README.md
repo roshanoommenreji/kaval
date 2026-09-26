@@ -77,8 +77,8 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | [docs/learn/](docs/learn/) | **The why.** One concept page per phase — theory, glossary, interview answers |
 | [docs/releases/](docs/releases/) | Generated change records, one per production deploy |
 | [ROADMAP.md](ROADMAP.md) | **The only place progress is recorded.** Everything else derives from it |
-| [architecture.toml](architecture.toml) | The architecture as data — nodes, edges, and the phase each arrives in |
-| [dashboard.toml](dashboard.toml) | Links and cost figures the dashboard can't derive from the repo |
+| [docs/architecture/architecture.toml](docs/architecture/architecture.toml) | The architecture as data — nodes, edges, and the phase each arrives in |
+| [scripts/tracking/dashboard.toml](scripts/tracking/dashboard.toml) | Links and cost figures the dashboard can't derive from the repo |
 | [services/](services/) | Application code — one directory per container; `shared/` holds the data model |
 | [migrations/](migrations/) | Database schema migrations (Alembic), generated from `services/shared` |
 | [inference/](inference/) | Gemma serving configuration |
@@ -100,7 +100,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 |---|---|---|
 | Jira | `scripts/tracking/jira-sync.py` | `make jira EPIC=KAV-6` |
 | Confluence | `scripts/tracking/publish-confluence.py` — a generated mirror, never edited by hand | `make docs-sync` |
-| Dashboard | `scripts/tracking/dashboard.py` + `dashboard.toml` + `architecture.toml` | `make dashboard` |
+| Dashboard | `scripts/tracking/dashboard.py` + `scripts/tracking/dashboard.toml` + `docs/architecture/architecture.toml` | `make dashboard` |
 | AWS | `infra/` (Terraform) · `scripts/ops/cost-report.sh` | `make plan` · `make cost-report` |
 | Dev server | `infra/envs/dev` + `infra/modules/devbox` | `make devbox-up` · `devbox-ssh` · `devbox-down` |
 | Database | `services/shared/kaval_shared/models.py` · `migrations/` · `scripts/ops/` | `make migrate` · `make backup` |

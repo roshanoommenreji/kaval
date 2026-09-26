@@ -24,8 +24,9 @@ PROJECT = "KAV"
 STORY_POINTS_FIELD = "customfield_10016"
 DOD = (
     "Definition of Done (CLAUDE.md): code merged & CI green, lab doc reproducible, ADR if a "
-    "decision was made, journal entry appended, cost impact noted, architecture.toml updated if "
-    "wired, staging verified before prod, Jira reflects reality, dashboard/Confluence regenerated."
+    "decision was made, journal entry appended, cost impact noted, "
+    "docs/architecture/architecture.toml updated if wired, staging verified before prod, Jira "
+    "reflects reality, dashboard/Confluence regenerated, documentation swept for stale facts."
 )
 
 

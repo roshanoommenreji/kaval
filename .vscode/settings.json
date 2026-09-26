@@ -1,0 +1,12 @@
+{
+  // Hide tool caches from the file tree so the top level stays readable (KAV-33).
+  // They still exist on disk and are gitignored; see docs/repo-guide.md.
+  "files.exclude": {
+    "**/.venv": true,
+    "**/.mypy_cache": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "**/__pycache__": true,
+    "**/.terraform": true
+  }
+}
