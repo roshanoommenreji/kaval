@@ -18,7 +18,7 @@ with `dry_run=True` and the correct "nothing to scale" warning, since no compute
 |---|---|
 | MTD ≥ $18 | Email alert |
 | MTD ≥ $22 | Second email alert |
-| MTD ≥ $24 | Lambda scales the ASG to zero — the cluster stops |
+| MTD ≥ $24 | Lambda scales the ASG to zero (from Phase 4; dry-run until then) **and stops every running `Project=kaval` server outside an ASG**, e.g. the dev server. Armed and fired for real 2026-09-26 (`KAV-30`) |
 
 This ordering is deliberate. The thing that stops the bill was provisioned and tested *before* the
 first thing that could create one.
@@ -92,9 +92,13 @@ Prices verified 2026-09-26 against the AWS Price List API for ap-south-1.
 | **Per month** | | **~$5.10** |
 
 Left running around the clock by mistake, the compute alone would be $16.35/month. The idle stop
-exists to make that mistake impossible. The **$24 hard-stop Lambda does not cover this server**:
-it targets the Phase 4 auto-scaling group, so the protection here is the idle stop plus the
-$18/$22 alerts.
+exists to make that mistake impossible. Behind it, three layers:
+
+1. The **idle stop** on the server itself: 60 minutes with nobody connected.
+2. **Email alerts** at $18 and $22.
+3. The **$24 hard-stop Lambda**, which stops the server automatically (`KAV-30`).
+
+The Lambda reacts within hours rather than minutes, because AWS Budgets data lags.
 
 About 3 months of Phases 1–3 at ~$5/month adds ~$15, so the projected total rises from ~$52 to
 ~$67. That's still inside the $70 budget-with-buffer, but the buffer shrinks from $18 to $3,

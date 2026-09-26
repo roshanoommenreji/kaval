@@ -137,6 +137,27 @@ data "aws_iam_policy_document" "hard_stop" {
     resources = ["*"]
   }
 
+  # Finding instances can't be scoped to a tag in IAM, but it only reads.
+  statement {
+    sid       = "FindInstances"
+    effect    = "Allow"
+    actions   = ["ec2:DescribeInstances"]
+    resources = ["*"]
+  }
+
+  # Stop only, never terminate, and only instances carrying the project tag.
+  statement {
+    sid       = "StopProjectInstances"
+    effect    = "Allow"
+    actions   = ["ec2:StopInstances"]
+    resources = ["arn:aws:ec2:*:*:instance/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/${var.stop_tag_key}"
+      values   = [var.stop_tag_value]
+    }
+  }
+
   statement {
     sid       = "Logs"
     effect    = "Allow"
@@ -162,8 +183,11 @@ resource "aws_lambda_function" "hard_stop" {
 
   environment {
     variables = {
-      ASG_NAME = var.asg_name
-      DRY_RUN  = var.hard_stop_dry_run ? "true" : "false"
+      ASG_NAME       = var.asg_name
+      DRY_RUN        = var.hard_stop_dry_run ? "true" : "false"
+      STOP_INSTANCES = var.stop_tagged_instances ? "true" : "false"
+      STOP_TAG_KEY   = var.stop_tag_key
+      STOP_TAG_VALUE = var.stop_tag_value
     }
   }
 
