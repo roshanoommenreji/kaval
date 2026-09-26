@@ -75,7 +75,7 @@ from `ask` to `auto`, it accumulates over months, and it cannot be regenerated.
 kubectl scale deploy -n kaval --replicas=0 \
   kaval-agent kaval-collector kaval-executor kaval-gateway
 
-./scripts/restore.sh prod        # prompts for the database name
+./scripts/ops/restore.sh prod        # prompts for the database name
 
 kubectl scale deploy -n kaval --replicas=1 \
   kaval-agent kaval-collector kaval-executor kaval-gateway
@@ -110,4 +110,4 @@ Then record: the recovery point, the measured restore duration from
 
 - [ADR-0005](../adr/0005-data-durability-and-staging-seeding.md) — why RPO is 24 hours and what was rejected
 - [Release engineering](../learn/release-engineering.md) — restore as continuous verification
-- `scripts/backup.sh` · `scripts/restore.sh` · `scripts/anonymise.sql`
+- `scripts/ops/backup.sh` · `scripts/ops/restore.sh` · `scripts/ops/anonymise.sql`

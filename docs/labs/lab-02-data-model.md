@@ -80,10 +80,10 @@ necessary during this lab (Step 5) rather than added speculatively.
 ## Step 3 — Alembic, pointed at the models
 
 ```bash
-alembic.ini            # script_location = alembic; no sqlalchemy.url — see env.py
-alembic/env.py          # builds the URL from POSTGRES_* at runtime, imports Base.metadata
-alembic/script.py.mako  # the revision template
-alembic/versions/       # generated migrations live here
+alembic.ini            # script_location = migrations; no sqlalchemy.url — see env.py
+migrations/env.py          # builds the URL from POSTGRES_* at runtime, imports Base.metadata
+migrations/script.py.mako  # the revision template
+migrations/versions/       # generated migrations live here
 ```
 
 One root cause this avoids: a hardcoded `sqlalchemy.url` in `alembic.ini` would be a second place
@@ -196,7 +196,7 @@ Two files, two different jobs:
 
 ```bash
 pytest services/shared -v
-ruff check services/ alembic/
+ruff check services/ migrations/
 mypy services/
 ```
 

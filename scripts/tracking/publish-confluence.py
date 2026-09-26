@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """Publish the Kaval Confluence space from the repository.
 
-Same discipline as scripts/dashboard.py: nothing is hand-authored in Confluence
+Same discipline as scripts/tracking/dashboard.py: nothing is hand-authored in Confluence
 that could instead be derived. The repo stays the single source of truth for
 anything technical (ADRs, runbooks); Confluence gets a human-facing layer that
 links out to it, plus genuinely Confluence-native content (meeting notes) that
 has no home in git.
 
 Idempotent: rerunning updates existing pages in place rather than duplicating
-them, the same way `python scripts/dashboard.py` regenerates rather than
+them, the same way `python scripts/tracking/dashboard.py` regenerates rather than
 appends.
 
 Usage:
-    python scripts/publish-confluence.py
+    python scripts/tracking/publish-confluence.py
 
 Requires .env with JIRA_SITE_URL, JIRA_EMAIL, JIRA_API_TOKEN (same Atlassian
 account and token as the Jira automation -- Confluence Cloud shares auth with
@@ -23,49 +23,12 @@ from __future__ import annotations
 import json
 import re
 import sys
-import urllib.error
-import urllib.request
-from base64 import b64encode
-from pathlib import Path
+import urllib.parse
 
-ROOT = Path(__file__).resolve().parent.parent
+from atlassian import BASE, ROOT, call
+
 SPACE_KEY = "KAV"
 SPACE_NAME = "Kaval"
-
-
-def load_env() -> dict[str, str]:
-    env: dict[str, str] = {}
-    for line in (ROOT / ".env").read_text(encoding="utf-8").splitlines():
-        if "=" in line and not line.strip().startswith("#"):
-            k, _, v = line.partition("=")
-            env[k] = v
-    return env
-
-
-ENV = load_env()
-BASE = ENV["JIRA_SITE_URL"]
-AUTH = b64encode(f"{ENV['JIRA_EMAIL']}:{ENV['JIRA_API_TOKEN']}".encode()).decode()
-HEADERS = {
-    "Authorization": f"Basic {AUTH}",
-    "Accept": "application/json",
-    "Content-Type": "application/json",
-}
-
-
-def call(method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
-    url = f"{BASE}{path}"
-    data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, headers=HEADERS, method=method)
-    try:
-        with urllib.request.urlopen(req) as resp:
-            raw = resp.read()
-            return resp.status, (json.loads(raw) if raw else {})
-    except urllib.error.HTTPError as e:
-        raw = e.read()
-        try:
-            return e.code, json.loads(raw)
-        except json.JSONDecodeError:
-            return e.code, {"raw": raw.decode(errors="replace")[:800]}
 
 
 # ── minimal markdown -> Atlassian Document Format ──────────────────────────
@@ -252,8 +215,6 @@ def upsert_page(space_id: str, title: str, adf: dict, parent_id: str | None = No
     print(f"created  : {title} ({resp['id']})")
     return resp["id"]
 
-
-import urllib.parse  # noqa: E402  (kept near use for readability)
 
 
 def parse_adrs() -> list[tuple[str, str, str]]:

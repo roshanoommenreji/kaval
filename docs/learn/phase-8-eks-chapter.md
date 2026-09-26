@@ -15,7 +15,7 @@ managed control plane actually buys.
 
 ## What we're doing
 
-- `infra/envs/lab` — a real EKS cluster from Terraform
+- `infra/envs/lab-eks` — a real EKS cluster from Terraform
 - **IRSA** so the executor gets AWS permissions without static keys
 - The **AWS Load Balancer Controller**
 - Deploying the same chart with only a different values file

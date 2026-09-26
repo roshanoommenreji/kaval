@@ -1,6 +1,6 @@
 # Kaval architecture, as data.
 #
-# scripts/dashboard.py renders this into the #system and #journey views and
+# scripts/tracking/dashboard.py renders this into the #system and #journey views and
 # derives each node's state (built / in progress / planned) from that phase's
 # marker in ROADMAP.md. Nothing here records status -- ROADMAP.md does.
 #
@@ -832,7 +832,7 @@ kind = "platform"
 phase = 4
 col = 2
 row = 7
-note = "Terraform creates a second t4g.medium spot node with its own k3s, etcd, database and VPC, then restores the latest production snapshot through scripts/anonymise.sql. Staging gets real data shape and volume, and the backup gets restore-tested on every release. About five minutes."
+note = "Terraform creates a second t4g.medium spot node with its own k3s, etcd, database and VPC, then restores the latest production snapshot through scripts/ops/anonymise.sql. Staging gets real data shape and volume, and the backup gets restore-tested on every release. About five minutes."
 
 [[delivery.node]]
 id = "d-stg"

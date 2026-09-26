@@ -68,16 +68,38 @@ See [docs/00-start-here.md](docs/00-start-here.md) before touching anything.
 |---|---|
 | [docs/](docs/) | **Start here.** Labs, ADRs, architecture, runbooks, cost, journal |
 | [docs/learn/](docs/learn/) | **The why.** One concept page per phase — theory, glossary, interview answers |
-| [architecture.toml](architecture.toml) | The architecture as data — nodes, edges, and the phase each arrives in |
 | [docs/releases/](docs/releases/) | Generated change records, one per production deploy |
-| [services/](services/) | Application code — one directory per container |
+| [ROADMAP.md](ROADMAP.md) | **The only place progress is recorded.** Everything else derives from it |
+| [architecture.toml](architecture.toml) | The architecture as data — nodes, edges, and the phase each arrives in |
+| [dashboard.toml](dashboard.toml) | Links and cost figures the dashboard can't derive from the repo |
+| [services/](services/) | Application code — one directory per container; `shared/` holds the data model |
+| [migrations/](migrations/) | Database schema migrations (Alembic), generated from `services/shared` |
 | [inference/](inference/) | Gemma serving configuration |
 | [mobile/](mobile/) | Expo / React Native operator console |
 | [deploy/](deploy/) | Helm charts, per-environment values, Flux GitOps |
-| [infra/](infra/) | Terraform modules and environments |
+| [infra/](infra/) | Terraform modules and environments (`prod`, `staging`, `lab-eks`) |
 | [policy/](policy/) | Rego action policies — what the agent may and may not do |
 | [chaos/](chaos/) | Failure injection experiments |
 | [evals/](evals/) | LLM eval harness and golden incident set |
+| [scripts/ops/](scripts/ops/) | Operating AWS and the database — backup, restore, anonymise, cost report |
+| [scripts/tracking/](scripts/tracking/) | Keeping Jira, Confluence and the dashboard in step with the repo |
+| [scripts/dev/](scripts/dev/) | Local setup — Git hooks, new-lab scaffolding |
+| [.github/workflows/](.github/workflows/) | CI and release pipelines |
+| [CLAUDE.md](CLAUDE.md), [.claude/](.claude/) | How Claude Code works in this repo |
+
+### Which tool lives where
+
+| Tool | Home in this repo | Run with |
+|---|---|---|
+| Jira | `scripts/tracking/jira-sync.py` | `make jira EPIC=KAV-6` |
+| Confluence | `scripts/tracking/publish-confluence.py` — a generated mirror, never edited by hand | `make docs-sync` |
+| Dashboard | `scripts/tracking/dashboard.py` + `dashboard.toml` + `architecture.toml` | `make dashboard` |
+| AWS | `infra/` (Terraform) · `scripts/ops/cost-report.sh` | `make plan` · `make cost-report` |
+| Database | `services/shared/kaval_shared/models.py` · `migrations/` · `scripts/ops/` | `make migrate` · `make backup` |
+| Secrets scanning | `.gitleaks.toml` · `scripts/dev/install-hooks.sh` | `make secrets-scan` |
+
+Jira and Confluence credentials live in `.env` (gitignored; see `.env.example`). How branches
+and commits work: [docs/contributing.md](docs/contributing.md).
 
 ---
 

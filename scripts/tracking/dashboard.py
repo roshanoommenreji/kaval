@@ -6,7 +6,7 @@ status: ROADMAP.md is the single source of truth, and this only reflects it.
 That is deliberate -- a dashboard holding its own copy of "what's done" drifts
 within two sessions and then actively misleads.
 
-    python scripts/dashboard.py
+    python scripts/tracking/dashboard.py
     make dashboard
 
 Python 3.11 stdlib only. No pip install.
@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "docs" / "dashboard.html"
 
 

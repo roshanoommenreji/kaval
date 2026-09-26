@@ -1,6 +1,6 @@
 -- Sanitise a restored production snapshot before staging can be used.
 --
--- Run by scripts/restore.sh against the STAGING database, immediately after
+-- Run by scripts/ops/restore.sh against the STAGING database, immediately after
 -- pg_restore and before anything is allowed to read it.
 --
 -- Kaval's data is not personal data in any meaningful sense -- it is cluster
