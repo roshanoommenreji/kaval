@@ -38,8 +38,11 @@ if ss -Htn state established '( sport = :22 )' | grep -q . \
   echo "$now" > "$state"
   exit 0
 fi
-[ -f "$state" ] || { echo "$now" > "$state"; exit 0; }
-idle=$(( now - $(cat "$state") ))
+last=$(cat "$state" 2>/dev/null)
+# Anything but a plain number (missing, empty, corrupted) restarts the clock. Without this, a
+# bad value makes the arithmetic below fail on every run, and the server never stops.
+[[ "$last" =~ ^[0-9]+$ ]] || { echo "$now" > "$state"; exit 0; }
+idle=$(( now - last ))
 if [ "$idle" -ge "$limit" ]; then
   logger -t kaval-idle "idle for $idle s, stopping the instance"
   shutdown -h now
@@ -50,12 +53,14 @@ chmod +x /usr/local/sbin/kaval-idle-stop
 
 # On every boot, start the idle clock fresh; otherwise the timestamp left over
 # from before the last stop would shut the server down the moment it starts.
+# `%%s`, not `%s`: systemd expands `%s` in unit files to the user's shell, which
+# turned `date +%s` into `date +/bin/bash` (found on the first real boot).
 cat > /etc/systemd/system/kaval-idle-reset.service <<'UNIT'
 [Unit]
 Description=Reset the Kaval idle clock at boot
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'date +%s > /var/lib/kaval/last-active'
+ExecStart=/bin/sh -c 'date +%%s > /var/lib/kaval/last-active'
 [Install]
 WantedBy=multi-user.target
 UNIT
