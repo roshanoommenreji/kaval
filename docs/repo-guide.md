@@ -124,7 +124,7 @@ Run `make migrate` to bring a database up to date.
 | Path | What it is | Status |
 |---|---|---|
 | `infra/modules/budget/` | Budget alarms at $18 and $22, and a Lambda function that shuts compute down at $24. Built **before** anything that can cost money. `lambda/hard_stop.py` is that function | Working, applied in AWS |
-| `infra/modules/devbox/` | The development server: a `t4g.medium` with **no open ports** (reached only through AWS Session Manager) that stops itself after an idle hour. `user_data.sh.tftpl` is its first-boot setup: Docker, your SSH key, the idle-stop timer | Written. Applying it is `KAV-29` |
+| `infra/modules/devbox/` | The development server: a `t4g.medium` with **no open ports** (reached only through AWS Session Manager) that stops itself after an idle hour. `user_data.sh.tftpl` is its first-boot setup: Docker, your SSH key, the idle-stop timer | Working, applied in AWS (Lab 03) |
 | `infra/modules/network/` | The VPC, subnets and firewall rules. No NAT Gateway, which alone would cost $32/month | Placeholder, Phase 4 |
 | `infra/modules/node/` | The single cheap `t4g.medium` spot server that runs k3s | Placeholder, Phase 4 |
 | `infra/modules/ecr/` | Where container images are stored in AWS | Placeholder, Phase 4 |
@@ -134,7 +134,7 @@ Run `make migrate` to bring a database up to date.
 | `infra/envs/prod/main.tf`, `variables.tf`, `outputs.tf` | What to create, its settings, and what it reports back | Working |
 | `infra/envs/prod/terraform.tfvars.example` | Template for your real values (`terraform.tfvars` itself is not in Git) | Working |
 | `infra/envs/prod/.terraform.lock.hcl` | Pins exact provider versions, so every run uses the same ones | Working |
-| `infra/envs/dev/` | Uses the `devbox` module. The Phase 1–3 stack runs here instead of on the laptop ([ADR-0007](adr/0007-develop-on-an-aws-dev-server.md)). About $5/month. `make devbox-up`, `devbox-down`, `devbox-ssh` | Written. Applying it is `KAV-29` |
+| `infra/envs/dev/` | Uses the `devbox` module. The Phase 1–3 stack runs here instead of on the laptop ([ADR-0007](adr/0007-develop-on-an-aws-dev-server.md)). About $5/month. `make devbox-up`, `devbox-down`, `devbox-ssh` | Working, applied in AWS (Lab 03) |
 | `infra/envs/staging/` | A second, temporary copy of production for testing each release. Created on demand for about $1/month | Placeholder, Phase 4 |
 | `infra/envs/lab-eks/` | Uses the `eks-lab` module | Placeholder, Phase 8 |
 
@@ -167,7 +167,7 @@ Run `make migrate` to bring a database up to date.
 | `docs/repo-guide.md` | This file | Working |
 | `docs/contributing.md` | How branches, commits and merging work | Working |
 | `docs/future-scope.md` | Ideas deliberately left out of the plan for after v1 | Working |
-| `docs/labs/` | **Step-by-step guides**, one per session, detailed enough for a stranger to repeat from zero. Also mirrored to Confluence | Working (Labs 00–02) |
+| `docs/labs/` | **Step-by-step guides**, one per session, detailed enough for a stranger to repeat from zero. Also mirrored to Confluence | Working (Labs 00–03) |
 | `docs/learn/` | **Concept pages**, one per phase: *why* things work the way they do, glossary, self-check questions, interview answers. Each is marked "written from theory" until the phase is done, then rewritten from experience | Working (all 11 written) |
 | `docs/adr/` | **Architecture Decision Records**: each big decision, why it was made, what was rejected. Numbered, never deleted | Working (0001–0006) |
 | `docs/journal/` | **One dated entry per work session**: what was done, what broke, what's still open. The "Open threads" section of the newest entry feeds the dashboard's Blockers panel | Working |
@@ -193,7 +193,7 @@ Run `make migrate` to bring a database up to date.
 | **`scripts/tracking/`** | **Jira, Confluence and the dashboard** | |
 | `scripts/tracking/dashboard.py` | Builds the progress dashboard from the repo (`make dashboard`) | Working |
 | `scripts/tracking/publish-confluence.py` | Publishes the repo's docs to the Confluence space (`make docs-sync` runs both) | Working |
-| `scripts/tracking/jira-sync.py` | Lists, moves and creates Jira stories (`make jira EPIC=KAV-6`) | Working |
+| `scripts/tracking/jira-sync.py` | Lists, creates and moves Jira stories, and ticks their acceptance criteria (`make jira EPIC=KAV-6`) | Working |
 | `scripts/tracking/atlassian.py` | The Jira/Confluence login code, shared by the two scripts above | Working |
 | **`scripts/dev/`** | **Setting up your own machine** | |
 | `scripts/dev/install-hooks.sh` | Installs the pre-commit check that blocks secrets | Working |

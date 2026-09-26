@@ -3,6 +3,7 @@
 
 Usage:
     python scripts/tracking/jira-sync.py show KAV-6
+    python scripts/tracking/jira-sync.py tick KAV-21          # all acceptance criteria done
     python scripts/tracking/jira-sync.py transition KAV-21 Done
     python scripts/tracking/jira-sync.py create --epic KAV-6 --summary "..." \\
         --points 3 --labels infra agent --context "..." --ac "first criterion" --ac "second"
@@ -64,6 +65,29 @@ def transition(key: str, target: str) -> None:
     print(f"{key} -> {chosen['to']['name']}")
 
 
+def tick(key: str) -> None:
+    """Mark every acceptance-criteria checkbox on an issue as done."""
+    status, body = call("GET", f"/rest/api/3/issue/{key}?fields=description")
+    if status != 200:
+        fail(f"could not read {key}", status, body)
+    doc = body["fields"]["description"]
+    ticked = 0
+
+    def walk(node: dict) -> None:
+        nonlocal ticked
+        if node.get("type") == "taskItem" and node.get("attrs", {}).get("state") != "DONE":
+            node["attrs"]["state"] = "DONE"
+            ticked += 1
+        for child in node.get("content", []):
+            walk(child)
+
+    walk(doc)
+    status, body = call("PUT", f"/rest/api/3/issue/{key}", {"fields": {"description": doc}})
+    if status != 204:
+        fail(f"updating {key} failed", status, body)
+    print(f"{key}: ticked {ticked} acceptance criteria")
+
+
 def _text(value: str) -> list[dict]:
     return [{"type": "text", "text": value}]
 
@@ -119,6 +143,9 @@ def main() -> None:
     p_tr.add_argument("key")
     p_tr.add_argument("status")
 
+    p_tk = sub.add_parser("tick", help="mark all of an issue's acceptance criteria done")
+    p_tk.add_argument("key")
+
     p_cr = sub.add_parser("create", help="create a story under an epic")
     p_cr.add_argument("--epic", required=True)
     p_cr.add_argument("--summary", required=True)
@@ -132,6 +159,8 @@ def main() -> None:
         show(args.epic)
     elif args.command == "transition":
         transition(args.key, args.status)
+    elif args.command == "tick":
+        tick(args.key)
     else:
         create(args)
 

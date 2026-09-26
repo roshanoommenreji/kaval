@@ -42,7 +42,7 @@ confirms `dry_run=True`, correct warning message. **Phase 0 complete 2026-09-15.
 Prove the loop on the AWS dev server ([ADR-0007](docs/adr/0007-develop-on-an-aws-dev-server.md),
 changed from "the laptop" on 2026-09-26). About $5/month, and it stops itself when idle.
 
-- [ ] AWS dev server — `infra/envs/dev`, `t4g.medium`, SSM-only access, idle stop, `make devbox-*`
+- [x] AWS dev server — `infra/envs/dev`, `t4g.medium`, SSM-only access, idle stop, `make devbox-*` (applied and verified 2026-09-26, Lab 03)
 - [ ] `docker-compose` — Ollama + local model shortlist (Gemma 3 1B · Gemma 4 E2B · Qwen3 1.7B · Llama 3.2 1B), Postgres + pgvector, gateway
 - [ ] Synthetic signal generator (fake pod crashes, cost spikes)
 - [x] Data model migrations: signal · incident · proposal · action · decision · execution · outcome
