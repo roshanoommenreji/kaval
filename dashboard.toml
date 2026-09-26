@@ -70,7 +70,9 @@ cost      = "~$4/session"
         { label = "Lab 00", url = "https://roshanoommenreji.atlassian.net/wiki/spaces/KAV/pages/1310721/Lab+--+Lab+00+Toolchain" },
         { label = "Lab 01", url = "https://roshanoommenreji.atlassian.net/wiki/spaces/KAV/pages/1277973/Lab+--+Lab+01+AWS+credentials+and+budget+guardrails" },
       ] }
-1 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-6" }
+1 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-6", confluence = [
+        { label = "Lab 02", url = "https://roshanoommenreji.atlassian.net/wiki/spaces/KAV/pages/2490376/Lab+--+Lab+02+The+data+model+SQLAlchemy+models+and+an+Alembic+migration" },
+      ] }
 2 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-7" }
 3 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-8" }
 4 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-9" }
