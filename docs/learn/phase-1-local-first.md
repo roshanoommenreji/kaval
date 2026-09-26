@@ -26,8 +26,10 @@ a network, a cluster, or a bill.
 A `docker-compose` stack on the dev server containing everything the real system will have, in
 miniature:
 
-- **Ollama** serving a small local model: Gemma 3 1B, Gemma 4 E2B, Qwen3 1.7B and Llama 3.2 1B
-  are measured side by side, and Phase 2's evals pick one
+- **Ollama** serving a small local model: Gemma 3 1B, Gemma 3 1B QAT, Llama 3.2 1B and Qwen3 1.7B
+  are measured side by side ([results](../architecture/model-shortlist.md)), and Phase 2's evals
+  pick one. Gemma 4 E2B was on the first list and is 7.2 GB at 4-bit: a model's name says "2B",
+  its file says otherwise, so check the download size before believing it fits
 - **Postgres** with the `pgvector` extension
 - **gateway** — a FastAPI service exposing REST
 - **a synthetic signal generator** — fake pod crashes and cost spikes, so there is something to react to
@@ -112,7 +114,14 @@ messages re-sent. This is why context construction, in Phase 2, is where the rea
 ### Quantization is why this runs on a 4 GB node at all
 
 Quantization stores weights at lower precision — 4 bits instead of 32, typically. A `q4` Gemma 3
-1B is roughly 800 MB instead of 4 GB.
+1B is an 815 MB download instead of 4 GB. Loaded, it takes more than the file: measured on the dev
+server, **1.1–1.3 GB** for the 1B models and 1.9 GB for Qwen3 1.7B, because the context cache and
+working buffers come on top ([model-shortlist.md](../architecture/model-shortlist.md)).
+
+*Which* 4-bit format also matters, and it's measured, not theory. `gemma3:1b` (`Q4_K_M`) and
+`gemma3:1b-it-qat` (`Q4_0`) are the same model. On the Graviton server the `Q4_0` build read
+prompts **3× faster** and wrote 1.5× faster. The likely reason is that llama.cpp has ARM-optimised
+kernels for `Q4_0`.
 
 The trade is accuracy for size and speed. At 4-bit the quality loss on a 1B model is real but
 modest, and for classifying known incident patterns it is acceptable. For novel reasoning it is
@@ -142,8 +151,9 @@ available.
 ### Why CPU inference is viable here
 
 Generation is sequential: each token depends on the previous one. On a small quantized model the
-bottleneck is memory bandwidth rather than raw compute, and a 1B q4 model on a modest ARM CPU
-manages roughly 8–12 tokens/second.
+bottleneck is memory bandwidth rather than raw compute. Measured on the 2-vCPU Graviton dev
+server, the 1B–1.7B models generate **11–21 tokens/second**, and a whole diagnosis takes 9–12 s
+once the model is loaded.
 
 For a chat interface that is uncomfortably slow. For this system it is fine, because incident
 diagnosis is **asynchronous** — a signal arrives, the agent thinks for twenty seconds, a proposal
@@ -191,6 +201,10 @@ paid only when the general one has actually failed you.**
 | Reaching for a vector database at thousands of rows | A second datastore to run, back up and reason about, for no gain |
 | Testing only with tidy synthetic signals | The real system meets malformed, duplicated and out-of-order events |
 | Building the image on your laptop and assuming it runs on the node | Phase 4's arm64 lesson, learned late |
+| Judging a model's fit by its name ("E2B", "1B") | Gemma 4 E2B is a 7.2 GB download; it could never fit the 4 GB node. Check the file size |
+| Asking a small model for JSON and trusting it | Gemma returned fenced JSON 9/9 times and dropped the safety fields 6/9. Constrain decoding to a schema, then validate |
+| Measuring model memory with `docker stats` | It counts file cache too and overstated every model by ~0.7 GB. Read the processes' resident memory |
+| Using a bind mount with a remote Docker context | The path resolves on the server, not the laptop; the container quietly sees an empty folder |
 
 ## Glossary
 
@@ -211,6 +225,9 @@ paid only when the general one has actually failed you.**
 | **Quantization** | Storing weights at reduced precision to shrink size and speed inference |
 | **Inference** | Running a trained model to get output; no learning occurs |
 | **Ollama** | Local model server exposing an OpenAI-compatible API |
+| **Constrained decoding** | Restricting generation so the output can only match a given grammar or JSON schema (Ollama's `format`) |
+| **QAT** | Quantisation-aware training: the model is trained knowing it will be stored at low precision, so it loses less |
+| **Docker context** | A named Docker endpoint; `kaval-devbox` sends every command to the dev server over SSH |
 | **Embedding** | A fixed-length vector representing text meaning |
 | **Cosine similarity** | Angle-based closeness between vectors; 1.0 is identical direction |
 | **Vector search** | Finding nearest neighbours in embedding space |

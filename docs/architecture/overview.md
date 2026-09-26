@@ -105,12 +105,16 @@ budgeted against it.
 | Component | RAM |
 |---|---|
 | k3s control plane + system | ~700 MB |
-| Gemma 3 1B (q4) | ~900 MB |
+| Local model: `gemma3:1b-it-qat` (measured) | ~1.1 GB |
 | kaval services (4 × ~120 MB) | ~480 MB |
 | Prometheus (trimmed retention) | ~400 MB |
 | Flux | ~100 MB |
-| **Total** | **~2.6 GB** |
-| Headroom | ~1.4 GB |
+| **Total** | **~2.8 GB** |
+| Headroom | ~1.2 GB |
+
+The model line is measured, not estimated ([model-shortlist.md](model-shortlist.md), `KAV-22`): 1.1–1.3 GB
+for the 1B candidates, but 1.9 GB for Qwen3 1.7B, which would cut headroom to ~0.5 GB. The other
+lines are still estimates until Phase 3–4 measures them.
 
 Postgres + pgvector (~250 MB) is **not** on this node. Since
 [ADR-0008](../adr/0008-production-database-on-its-own-server.md) it runs on its own server:

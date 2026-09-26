@@ -25,21 +25,36 @@ help: ## Show this help
 	@echo ""
 
 # ─────────────────────────────────────────────────────────────
-##@ Local development  (runs on the AWS dev server from KAV-22 on — see "Dev server" below)
+##@ Local development  (the stack runs on the AWS dev server — ADR-0007, KAV-22)
+
+# Docker commands go to the dev server's daemon over SSH, not to the laptop.
+DEV_CONTEXT ?= kaval-devbox
+COMPOSE     := docker --context $(DEV_CONTEXT) compose
 
 .PHONY: dev
-dev: ## Start the local stack (Ollama + Gemma, Postgres, gateway)
-	docker compose up -d --build
-	@echo "gateway    http://localhost:8000/docs"
-	@echo "postgres   localhost:5432"
+dev: devbox-up ## Start the stack on the dev server (Ollama, Postgres, migrations, gateway)
+	$(COMPOSE) up -d --build --wait
+	@echo ""
+	@echo "Running on the dev server. From the laptop: make dev-tunnel (in its own terminal), then"
+	@echo "  gateway   http://localhost:8000/healthz"
+	@echo "  ollama    http://localhost:11435   (not 11434: a laptop Ollama app often holds that port)"
+	@echo "  postgres  localhost:5432"
 
 .PHONY: dev-down
-dev-down: ## Stop the local stack
-	docker compose down
+dev-down: ## Stop the stack (data and models stay in their volumes)
+	$(COMPOSE) down
+
+.PHONY: dev-tunnel
+dev-tunnel: ## Forward the stack's ports to the laptop (runs until Ctrl-C)
+	ssh -N -o ExitOnForwardFailure=yes -L 8000:127.0.0.1:8000 -L 5432:127.0.0.1:5432 -L 11435:127.0.0.1:11434 kaval-devbox
 
 .PHONY: logs
-logs: ## Tail local stack logs
-	docker compose logs -f --tail=100
+logs: ## Tail the stack's logs
+	$(COMPOSE) logs -f --tail=100
+
+.PHONY: bench
+bench: ## Measure the local model shortlist on the dev server (KAV-22, ~20 min)
+	python scripts/dev/bench_models.py
 
 .PHONY: test
 test: ## Unit tests + policy tests
@@ -48,7 +63,7 @@ test: ## Unit tests + policy tests
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check services/ migrations/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py
+	ruff check services/ migrations/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/dev/bench_models.py
 	mypy services/
 
 .PHONY: migrate

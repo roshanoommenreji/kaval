@@ -103,7 +103,7 @@ note = "Append-only. Nothing is updated in place, so the tables ARE the audit tr
 
 [[system.node]]
 id = "inference"
-label = "Gemma 3 1B (Ollama)"
+label = "local model (Ollama)"
 kind = "service"
 phase = 1
 col = 0
@@ -111,7 +111,7 @@ row = 3
 credentials = "none"
 inputs = ["Prompt with retrieved context, OpenAI-compatible API"]
 outputs = ["Completion tokens, token counts"]
-note = "q4 quantized, ~900 MB, roughly 8-12 tokens/sec on the ARM node. Viable because diagnosis is asynchronous — nobody is watching a cursor blink."
+note = "Measured on the 4 GB Graviton dev server (KAV-22, docs/architecture/model-shortlist.md): 1.1–1.9 GB loaded, 11–21 tokens/sec, 9–12 s per diagnosis. Called schema-constrained, which made every shortlisted model produce valid proposals. Shortlist for the Phase 2 evals: gemma3:1b-it-qat (dev default), llama3.2:1b, qwen3:1.7b. Viable because diagnosis is asynchronous — nobody is watching a cursor blink."
 
 [[system.node]]
 id = "agent"

@@ -23,7 +23,7 @@ Kaval/
 ├── THE PRODUCT ─────────── the software that watches, diagnoses and fixes
 │   ├── services/            the Python programs (one per container)
 │   ├── migrations/          how the database gets its tables
-│   ├── inference/           how the AI model (Gemma) is served
+│   ├── inference/           how the AI model is served (settings in compose.yaml for now)
 │   ├── policy/              the rules for what the AI is allowed to do
 │   └── mobile/              the phone app
 │
@@ -62,6 +62,8 @@ are never edited by hand. If they disagree with the repo, the repo is right.
 | `.gitignore` | Tells Git which files never to save: secrets, Terraform state, caches, generated files | Working |
 | `.gitattributes` | Line-ending rules. Stops Windows from adding `\r` characters that break shell scripts on Linux | Working |
 | `.vscode/settings.json` | Hides tool caches (`.venv`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `__pycache__`, `.terraform`) from VS Code's file tree so the top level stays readable. They still exist on disk and are gitignored | Working |
+| `compose.yaml` | The Phase 1–2 stack: Ollama (the AI model), Postgres + pgvector, a one-off migration step, and the gateway. `make dev` runs it **on the AWS dev server**, not the laptop. No folder-sharing (bind mounts), because those would point at the server's disk; data lives in named volumes there. Never used for staging or prod (the Helm chart is) | Working (`KAV-22`) |
+| `.dockerignore` | What `docker build` may send to the dev server. An allowlist: only `pyproject.toml`, `services/` and `migrations/`, so `.env` and Terraform files can't leave the laptop by accident | Working |
 | `.gitleaks.toml` | Rules for gitleaks, the scanner that blocks any commit containing a secret | Working |
 
 ## `.claude/` and `.github/`
@@ -91,7 +93,7 @@ think.**
 | `services/collector/` | Gathers raw observations (Kubernetes events, Prometheus metrics, AWS cost data) and saves them as `signal` rows. Read-only | Placeholder. Fake signals in Phase 1 (`KAV-23`); real ones in Phase 3, cost data in Phase 7 |
 | `services/agent/` | Groups signals into incidents, asks the AI for a diagnosis, and writes a `proposal`. **Read-only credentials; it can only suggest** | Placeholder, Phase 2 |
 | `services/executor/` | The **only** component allowed to change the cluster or AWS. Acts only on proposals that passed the policy check and, where required, human approval | Placeholder, Phase 3 |
-| `services/gateway/` | The web API (FastAPI) the phone app talks to: list proposals, approve or deny, push notifications | Placeholder. Skeleton in Phase 1 (`KAV-23`); the phone features in Phase 5 |
+| `services/gateway/` | The web API (FastAPI) the phone app talks to: list proposals, approve or deny, push notifications. Today it has one endpoint, `GET /healthz`, which passes only when the database is migrated **and** the configured model is downloaded. `Dockerfile` builds it for arm64 as a non-root user; the same image runs the database migrations | Health check working (`KAV-22`). REST skeleton in `KAV-23`; phone features in Phase 5 |
 
 ### `migrations/`: how the database gets its tables
 
@@ -107,7 +109,7 @@ Run `make migrate` to bring a database up to date.
 
 | Path | What it will do | Status |
 |---|---|---|
-| `inference/` | Settings for serving the Gemma 3 1B model through Ollama | Placeholder, Phase 1 (`KAV-22`) |
+| `inference/` | Model-serving files, e.g. an Ollama `Modelfile` with a built-in system prompt. Not needed yet: the model's settings are in `compose.yaml` (context length, one model loaded at a time) and in each request (temperature 0, fixed seed), and keeping them in one place stops them drifting apart | Placeholder, Phase 2 if the agent needs a baked prompt |
 | `policy/` | The rules for every proposed action: `auto` (do it), `ask` (a human decides) or `never` (refused). Checked twice, once by the agent and again by the executor. `README.md` explains the design | Design written; rules in Phase 2 |
 | `mobile/` | The Android phone app (Expo / React Native): see incidents, read the AI's explanation, tap Approve or Deny | Placeholder, Phase 5 |
 
@@ -171,6 +173,7 @@ Run `make migrate` to bring a database up to date.
 | `docs/adr/` | **Architecture Decision Records**: each big decision, why it was made, what was rejected. Numbered, never deleted | Working (0001–0008) |
 | `docs/journal/` | **One dated entry per work session**: what was done, what broke, what's still open. The "Open threads" section of the newest entry feeds the dashboard's Blockers panel | Working |
 | `docs/architecture/overview.md` | How the system fits together, in words and sketches | Working |
+| `docs/architecture/model-shortlist.md` | The local AI models measured on the prod-sized server: memory, speed, output-format results, and which three go to the Phase 2 evals (`make bench` reproduces it) | Working (`KAV-22`) |
 | `docs/architecture/architecture.toml` | The system's architecture written as data: every component and connection, and which phase it arrives in. The dashboard draws the three diagrams from this. Update it whenever a component is added, removed or rewired (Definition of Done item 6) | Working |
 | `docs/architecture/diagrams/` | Exported diagram images. The live diagrams come from `docs/architecture/architecture.toml` and appear on the dashboard | Placeholder, Phase 9 |
 | `docs/runbooks/` | **Troubleshooting guides**, one per failure type. Written for humans, **and** the AI agent reads them when diagnosing incidents | Working (1 runbook); more in Phase 6 |
@@ -199,6 +202,7 @@ Run `make migrate` to bring a database up to date.
 | **`scripts/dev/`** | **Setting up your own machine** | |
 | `scripts/dev/install-hooks.sh` | Installs the pre-commit check that blocks secrets | Working |
 | `scripts/dev/new-lab.sh` | Creates a new lab document and journal entry from a template (`make lab NAME=...`) | Working |
+| `scripts/dev/bench_models.py` | Measures the local model shortlist on the dev server: memory, load time, time to first token, speed, JSON validity (`make bench`). Results in `docs/architecture/model-shortlist.md` | Working (`KAV-22`) |
 
 ---
 

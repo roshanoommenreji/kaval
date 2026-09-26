@@ -7,6 +7,7 @@ Usage:
     python scripts/tracking/jira-sync.py transition KAV-21 Done
     python scripts/tracking/jira-sync.py create --epic KAV-6 --summary "..." \\
         --points 3 --labels infra agent --context "..." --ac "first criterion" --ac "second"
+    python scripts/tracking/jira-sync.py edit KAV-22 --summary "..." --context "..." --ac "..."
 
 Stories are created in the same layout every existing KAV story uses: Context, an
 Acceptance Criteria checklist, and the Definition of Done quoted from CLAUDE.md.
@@ -133,6 +134,18 @@ def create(args: argparse.Namespace) -> None:
     print(f"created {body['key']}  {BASE}/browse/{body['key']}")
 
 
+def edit(args: argparse.Namespace) -> None:
+    """Rewrite a story whose scope changed, so the board never describes the old plan.
+    Replaces summary, Context and the criteria checklist (all unticked) in the same layout."""
+    fields: dict[str, object] = {"description": _description(args.context, args.ac)}
+    if args.summary:
+        fields["summary"] = args.summary
+    status, body = call("PUT", f"/rest/api/3/issue/{args.key}", {"fields": fields})
+    if status != 204:
+        fail(f"editing {args.key} failed", status, body)
+    print(f"{args.key}: rewritten with {len(args.ac)} acceptance criteria")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -155,6 +168,12 @@ def main() -> None:
     p_cr.add_argument("--points", type=float, required=True)
     p_cr.add_argument("--labels", nargs="+", default=[])
 
+    p_ed = sub.add_parser("edit", help="rewrite a story's summary, context and criteria")
+    p_ed.add_argument("key")
+    p_ed.add_argument("--summary")
+    p_ed.add_argument("--context", required=True)
+    p_ed.add_argument("--ac", action="append", required=True, help="repeat per criterion")
+
     args = parser.parse_args()
     if args.command == "show":
         show(args.epic)
@@ -162,6 +181,8 @@ def main() -> None:
         transition(args.key, args.status)
     elif args.command == "tick":
         tick(args.key)
+    elif args.command == "edit":
+        edit(args)
     else:
         create(args)
 
