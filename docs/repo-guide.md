@@ -124,6 +124,7 @@ Run `make migrate` to bring a database up to date.
 | Path | What it is | Status |
 |---|---|---|
 | `infra/modules/budget/` | Budget alarms at $18 and $22, and a Lambda function that shuts compute down at $24. Built **before** anything that can cost money. `lambda/hard_stop.py` is that function | Working, applied in AWS |
+| `infra/modules/devbox/` | The development server: a `t4g.medium` with **no open ports** (reached only through AWS Session Manager) that stops itself after an idle hour. `user_data.sh.tftpl` is its first-boot setup: Docker, your SSH key, the idle-stop timer | Written. Applying it is `KAV-29` |
 | `infra/modules/network/` | The VPC, subnets and firewall rules. No NAT Gateway, which alone would cost $32/month | Placeholder, Phase 4 |
 | `infra/modules/node/` | The single cheap `t4g.medium` spot server that runs k3s | Placeholder, Phase 4 |
 | `infra/modules/ecr/` | Where container images are stored in AWS | Placeholder, Phase 4 |
@@ -133,6 +134,7 @@ Run `make migrate` to bring a database up to date.
 | `infra/envs/prod/main.tf`, `variables.tf`, `outputs.tf` | What to create, its settings, and what it reports back | Working |
 | `infra/envs/prod/terraform.tfvars.example` | Template for your real values (`terraform.tfvars` itself is not in Git) | Working |
 | `infra/envs/prod/.terraform.lock.hcl` | Pins exact provider versions, so every run uses the same ones | Working |
+| `infra/envs/dev/` | Uses the `devbox` module. The Phase 1–3 stack runs here instead of on the laptop ([ADR-0007](adr/0007-develop-on-an-aws-dev-server.md)). About $5/month. `make devbox-up`, `devbox-down`, `devbox-ssh` | Written. Applying it is `KAV-29` |
 | `infra/envs/staging/` | A second, temporary copy of production for testing each release. Created on demand for about $1/month | Placeholder, Phase 4 |
 | `infra/envs/lab-eks/` | Uses the `eks-lab` module | Placeholder, Phase 8 |
 
@@ -219,8 +221,9 @@ Run `make migrate` to bring a database up to date.
 | What | Why |
 |---|---|
 | `.env` | Secrets. The repo goes public at v1, and Git history is permanent |
-| `infra/envs/prod/terraform.tfvars` | Your real email and settings |
-| `infra/envs/prod/terraform.tfstate` | Terraform's record of what it created in AWS; it can contain account details. **Only copy is on this laptop**, so it moves to S3 later |
+| `infra/envs/*/terraform.tfvars` | Your real email, SSH public key and settings |
+| `infra/envs/*/terraform.tfstate` | Terraform's record of what it created in AWS (prod and dev each have one); it can contain account details. **Only copy is on this laptop**, so it moves to S3 later |
+| `~/.ssh/kaval-devbox` | The dev server's SSH private key. It lives in your home folder, outside the project entirely |
 | `.venv/` | Installed Python packages. Rebuild with `pip install -e ".[dev]"` |
 | `docs/dashboard.html` | Regenerated every time |
 | Caches (`__pycache__`, `.mypy_cache`, `.terraform/`...) | Rebuilt automatically |

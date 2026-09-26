@@ -31,7 +31,8 @@ Always-on is not needed for the whole project. Paying for it from day one wastes
 
 | Phase | Weeks | Posture | Why |
 |---|---|---|---|
-| 0–3 | 1–12 | **Laptop only** | Nothing on AWS but a budget alarm |
+| 0 | 1–2 | **Laptop only** | Nothing on AWS but a budget alarm |
+| 1–3 | 3–12 | **Dev server, stops when idle** | Changed 2026-09-26 by [ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md): the stack runs on a `t4g.medium` in AWS instead of the laptop, for real arm64 measurements. It stops itself after 1 idle hour |
 | 4 — AWS landing | 13–15 | **Paused** | You are at the keyboard anyway |
 | 5 — Mobile | 16–19 | **Paused** | Push alerts demo fine within a session |
 | 6 — Chaos | 20–21 | **Paused** | Chaos runs are deliberate, not ambient |
@@ -70,13 +71,36 @@ Paused, the same account costs **~$2.20/month** — storage only.
 
 | Period | Phases | Posture | Cost |
 |---|---|---|---|
-| Aug–Oct 2026 | 0–3 | Laptop | ~$0 |
+| Aug–Sep 2026 | 0 | Laptop | ~$0 |
+| **Oct–Dec 2026** | **1–3** | **Dev server, idle stop (ADR-0007)** | **~$15** |
 | Nov 2026–Jan 2027 | 4–6 | Paused | ~$5 |
 | Feb–Mar 2027 | 7–9 | Always-on | ~$22 |
 | Occasional | EKS lab × 3 | Ephemeral | ~$15 |
 | **Per release** | **staging cluster** | **On demand** | **~$5** |
 | Throughout | Bedrock | — | ~$5 |
-| | | **Total** | **~$52** |
+| | | **Total** | **~$67** |
+
+### The dev server (ADR-0007)
+
+Prices verified 2026-09-26 against the AWS Price List API for ap-south-1.
+
+| Item | Rate | At ~20 h/week (~87 h/mo) |
+|---|---|---|
+| `t4g.medium` on-demand | $0.0224/hr, only while running | $1.95 |
+| Public IPv4 address | $0.005/hr, only while running | $0.44 |
+| 30 GB gp3 disk | $0.0912/GB-month, **also while stopped** | $2.74 |
+| **Per month** | | **~$5.10** |
+
+Left running around the clock by mistake, the compute alone would be $16.35/month. The idle stop
+exists to make that mistake impossible. The **$24 hard-stop Lambda does not cover this server**:
+it targets the Phase 4 auto-scaling group, so the protection here is the idle stop plus the
+$18/$22 alerts.
+
+About 3 months of Phases 1–3 at ~$5/month adds ~$15, so the projected total rises from ~$52 to
+~$67. That's still inside the $70 budget-with-buffer, but the buffer shrinks from $18 to $3,
+which is thin. `make devbox-down` at the end of each session is the easiest saving. All of it
+comes out of the $100 Free Plan credit, so the expected out-of-pocket cost is still close to
+zero.
 
 ### The staging cluster
 

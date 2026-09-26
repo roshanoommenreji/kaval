@@ -2,7 +2,9 @@
 
 > **Written from:** theory
 > **Lab:** to be written
-> **Cost:** $0 — k3d runs in Docker on your laptop
+> **Cost:** part of the dev server's ~$5/month. k3d runs in Docker on the AWS dev server
+> ([ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md)); it was on the laptop until
+> 2026-09-26. The point below still holds: it's a throwaway cluster, separate from anything real.
 
 ## Where this sits
 
@@ -24,7 +26,7 @@ problem, because the manifests, the chart and the RBAC will already work.
 
 **Because RBAC is the architecture, and RBAC cannot be tested without a cluster.** The claim that
 the agent cannot touch anything is only true if the ServiceAccount bindings actually say so. On a
-laptop, getting that wrong costs a `kubectl` command. On AWS with a live cluster, getting it wrong
+throwaway development cluster, getting that wrong costs a `kubectl` command. On AWS with a live cluster, getting it wrong
 is a security finding.
 
 The rejected alternative was going straight to AWS after Phase 2. It merges two hard problems —

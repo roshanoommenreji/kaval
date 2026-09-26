@@ -1,0 +1,84 @@
+#!/bin/bash
+# First-boot setup for the Kaval dev server. Runs once, as root, via cloud-init.
+# Log: /var/log/cloud-init-output.log
+set -euxo pipefail
+
+# ── tools ────────────────────────────────────────────────────────────────
+dnf install -y docker git make python3.11 python3.11-pip jq
+systemctl enable --now docker
+usermod -aG docker ec2-user
+
+# Amazon Linux's docker package ships without the compose and buildx plugins.
+plugins=/usr/local/lib/docker/cli-plugins
+mkdir -p "$plugins"
+curl -fsSL -o "$plugins/docker-compose" \
+  https://github.com/docker/compose/releases/latest/download/docker-compose-linux-aarch64
+buildx_url=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/latest \
+  | jq -r '.assets[] | select(.name | endswith("linux-arm64")) | .browser_download_url')
+curl -fsSL -o "$plugins/docker-buildx" "$buildx_url"
+chmod +x "$plugins/docker-compose" "$plugins/docker-buildx"
+
+# ── SSH, reachable only through the SSM tunnel (no inbound port is open) ──
+install -d -m 700 -o ec2-user -g ec2-user /home/ec2-user/.ssh
+echo "${ssh_public_key}" >> /home/ec2-user/.ssh/authorized_keys
+chown ec2-user:ec2-user /home/ec2-user/.ssh/authorized_keys
+chmod 600 /home/ec2-user/.ssh/authorized_keys
+
+# ── stop after ${idle_minutes} idle minutes ────────────────────────────────
+# "Active" = any SSH connection (the laptop's docker commands and terminals all
+# arrive this way) or an SSM shell session. Checked every 5 minutes.
+install -d /var/lib/kaval
+cat > /usr/local/sbin/kaval-idle-stop <<'SCRIPT'
+#!/bin/bash
+state=/var/lib/kaval/last-active
+limit=$((IDLE_MINUTES * 60))
+now=$(date +%s)
+if ss -Htn state established '( sport = :22 )' | grep -q . \
+   || pgrep -f ssm-session-worker >/dev/null; then
+  echo "$now" > "$state"
+  exit 0
+fi
+[ -f "$state" ] || { echo "$now" > "$state"; exit 0; }
+idle=$(( now - $(cat "$state") ))
+if [ "$idle" -ge "$limit" ]; then
+  logger -t kaval-idle "idle for $idle s, stopping the instance"
+  shutdown -h now
+fi
+SCRIPT
+sed -i "s/IDLE_MINUTES/${idle_minutes}/" /usr/local/sbin/kaval-idle-stop
+chmod +x /usr/local/sbin/kaval-idle-stop
+
+# On every boot, start the idle clock fresh; otherwise the timestamp left over
+# from before the last stop would shut the server down the moment it starts.
+cat > /etc/systemd/system/kaval-idle-reset.service <<'UNIT'
+[Unit]
+Description=Reset the Kaval idle clock at boot
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'date +%s > /var/lib/kaval/last-active'
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+cat > /etc/systemd/system/kaval-idle-stop.service <<'UNIT'
+[Unit]
+Description=Stop the Kaval dev server when nobody is using it
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kaval-idle-stop
+UNIT
+
+cat > /etc/systemd/system/kaval-idle-stop.timer <<'UNIT'
+[Unit]
+Description=Check for idleness every 5 minutes
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+[Install]
+WantedBy=timers.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable kaval-idle-reset.service
+systemctl start kaval-idle-reset.service
+systemctl enable --now kaval-idle-stop.timer

@@ -144,6 +144,8 @@ make test          # unit + policy tests
 make up            # provision the AWS node (~5 min, starts billing)
 make down          # destroy the node, keep state (~$2/mo)
 make cost-report   # current month-to-date spend
+make devbox-up     # start the AWS dev server (ADR-0007); it stops itself after 1 h idle
+make devbox-down   # stop it now
 make migrate       # apply database migrations
 make docs-sync     # regenerate dashboard + republish Confluence
 make jira EPIC=KAV-6   # an epic's stories and status

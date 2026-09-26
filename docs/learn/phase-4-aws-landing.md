@@ -6,8 +6,9 @@
 
 ## Where this sits
 
-Phases 1–3 built a system that works on a laptop. This phase puts it somewhere it can be woken by
-a phone at 2am.
+Phases 1–3 built a system that works on a single development server that sleeps when nobody is
+using it ([ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md)). This phase puts it
+somewhere always reachable, rebuilt from Git, that can be woken by a phone at 2am.
 
 It unlocks: everything that requires the system to exist independently of you — push notifications,
 overnight cost data, and the ability to hand someone your phone.

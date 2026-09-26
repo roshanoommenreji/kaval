@@ -775,7 +775,7 @@ kind = "source"
 phase = 3
 col = 2
 row = 0
-note = "The inner loop. A full cluster on the laptop, costing nothing, where manifests and RBAC are proven before any cloud is involved."
+note = "The inner loop. A throwaway k3d cluster on the AWS dev server (ADR-0007), which stops itself when idle, where manifests and RBAC are proven before staging is involved."
 
 [[delivery.node]]
 id = "d-pr"

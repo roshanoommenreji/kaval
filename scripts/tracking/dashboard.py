@@ -681,6 +681,7 @@ section{margin-top:44px}
       padding:2px 7px; border-radius:3px; border:1px solid currentColor}
 .pill.local{color:var(--ink-3)}
 .pill.paused{color:var(--warn)}
+.pill.devserver{color:var(--warn)}
 .pill.alwayson{color:var(--accent)}
 
 .detail{background:var(--raised); padding:4px 16px 18px 64px; border-top:1px dashed var(--rule)}

@@ -2,7 +2,17 @@
 
 > **Written from:** theory
 > **Lab:** to be written
-> **Cost:** $0 — this entire phase runs on your laptop
+> **Cost:** ~$5/month. Changed from $0: the stack now runs on an AWS dev server, not the laptop
+
+> **Changed 2026-09-26 ([ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md)).** This page
+> was written arguing for the laptop, and the argument below is still sound. The decision went
+> the other way for two reasons: measurements (memory and speed of the candidate models) need
+> the real 4 GB Graviton machine, and building natively on arm64 removes a whole class of Phase 4
+> surprises. Two things keep the original worry small. The dev server uses the default VPC and a
+> single role, so no networking or IAM work is pulled forward. And the laptop stays the editor:
+> `docker` commands reach the server through a Docker context. The cost is slower builds (the
+> build context travels over the tunnel) and about $5 a month. "Local" in this phase's name now
+> means *your own environment*, wherever it runs.
 
 ## Where this sits
 
@@ -13,10 +23,11 @@ a network, a cluster, or a bill.
 
 ## What we're doing
 
-A `docker-compose` stack on the laptop containing everything the real system will have, in
+A `docker-compose` stack on the dev server containing everything the real system will have, in
 miniature:
 
-- **Ollama** serving Gemma 3 1B
+- **Ollama** serving a small local model: Gemma 3 1B, Gemma 4 E2B, Qwen3 1.7B and Llama 3.2 1B
+  are measured side by side, and Phase 2's evals pick one
 - **Postgres** with the `pgvector` extension
 - **gateway** — a FastAPI service exposing REST
 - **a synthetic signal generator** — fake pod crashes and cost spikes, so there is something to react to
