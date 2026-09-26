@@ -320,7 +320,7 @@ row = 8
 credentials = "autoscaling:UpdateAutoScalingGroup only"
 inputs = ["AWS Budgets threshold breach via SNS"]
 outputs = ["ASG desired capacity set to zero at $24"]
-note = "The first thing built, before any compute existed. Ships with DRY_RUN=true and no target, so the first invocation is a safe no-op that still proves the whole path — budget, SNS, subscription, function, log. Applied and proven 2026-09-15 — 10 resources, full console-location + purpose table in Lab 01."
+note = "The first thing built, before any compute existed. Ships with DRY_RUN=true and no target, so the first invocation is a safe no-op that still proves the whole path — budget, SNS, subscription, function, log. Applied and proven 2026-09-15 — 10 resources, full console-location + purpose table in Lab 01. Armed 2026-09-26 (KAV-30) to stop running Project=kaval servers outside an ASG, e.g. the dev server; fired for real and proven."
 
 # ── system edges ───────────────────────────────────────────────────────
 

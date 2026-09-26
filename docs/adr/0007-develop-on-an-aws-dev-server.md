@@ -78,10 +78,11 @@ describes *a machine*, not a promotion tier.
   while stopped. That adds ~$15 over the three phases and takes the project projection from ~$52
   to ~$67, against a $70 budget-with-buffer. It's paid from the $140 of AWS credit (expires 2027-09-11). See
   `docs/cost/budget-plan.md`.
-- **The $24 hard-stop Lambda does not cover this server.** It was built to scale the Phase 4 ASG
-  to zero. Protection here is the idle stop plus the $18 and $22 email alerts. Extending the
-  Lambda to stop instances tagged `Project=kaval` changes the applied prod guardrail module, so
-  it's a separate, explicitly approved change.
+- **The $24 hard-stop Lambda now covers this server** (`KAV-30`, same day). As first built, it
+  could only scale the Phase 4 ASG, so it protected nothing here. It now also **stops** (never
+  terminates) running instances tagged `Project=kaval` that aren't in an ASG. IAM lets it stop
+  only instances with that tag, and never terminate, which the policy simulator confirmed. It was
+  fired by hand: the dev server went from running to stopped in about 15 seconds.
 - **The Free Plan may refuse `t4g.medium`**: some sources say Free Plan accounts are limited to
   `t4g.small`. If so, the launch fails cleanly, and upgrading the account to the paid plan keeps
   the credits.

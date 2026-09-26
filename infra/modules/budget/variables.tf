@@ -28,7 +28,7 @@ variable "alert_2_usd" {
 }
 
 variable "hard_stop_usd" {
-  description = "At this figure the Lambda scales the ASG to zero."
+  description = "At this figure the Lambda scales the ASG to zero and stops tagged standalone instances."
   type        = number
   default     = 24
 }
@@ -50,6 +50,26 @@ variable "hard_stop_dry_run" {
   EOT
   type        = bool
   default     = true
+}
+
+variable "stop_tagged_instances" {
+  description = <<-EOT
+    When true, the hard stop also STOPS (never terminates) running EC2 instances tagged
+    stop_tag_key = stop_tag_value that are not in an Auto Scaling Group, e.g. the dev server.
+    Armed for real, not dry-run: a standalone server has no other automatic brake at $24.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "stop_tag_key" {
+  type    = string
+  default = "Project"
+}
+
+variable "stop_tag_value" {
+  type    = string
+  default = "kaval"
 }
 
 variable "tags" {

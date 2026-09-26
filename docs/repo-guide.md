@@ -123,7 +123,7 @@ Run `make migrate` to bring a database up to date.
 
 | Path | What it is | Status |
 |---|---|---|
-| `infra/modules/budget/` | Budget alarms at $18 and $22, and a Lambda function that shuts compute down at $24. Built **before** anything that can cost money. `lambda/hard_stop.py` is that function | Working, applied in AWS |
+| `infra/modules/budget/` | Budget alarms at $18 and $22, and a Lambda function that shuts compute down at $24. Built **before** anything that can cost money. `lambda/hard_stop.py` is that function. Today it **stops the dev server** (and any other `Project=kaval` server outside a server group), and it scales the Phase 4 group to zero once that exists | Working, applied and fired for real |
 | `infra/modules/devbox/` | The development server: a `t4g.medium` with **no open ports** (reached only through AWS Session Manager) that stops itself after an idle hour. `user_data.sh.tftpl` is its first-boot setup: Docker, your SSH key, the idle-stop timer | Working, applied in AWS (Lab 03) |
 | `infra/modules/network/` | The VPC, subnets and firewall rules. No NAT Gateway, which alone would cost $32/month | Placeholder, Phase 4 |
 | `infra/modules/node/` | The single cheap `t4g.medium` spot server that runs k3s | Placeholder, Phase 4 |
