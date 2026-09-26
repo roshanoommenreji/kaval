@@ -31,7 +31,8 @@ Always-on is not needed for the whole project. Paying for it from day one wastes
 
 | Phase | Weeks | Posture | Why |
 |---|---|---|---|
-| 0–3 | 1–12 | **Laptop only** | Nothing on AWS but a budget alarm |
+| 0 | 1–2 | **Laptop only** | Nothing on AWS but a budget alarm |
+| 1–3 | 3–12 | **Dev server, stops when idle** | Changed 2026-09-26 by [ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md): the stack runs on a `t4g.medium` in AWS instead of the laptop, for real arm64 measurements. It stops itself after 1 idle hour |
 | 4 — AWS landing | 13–15 | **Paused** | You are at the keyboard anyway |
 | 5 — Mobile | 16–19 | **Paused** | Push alerts demo fine within a session |
 | 6 — Chaos | 20–21 | **Paused** | Chaos runs are deliberate, not ambient |
@@ -70,13 +71,36 @@ Paused, the same account costs **~$2.20/month** — storage only.
 
 | Period | Phases | Posture | Cost |
 |---|---|---|---|
-| Aug–Oct 2026 | 0–3 | Laptop | ~$0 |
+| Aug–Sep 2026 | 0 | Laptop | ~$0 |
+| **Oct–Dec 2026** | **1–3** | **Dev server, idle stop (ADR-0007)** | **~$15** |
 | Nov 2026–Jan 2027 | 4–6 | Paused | ~$5 |
 | Feb–Mar 2027 | 7–9 | Always-on | ~$22 |
 | Occasional | EKS lab × 3 | Ephemeral | ~$15 |
 | **Per release** | **staging cluster** | **On demand** | **~$5** |
 | Throughout | Bedrock | — | ~$5 |
-| | | **Total** | **~$52** |
+| | | **Total** | **~$67** |
+
+### The dev server (ADR-0007)
+
+Prices verified 2026-09-26 against the AWS Price List API for ap-south-1.
+
+| Item | Rate | At ~20 h/week (~87 h/mo) |
+|---|---|---|
+| `t4g.medium` on-demand | $0.0224/hr, only while running | $1.95 |
+| Public IPv4 address | $0.005/hr, only while running | $0.44 |
+| 30 GB gp3 disk | $0.0912/GB-month, **also while stopped** | $2.74 |
+| **Per month** | | **~$5.10** |
+
+Left running around the clock by mistake, the compute alone would be $16.35/month. The idle stop
+exists to make that mistake impossible. The **$24 hard-stop Lambda does not cover this server**:
+it targets the Phase 4 auto-scaling group, so the protection here is the idle stop plus the
+$18/$22 alerts.
+
+About 3 months of Phases 1–3 at ~$5/month adds ~$15, so the projected total rises from ~$52 to
+~$67. That's still inside the $70 budget-with-buffer, but the buffer shrinks from $18 to $3,
+which is thin. `make devbox-down` at the end of each session is the easiest saving. All of it
+comes out of the $140 of AWS credit (expires 2027-09-11), so the expected out-of-pocket cost is still close to
+zero.
 
 ### The staging cluster
 
@@ -166,6 +190,29 @@ That expiry lines up almost exactly with the project's target finish. In practic
 **entire ~$52 projected spend above is very likely absorbed by this credit alone** — the $25/mo
 ceiling and its Lambda hard-stop stay in force regardless, as an independent guardrail, but the
 realistic out-of-pocket exposure for the whole project is close to $0 rather than $52.
+
+### Corrected 2026-09-26, from Billing → Credits
+
+The figures above were partly wrong. **182 days was the length of the Free *Plan*, not the
+credits' life.** The Credits page shows:
+
+| Credit | Amount | Expires |
+|---|---|---|
+| AWS Free Tier | $100.00 | 2027-09-11 |
+| Explore AWS: create a web app using AWS Lambda | $20.00 | 2027-09-11 |
+| Explore AWS: set up a cost budget using AWS Budgets | $20.00 | 2027-09-11 |
+| **Total remaining** | **$140.00** ($0.00 used) | |
+
+The two $20 credits were earned by Phase 0's own work: the hard-stop Lambda and the budget.
+The credit outlives the project's March 2027 target by six months, and the ~$67 projection
+(including the dev server, ADR-0007) leaves about $73 unused. **Expected out-of-pocket cost:
+still $0.**
+
+The Free Plan limits EC2 to free-tier sizes, so `t4g.medium` was refused (`InvalidParameterCombination: not eligible for Free Tier`).
+Running it needs the account on the **paid plan**. That upgrade has no fee, keeps these credits,
+and cannot be undone. After it, spend beyond the credit bills the card instead of stopping the
+account, which makes this project's own guardrails (alerts at $18/$22, hard stop at $24, the dev
+server's idle stop) the only brake.
 
 Re-check this figure periodically — a credit-based plan can behave differently from classic free
 tier at the edges, and the number should be verified against the console rather than assumed to

@@ -8,6 +8,11 @@ AWS_PROFILE ?= kaval
 AWS_REGION  ?= ap-south-1
 TF_PROD     := infra/envs/prod
 TF_LAB      := infra/envs/lab-eks
+TF_DEV      := infra/envs/dev
+# Keep only a real instance id: with no state, terraform prints its "No outputs found"
+# warning on stdout, which would otherwise end up in the variable.
+DEVBOX       = $(shell terraform -chdir=$(TF_DEV) output -raw instance_id 2>/dev/null | grep -oE '^i-[0-9a-f]+$$')
+unexport DEVBOX   # else the bare `export` above runs terraform for every target
 
 # ─────────────────────────────────────────────────────────────
 ##@ Help
@@ -20,7 +25,7 @@ help: ## Show this help
 	@echo ""
 
 # ─────────────────────────────────────────────────────────────
-##@ Local development  (costs nothing)
+##@ Local development  (runs on the AWS dev server from KAV-22 on — see "Dev server" below)
 
 .PHONY: dev
 dev: ## Start the local stack (Ollama + Gemma, Postgres, gateway)
@@ -86,6 +91,39 @@ nuke: ## Destroy EVERYTHING in prod including state. Irreversible.
 	@echo "This destroys all persistent data including the incident history."
 	@read -p "Type 'nuke' to confirm: " ok && [ "$$ok" = "nuke" ]
 	cd $(TF_PROD) && terraform destroy
+
+# ─────────────────────────────────────────────────────────────
+##@ Dev server  (ADR-0007 — \$0.0224/hr while running, stops itself after 1 h idle)
+
+.PHONY: devbox-create
+devbox-create: ## Create the dev server. Shows the plan and asks before applying
+	cd $(TF_DEV) && terraform init -input=false && terraform apply
+
+.PHONY: devbox-exists
+devbox-exists:
+	@test -n "$(DEVBOX)" || (echo "no dev server yet - run: make devbox-create" && exit 1)
+
+.PHONY: devbox-up
+devbox-up: devbox-exists ## Start the dev server and wait until you can connect (~1 min)
+	@aws ec2 start-instances --instance-ids $(DEVBOX) --query 'StartingInstances[0].CurrentState.Name' --output text
+	@aws ec2 wait instance-running --instance-ids $(DEVBOX)
+	@echo "running - waiting for Session Manager..."
+	@until [ "$$(aws ssm describe-instance-information --filters Key=InstanceIds,Values=$(DEVBOX) \
+	    --query 'InstanceInformationList[0].PingStatus' --output text)" = "Online" ]; do sleep 5; done
+	@echo "ready: make devbox-ssh, or docker --context kaval-devbox ..."
+
+.PHONY: devbox-down
+devbox-down: devbox-exists ## Stop the dev server now (it also stops itself after 1 h idle)
+	@aws ec2 stop-instances --instance-ids $(DEVBOX) --query 'StoppingInstances[0].CurrentState.Name' --output text
+
+.PHONY: devbox-status
+devbox-status: devbox-exists ## Is the dev server running, and since when?
+	@aws ec2 describe-instances --instance-ids $(DEVBOX) \
+	  --query 'Reservations[0].Instances[0].[State.Name,InstanceType,LaunchTime]' --output text
+
+.PHONY: devbox-ssh
+devbox-ssh: ## Open a terminal on the dev server (SSH through Session Manager)
+	ssh kaval-devbox
 
 # ─────────────────────────────────────────────────────────────
 ##@ EKS lab  (Phase 8 — ephemeral, ~\$4/session)

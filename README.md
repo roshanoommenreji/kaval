@@ -49,11 +49,15 @@ action is safe, it graduates from `ask` to `auto`, and the data justifying that 
 
 ## Quick start
 
-Nothing here costs money yet. Phases 0–3 run entirely on your laptop.
+Phases 1–3 run on a small AWS dev server (`t4g.medium`, about $5/month) that stops itself after
+an idle hour ([ADR-0007](docs/adr/0007-develop-on-an-aws-dev-server.md)). The laptop stays the
+editor.
 
 ```bash
 make help          # every available target
-make dev           # local stack: Ollama + Gemma, Postgres, gateway, signal generator
+make devbox-up     # start the dev server (~1 min)
+make dev           # the stack on it: Ollama + local model, Postgres, gateway, signal generator
+make devbox-down   # stop it (or let it stop itself after 1 h idle)
 make test          # unit + policy tests
 make cost-report   # what AWS is charging right now
 ```
@@ -80,7 +84,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | [inference/](inference/) | Gemma serving configuration |
 | [mobile/](mobile/) | Expo / React Native operator console |
 | [deploy/](deploy/) | Helm charts, per-environment values, Flux GitOps |
-| [infra/](infra/) | Terraform modules and environments (`prod`, `staging`, `lab-eks`) |
+| [infra/](infra/) | Terraform modules and environments (`dev`, `staging`, `prod`, `lab-eks`) |
 | [policy/](policy/) | Rego action policies — what the agent may and may not do |
 | [chaos/](chaos/) | Failure injection experiments |
 | [evals/](evals/) | LLM eval harness and golden incident set |
@@ -98,6 +102,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | Confluence | `scripts/tracking/publish-confluence.py` — a generated mirror, never edited by hand | `make docs-sync` |
 | Dashboard | `scripts/tracking/dashboard.py` + `dashboard.toml` + `architecture.toml` | `make dashboard` |
 | AWS | `infra/` (Terraform) · `scripts/ops/cost-report.sh` | `make plan` · `make cost-report` |
+| Dev server | `infra/envs/dev` + `infra/modules/devbox` | `make devbox-up` · `devbox-ssh` · `devbox-down` |
 | Database | `services/shared/kaval_shared/models.py` · `migrations/` · `scripts/ops/` | `make migrate` · `make backup` |
 | Secrets scanning | `.gitleaks.toml` · `scripts/dev/install-hooks.sh` | `make secrets-scan` |
 

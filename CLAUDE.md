@@ -118,7 +118,7 @@ Every unit of work, before it counts as finished:
 8. **Jira reflects reality** — the relevant story/epic transitioned to its true status (Done,
    In Progress, whatever actually happened), its acceptance criteria checked off to match, without
    being asked. A Jira board that lags the repo is worse than no board.
-   `python scripts/tracking/jira-sync.py transition KAV-<n> Done`.
+   `python scripts/tracking/jira-sync.py tick KAV-<n>` then `transition KAV-<n> Done`.
 9. **Dashboard and Confluence regenerated and republished** if anything they derive from changed —
    `make docs-sync` (runs `scripts/tracking/dashboard.py` and
    `scripts/tracking/publish-confluence.py`), then republish the artifact. Both are generated mirrors of the repo; a stale mirror
@@ -144,6 +144,8 @@ make test          # unit + policy tests
 make up            # provision the AWS node (~5 min, starts billing)
 make down          # destroy the node, keep state (~$2/mo)
 make cost-report   # current month-to-date spend
+make devbox-up     # start the AWS dev server (ADR-0007); it stops itself after 1 h idle
+make devbox-down   # stop it now
 make migrate       # apply database migrations
 make docs-sync     # regenerate dashboard + republish Confluence
 make jira EPIC=KAV-6   # an epic's stories and status

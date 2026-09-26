@@ -13,7 +13,7 @@ phase_count = 10
 
 [cost]
 ceiling_usd        = 25
-projected_total    = 52
+projected_total    = 67         # was 52; +$15 for the dev server, ADR-0007
 budget_with_buffer = 70
 mtd_usd            = 0.0        # updated from `make cost-report`; 0 while nothing is provisioned
 provisioned        = false
@@ -23,10 +23,10 @@ provisioned        = false
 # See ADR-0004.
 [[environments]]
 name      = "local"
-where     = "k3d on the laptop"
-lifetime  = "while working"
+where     = "AWS dev server, t4g.medium on-demand · Docker, later k3d (ADR-0007)"
+lifetime  = "while working, stops after 1 h idle"
 promotion = true
-cost      = "$0"
+cost      = "~$5/mo"
 
 [[environments]]
 name      = "staging"
@@ -52,9 +52,9 @@ cost      = "~$4/session"
 # Run posture per phase — see docs/cost/budget-plan.md
 [posture]
 0 = { state = "local",      cost = "$0" }
-1 = { state = "local",      cost = "$0" }
-2 = { state = "local",      cost = "$0" }
-3 = { state = "local",      cost = "$0" }
+1 = { state = "dev-server", cost = "~$5/mo" }
+2 = { state = "dev-server", cost = "~$5/mo" }
+3 = { state = "dev-server", cost = "~$5/mo" }
 4 = { state = "paused",     cost = "~$2.20/mo" }
 5 = { state = "paused",     cost = "~$2.20/mo" }
 6 = { state = "paused",     cost = "~$2.20/mo" }

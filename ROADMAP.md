@@ -39,9 +39,11 @@ confirms `dry_run=True`, correct warning message. **Phase 0 complete 2026-09-15.
 
 ## Phase 1 — Local first · weeks 3–5 · `[~]`
 
-Prove the loop on the laptop. AWS still costs $0.
+Prove the loop on the AWS dev server ([ADR-0007](docs/adr/0007-develop-on-an-aws-dev-server.md),
+changed from "the laptop" on 2026-09-26). About $5/month, and it stops itself when idle.
 
-- [ ] `docker-compose` — Ollama + Gemma 3 1B, Postgres + pgvector, gateway
+- [x] AWS dev server — `infra/envs/dev`, `t4g.medium`, SSM-only access, idle stop, `make devbox-*` (applied and verified 2026-09-26, Lab 03)
+- [ ] `docker-compose` — Ollama + local model shortlist (Gemma 3 1B · Gemma 4 E2B · Qwen3 1.7B · Llama 3.2 1B), Postgres + pgvector, gateway
 - [ ] Synthetic signal generator (fake pod crashes, cost spikes)
 - [x] Data model migrations: signal · incident · proposal · action · decision · execution · outcome
 - [ ] Gateway REST skeleton, health checks, OpenAPI
@@ -73,7 +75,7 @@ The hard, interesting part. Still no AWS.
 
 ## Phase 3 — Kubernetes local · weeks 10–12 · `[ ]`
 
-- [ ] k3d cluster on the laptop
+- [ ] k3d cluster on the dev server
 - [ ] Helm umbrella chart, `local` values
 - [ ] Real K8s events + Prometheus as signal sources
 - [ ] Executor with scoped RBAC — the privilege split made real
