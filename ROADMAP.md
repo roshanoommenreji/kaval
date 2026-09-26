@@ -37,13 +37,13 @@ confirms `dry_run=True`, correct warning message. **Phase 0 complete 2026-09-15.
 
 ---
 
-## Phase 1 — Local first · weeks 3–5 · `[ ]`
+## Phase 1 — Local first · weeks 3–5 · `[~]`
 
 Prove the loop on the laptop. AWS still costs $0.
 
 - [ ] `docker-compose` — Ollama + Gemma 3 1B, Postgres + pgvector, gateway
 - [ ] Synthetic signal generator (fake pod crashes, cost spikes)
-- [ ] Data model migrations: signal · incident · proposal · action · decision · execution · outcome
+- [x] Data model migrations: signal · incident · proposal · action · decision · execution · outcome
 - [ ] Gateway REST skeleton, health checks, OpenAPI
 - [ ] `.github/workflows/ci.yml` — ruff · mypy · pytest · gitleaks · arm64 build · Trivy
 - [ ] Jira project `KAV` workflow: Backlog → Ready → In Progress → In Review → In Staging → Ready for Prod → Done
