@@ -1,0 +1,110 @@
+# Kaval — the Phase 1 stack (KAV-22).
+#
+# Runs on the AWS dev server, not the laptop (ADR-0007): `make dev` points Docker at
+# the `kaval-devbox` context. Variables are read from .env ON THE LAPTOP (Compose
+# interpolates client-side), so .env itself never goes to the server.
+#
+# Two rules that follow from the daemon being remote:
+#   - No bind mounts. A host path would resolve on the dev server, not the laptop.
+#     Code goes in through image builds; data lives in named volumes on the server.
+#   - Ports bind to 127.0.0.1 on the server only. Reach them from the laptop with
+#     `make dev-tunnel` (SSH over Session Manager). The server has no open ports.
+#
+# Compose is the inner loop for Phases 1–2 only. Staging and prod are deployed by
+# the Helm chart in deploy/charts/kaval, never by this file (ADR-0004).
+
+name: kaval
+
+x-db-env: &db-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+  POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+
+x-gateway-build: &gateway-build
+  context: .
+  dockerfile: services/gateway/Dockerfile
+
+services:
+  postgres:
+    # Same image in dev, staging and prod (ADR-0008): only its placement differs.
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    # Time for a clean shutdown checkpoint before Docker kills it (ADR-0008).
+    stop_grace_period: 60s
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.34.4          # pinned; checked on Docker Hub 2026-09-26
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"      # one model in RAM at a time on a 4 GB box
+      OLLAMA_CONTEXT_LENGTH: "4096"      # fixed, so memory figures are comparable
+      OLLAMA_KEEP_ALIVE: 10m
+    volumes:
+      - ollama-models:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  # One-shot: make sure LOCAL_MODEL is on disk. A no-op after the first run.
+  model-pull:
+    image: ollama/ollama:0.34.4
+    environment:
+      OLLAMA_HOST: ollama:11434
+    command: ["pull", "${LOCAL_MODEL:?set LOCAL_MODEL in .env}"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  # One-shot: apply database migrations, from the same image the gateway runs.
+  migrate:
+    build: *gateway-build
+    image: kaval/gateway:dev
+    platform: linux/arm64
+    command: ["alembic", "upgrade", "head"]
+    environment: *db-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  gateway:
+    build: *gateway-build
+    image: kaval/gateway:dev
+    platform: linux/arm64
+    environment:
+      <<: *db-env
+      OLLAMA_BASE_URL: http://ollama:11434
+      LOCAL_MODEL: ${LOCAL_MODEL}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      model-pull:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  ollama-models:

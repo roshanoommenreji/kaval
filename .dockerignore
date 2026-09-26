@@ -1,0 +1,14 @@
+# What `docker build` may send from the repo root to the Docker daemon, which is the
+# AWS dev server (ADR-0007), so this is also what leaves the laptop.
+# An ALLOWLIST: ignore everything, then admit only what images need. Secrets (.env,
+# tfvars, tfstate) can't be sent by accident when nothing is sent by default.
+*
+!pyproject.toml
+!services/
+!migrations/
+
+# ...and within those, nothing generated or test-only.
+**/__pycache__
+**/*.py[cod]
+**/tests
+**/.pytest_cache

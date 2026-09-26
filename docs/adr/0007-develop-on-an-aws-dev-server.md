@@ -15,7 +15,9 @@ against a Phase 1 need of about 2.5 GB. So this is not a capacity decision. What
 the laptop can't:
 
 - **Real measurements.** The model shortlist (Gemma 3 1B, Gemma 4 E2B, Qwen3 1.7B,
-  Llama 3.2 1B) is chosen on memory and speed. The laptop is x86. Prod will be a 4 GB Graviton
+  Llama 3.2 1B) is chosen on memory and speed. *(Corrected in `KAV-22`: Gemma 4 E2B is 7.2 GB at
+  q4 and cannot fit a 4 GB node, so it was replaced by Gemma 3 1B QAT before measuring. See
+  [model-shortlist.md](../architecture/model-shortlist.md).)* The laptop is x86. Prod will be a 4 GB Graviton
   (arm64) `t4g.medium`, so only the same machine gives the true numbers.
 - **arm64 from the first build.** `CLAUDE.md` warns that an amd64 image builds fine locally and
   fails on the cluster. On a Graviton server every build is native arm64, so that class of bug
