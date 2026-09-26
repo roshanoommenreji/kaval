@@ -7,7 +7,7 @@ export
 AWS_PROFILE ?= kaval
 AWS_REGION  ?= ap-south-1
 TF_PROD     := infra/envs/prod
-TF_LAB      := infra/envs/lab
+TF_LAB      := infra/envs/lab-eks
 
 # ─────────────────────────────────────────────────────────────
 ##@ Help
@@ -43,8 +43,12 @@ test: ## Unit tests + policy tests
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check services/
+	ruff check services/ migrations/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py
 	mypy services/
+
+.PHONY: migrate
+migrate: ## Apply database migrations (reads POSTGRES_* from .env)
+	alembic upgrade head
 
 .PHONY: build
 build: ## Build arm64 images (Graviton — amd64 will NOT run on the node)
@@ -99,26 +103,26 @@ lab-down: ## Destroy the EKS lab. ALWAYS run this. Verify with cost-report tomor
 
 .PHONY: backup
 backup: ## Dump the prod database to S3 (RPO 24h — see ADR-0005)
-	@bash scripts/backup.sh
+	@bash scripts/ops/backup.sh
 
 .PHONY: restore-staging
 restore-staging: ## Seed staging from the latest sanitised prod snapshot
-	@bash scripts/restore.sh staging
+	@bash scripts/ops/restore.sh staging
 
 .PHONY: restore-prod
 restore-prod: ## DISASTER RECOVERY. Replaces the live database. Prompts.
-	@bash scripts/restore.sh prod
+	@bash scripts/ops/restore.sh prod
 
 # ─────────────────────────────────────────────────────────────
 ##@ Cost
 
 .PHONY: cost-report
 cost-report: ## Month-to-date AWS spend against the \$25 ceiling
-	@bash scripts/cost-report.sh
+	@bash scripts/ops/cost-report.sh
 
 .PHONY: cost-check
 cost-check: ## Fail loudly if MTD spend exceeds the ceiling
-	@bash scripts/cost-report.sh --assert
+	@bash scripts/ops/cost-report.sh --assert
 
 # ─────────────────────────────────────────────────────────────
 ##@ Chaos and verification
@@ -142,12 +146,21 @@ evals: ## Run the LLM eval harness against the golden incident set
 
 .PHONY: dashboard
 dashboard: ## Regenerate docs/dashboard.html from ROADMAP.md, ADRs, labs, journal and git
-	@python scripts/dashboard.py
+	@python scripts/tracking/dashboard.py
+
+.PHONY: docs-sync
+docs-sync: dashboard ## Regenerate the dashboard and republish Confluence (Definition of Done item 9)
+	@python scripts/tracking/publish-confluence.py
+	@echo "Now republish docs/dashboard.html to the dashboard artifact."
+
+.PHONY: jira
+jira: ## Show an epic's stories. Usage: make jira EPIC=KAV-6
+	@python scripts/tracking/jira-sync.py show $(or $(EPIC),KAV-6)
 
 .PHONY: lab
 lab: ## Scaffold a new lab doc + journal entry. Usage: make lab NAME=setup-flux
 	@test -n "$(NAME)" || (echo "set NAME=<slug>" && exit 1)
-	@bash scripts/new-lab.sh $(NAME)
+	@bash scripts/dev/new-lab.sh $(NAME)
 
 .PHONY: secrets-scan
 secrets-scan: ## Scan the full git history for leaked secrets

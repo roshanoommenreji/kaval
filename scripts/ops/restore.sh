@@ -21,7 +21,7 @@
 set -euo pipefail
 
 TARGET="${1:?usage: restore.sh <staging|prod>}"
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 : "${BACKUP_BUCKET:?set BACKUP_BUCKET}"
 
@@ -57,7 +57,7 @@ if [[ "$TARGET" == "staging" ]]; then
   echo "  sanitising..."
   # Aborts the whole restore if an assertion in the script fails, so a
   # partially-sanitised staging database is never left readable.
-  psql -h "$HOST" -U "$USER" -d "$DB" -v ON_ERROR_STOP=1 -q -f "$ROOT/scripts/anonymise.sql"
+  psql -h "$HOST" -U "$USER" -d "$DB" -v ON_ERROR_STOP=1 -q -f "$ROOT/scripts/ops/anonymise.sql"
   echo "  sanitised — assertions passed"
 fi
 

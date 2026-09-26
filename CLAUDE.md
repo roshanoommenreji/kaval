@@ -33,7 +33,7 @@ say so explicitly and update `docs/cost/budget-plan.md`.
 |---|---|---|
 | NAT Gateway | $32/mo | Public subnet + security groups |
 | Application Load Balancer | $18/mo | Cloudflare Tunnel |
-| EKS control plane (persistent) | $73/mo | k3s; EKS only in `infra/envs/lab`, ephemeral |
+| EKS control plane (persistent) | $73/mo | k3s; EKS only in `infra/envs/lab-eks`, ephemeral |
 | RDS | $12+/mo | Postgres in-cluster on an EBS PV |
 | GPU instances | $0.30+/hr | CPU inference; Bedrock for heavy lifting |
 | **Always-on staging node** | $11/mo | On-demand staging — `make staging-up`, ~$1/mo |
@@ -91,7 +91,14 @@ showing the plan first. Never `apply` to `prod` without being asked.
 files. If `lab-eks` needs a template change that `prod-k3s` doesn't, the portability claim is
 broken — flag it.
 
-**Commits** — conventional commits (`feat:`, `fix:`, `docs:`, `infra:`, `chore:`).
+**Commits and branches** — conventional commits (`feat:`, `fix:`, `docs:`, `infra:`, `chore:`),
+with the Jira key where there is one. Work happens on a short-lived `type/KAV-<n>-slug` branch
+and merges to `main` with `--no-ff` once green. No environment branches and no per-tool
+branches. See [docs/contributing.md](docs/contributing.md).
+
+**Where things go** — the README's repository map is authoritative. Scripts are split by what
+they touch: `scripts/ops/` (AWS, database), `scripts/tracking/` (Jira, Confluence, dashboard),
+`scripts/dev/` (local setup). Migrations live in `migrations/`.
 
 ---
 
@@ -109,9 +116,10 @@ Every unit of work, before it counts as finished:
 8. **Jira reflects reality** — the relevant story/epic transitioned to its true status (Done,
    In Progress, whatever actually happened), its acceptance criteria checked off to match, without
    being asked. A Jira board that lags the repo is worse than no board.
+   `python scripts/tracking/jira-sync.py transition KAV-<n> Done`.
 9. **Dashboard and Confluence regenerated and republished** if anything they derive from changed —
-   `python scripts/dashboard.py` (then republish the artifact) and
-   `python scripts/publish-confluence.py`. Both are generated mirrors of the repo; a stale mirror
+   `make docs-sync` (runs `scripts/tracking/dashboard.py` and
+   `scripts/tracking/publish-confluence.py`), then republish the artifact. Both are generated mirrors of the repo; a stale mirror
    that looks current is a worse failure than an honestly empty one, so this happens as part of
    finishing the work, not as a separate favor when asked.
 
@@ -134,6 +142,9 @@ make test          # unit + policy tests
 make up            # provision the AWS node (~5 min, starts billing)
 make down          # destroy the node, keep state (~$2/mo)
 make cost-report   # current month-to-date spend
+make migrate       # apply database migrations
+make docs-sync     # regenerate dashboard + republish Confluence
+make jira EPIC=KAV-6   # an epic's stories and status
 ```
 
 ---

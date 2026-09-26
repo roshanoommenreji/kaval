@@ -1,10 +1,9 @@
 from logging.config import fileConfig
 
+from alembic import context
 from kaval_shared.db import database_url
 from kaval_shared.models import Base
 from sqlalchemy import engine_from_config, pool
-
-from alembic import context
 
 config = context.config
 

@@ -12,7 +12,7 @@ and says "no releases yet" until then.
 
 ## Format
 
-The filename is `YYYY-MM-DD-vX.Y.Z.md`. `scripts/dashboard.py` parses the heading and the bullet
+The filename is `YYYY-MM-DD-vX.Y.Z.md`. `scripts/tracking/dashboard.py` parses the heading and the bullet
 fields, so those must keep their shape — everything below them is free text.
 
 ```markdown

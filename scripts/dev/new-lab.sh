@@ -9,7 +9,7 @@
 set -euo pipefail
 
 SLUG="${1:?usage: new-lab.sh <slug>}"
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TODAY=$(date -u +%Y-%m-%d)
 
 NEXT=$(find "$ROOT/docs/labs" -name 'lab-*.md' 2>/dev/null \

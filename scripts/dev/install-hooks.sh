@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Install the pre-commit hook. Run once after cloning.
 #
-#   ./scripts/install-hooks.sh
+#   ./scripts/dev/install-hooks.sh
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOOK="$ROOT/.git/hooks/pre-commit"
 
 [[ -d "$ROOT/.git" ]] || { echo "not a git repository — run 'git init' first"; exit 1; }

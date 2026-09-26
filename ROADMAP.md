@@ -21,7 +21,7 @@ Guardrails before anything that can cost money.
 - [x] `.gitignore`, `.gitattributes`, `.env.example`, gitleaks pre-commit hook
 - [x] `git init` + first commit
 - [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24, applied 2026-09-15
-- [x] Progress dashboard — `scripts/dashboard.py`, derived from this file
+- [x] Progress dashboard — `scripts/tracking/dashboard.py`, derived from this file
 - [x] Learning layer — a concept page per phase in `docs/learn/`
 - [x] Architecture diagrams — `architecture.toml`, system + journey + delivery views
 - [x] ADR-0004 environment strategy and promotion path
@@ -95,8 +95,8 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] k3s bootstrap via cloud-init
 - [ ] Flux GitOps reconciliation
 - [ ] Cloudflare Tunnel — no ALB, no NAT Gateway
-- [ ] Postgres PV on EBS + nightly dump to S3 (`scripts/backup.sh`, RPO 24 h)
-- [ ] `scripts/restore.sh` + `anonymise.sql` — staging seeded from a sanitised prod snapshot
+- [ ] Postgres PV on EBS + nightly dump to S3 (`scripts/ops/backup.sh`, RPO 24 h)
+- [ ] `scripts/ops/restore.sh` + `anonymise.sql` — staging seeded from a sanitised prod snapshot
 - [ ] **Restore drill** — measured RTO recorded, and `restore-from-backup` runbook verified
 - [ ] `make up` / `make down`
 - [ ] `infra/envs/staging` — second spot node, own VPC, own k3s, 10 GB EBS
@@ -157,7 +157,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 
 ## Phase 8 — EKS chapter · week 25 · `[ ]`
 
-- [ ] `infra/envs/lab` — real EKS via Terraform
+- [ ] `infra/envs/lab-eks` — real EKS via Terraform
 - [ ] IRSA for the executor — no static keys
 - [ ] AWS Load Balancer Controller
 - [ ] Deploy the **identical** Helm chart, unmodified

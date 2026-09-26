@@ -1,4 +1,4 @@
-# Configuration for scripts/dashboard.py
+# Configuration for scripts/tracking/dashboard.py
 #
 # Everything the dashboard cannot derive from the repository lives here.
 # Status is NEVER recorded in this file — ROADMAP.md is the single source of
@@ -92,7 +92,7 @@ note  = "Ten epics (KAV-5..14), one per phase. Workflow: To Do → In Definition
 [[links]]
 label = "Confluence — Kaval space"
 url   = "https://roshanoommenreji.atlassian.net/wiki/spaces/KAV/overview"
-note  = "Project home, decisions log, runbooks, session notes. Published from the repo — rerun `python scripts/publish-confluence.py` after any change."
+note  = "Project home, decisions log, runbooks, session notes. Published from the repo — rerun `python scripts/tracking/publish-confluence.py` after any change."
 
 [[links]]
 label = "GitHub repository"
