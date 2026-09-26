@@ -98,7 +98,9 @@ branches. See [docs/contributing.md](docs/contributing.md).
 
 **Where things go** — the README's repository map is authoritative. Scripts are split by what
 they touch: `scripts/ops/` (AWS, database), `scripts/tracking/` (Jira, Confluence, dashboard),
-`scripts/dev/` (local setup). Migrations live in `migrations/`.
+`scripts/dev/` (local setup). Migrations live in `migrations/`. `docs/repo-guide.md` explains
+every folder and file; update it in the same change whenever a folder is added, moved or starts
+being used.
 
 ---
 

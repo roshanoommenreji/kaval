@@ -64,6 +64,9 @@ See [docs/00-start-here.md](docs/00-start-here.md) before touching anything.
 
 ## Repository map
 
+The short version is below. For every folder and file, what it does today and which phase fills
+the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
+
 | Path | What lives there |
 |---|---|
 | [docs/](docs/) | **Start here.** Labs, ADRs, architecture, runbooks, cost, journal |
