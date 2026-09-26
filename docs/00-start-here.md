@@ -60,7 +60,9 @@ The project also *reasons about* its own cost. That is the second half of the pr
 
 | If you want to… | Go to |
 |---|---|
+| Know what every folder and file is for | [repo-guide.md](repo-guide.md) |
 | Know where the project stands right now | [../ROADMAP.md](../ROADMAP.md) |
+| Know how branches and commits work | [contributing.md](contributing.md) |
 | See what's deliberately left for after v1 | [future-scope.md](future-scope.md) |
 | Understand a past decision and why | [adr/](adr/) |
 | Understand how a piece works | [architecture/](architecture/) |

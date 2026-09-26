@@ -298,6 +298,10 @@ def main() -> None:
     )
     upsert_page(space_id, "Decisions Log", decisions, home_id)
 
+    guide_md = (ROOT / "docs/repo-guide.md").read_text(encoding="utf-8")
+    guide_body = "\n".join(guide_md.splitlines()[1:])
+    upsert_page(space_id, "Repository Guide", doc(md_to_adf(guide_body)), home_id)
+
     # ── Runbooks (parent + one child per file) ──────────────────────────
     runbooks_home = doc(
         p("Published from docs/runbooks/ in the repo. The repo copy is authoritative -- it is also "
