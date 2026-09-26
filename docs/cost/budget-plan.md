@@ -58,6 +58,7 @@ indefinitely and resumes without loss.
 | S3 backups | 0.05 |
 | CloudWatch logs (trimmed) | 0.50 |
 | Bedrock escalations (light use) | 1.50 |
+| Jev risk rating — TypeSafe API, ~12M input tokens ([ADR-0006](../adr/0006-jev-as-proposal-risk-rater.md)) | 0.50 |
 | Data transfer | 1.00 |
 | **Total** | **~$14** |
 
@@ -128,6 +129,7 @@ Conventional equivalent of this stack: **~$153/month**. This one: **~$14**.
 | Cloudflare Tunnel | $0 |
 | Expo local builds | $0 |
 | Gemma weights | $0 |
+| TypeSafe Jev API — waitlist, no free tier, billed on input only | ~$0.50/mo from Phase 2 — **outside the AWS credit and outside the Lambda hard stop**; set a spend cap in the TypeSafe console |
 | Domain for a stable tunnel hostname | ~$12/yr — **optional** |
 | Google Play publishing | $25 one-time — **not needed**, sideload the APK |
 | Apple Developer | $99/yr — **not applicable**, Android only |
