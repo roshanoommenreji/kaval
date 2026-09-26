@@ -255,9 +255,10 @@ aws iam simulate-principal-policy --policy-source-arn <hard-stop role ARN> \
 subscribed. The email one, confirmed by hand on 2026-09-15, was gone, and Terraform's state still
 described a stale pending one. The alerts themselves never stopped reaching you, because every
 budget notification also emails you **directly** from AWS Budgets. What was missing was the
-SNS copy. The apply re-created it. **Confirm the new "Subscription Confirmation" email.** It's
-the same trap as Step 6, and the same lesson: re-check a control after the fact, don't assume
-it stayed put.
+SNS copy. The apply re-created it, and the new "Subscription Confirmation" email was confirmed.
+Then both checks passed: `list-subscriptions-by-topic` showed email and Lambda confirmed, and a
+refreshed `terraform plan` reported "No changes". It's the same trap as Step 6, and the same
+lesson: re-check a control after the fact, don't assume it stayed put.
 
 ---
 
