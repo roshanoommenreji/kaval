@@ -99,7 +99,7 @@ $18/$22 alerts.
 About 3 months of Phases 1–3 at ~$5/month adds ~$15, so the projected total rises from ~$52 to
 ~$67. That's still inside the $70 budget-with-buffer, but the buffer shrinks from $18 to $3,
 which is thin. `make devbox-down` at the end of each session is the easiest saving. All of it
-comes out of the $100 Free Plan credit, so the expected out-of-pocket cost is still close to
+comes out of the $140 of AWS credit (expires 2027-09-11), so the expected out-of-pocket cost is still close to
 zero.
 
 ### The staging cluster
@@ -190,6 +190,29 @@ That expiry lines up almost exactly with the project's target finish. In practic
 **entire ~$52 projected spend above is very likely absorbed by this credit alone** — the $25/mo
 ceiling and its Lambda hard-stop stay in force regardless, as an independent guardrail, but the
 realistic out-of-pocket exposure for the whole project is close to $0 rather than $52.
+
+### Corrected 2026-09-26, from Billing → Credits
+
+The figures above were partly wrong. **182 days was the length of the Free *Plan*, not the
+credits' life.** The Credits page shows:
+
+| Credit | Amount | Expires |
+|---|---|---|
+| AWS Free Tier | $100.00 | 2027-09-11 |
+| Explore AWS: create a web app using AWS Lambda | $20.00 | 2027-09-11 |
+| Explore AWS: set up a cost budget using AWS Budgets | $20.00 | 2027-09-11 |
+| **Total remaining** | **$140.00** ($0.00 used) | |
+
+The two $20 credits were earned by Phase 0's own work: the hard-stop Lambda and the budget.
+The credit outlives the project's March 2027 target by six months, and the ~$67 projection
+(including the dev server, ADR-0007) leaves about $73 unused. **Expected out-of-pocket cost:
+still $0.**
+
+The Free Plan limits EC2 to free-tier sizes, so `t4g.medium` was refused (`InvalidParameterCombination: not eligible for Free Tier`).
+Running it needs the account on the **paid plan**. That upgrade has no fee, keeps these credits,
+and cannot be undone. After it, spend beyond the credit bills the card instead of stopping the
+account, which makes this project's own guardrails (alerts at $18/$22, hard stop at $24, the dev
+server's idle stop) the only brake.
 
 Re-check this figure periodically — a credit-based plan can behave differently from classic free
 tier at the edges, and the number should be verified against the console rather than assumed to

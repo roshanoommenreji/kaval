@@ -76,7 +76,7 @@ describes *a machine*, not a promotion tier.
 - **Phases 1–3 are no longer $0.** Expect about $5/month at 20 hours a week: $1.95 compute,
   $0.44 public IPv4 (both only while running), and $2.74 for the 30 GB disk, which bills even
   while stopped. That adds ~$15 over the three phases and takes the project projection from ~$52
-  to ~$67, against a $70 budget-with-buffer. It's paid from the $100 Free Plan credit. See
+  to ~$67, against a $70 budget-with-buffer. It's paid from the $140 of AWS credit (expires 2027-09-11). See
   `docs/cost/budget-plan.md`.
 - **The $24 hard-stop Lambda does not cover this server.** It was built to scale the Phase 4 ASG
   to zero. Protection here is the idle stop plus the $18 and $22 email alerts. Extending the
