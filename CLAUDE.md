@@ -124,7 +124,9 @@ Every unit of work, before it counts as finished:
 4. Entry appended to `docs/journal/YYYY-MM-DD.md`
 5. Cost impact noted in `docs/cost/` if spend changed
 6. `docs/architecture/architecture.toml` updated **if a component was added, removed or rewired** — the diagram grows because this is a gate, not because anyone remembers
-7. **Deployed to `staging` and verified before `prod`.** Never straight to prod, ever.
+7. **Deployed to `staging` and verified before `prod`.** Never straight to prod, ever. Stories labelled
+   `uat` are also **signed off** there first (`jira-sync.py uat KAV-<n> pass`,
+   [ADR-0012](docs/adr/0012-user-acceptance-testing.md)).
 8. **Jira reflects reality** — the relevant story/epic transitioned to its true status (Done,
    In Progress, whatever actually happened), its acceptance criteria checked off to match, without
    being asked. A Jira board that lags the repo is worse than no board.

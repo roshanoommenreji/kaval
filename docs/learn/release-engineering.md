@@ -142,6 +142,33 @@ The mechanism here: `promote.yml` as a manual `workflow_dispatch`, moving to Git
 with required reviewers when the repo goes public. **Verify the plan terms** — deployment
 protection rules on private repositories are a paid feature, and GitHub changes what is included.
 
+### Verification is not validation: UAT
+
+Tests answer **"was it built right?"**: does the code do what the developer intended?
+User acceptance testing answers **"is it the right thing?"**: does it do what the user needs? A
+feature can pass every test and still fail its user, like an approval screen that works
+perfectly but hides the one fact the operator needs to decide.
+
+In Kaval ([ADR-0012](../adr/0012-user-acceptance-testing.md)):
+- **Only stories that affect a user get UAT.** They're labelled `uat`, and their **UAT scenarios**
+  (Given / When / Then) are written before the work starts, separate from the Acceptance
+  Criteria the developer checks.
+- **Acceptance happens in the UAT environment**, which is staging from Phase 4 and the dev
+  server until then. The status is *In Staging* while the story is being accepted and *Ready for
+  Prod* once it's signed off.
+- **The verdict is a recorded act**, not a nod: `jira-sync.py uat KAV-n pass|fail` writes who,
+  where, when and what, and a failure raises a linked Bug.
+- **It's a gate, so it can refuse.** A story can't pass while its UAT defect is open, and from
+  Phase 4 `promote.yml` refuses a release carrying an unaccepted `uat` story.
+
+Keep the three human checks apart:
+
+| Check | Accepts | Question |
+|---|---|---|
+| Code review / CI | a change | Is it correct? |
+| UAT | a story | Is it what the user needs? |
+| Release go/no-go | a release | Is now the time to ship this bundle? |
+
 ### Progressive delivery, and why not here
 
 Worth knowing by name, even though this project does not use it.
@@ -290,6 +317,10 @@ something checks it: here a `commit-msg` hook and CI run the same checker.
 | **Conventional commits** | Structured commit prefixes enabling generated notes and versioning |
 | **Semantic versioning** | `MAJOR.MINOR.PATCH` with defined bump rules |
 | **Smart commit** | A commit message that transitions or annotates a Jira issue |
+| **UAT** | User acceptance testing: the user confirms a feature does what they need, before it ships |
+| **Verification vs validation** | Built right (tests) vs the right thing (users) |
+| **UAT scenario** | A Given / When / Then check the user runs; written before the work |
+| **Sign-off** | The recorded verdict: who accepted it, where, when, and what they checked |
 | **`workflow_dispatch`** | A GitHub Actions workflow run manually — the gate on a free private repo |
 
 ## Check yourself
@@ -302,6 +333,8 @@ something checks it: here a `commit-msg` hook and CI run the same checker.
 6. Explain expand-contract, and say which release the destructive step belongs in.
 7. Why do the four DORA metrics come in two pairs, and what goes wrong reporting only one pair?
 8. Your rollback plan says "revert the Helm release." Give three reasons it might still fail.
+9. Every test passes, yet UAT fails. What does that tell you, and why isn't it a testing failure?
+10. Why are UAT scenarios written before the work, and not by the person who built it after?
 
 ## In an interview
 

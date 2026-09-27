@@ -118,6 +118,34 @@ In Staging → Ready for Prod → Done**. "In Staging" and "Ready for Prod" are 
 creates a staging environment. Until then a story goes from In Progress (or In Review, while its
 PR is open) straight to Done.
 
+### User acceptance (UAT)
+
+A story that changes what an operator sees or decides gets the label `uat` and a checklist of
+**UAT scenarios**, written before the work starts
+([ADR-0012](adr/0012-user-acceptance-testing.md)). User-facing changes include API responses,
+proposals, notifications, mobile screens and the approve/deny flow. Infra, CI, docs and refactors
+don't need UAT.
+
+```bash
+# at creation: scenarios go in their own section, and the uat label is added
+python scripts/tracking/jira-sync.py create --epic KAV-10 --points 3 --service mobile \
+    --summary "..." --context "..." --ac "developer-checked criterion" \
+    --uat "Given a crashlooping pod, when I open the Inbox, then I see the cause and Approve"
+
+# once it's In Staging (the UAT environment), after trying it as the user:
+python scripts/tracking/jira-sync.py uat KAV-40 pass --env staging --note "what I checked"
+python scripts/tracking/jira-sync.py uat KAV-40 fail --env staging --note "what broke"
+```
+
+- **`pass`** ticks the UAT scenarios, records who, where and when, and moves the story to
+  **Ready for Prod**.
+- **`fail`** raises a linked **Bug** (`uat-defect`) and moves the story back to **In Progress**.
+- **Both** are refused unless the story is labelled `uat` and is **In Staging**. `pass` is also
+  refused while the story's UAT defect is open.
+- **Where to test:** `--env dev` until staging exists in Phase 4, then `--env staging`.
+- **`--service`** fills the Jira **Service** field (repeatable); it says which components the
+  story changes.
+
 **One sprint per phase** (decided 2026-09-27). The board shows the active sprint, so the current
 phase's stories live in a sprint named after it, e.g. "Phase 2 — The agent loop", with the phase's
 exit gate as its goal. When a phase closes, its sprint closes too, and anything unfinished carries
