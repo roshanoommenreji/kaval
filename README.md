@@ -113,7 +113,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | Database | `services/shared/kaval_shared/models.py` · `migrations/` · `scripts/ops/` | `make migrate` · `make backup` |
 | Secrets scanning | `.gitleaks.toml` · `scripts/dev/install-hooks.sh` | `make secrets-scan` |
 | Commit convention | `scripts/dev/check_commits.py` (the `commit-msg` hook and CI) | `./scripts/dev/install-hooks.sh` once |
-| GitHub ↔ Jira | the GitHub for Jira app, linked by the `KAV-<n>` key ([ADR-0011](docs/adr/0011-commit-convention-and-jira-link.md)) | nothing: it's automatic |
+| GitHub ↔ Jira | the GitHub for Atlassian app, linked by the `KAV-<n>` key ([ADR-0011](docs/adr/0011-commit-convention-and-jira-link.md)) | nothing: it's automatic |
 
 Jira and Confluence credentials live in `.env` (gitignored; see `.env.example`). How branches
 and commits work: [docs/contributing.md](docs/contributing.md).

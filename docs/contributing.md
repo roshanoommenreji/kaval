@@ -102,7 +102,7 @@ with a better one; nothing was lost.
 
 ### Jira sees the code through the key, not through commands
 
-The **GitHub for Jira** app (Atlassian's, free, installed on this repo only) puts a Development
+The **GitHub for Atlassian** app (Atlassian's, free, installed on this repo only) puts a Development
 panel on each issue: its branches, commits, pull requests and CI result. It links anything whose
 branch name, commit message or PR title contains the issue's key. That's why the key is required.
 
