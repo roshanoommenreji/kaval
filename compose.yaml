@@ -105,6 +105,22 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # One-shot, on demand only (the `tools` profile keeps it out of `up`):
+  #   make signals SCENARIO=oom-crashloop [SEED=42]
+  # Writes one fake incident's signals into Postgres (KAV-23).
+  signals:
+    build:
+      context: .
+      dockerfile: services/collector/Dockerfile
+    image: kaval/collector:dev
+    platform: linux/arm64
+    profiles: [tools]
+    environment: *db-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
 volumes:
   pgdata:
   ollama-models:

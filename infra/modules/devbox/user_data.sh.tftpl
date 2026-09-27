@@ -24,6 +24,18 @@ echo "${ssh_public_key}" >> /home/ec2-user/.ssh/authorized_keys
 chown ec2-user:ec2-user /home/ec2-user/.ssh/authorized_keys
 chmod 600 /home/ec2-user/.ssh/authorized_keys
 
+# Drop connections whose client has gone. Through the SSM tunnel sshd's TCP peer is the
+# local session worker, which stays up after the laptop's ssh exits, so without a probe
+# every `docker --context` call leaves its connection (and SSM session) open for SSM's
+# 20-minute idle timeout: ~7 per `compose up`, 42 open within 20 minutes, new handshakes
+# timing out, and the idle-stop below counting the dead ones as "active" (found 2026-09-27,
+# KAV-23). A live client answers the probe, so the tunnel and terminals are unaffected.
+cat > /etc/ssh/sshd_config.d/10-kaval-keepalive.conf <<'CONF'
+ClientAliveInterval 30
+ClientAliveCountMax 3
+CONF
+systemctl reload sshd
+
 # ── stop after ${idle_minutes} idle minutes ────────────────────────────────
 # "Active" = any SSH connection (the laptop's docker commands and terminals all
 # arrive this way) or an SSM shell session. Checked every 5 minutes.

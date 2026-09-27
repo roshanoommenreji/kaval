@@ -58,6 +58,7 @@ make help          # every available target
 make dev           # start the dev server if needed, then the stack on it:
                    #   Ollama + local model, Postgres, migrations, gateway (~4 min first time)
 make dev-tunnel    # in a second terminal: gateway :8000, Postgres :5432, Ollama :11435
+make signals SCENARIO=oom-crashloop   # write a fake incident's signals; then http://localhost:8000/docs
 make bench         # measure the local model shortlist (docs/architecture/model-shortlist.md)
 make dev-down      # stop the stack; the database and models are kept
 make devbox-down   # stop the server (or let it stop itself after 1 h idle)
