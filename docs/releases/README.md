@@ -24,6 +24,7 @@ fields, so those must keep their shape — everything below them is free text.
 - **Lead time:** 3.1 days
 - **Rolled back:** no
 - **Time to restore:** —
+- **UAT:** KAV-40 passed on staging by Roshan, 2027-01-12 · KAV-41 passed on staging by Roshan, 2027-01-13
 
 ## Changes
 Generated from conventional commits since v0.4.0.
@@ -55,6 +56,7 @@ Post-deploy check result, recorded after the fact.
 | **Time to restore** | Measured, not estimated. "We would roll back" is not a plan. |
 | **Risk** | Derived from what the diff touches, not from someone's mood |
 | **Staging evidence** | *What* passed, not merely that something was tested |
+| **UAT** | Each `uat` story's sign-off, from its Jira comment. `promote.yml` refuses the release if one is missing ([ADR-0012](../adr/0012-user-acceptance-testing.md)) |
 
 See [ADR-0004](../adr/0004-environment-strategy-and-promotion.md) and
 [the release engineering concepts](../learn/release-engineering.md).

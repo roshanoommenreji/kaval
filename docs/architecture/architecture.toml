@@ -933,7 +933,7 @@ label = "Release notes generated"
 kind = "service"
 phase = 4
 col = 2
-row = 10
+row = 11
 note = "From conventional commits since the last tag, plus the Jira issues named by their KAV keys (which the commit check guarantees). Generated, so it is accurate and costs nothing per release."
 
 [[delivery.node]]
@@ -942,7 +942,7 @@ label = "Human approves?"
 kind = "decision"
 phase = 4
 col = 2
-row = 11
+row = 12
 note = "workflow_dispatch today — a deliberate manual run is the gate. Becomes GitHub Environments with required reviewers once the repo is public, since deployment protection rules are a paid feature on private repos."
 
 [[delivery.node]]
@@ -951,7 +951,7 @@ label = "Held · no deploy"
 kind = "terminal"
 phase = 4
 col = 0.6
-row = 12
+row = 13
 note = "A gate that has never refused anything is a step wearing a gate's clothes."
 
 [[delivery.node]]
@@ -960,7 +960,7 @@ label = "promote.yml"
 kind = "service"
 phase = 4
 col = 2
-row = 12
+row = 13
 note = "Deploys the artifact. It does not build one."
 
 [[delivery.node]]
@@ -969,7 +969,7 @@ label = "Same digest as staging?"
 kind = "decision"
 phase = 4
 col = 2
-row = 13
+row = 14
 note = "The check that makes build-once real rather than aspirational. Tested with a deliberate negative case — promoting an unproven digest must be refused."
 
 [[delivery.node]]
@@ -978,7 +978,7 @@ label = "REFUSED"
 kind = "terminal"
 phase = 4
 col = 0.6
-row = 14
+row = 15
 note = "An artifact that did not pass staging cannot reach production, regardless of who asks."
 
 [[delivery.node]]
@@ -987,7 +987,7 @@ label = "Deploy to prod"
 kind = "target"
 phase = 4
 col = 2
-row = 14
+row = 15
 note = "Rolling update. Two versions coexist for a few seconds, which is why migrations must be backward-compatible — expand, migrate, then contract in a later release, never the same one."
 
 [[delivery.node]]
@@ -996,7 +996,7 @@ label = "Post-deploy verify?"
 kind = "decision"
 phase = 4
 col = 2
-row = 15
+row = 16
 note = "Health, smoke, and the agent loop still functioning. Verified after the fact rather than assumed."
 
 [[delivery.node]]
@@ -1005,7 +1005,7 @@ label = "rollback.yml · timed"
 kind = "terminal"
 phase = 3
 col = 0.6
-row = 16
+row = 17
 note = "helm rollback to the previous revision, measuring time-to-restore. That measured figure goes into the next change record, because 'we would roll back' is not a plan."
 
 [[delivery.node]]
@@ -1014,7 +1014,7 @@ label = "Change record written"
 kind = "store"
 phase = 4
 col = 2
-row = 16
+row = 17
 note = "docs/releases/YYYY-MM-DD-vX.Y.Z.md — digests, changes, linked issues, derived risk, staging evidence, the rollback plan with its last measured time, and the verification result."
 
 [[delivery.node]]
@@ -1023,7 +1023,7 @@ label = "Jira version released"
 kind = "store"
 phase = 4
 col = 2
-row = 17
+row = 18
 note = "Fix Version marked released by promote.yml, issues transitioned to Done. The board reflects reality without anyone dragging a card across it. Until Phase 4, jira-sync.py moves issues by hand (ADR-0011); the GitHub link already shows each issue its commits and PRs."
 
 [[delivery.node]]
@@ -1032,8 +1032,26 @@ label = "DORA metrics updated"
 kind = "store"
 phase = 4
 col = 2
-row = 18
+row = 19
 note = "Deployment frequency and lead time measure speed; change failure rate and time to restore measure stability. Reporting only one pair is how teams justify shipping recklessly, or never shipping at all."
+
+[[delivery.node]]
+id = "d-uat"
+label = "UAT signed off?"
+kind = "decision"
+phase = 4
+col = 2
+row = 10
+note = "Only for releases carrying stories labelled uat (ADR-0012). Roshan accepts each one as the user, on staging, against its UAT scenarios, and records the verdict with jira-sync.py uat pass|fail. promote.yml refuses a release with a uat story not yet signed off. Verification (tests) asks whether it was built right; UAT asks whether it is the right thing."
+
+[[delivery.node]]
+id = "d-uatfail"
+label = "Bug raised · back to work"
+kind = "terminal"
+phase = 4
+col = 0.6
+row = 11
+note = "uat fail records who, where and what broke, raises a linked Bug (uat-defect, Service copied, Found in = staging) and moves the story back to In Progress. The story can't pass UAT while that Bug is open."
 
 [[delivery.edge]]
 from = "d-local"
@@ -1092,8 +1110,18 @@ label = "fail"
 
 [[delivery.edge]]
 from = "d-smoke"
-to = "d-notes"
+to = "d-uat"
 label = "pass"
+
+[[delivery.edge]]
+from = "d-uat"
+to = "d-notes"
+label = "yes / none needed"
+
+[[delivery.edge]]
+from = "d-uat"
+to = "d-uatfail"
+label = "fail"
 
 [[delivery.edge]]
 from = "d-notes"

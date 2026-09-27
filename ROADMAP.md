@@ -64,6 +64,9 @@ $0.13 of AWS usage, covered by credits. **Phase 1 complete 2026-09-27.**
 
 The hard, interesting part. Still no AWS.
 
+- [ ] UAT process: `uat` label, UAT scenarios, `jira-sync.py uat pass|fail` ([ADR-0012](docs/adr/0012-user-acceptance-testing.md), `KAV-34`)
+- [ ] Component versions and release naming: Kaval X.Y.Z with its components' versions (`KAV-35`)
+- [ ] Jira dashboards as code: Delivery, UAT, Releases (`KAV-36`)
 - [ ] Signal correlation → incident fingerprinting
 - [ ] Context builder: runbook RAG (pgvector) + past incidents + recent changes
 - [ ] JSON-schema-enforced proposal output — the model must not ramble
@@ -113,7 +116,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] `infra/envs/staging` — second spot node, own VPC, own k3s, 10 GB EBS, **plus its own database server** from `infra/modules/database`
 - [ ] `make staging-up` / `staging-down`, self-destruct after 4 idle hours
 - [ ] `release.yml` — build once, push by digest, deploy staging, smoke test, release notes; semantic version tags `vX.Y.Z` derived from the commit types (moved from Phase 1 by ADR-0011)
-- [ ] `promote.yml` — the gate. **Refuses a digest that did not pass staging**
+- [ ] `promote.yml` — the gate. **Refuses a digest that did not pass staging**, and a release with a `uat` story not yet signed off (ADR-0012)
 - [ ] `rollback.yml` — measured time-to-restore
 - [ ] Generated change records in `docs/releases/`
 - [ ] `docs/learn/phase-4-aws-landing.md` — flip **Written from** to `experience`
