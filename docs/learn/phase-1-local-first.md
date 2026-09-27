@@ -216,6 +216,53 @@ code behind them. [ADR-0009](../adr/0009-gateway-api-conventions.md) fixes the r
   a buggy endpoint can't change the audit trail. "The code doesn't write" is a promise;
   "Postgres refuses writes" is a guarantee.
 
+### CI turns "it works on my machine" into a recorded fact
+
+Continuous integration runs the same checks on a clean machine for every proposed change, and
+records the result on the pull request. It's worth something for three reasons, and they're
+separate:
+
+- **A clean machine.** The laptop has packages, files and state that a fresh runner doesn't. CI
+  finds what you forgot to commit, and anything that only worked because of your setup.
+- **The same checks every time.** Nobody skips the slow test when they're in a hurry. The
+  pipeline doesn't get tired.
+- **A gate, not a report.** A check nobody has to pass is decoration. Here a PR merges only
+  when every check is green ([contributing](../contributing.md)).
+
+Two design rules follow. First, CI must be able to **fail** for the right reasons: a database test
+that silently skips when the database is missing turns a broken pipeline green. That's why CI
+sets `KAVAL_REQUIRE_DB=1`. Second, test against the real thing where it's cheap. A Postgres
+service container costs seconds, and SQLite would pass tests that Postgres fails, because it has
+no JSONB, no row comparison and no read-only transactions.
+
+### Pinning: what a version number doesn't promise
+
+`fastapi>=0.115` means "any version from 0.115 up", so each install can get different code.
+A **lockfile** (`uv.lock`) records the exact version of every package, including the ones
+installed only because something else needs them, and a hash of each file. Install from it and
+the laptop, CI and the images all run byte-identical dependencies. The first lock in this repo
+proved the point at once: it resolved SQLAlchemy 2.1, which broke the mypy setup the laptop's
+older copy had been hiding.
+
+The same idea applies at every layer, because every name that can be re-pointed is a way in:
+
+| Thing | Movable name | Fixed name |
+|---|---|---|
+| Python package | `sqlalchemy>=2.0` | `uv.lock` version + sha256 |
+| Container image | `python:3.11-slim-bookworm` | `…@sha256:a36c24f9…` digest |
+| GitHub Action | `actions/checkout@v7` | `actions/checkout@3d3c42e5…` commit SHA |
+| Downloaded tool | "latest release" | version + sha256 written in the workflow |
+
+Pinning isn't freezing. Dependabot proposes updates weekly as ordinary pull requests, and CI
+checks each one. Updates still arrive, but deliberately, one reviewed change at a time. That's
+not paranoia: in March 2026, attackers moved 76 of `trivy-action`'s 77 version tags to
+credential-stealing code, and every workflow that pinned by tag ran it.
+
+A scanner like Trivy also finds what you didn't know you shipped. The first scan here flagged two
+HIGH CVEs in packages this project never installed: old copies bundled inside `setuptools`, which
+the base image ships. The fix wasn't to ignore the finding but to remove what the running service
+never uses.
+
 ---
 
 ## Common mistakes
@@ -236,6 +283,11 @@ code behind them. [ADR-0009](../adr/0009-gateway-api-conventions.md) fixes the r
 | Enforcing "read-only" only in application code | One bug writes to the audit trail. Make the database refuse it (`READ ONLY` transaction, then a read-only role) |
 | Letting fake data look exactly like real data | A test run is mistaken for an outage, or pollutes a metric. Flag every fake row |
 | Assuming a closed SSH client closes the server's connection | Through Session Manager it doesn't: 42 connections leaked in 20 minutes. `ClientAliveInterval` makes the server check |
+| Pinning GitHub Actions by tag (`@v4`) | A tag can be moved to malicious code; pin the commit SHA and let Dependabot bump it |
+| Letting CI skip tests it can't run | A missing database turns a green run into a lie. Make CI fail where the laptop would skip |
+| Installing from `pyproject.toml` ranges instead of a lock | The laptop, CI and the image each get different versions; the bug appears in only one of them |
+| Committing a Terraform lock generated on one OS | CI on Linux can't verify the provider. `terraform providers lock -platform=…` for every OS in use |
+| Silencing a scanner finding instead of fixing it | The vulnerable package stays. Often the fix is removing something the image never needed |
 
 ## Glossary
 
@@ -269,6 +321,16 @@ code behind them. [ADR-0009](../adr/0009-gateway-api-conventions.md) fixes the r
 | **OpenAPI** | A machine-readable description of an HTTP API; FastAPI generates it at `/openapi.json` and renders it at `/docs` |
 | **Cursor pagination** | Paging by "rows after this one" instead of by page number; stable while rows are added |
 | **Read-only transaction** | `SET TRANSACTION READ ONLY`: Postgres rejects any write inside it |
+| **CI** | Continuous integration: automated checks on a clean machine for every proposed change |
+| **Pull request (PR)** | A proposed merge of a branch into `main`, where CI results and review are recorded |
+| **Service container** | A container GitHub Actions starts next to a job, e.g. a real Postgres for the tests |
+| **Lockfile** | Exact versions and hashes of every dependency, including transitive ones (`uv.lock`) |
+| **Transitive dependency** | A package you get because one of your dependencies needs it |
+| **Digest** | The sha256 of an image manifest; unlike a tag, it can't be re-pointed |
+| **SHA pinning** | Referencing an action by full commit hash instead of by tag |
+| **Supply-chain attack** | Compromising something you depend on (a package, an action, an image) instead of you |
+| **CVE** | A public identifier for a known vulnerability, e.g. CVE-2026-24049 |
+| **Dependabot** | GitHub's bot that opens PRs to update pinned dependencies |
 
 ## Check yourself
 
@@ -281,6 +343,9 @@ code behind them. [ADR-0009](../adr/0009-gateway-api-conventions.md) fixes the r
 7. Why Postgres with pgvector rather than a dedicated vector database — and at what point would that answer change?
 8. Signals arrive every few seconds. Why does `?page=2` return different rows each time you ask, and what does a cursor use to avoid it?
 9. The gateway's code never writes to the database. Why make Postgres enforce that anyway?
+10. A workflow uses `some-org/scan-action@v2`. What exactly could change under you, and how do you stop it?
+11. The 12 database tests skip on your laptop. Why must the same tests *fail* in CI when there's no database?
+12. Trivy reports a HIGH CVE in a package you never installed. Where did it come from, and what is the right fix?
 
 ## In an interview
 

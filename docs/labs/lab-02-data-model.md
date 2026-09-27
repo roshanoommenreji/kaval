@@ -42,6 +42,8 @@ hacking.
 python -m venv .venv
 .venv/Scripts/python -m pip install --upgrade pip
 .venv/Scripts/python -m pip install -e ".[dev]"
+# From KAV-24 on, `make sync` replaces these three lines: it installs exactly what uv.lock pins
+# (Lab 06). pip still works, but gets whatever versions are newest that day.
 ```
 
 Key `pyproject.toml` choices:

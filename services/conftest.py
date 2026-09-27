@@ -2,11 +2,13 @@
 
 `db_session` is the one way a test touches Postgres. Tests that use it are skipped, not
 failed, when no database is reachable, so `make test` stays green on a laptop with the
-dev server stopped; `make dev` + `make dev-tunnel` bring the database up.
+dev server stopped; `make dev` + `make dev-tunnel` bring the database up. CI sets
+`KAVAL_REQUIRE_DB=1`, which turns that skip into a failure.
 """
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -29,7 +31,12 @@ def migrated_engine() -> Engine:
         with engine.connect() as probe:
             probe.execute(text("SELECT version_num FROM alembic_version"))
     except (OperationalError, KeyError) as exc:
-        pytest.skip(f"no reachable, migrated Postgres: {type(exc).__name__}")
+        reason = f"no reachable, migrated Postgres: {type(exc).__name__}"
+        # CI sets KAVAL_REQUIRE_DB=1: there, a missing database is a broken pipeline, and a
+        # skip would let 12 tests vanish from a green run without anyone noticing (KAV-24).
+        if os.environ.get("KAVAL_REQUIRE_DB") == "1":
+            pytest.fail(reason, pytrace=False)
+        pytest.skip(reason)
     return engine
 
 

@@ -48,7 +48,7 @@ changed from "the laptop" on 2026-09-26). About $5/month, and it stops itself wh
 - [x] Synthetic signal generator: 4 scenarios (OOM crashloop, exec-format, cost spike, idle volume) in real payload shapes, flagged `synthetic`, `make signals` (`KAV-23`, Lab 05)
 - [x] Data model migrations: signal · incident · proposal · action · decision · execution · outcome
 - [x] Gateway REST skeleton, health checks, OpenAPI: read-only `/v1` signals + incidents, cursor paging, `/docs` ([ADR-0009](docs/adr/0009-gateway-api-conventions.md), `KAV-23`, Lab 05)
-- [ ] `.github/workflows/ci.yml` — ruff · mypy · pytest · gitleaks · arm64 build · Trivy
+- [x] `.github/workflows/ci.yml` — ruff · mypy · pytest on real Postgres · migrations up/check/down · gitleaks (full history) · terraform fmt/validate · native arm64 build · Trivy; `uv.lock`, SHA-pinned actions, Dependabot ([ADR-0010](docs/adr/0010-ci-pipeline-and-supply-chain.md), `KAV-24`, Lab 06)
 - [ ] Jira project `KAV` workflow: Backlog → Ready → In Progress → In Review → In Staging → Ready for Prod → Done
 - [ ] Conventional commits + semantic versioning + Jira smart commits
 - [ ] `docs/learn/phase-1-local-first.md` — flip **Written from** to `experience`

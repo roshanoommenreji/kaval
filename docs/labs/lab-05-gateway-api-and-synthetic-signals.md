@@ -33,7 +33,7 @@ The API's conventions are in [ADR-0009](../adr/0009-gateway-api-conventions.md):
 ## Prerequisites
 
 - [Lab 04](lab-04-compose-stack.md) complete: `make dev` brings the stack up healthy
-- The laptop's `.venv` installed (`pip install -e ".[gateway,dev]"`), for the tests
+- The laptop's `.venv` installed (`make sync`, which installs what `uv.lock` pins; before `KAV-24` this was `pip install -e ".[gateway,dev]"`), for the tests
 
 ---
 

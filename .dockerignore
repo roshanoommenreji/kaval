@@ -4,6 +4,7 @@
 # tfvars, tfstate) can't be sent by accident when nothing is sent by default.
 *
 !pyproject.toml
+!uv.lock
 !services/
 !migrations/
 

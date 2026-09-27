@@ -1,0 +1,183 @@
+# CI: every pull request, and main after each merge (KAV-24, ADR-0010).
+#
+# Builds but never pushes. Publishing images, SBOMs and signatures is release.yml's job
+# (Phase 4), because only a merged commit should ever produce an artifact.
+#
+# Supply-chain hygiene, because a CI job holds the repo's token:
+#   - every third-party action is pinned to a full commit SHA (the tag is a comment).
+#     A tag can be re-pointed; in March 2026 76 of trivy-action's 77 tags were, to
+#     credential-stealing code (CVE-2026-33634). A SHA can't be.
+#   - the gitleaks and Trivy binaries are downloaded directly and checked against
+#     sha256 sums written in this file, so a replaced release asset fails the job.
+#   - the token is read-only (`permissions` below), and no job reads a secret.
+# Dependabot (.github/dependabot.yml) proposes the SHA bumps; the binaries' versions and
+# sums are bumped by hand, together.
+
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the run it makes obsolete.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  GITLEAKS_VERSION: "8.30.1"
+  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb" # linux_x64
+  TRIVY_VERSION: "0.74.0"
+  TRIVY_SHA256: "b94ce1976bbf3c15b514b605ee88be7c6d94a29be2302847ff01cb794d47aad5" # Linux-ARM64
+  TERRAFORM_VERSION: "1.11.4"
+
+jobs:
+  lint:
+    name: lint (ruff + mypy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      # --locked: fail if uv.lock no longer matches pyproject.toml, instead of quietly
+      # resolving something new. The lockfile is the dependency set CI vouches for.
+      - run: uv sync --locked --all-extras
+      - run: uv run make lint
+
+  test:
+    name: test (pytest + migrations, real Postgres)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16 # the same image compose.yaml runs
+        env:
+          POSTGRES_DB: kaval
+          POSTGRES_USER: kaval
+          POSTGRES_PASSWORD: ci-only-not-a-secret
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kaval -d kaval"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: kaval
+      POSTGRES_USER: kaval
+      POSTGRES_PASSWORD: ci-only-not-a-secret
+      KAVAL_REQUIRE_DB: "1" # a database test that can't connect fails here, never skips
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      - run: uv sync --locked --all-extras
+      - name: migrations apply from empty
+        run: uv run alembic upgrade head
+      - name: models and migrations agree (no drift)
+        run: uv run alembic check
+      - name: migrations reverse cleanly, then re-apply
+        run: uv run alembic downgrade base && uv run alembic upgrade head
+      - name: pytest
+        run: uv run pytest services/ -ra
+
+  secrets:
+    name: secrets (gitleaks, full history)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the whole history: the repo goes public at v1, so history must be clean
+          persist-credentials: false
+      - name: install gitleaks (checksum-verified)
+        run: |
+          curl -fsSLo gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum --check --strict
+          tar -xzf gitleaks.tgz gitleaks && rm gitleaks.tgz
+      - run: ./gitleaks git --config .gitleaks.toml --redact --no-banner .
+
+  terraform:
+    name: terraform (fmt + validate)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive -diff infra
+      # No AWS credentials here, deliberately: -backend=false plus validate checks the
+      # configuration offline. Planning against the real account is a Phase 4 job with OIDC.
+      - name: validate each environment
+        run: |
+          for env in infra/envs/*/; do
+            ls "$env"*.tf >/dev/null 2>&1 || continue   # placeholder envs hold only .gitkeep
+            echo "::group::$env"
+            terraform -chdir="$env" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="$env" validate
+            echo "::endgroup::"
+          done
+
+  images:
+    name: image ${{ matrix.service }} (arm64 build + Trivy)
+    # Native Graviton-class runner: the image is built on the architecture it runs on
+    # (CLAUDE.md constraint 2), with no QEMU emulation.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [gateway, collector]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          platforms: linux/arm64
+          tags: kaval/${{ matrix.service }}:ci
+          load: true # into the runner's Docker, for the checks below
+          push: false
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+      - name: image is arm64, runs as the unprivileged user, and its code imports
+        run: |
+          image=kaval/${{ matrix.service }}:ci
+          test "$(docker image inspect -f '{{.Architecture}}' "$image")" = arm64
+          test "$(docker run --rm --entrypoint id "$image" -u)" = 10001
+          docker run --rm --entrypoint python "$image" \
+            -c "import kaval_shared.models, kaval_${{ matrix.service }}, alembic; print('imports ok')"
+      - name: install Trivy (checksum-verified)
+        run: |
+          curl -fsSLo trivy.tgz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-ARM64.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tgz" | sha256sum --check --strict
+          tar -xzf trivy.tgz trivy && rm trivy.tgz
+      # Fails on HIGH or CRITICAL vulnerabilities that have a fix available. Unfixed ones
+      # are reported but can't be acted on until the base image publishes a patch.
+      - name: Trivy scan
+        run: |
+          ./trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+            --exit-code 1 --no-progress kaval/${{ matrix.service }}:ci

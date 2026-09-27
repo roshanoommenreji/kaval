@@ -55,7 +55,8 @@ are never edited by hand. If they disagree with the repo, the repo is right.
 | `README.md` | The front page: what Kaval is, current status, quick start, and a short map | Working |
 | `ROADMAP.md` | All 10 phases as checklists. **The only place progress is recorded.** The dashboard, Jira mirror and architecture diagrams all read their status from here | Working |
 | `CLAUDE.md` | Instructions for Claude Code: the cost ceiling, the security rules, conventions and the Definition of Done | Working |
-| `Makefile` | Short commands for everything (`make help` lists them): `make dev`, `make signals`, `make test`, `make migrate`, `make docs-sync`, `make jira`, `make plan`... | Working. Some targets wait on later phases (see below) |
+| `Makefile` | Short commands for everything (`make help` lists them): `make dev`, `make signals`, `make test`, `make lint`, `make sync`, `make lock`, `make migrate`, `make docs-sync`, `make jira`, `make plan`... | Working. Some targets wait on later phases (see below) |
+| `uv.lock` | The **exact** version and file hashes of every Python package (46), generated from `pyproject.toml` by `make lock`. CI, the laptop (`make sync`) and both images install from it, so all three run the same code. Never edited by hand | Working (`KAV-24`) |
 | `pyproject.toml` | Python project settings: dependencies, the rules for `ruff`, `mypy` and `pytest`, and Alembic's settings (`[tool.alembic]`, pointing it at `migrations/`; there is no `alembic.ini`) | Working |
 | `.env.example` | A template listing every setting and secret the project needs, with fake values. Copy it to `.env` and fill it in | Working |
 | `.env` | **Your real settings and secrets** (Jira token, database password). Not in Git, and never will be | Working, local only |
@@ -63,7 +64,7 @@ are never edited by hand. If they disagree with the repo, the repo is right.
 | `.gitattributes` | Line-ending rules. Stops Windows from adding `\r` characters that break shell scripts on Linux | Working |
 | `.vscode/settings.json` | Hides tool caches (`.venv`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `__pycache__`, `.terraform`) from VS Code's file tree so the top level stays readable. They still exist on disk and are gitignored | Working |
 | `compose.yaml` | The Phase 1–2 stack: Ollama (the AI model), Postgres + pgvector, a one-off migration step, the gateway, and an on-demand `signals` step that writes fake incidents (`make signals`). `make dev` runs it **on the AWS dev server**, not the laptop. No folder-sharing (bind mounts), because those would point at the server's disk; data lives in named volumes there. Never used for staging or prod (the Helm chart is) | Working (`KAV-22`, `signals` in `KAV-23`) |
-| `.dockerignore` | What `docker build` may send to the dev server. An allowlist: only `pyproject.toml`, `services/` and `migrations/`, so `.env` and Terraform files can't leave the laptop by accident | Working |
+| `.dockerignore` | What `docker build` may send to the dev server. An allowlist: only `pyproject.toml`, `uv.lock`, `services/` and `migrations/`, so `.env` and Terraform files can't leave the laptop by accident | Working |
 | `.gitleaks.toml` | Rules for gitleaks, the scanner that blocks any commit containing a secret | Working |
 
 ## `.claude/` and `.github/`
@@ -72,7 +73,9 @@ are never edited by hand. If they disagree with the repo, the repo is right.
 |---|---|---|
 | `.claude/settings.json` | Which read-only commands (e.g. `terraform plan`, `kubectl get`) Claude Code may run without asking you each time | Working |
 | `.claude/skills/` | Project-specific Claude Code skills, e.g. a `cost-check` skill | Placeholder, no phase set |
-| `.github/workflows/` | Automated pipelines. `ci.yml` runs tests and scans on every change. `release.yml`, `promote.yml` and `rollback.yml` move a build through staging to production | Placeholder. CI in Phase 1 (`KAV-24`); the release pipeline in Phase 4 |
+| `.github/workflows/ci.yml` | Runs on every pull request and on `main`: lint, tests against a real Postgres, migration checks, a secrets scan of the whole history, Terraform checks, and arm64 image builds scanned by Trivy. Builds, never publishes. A PR merges only when all of it is green ([ADR-0010](adr/0010-ci-pipeline-and-supply-chain.md), [Lab 06](labs/lab-06-ci-pipeline.md)) | Working (`KAV-24`) |
+| `.github/workflows/` (the rest) | `release.yml`, `promote.yml` and `rollback.yml` will move a build through staging to production | Placeholder, Phase 4 |
+| `.github/dependabot.yml` | Once a week, opens one pull request per kind of dependency (GitHub Actions, Python, Docker base images, Terraform) that has an update. Each goes through CI like any other change | Working (`KAV-24`) |
 
 ---
 
@@ -236,7 +239,7 @@ Run `make migrate` to bring a database up to date.
 | `infra/envs/*/terraform.tfvars` | Your real email, SSH public key and settings |
 | `infra/envs/*/terraform.tfstate` | Terraform's record of what it created in AWS (prod and dev each have one); it can contain account details. **Only copy is on this laptop**, so it moves to S3 later |
 | `~/.ssh/kaval-devbox` | The dev server's SSH private key. It lives in your home folder, outside the project entirely |
-| `.venv/` | Installed Python packages. Rebuild with `pip install -e ".[dev]"` |
+| `.venv/` | Installed Python packages. Rebuild with `make sync` (exactly what `uv.lock` pins) |
 | `docs/dashboard.html` | Regenerated every time |
 | Caches (`__pycache__`, `.mypy_cache`, `.terraform/`...) | Rebuilt automatically |
 
