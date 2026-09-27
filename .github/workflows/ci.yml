@@ -168,7 +168,7 @@ jobs:
       - name: component version
         id: version
         run: |
-          v=$(sed -n 's/^__version__ = "\(.*\)"$//p' "services/${{ matrix.service }}/kaval_${{ matrix.service }}/__init__.py")
+          v=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "services/${{ matrix.service }}/kaval_${{ matrix.service }}/__init__.py")
           test -n "$v"
           echo "version=$v" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
