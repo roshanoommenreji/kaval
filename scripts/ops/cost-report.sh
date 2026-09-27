@@ -60,5 +60,6 @@ elif [[ "$PCT" -gt 70 ]]; then
   echo "  Above 70% of ceiling with time left in the month. Worth a look."
 fi
 
-echo "  Record actuals monthly in docs/cost/actuals/$(date -u +%Y-%m).md"
+echo "  On the 1st, record the month just finished: docs/cost/actuals/$(date -u -d "$(date -u +%Y-%m-01) -1 day" +%Y-%m).md"
+echo "  (the dashboard lists it as a blocker until the file exists)"
 echo ""
