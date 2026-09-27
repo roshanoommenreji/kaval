@@ -843,7 +843,7 @@ col = 2
 row = 2
 inputs = ["The pull request head commit"]
 outputs = ["Pass or fail. Builds an arm64 image but never pushes it."]
-note = "ruff · mypy · pytest · opa test · gitleaks · docker buildx arm64 · Trivy. Deliberately builds without pushing: a PR must prove it compiles for Graviton without publishing an artifact."
+note = ".github/workflows/ci.yml (KAV-24, ADR-0010), five parallel jobs: ruff + mypy · migrations up/check/down/up and pytest against a real pgvector Postgres · gitleaks over full history · terraform fmt + offline validate · both images built natively on an arm64 runner, checked for arm64 and a non-root user, and Trivy-scanned. opa test joins in Phase 2, when policies exist. Deliberately builds without pushing: a PR proves it builds for Graviton without publishing an artifact."
 
 [[delivery.node]]
 id = "d-cigate"
@@ -852,7 +852,7 @@ kind = "decision"
 phase = 1
 col = 2
 row = 3
-note = "A mechanical criterion, so it blocks automatically. No human judgement is involved or wanted here."
+note = "A mechanical criterion: every check green, or no merge. No human judgement is involved or wanted here. Until the repo goes public (Phase 9) GitHub Free cannot enforce it on a private repo, so it is a written rule (docs/contributing.md); after that, a required status check on main."
 
 [[delivery.node]]
 id = "d-blocked"

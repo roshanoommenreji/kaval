@@ -162,11 +162,13 @@ jobs:
           push: false
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
-      - name: image is arm64 and runs as the unprivileged user
+      - name: image is arm64, runs as the unprivileged user, and its code imports
         run: |
           image=kaval/${{ matrix.service }}:ci
           test "$(docker image inspect -f '{{.Architecture}}' "$image")" = arm64
           test "$(docker run --rm --entrypoint id "$image" -u)" = 10001
+          docker run --rm --entrypoint python "$image" \
+            -c "import kaval_shared.models, kaval_${{ matrix.service }}, alembic; print('imports ok')"
       - name: install Trivy (checksum-verified)
         run: |
           curl -fsSLo trivy.tgz \

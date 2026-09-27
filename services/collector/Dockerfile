@@ -36,7 +36,12 @@ COPY pyproject.toml ./
 COPY services/shared/kaval_shared services/shared/kaval_shared
 COPY services/gateway/kaval_gateway services/gateway/kaval_gateway
 COPY services/collector/kaval_collector services/collector/kaval_collector
-RUN pip install --no-deps .
+# Then drop the packaging tools the base image ships: nothing runs them after this line,
+# and setuptools vendors old copies of jaraco.context and wheel that Trivy flags HIGH
+# (CVE-2026-23949, CVE-2026-24049; found by the first CI run, KAV-24). pip goes too: the
+# running service never installs anything, and a shell in the container gets no installer.
+RUN pip install --no-deps . \
+ && pip uninstall -y setuptools wheel pip
 
 RUN useradd --system --uid 10001 --no-create-home kaval
 USER kaval
