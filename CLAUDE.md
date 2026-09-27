@@ -95,7 +95,9 @@ files. If `lab-eks` needs a template change that `prod-k3s` doesn't, the portabi
 broken — flag it.
 
 **Commits and branches** — conventional commits (`feat:`, `fix:`, `docs:`, `infra:`, `chore:`),
-with the Jira key where there is one. Work happens on a short-lived `type/KAV-<n>-slug` branch
+with the Jira key where there is one; `scripts/dev/check_commits.py` enforces it in the `commit-msg` hook
+and in CI. No smart-commit commands (`#done`, `#comment`): commits use the GitHub noreply email, so Jira
+would ignore them; status moves with `jira-sync.py` ([ADR-0011](docs/adr/0011-commit-convention-and-jira-link.md)). Work happens on a short-lived `type/KAV-<n>-slug` branch
 and merges to `main` with `--no-ff` once green. **From `KAV-24` on, it merges through a pull request, and
 only after every CI check is green.** That's a written rule, because GitHub Free can't enforce it on a private repo
 (decided 2026-09-27; enforcement arrives with the public repo in Phase 9). No environment branches and no per-tool

@@ -29,7 +29,7 @@ fields, so those must keep their shape — everything below them is free text.
 Generated from conventional commits since v0.4.0.
 
 ## Issues
-From Jira smart commits.
+From the Jira keys in the commits since the last release.
 
 ## Risk
 Derived: does this touch infrastructure, policy, or the executor?

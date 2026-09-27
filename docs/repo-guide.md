@@ -73,7 +73,7 @@ are never edited by hand. If they disagree with the repo, the repo is right.
 |---|---|---|
 | `.claude/settings.json` | Which read-only commands (e.g. `terraform plan`, `kubectl get`) Claude Code may run without asking you each time | Working |
 | `.claude/skills/` | Project-specific Claude Code skills, e.g. a `cost-check` skill | Placeholder, no phase set |
-| `.github/workflows/ci.yml` | Runs on every pull request and on `main`: lint, tests against a real Postgres, migration checks, a secrets scan of the whole history, Terraform checks, and arm64 image builds scanned by Trivy. Builds, never publishes. A PR merges only when all of it is green ([ADR-0010](adr/0010-ci-pipeline-and-supply-chain.md), [Lab 06](labs/lab-06-ci-pipeline.md)) | Working (`KAV-24`) |
+| `.github/workflows/ci.yml` | Runs on every pull request and on `main`: lint, tests against a real Postgres, migration checks, a secrets scan of the whole history, Terraform checks, and arm64 image builds scanned by Trivy. Builds, never publishes. Also checks every commit message a PR adds (`KAV-25`). A PR merges only when all of it is green ([ADR-0010](adr/0010-ci-pipeline-and-supply-chain.md), [Lab 06](labs/lab-06-ci-pipeline.md)) | Working (`KAV-24`) |
 | `.github/workflows/` (the rest) | `release.yml`, `promote.yml` and `rollback.yml` will move a build through staging to production | Placeholder, Phase 4 |
 | `.github/dependabot.yml` | Once a week, opens one pull request per kind of dependency (GitHub Actions, Python, Docker base images, Terraform) that has an update. Each goes through CI like any other change | Working (`KAV-24`) |
 
@@ -178,9 +178,9 @@ Run `make migrate` to bring a database up to date.
 | `docs/repo-guide.md` | This file | Working |
 | `docs/contributing.md` | How branches, commits and merging work | Working |
 | `docs/future-scope.md` | Ideas deliberately left out of the plan for after v1 | Working |
-| `docs/labs/` | **Step-by-step guides**, one per session, detailed enough for a stranger to repeat from zero. Also mirrored to Confluence | Working (Labs 00–03) |
+| `docs/labs/` | **Step-by-step guides**, one per session, detailed enough for a stranger to repeat from zero. Also mirrored to Confluence | Working (Labs 00–07) |
 | `docs/learn/` | **Concept pages**, one per phase: *why* things work the way they do, glossary, self-check questions, interview answers. Each is marked "written from theory" until the phase is done, then rewritten from experience | Working (all 11 written) |
-| `docs/adr/` | **Architecture Decision Records**: each big decision, why it was made, what was rejected. Numbered, never deleted | Working (0001–0008) |
+| `docs/adr/` | **Architecture Decision Records**: each big decision, why it was made, what was rejected. Numbered, never deleted | Working (0001–0011) |
 | `docs/journal/` | **One dated entry per work session**: what was done, what broke, what's still open. The "Open threads" section of the newest entry feeds the dashboard's Blockers panel | Working |
 | `docs/architecture/overview.md` | How the system fits together, in words and sketches | Working |
 | `docs/architecture/model-shortlist.md` | The local AI models measured on the prod-sized server: memory, speed, output-format results, and which three go to the Phase 2 evals (`make bench` reproduces it) | Working (`KAV-22`) |
@@ -210,7 +210,8 @@ Run `make migrate` to bring a database up to date.
 | `scripts/tracking/jira-sync.py` | Lists, creates and moves Jira stories, and ticks their acceptance criteria (`make jira EPIC=KAV-6`) | Working |
 | `scripts/tracking/atlassian.py` | The Jira/Confluence login code, shared by the two scripts above | Working |
 | **`scripts/dev/`** | **Setting up your own machine** | |
-| `scripts/dev/install-hooks.sh` | Installs the pre-commit check that blocks secrets | Working |
+| `scripts/dev/install-hooks.sh` | Installs the two Git hooks: `pre-commit` (blocks secrets) and `commit-msg` (the commit convention) | Working |
+| `scripts/dev/check_commits.py` | The commit-convention checker, used by the `commit-msg` hook and by CI on every PR; tests in `test_check_commits.py` ([ADR-0011](adr/0011-commit-convention-and-jira-link.md), [Lab 07](labs/lab-07-commits-and-jira-link.md)) | Working (`KAV-25`) |
 | `scripts/dev/new-lab.sh` | Creates a new lab document and journal entry from a template (`make lab NAME=...`) | Working |
 | `scripts/dev/bench_models.py` | Measures the local model shortlist on the dev server: memory, load time, time to first token, speed, JSON validity (`make bench`). Results in `docs/architecture/model-shortlist.md` | Working (`KAV-22`) |
 

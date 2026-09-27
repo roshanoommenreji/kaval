@@ -263,6 +263,23 @@ HIGH CVEs in packages this project never installed: old copies bundled inside `s
 the base image ships. The fix wasn't to ignore the finding but to remove what the running service
 never uses.
 
+### A commit message is data, and a convention is only real if something checks it
+
+`feat: KAV-25 commit-msg hook` carries three facts a machine can use: a **type** (release notes
+group by it, and the version bump can be derived from it), a **key** (the tracker links the commit
+to its issue), and a summary short enough for `git log --oneline`. Written by hand, a convention
+decays within weeks. Checked, it holds. The check lives in two places, the `commit-msg` hook and
+CI, but it's **one function called by both**, so the two can't disagree.
+
+Connecting the tracker to the repository is what makes the key pay off. With GitHub for Jira, each
+issue shows its branch, commits, pull request and CI result, and nobody links anything by hand.
+Jira's *smart commits* (`KAV-25 #done`) would also move the issue, but only when the commit's
+author email matches a Jira user. This repo commits under the GitHub noreply address, so the
+public history never exposes a personal inbox. The commands would therefore be silently dropped,
+and the check refuses them ([ADR-0011](../adr/0011-commit-convention-and-jira-link.md)). The
+lesson is broader than Jira: read the vendor's conditions before building on a feature, because a
+feature that fails silently looks exactly like one that works.
+
 ---
 
 ## Common mistakes
@@ -288,6 +305,10 @@ never uses.
 | Installing from `pyproject.toml` ranges instead of a lock | The laptop, CI and the image each get different versions; the bug appears in only one of them |
 | Committing a Terraform lock generated on one OS | CI on Linux can't verify the provider. `terraform providers lock -platform=…` for every OS in use |
 | Silencing a scanner finding instead of fixing it | The vulnerable package stays. Often the fix is removing something the image never needed |
+| Enforcing a commit convention only with a local hook | Hooks aren't versioned; a fresh clone skips them. CI has to check the same rules |
+| Writing the hook's rules and CI's rules separately | They drift, and a message passes one and fails the other. Call one checker from both |
+| Using smart-commit commands without checking the email match | `#done` is silently ignored, and the board lags while everyone believes it moved |
+| Committing with a personal email to a repo that will go public | The address is in every commit for good; removing it means rewriting history |
 
 ## Glossary
 
@@ -331,6 +352,11 @@ never uses.
 | **Supply-chain attack** | Compromising something you depend on (a package, an action, an image) instead of you |
 | **CVE** | A public identifier for a known vulnerability, e.g. CVE-2026-24049 |
 | **Dependabot** | GitHub's bot that opens PRs to update pinned dependencies |
+| **Conventional commits** | A message format, `type(scope): summary`, that makes history machine-readable |
+| **commit-msg hook** | A Git hook that sees the message before the commit is created, and can refuse it |
+| **Smart commit** | A Jira command inside a commit message (`#comment`, `#time`, `#done`); runs only if the author email matches a Jira user |
+| **Development panel** | The part of a Jira issue listing its linked branches, commits, PRs and builds |
+| **Noreply email** | GitHub's `<id>+<user>@users.noreply.github.com` address, used as the commit author to keep a real inbox private |
 
 ## Check yourself
 
@@ -346,6 +372,8 @@ never uses.
 10. A workflow uses `some-org/scan-action@v2`. What exactly could change under you, and how do you stop it?
 11. The 12 database tests skip on your laptop. Why must the same tests *fail* in CI when there's no database?
 12. Trivy reports a HIGH CVE in a package you never installed. Where did it come from, and what is the right fix?
+13. A `commit-msg` hook already checks the convention. Why does CI check it again?
+14. `KAV-25 #done` is in a pushed commit and the issue didn't move. What's the first thing to compare?
 
 ## In an interview
 

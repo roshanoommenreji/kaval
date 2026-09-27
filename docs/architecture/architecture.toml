@@ -870,7 +870,7 @@ kind = "service"
 phase = 1
 col = 2
 row = 4
-note = "Conventional commits plus a Jira smart commit, so release notes and the issue transition both generate themselves from one action rather than three."
+note = "Conventional commits carrying the KAV key, checked by a commit-msg hook and by CI (ADR-0011). GitHub for Jira links each commit, branch and PR to its issue by that key; status moves with jira-sync.py, since smart-commit commands need the commit email to match a Jira user and this repo commits under the noreply address."
 
 [[delivery.node]]
 id = "d-build"
@@ -934,7 +934,7 @@ kind = "service"
 phase = 4
 col = 2
 row = 10
-note = "From conventional commits since the last tag, plus Jira issues from smart commits. Generated, so it is accurate and costs nothing per release."
+note = "From conventional commits since the last tag, plus the Jira issues named by their KAV keys (which the commit check guarantees). Generated, so it is accurate and costs nothing per release."
 
 [[delivery.node]]
 id = "d-approve"
