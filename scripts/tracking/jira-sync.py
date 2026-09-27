@@ -119,8 +119,14 @@ def _description(context: str, criteria: list[str]) -> dict:
 
 
 def create(args: argparse.Namespace) -> None:
+    # Assigned to whoever runs the script. Unassigned stories showed up as a quarter of the
+    # project's work under "Unassigned" on the Summary page (found 2026-09-27).
+    status, me = call("GET", "/rest/api/3/myself")
+    if status != 200:
+        fail("could not read the current user", status, me)
     fields = {
         "project": {"key": PROJECT},
+        "assignee": {"accountId": me["accountId"]},
         "issuetype": {"name": "Story"},
         "parent": {"key": args.epic},
         "summary": args.summary,
