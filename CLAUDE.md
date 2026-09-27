@@ -96,7 +96,9 @@ broken — flag it.
 
 **Commits and branches** — conventional commits (`feat:`, `fix:`, `docs:`, `infra:`, `chore:`),
 with the Jira key where there is one. Work happens on a short-lived `type/KAV-<n>-slug` branch
-and merges to `main` with `--no-ff` once green. No environment branches and no per-tool
+and merges to `main` with `--no-ff` once green. **From `KAV-24` on, it merges through a pull request, and
+only after every CI check is green.** That's a written rule, because GitHub Free can't enforce it on a private repo
+(decided 2026-09-27; enforcement arrives with the public repo in Phase 9). No environment branches and no per-tool
 branches. See [docs/contributing.md](docs/contributing.md).
 
 **Where things go** — the README's repository map is authoritative. Scripts are split by what

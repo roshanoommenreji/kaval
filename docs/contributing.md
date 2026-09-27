@@ -37,8 +37,20 @@ story.
 
 The remote is [github.com/roshanoommenreji/kaval](https://github.com/roshanoommenreji/kaval). It
 stays **private until v1**, then goes public in Phase 9. Push after every merge; an unpushed
-commit exists only on one laptop. Once CI exists (`KAV-24`), branches get pushed too and merge
-through pull requests, so the checks run before anything reaches `main`.
+commit exists only on one laptop.
+
+### From `KAV-24` on: pull requests, green checks, then merge (a rule, not yet enforced)
+
+Once CI exists, the local merge above is replaced. The branch is pushed and opened as a pull
+request (`gh pr create`). It merges into `main` (keeping a merge commit, as `--no-ff` does) **only
+after every CI check on it is green**. A red check is fixed on the branch, never merged over.
+
+The industry-standard version *enforces* this with a required status check. GitHub Free doesn't
+offer branch protection or rulesets on private repositories
+([GitHub docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)),
+and GitHub Pro (~$4/month) was declined on 2026-09-27. So until v1 it's a written rule, followed
+every time. When the repo goes public in Phase 9, protection becomes free, and turning on "require
+status checks to pass" on `main` is a Phase 9 task.
 
 ### What there is deliberately no branch for
 

@@ -191,6 +191,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Resume bullets written from what actually shipped
 - [ ] Jira retrospective; course outline from `docs/labs/`
 - [ ] Switch the promotion gate to GitHub Environments with required reviewers *(needs a public repo)*
+- [ ] Protect `main`: require the CI checks to pass before a pull request merges *(free once public; a written rule until then, see docs/contributing.md)*
 - [ ] `docs/learn/release-engineering.md` — flip **Written from** to `experience`
 - [ ] `docs/learn/phase-9-harden-and-publish.md` — flip **Written from** to `experience`
 
