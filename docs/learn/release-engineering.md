@@ -169,6 +169,22 @@ Keep the three human checks apart:
 | UAT | a story | Is it what the user needs? |
 | Release go/no-go | a release | Is now the time to ship this bundle? |
 
+### Component versions and a bill of materials
+
+A repository that ships several components can't describe a release with one number. "v0.4.0"
+doesn't say which gateway is in it. So each component carries its own semver, bumped only by
+commits to its own folder, and a release is named by the product version with its components
+listed: **Kaval 0.3.0**, gateway 1.2.0 · collector 0.4.1. That list is the release's **bill of
+materials**, the same idea as an SBOM one level up
+([ADR-0013](../adr/0013-component-versions-and-release-naming.md)).
+
+Keep the two identities apart:
+- **The digest** says exactly which bytes run, and it's what gets promoted.
+- **The version** says what a person should expect from it.
+
+Every running component reports its version (`/healthz`, `--version`, the image label), and CI
+checks the label matches the code. A version that three places disagree on isn't a version.
+
 ### Progressive delivery, and why not here
 
 Worth knowing by name, even though this project does not use it.
@@ -318,6 +334,8 @@ something checks it: here a `commit-msg` hook and CI run the same checker.
 | **Semantic versioning** | `MAJOR.MINOR.PATCH` with defined bump rules |
 | **Smart commit** | A commit message that transitions or annotates a Jira issue |
 | **UAT** | User acceptance testing: the user confirms a feature does what they need, before it ships |
+| **Component version** | One deployable part's own semver, bumped by commits to its folder |
+| **Bill of materials (release)** | The component versions a release carries: Kaval 0.3.0 = gateway 1.2.0 · collector 0.4.1 |
 | **Verification vs validation** | Built right (tests) vs the right thing (users) |
 | **UAT scenario** | A Given / When / Then check the user runs; written before the work |
 | **Sign-off** | The recorded verdict: who accepted it, where, when, and what they checked |

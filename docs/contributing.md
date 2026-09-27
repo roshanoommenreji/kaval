@@ -118,6 +118,24 @@ In Staging → Ready for Prod → Done**. "In Staging" and "Ready for Prod" are 
 creates a staging environment. Until then a story goes from In Progress (or In Review, while its
 PR is open) straight to Done.
 
+### Versions: each component has its own
+
+Each component has its own [semantic version](https://semver.org), in its code:
+`services/<svc>/kaval_<svc>/__init__.py` → `__version__`. A release is named by the **product**
+version and lists the components inside it
+([ADR-0013](adr/0013-component-versions-and-release-naming.md)):
+
+> **Kaval 0.3.0**: gateway 1.2.0 · collector 0.4.1 · agent 0.1.0
+
+- **What bumps a version:** the commits that touched that component's folder. `fix:` bumps the
+  patch, `feat:` the minor, and `!` the major. Shared code bumps every service that ships it, so
+  keep a commit to one component where you can.
+- **Tags:** `gateway-v1.2.0` for a component, `v0.3.0` for the product.
+- **Where a version shows:** `/healthz`, `--version`, and each image's
+  `org.opencontainers.image.version` label. CI fails if the label and the code disagree.
+- **Who bumps them:** `release.yml` computes and applies the bumps from Phase 4. Until then
+  everything stays `0.1.0`, because nothing has been released.
+
 ### User acceptance (UAT)
 
 A story that changes what an operator sees or decides gets the label `uat` and a checklist of

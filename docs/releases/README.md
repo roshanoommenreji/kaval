@@ -12,11 +12,14 @@ and says "no releases yet" until then.
 
 ## Format
 
-The filename is `YYYY-MM-DD-vX.Y.Z.md`. `scripts/tracking/dashboard.py` parses the heading and the bullet
+The filename is `YYYY-MM-DD-vX.Y.Z.md`, where `vX.Y.Z` is the **product** version; the line under
+the heading lists the component versions it carries. `scripts/tracking/dashboard.py` parses the heading and the bullet
 fields, so those must keep their shape — everything below them is free text.
 
 ```markdown
 # Release v0.4.1 — 2027-01-14
+
+Kaval 0.4.1: gateway 1.2.0 · collector 0.4.1 · agent 0.1.0
 
 - **Environment:** prod
 - **Approved by:** Roshan
@@ -26,8 +29,16 @@ fields, so those must keep their shape — everything below them is free text.
 - **Time to restore:** —
 - **UAT:** KAV-40 passed on staging by Roshan, 2027-01-12 · KAV-41 passed on staging by Roshan, 2027-01-13
 
+## Components
+
+| Component | Version | Previous | Image digest |
+|---|---|---|---|
+| gateway | 1.2.0 | 1.1.3 | sha256:a3f9c2... |
+| collector | 0.4.1 | 0.4.1 | sha256:77e0b1... (unchanged) |
+| agent | 0.1.0 | — | sha256:c01d5e... (new) |
+
 ## Changes
-Generated from conventional commits since v0.4.0.
+Generated from conventional commits since v0.4.0, grouped by component.
 
 ## Issues
 From the Jira keys in the commits since the last release.
@@ -50,6 +61,7 @@ Post-deploy check result, recorded after the fact.
 | Field | Because |
 |---|---|
 | **Digest** | "v0.4.1" is a label someone can move. A digest is not. |
+| **Components** | The release's bill of materials: which version of each component it carries, and which changed ([ADR-0013](../adr/0013-component-versions-and-release-naming.md)) |
 | **Approved by** | The human oversight claim needs a name against it |
 | **Lead time** | Commit → production, one of the four DORA measures |
 | **Rolled back** | Feeds change failure rate |

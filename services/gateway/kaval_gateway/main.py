@@ -19,11 +19,12 @@ from kaval_shared.db import get_engine
 from pydantic import BaseModel
 from sqlalchemy import text
 
+from kaval_gateway import __version__
 from kaval_gateway.api import router
 
 app = FastAPI(
     title="Kaval gateway",
-    version="0.1.0",
+    version=__version__,  # the gateway component's version, not the product's (ADR-0013)
     summary="The mobile-facing API of an ops agent that acts only with human approval.",
     description=(
         "Read-only in Phase 1: signals as collected, and incidents with their full timeline "
@@ -47,6 +48,7 @@ class Check(BaseModel):
 
 class Health(BaseModel):
     status: Literal["ok", "degraded"]
+    version: str  # which gateway build answered; the component version (ADR-0013)
     postgres: Check
     ollama: Check
 
@@ -85,4 +87,5 @@ def healthz(response: Response) -> Health:
     healthy = pg.ok and ol.ok
     if not healthy:
         response.status_code = 503
-    return Health(status="ok" if healthy else "degraded", postgres=pg, ollama=ol)
+    status: Literal["ok", "degraded"] = "ok" if healthy else "degraded"
+    return Health(status=status, version=__version__, postgres=pg, ollama=ol)

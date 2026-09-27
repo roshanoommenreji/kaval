@@ -33,6 +33,8 @@ from datetime import UTC, datetime, timedelta
 from kaval_shared.models import Signal
 from sqlalchemy.orm import Session
 
+from kaval_collector import __version__
+
 # The source vocabulary the real collector will use too. Downstream code keys off these.
 KUBERNETES = "kubernetes"
 PROMETHEUS = "prometheus"
@@ -225,6 +227,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true",
                         help="print the signals as JSON lines; touch no database")
     parser.add_argument("--list", action="store_true", help="list the scenarios and exit")
+    parser.add_argument("--version", action="version", version=f"kaval-collector {__version__}")
     args = parser.parse_args(argv)
 
     if args.list or args.scenario is None:

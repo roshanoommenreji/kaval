@@ -43,6 +43,11 @@ COPY services/collector/kaval_collector services/collector/kaval_collector
 RUN pip install --no-deps . \
  && pip uninstall -y setuptools wheel pip
 
+# The component version, passed in by CI from kaval_collector.__version__ (ADR-0013). A local build
+# without it says "unset" rather than guess, and CI checks the label matches the code.
+ARG VERSION=unset
+LABEL org.opencontainers.image.title="kaval-collector"       org.opencontainers.image.version="$VERSION"
+
 RUN useradd --system --uid 10001 --no-create-home kaval
 USER kaval
 

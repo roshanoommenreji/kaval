@@ -934,7 +934,7 @@ kind = "service"
 phase = 4
 col = 2
 row = 11
-note = "From conventional commits since the last tag, plus the Jira issues named by their KAV keys (which the commit check guarantees). Generated, so it is accurate and costs nothing per release."
+note = "Named Kaval X.Y.Z with the component versions it carries (ADR-0013), each bumped from the conventional commits touching that component since its last tag. Lists the Jira issues named by their KAV keys, grouped by Service, and each uat story's sign-off (ADR-0012). Generated, so it is accurate and costs nothing per release."
 
 [[delivery.node]]
 id = "d-approve"

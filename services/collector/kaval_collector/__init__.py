@@ -5,3 +5,8 @@ Phase 1 ships only the synthetic source (`kaval_collector.synthetic`). The real 
 write the same row shapes, so nothing downstream can tell a fake from a real one except
 the `synthetic` flag in `value`.
 """
+
+# This component's own version (ADR-0013). Bumped by the conventional commits that touch
+# services/collector/ or the shared code it ships; CI stamps it on the image as
+# org.opencontainers.image.version and checks the two agree.
+__version__ = "0.1.0"
