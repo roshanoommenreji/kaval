@@ -118,6 +118,12 @@ In Staging → Ready for Prod → Done**. "In Staging" and "Ready for Prod" are 
 creates a staging environment. Until then a story goes from In Progress (or In Review, while its
 PR is open) straight to Done.
 
+**One sprint per phase** (decided 2026-09-27). The board shows the active sprint, so the current
+phase's stories live in a sprint named after it, e.g. "Phase 2 — The agent loop", with the phase's
+exit gate as its goal. When a phase closes, its sprint closes too, and anything unfinished carries
+into the next one. Phase 1 ran with no sprint at all, so none of its work ever appeared on the
+board: it went straight from the backlog to Done.
+
 ## Finishing a piece of work
 
 Merging is step one of the Definition of Done in `CLAUDE.md`. The rest follows in the same

@@ -20,6 +20,7 @@ alert_2_usd        = 35
 hard_stop_usd      = 38
 mtd_usd            = 0.0        # updated from `make cost-report`; 0 while nothing is provisioned
 provisioned        = true       # the dev server (ADR-0007) since 2026-09-26
+actuals_from       = "2026-09"  # first month with AWS usage; each finished month needs docs/cost/actuals/YYYY-MM.md (KAV-19)
 
 # Promotion path. `promotion = false` means it is a deployment target but NOT
 # a quality gate — lab-eks proves chart portability, it does not gate anything.

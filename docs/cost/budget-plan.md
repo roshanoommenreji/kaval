@@ -263,5 +263,19 @@ still read $100 by the time Phase 7 goes always-on.
 
 ## Actuals
 
-Recorded monthly in [`actuals/`](actuals/). Compare against this plan; when they diverge by more
-than 20%, work out why and write it down.
+Recorded monthly in [`actuals/`](actuals/), one file per finished month: `actuals/YYYY-MM.md`.
+Compare against this plan; when they diverge by more than 20%, work out why and write it down.
+
+Nothing has to remember this (`KAV-19`). From the 1st of each month, the dashboard lists the
+previous month under **Blocked on** until its file exists. It checks every month from
+`actuals_from` in `scripts/tracking/dashboard.toml` (2026-09, the first month with AWS usage).
+
+A record holds four things:
+- the month's gross usage by service, before credits: Cost Explorer with `RECORD_TYPE` Credit
+  and Refund excluded;
+- the credits applied;
+- the amount actually billed;
+- one line comparing it with this plan, and why if they differ by more than 20%.
+
+`make cost-report` prints the net figure. Cost Explorer lags about a day, so write the record on
+the 2nd or later for final numbers.
