@@ -57,3 +57,7 @@ def test_services_from_paths() -> None:
 
 def test_docs_only_change_belongs_to_no_service() -> None:
     assert adf.services_for(["docs/adr/0012.md", "README.md", "scripts/tracking/x.py"]) == []
+
+
+def test_placeholder_files_are_not_service_changes() -> None:
+    assert adf.services_for(["infra/envs/lab-eks/.gitkeep", "services/shared/.gitkeep"]) == []

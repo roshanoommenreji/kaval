@@ -106,9 +106,12 @@ curl http://localhost:8000/healthz
 ```
 
 ```json
-{"status":"ok","postgres":{"ok":true,"detail":"migrated to 0e7a61c13abe"},
+{"status":"ok","version":"0.1.0","postgres":{"ok":true,"detail":"migrated to 0e7a61c13abe"},
  "ollama":{"ok":true,"detail":"gemma3:1b ready"}}
 ```
+
+`version` is the gateway component's own version, added by `KAV-35`
+([ADR-0013](../adr/0013-component-versions-and-release-naming.md)).
 
 The model answers through the **OpenAI-compatible** API, which is the shape the agent will use:
 

@@ -49,6 +49,11 @@ RUN pip install --no-deps . \
  && pip uninstall -y setuptools wheel pip
 COPY migrations migrations
 
+# The component version, passed in by CI from kaval_gateway.__version__ (ADR-0013). A local build
+# without it says "unset" rather than guess, and CI checks the label matches the code.
+ARG VERSION=unset
+LABEL org.opencontainers.image.title="kaval-gateway"       org.opencontainers.image.version="$VERSION"
+
 RUN useradd --system --uid 10001 --no-create-home kaval
 USER kaval
 

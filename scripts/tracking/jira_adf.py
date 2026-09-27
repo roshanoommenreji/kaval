@@ -132,6 +132,8 @@ def services_for(paths: Iterable[str]) -> list[str]:
     """The Service values a set of changed files touches, sorted."""
     found = set()
     for path in paths:
+        if path.endswith(".gitkeep"):  # an empty placeholder folder isn't a change to a service
+            continue
         for prefix, service in SERVICE_PATHS:
             if path == prefix or path.startswith(prefix):
                 found.add(service)

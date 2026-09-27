@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from kaval_gateway import main
+from kaval_gateway import __version__, main
 from kaval_gateway.main import Check
 
 client = TestClient(main.app)
@@ -64,3 +64,9 @@ def test_unreachable_postgres_reports_type_not_message(monkeypatch: pytest.Monke
     result = main.check_postgres()
     assert result == Check(ok=False, detail="ConnectionError")
     assert "secret" not in result.detail
+
+
+def test_health_and_openapi_report_the_component_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub(monkeypatch, Check(ok=True, detail="migrated"), Check(ok=True, detail="ready"))
+    assert client.get("/healthz").json()["version"] == __version__
+    assert client.get("/openapi.json").json()["info"]["version"] == __version__

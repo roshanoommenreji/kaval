@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from kaval_collector import synthetic
+from kaval_collector import __version__, synthetic
 from kaval_shared.models import Signal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -108,6 +108,13 @@ def test_list_names_every_scenario(capsys: pytest.CaptureFixture[str]) -> None:
     out = capsys.readouterr().out
     assert all(name in out for name in synthetic.SCENARIOS)
 
+
+
+def test_version_flag_reports_the_component_version(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_:
+        synthetic.main(["--version"])
+    assert exit_.value.code == 0
+    assert capsys.readouterr().out.strip() == f"kaval-collector {__version__}"
 
 def test_a_run_lands_whole_in_the_database(db_session: Session) -> None:
     signals = synthetic.generate("oom-crashloop", seed=7)
