@@ -49,8 +49,8 @@ changed from "the laptop" on 2026-09-26). About $5/month, and it stops itself wh
 - [x] Data model migrations: signal · incident · proposal · action · decision · execution · outcome
 - [x] Gateway REST skeleton, health checks, OpenAPI: read-only `/v1` signals + incidents, cursor paging, `/docs` ([ADR-0009](docs/adr/0009-gateway-api-conventions.md), `KAV-23`, Lab 05)
 - [x] `.github/workflows/ci.yml` — ruff · mypy · pytest on real Postgres · migrations up/check/down · gitleaks (full history) · terraform fmt/validate · native arm64 build · Trivy; `uv.lock`, SHA-pinned actions, Dependabot ([ADR-0010](docs/adr/0010-ci-pipeline-and-supply-chain.md), `KAV-24`, Lab 06)
-- [ ] Jira project `KAV` workflow: Backlog → Ready → In Progress → In Review → In Staging → Ready for Prod → Done
-- [ ] Conventional commits + semantic versioning + Jira smart commits
+- [x] Jira project `KAV` workflow: To Do → In Definition → Ready → In Progress → In Review → In Staging → Ready for Prod → Done (`KAV-17`; the staging states wait for Phase 4)
+- [x] Conventional commits, enforced by a `commit-msg` hook and CI; Jira linked to GitHub by the `KAV-<n>` key, smart-commit commands declined (noreply commit email) ([ADR-0011](docs/adr/0011-commit-convention-and-jira-link.md), `KAV-25`, Lab 07)
 - [ ] `docs/learn/phase-1-local-first.md` — flip **Written from** to `experience`
 
 **Exit gate:** a fake incident flows end-to-end and lands in the database.
@@ -111,7 +111,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] `make up` / `make down`
 - [ ] `infra/envs/staging` — second spot node, own VPC, own k3s, 10 GB EBS, **plus its own database server** from `infra/modules/database`
 - [ ] `make staging-up` / `staging-down`, self-destruct after 4 idle hours
-- [ ] `release.yml` — build once, push by digest, deploy staging, smoke test, release notes
+- [ ] `release.yml` — build once, push by digest, deploy staging, smoke test, release notes; semantic version tags `vX.Y.Z` derived from the commit types (moved from Phase 1 by ADR-0011)
 - [ ] `promote.yml` — the gate. **Refuses a digest that did not pass staging**
 - [ ] `rollback.yml` — measured time-to-restore
 - [ ] Generated change records in `docs/releases/`

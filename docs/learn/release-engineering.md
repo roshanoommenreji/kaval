@@ -178,7 +178,7 @@ What has to be in it:
 |---|---|
 | Exact image digests | "Version 1.4" is ambiguous; a digest is not |
 | Changes since the last release | From conventional commits |
-| Linked issues | From Jira smart commits |
+| Linked issues | From the Jira keys in the commits |
 | Risk assessment | Derived — does this touch infrastructure, policy, or the executor? |
 | Staging evidence | What actually passed, not that something was tested |
 | Rollback plan | The previous Helm revision, and the last *measured* rollback time |
@@ -235,9 +235,14 @@ keeps merges small, which keeps them safe, and it means `main` is always a candi
 structured data. Release notes generate themselves, and semantic versioning can be derived: `fix:`
 bumps patch, `feat:` bumps minor, a breaking-change footer bumps major.
 
-Combined with Jira smart commits (`KAV-12 #comment ... #time 2h`), the commit becomes the single
-place work is recorded — code, issue tracker and release notes all fed from one action rather than
-three.
+Put the Jira key in every commit (`feat: KAV-12 ...`) and connect the tracker to the repository,
+and each issue shows the code that delivered it without anyone linking it by hand. Jira's *smart
+commits* go one step further: `KAV-12 #comment ... #time 2h #done` in a message comments, logs
+time and moves the issue. There's a catch that's easy to miss. Jira runs those commands only when
+the commit's author email matches a Jira user. Kaval commits under the GitHub noreply address to
+keep a personal email out of public history, so it uses the key for linking and a script for
+status ([ADR-0011](../adr/0011-commit-convention-and-jira-link.md)). A convention is only real if
+something checks it: here a `commit-msg` hook and CI run the same checker.
 
 ---
 

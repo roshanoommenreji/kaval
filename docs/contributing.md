@@ -71,16 +71,52 @@ status checks to pass" on `main` is a Phase 9 task.
 
 ## Commits
 
-Conventional commits, with the Jira key when there is one:
+Conventional commits, with the Jira key:
 
 ```
+<type>[(scope)][!]: <KAV key> <what changed>
+
 feat: KAV-22 docker-compose stack with Ollama, Postgres and gateway
-fix: KAV-21 drop ENUM types on downgrade
-docs: Lab 03 — local stack
+fix(ci): KAV-24 multi-platform Terraform locks
+docs: KAV-25 Lab 07 and ADR-0011
+chore: tidy the root                       # no story, no key: fine off a story branch
 ```
 
-The pre-commit hook (`scripts/dev/install-hooks.sh`) runs gitleaks on every commit. Never bypass
-it with `--no-verify`. If it blocks a commit, the thing it found needs to come out.
+| Rule | Why |
+|---|---|
+| `type` is `feat` · `fix` · `docs` · `infra` · `chore`, then `: ` | The type makes history machine-readable: release notes group by it, and Phase 4 derives the version bump from it |
+| Subject at most 100 characters | It has to fit in `git log --oneline` and in a PR list |
+| On a `…/KAV-<n>-…` branch, the subject carries a KAV key | The key is what shows the commit on its Jira issue (below) |
+| No smart-commit commands (`#comment`, `#time`, `#done`) | They'd be ignored: see below |
+| No `fixup!`/`squash!` commits in a pull request | Fine while working; squash them with `git rebase -i --autosquash main` before pushing |
+
+Merge and revert commits are written by Git, so they're exempt. `scripts/dev/check_commits.py`
+checks all of this twice, from the same code: the `commit-msg` hook refuses a bad message before
+the commit exists, and CI's lint job re-checks every commit a pull request adds. A clone without
+the hook still can't get one merged.
+
+Install both hooks once after cloning: `./scripts/dev/install-hooks.sh`. `pre-commit` runs gitleaks
+and the account-ID check; `commit-msg` runs the convention check. Never bypass them with
+`--no-verify`. If one blocks a commit, fix the thing it found. For a bad message, just commit again
+with a better one; nothing was lost.
+
+### Jira sees the code through the key, not through commands
+
+The **GitHub for Jira** app (Atlassian's, free, installed on this repo only) puts a Development
+panel on each issue: its branches, commits, pull requests and CI result. It links anything whose
+branch name, commit message or PR title contains the issue's key. That's why the key is required.
+
+**Smart-commit commands are deliberately not used.** Jira runs `KAV-25 #done` only if the
+commit's author email matches a Jira user's email, and this repo commits under the GitHub noreply
+address to keep a personal address out of public history. So the commands would silently do
+nothing, and the check refuses them. Issue status moves with
+`python scripts/tracking/jira-sync.py transition KAV-<n> <status>`.
+[ADR-0011](adr/0011-commit-convention-and-jira-link.md) has the reasoning.
+
+Jira's workflow, in board order: **To Do → In Definition → Ready → In Progress → In Review →
+In Staging → Ready for Prod → Done**. "In Staging" and "Ready for Prod" are unused until Phase 4
+creates a staging environment. Until then a story goes from In Progress (or In Review, while its
+PR is open) straight to Done.
 
 ## Finishing a piece of work
 

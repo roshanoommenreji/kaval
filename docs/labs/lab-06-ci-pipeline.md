@@ -17,8 +17,8 @@ Five jobs, in parallel:
 
 | Job | Runner | What it proves |
 |---|---|---|
-| **lint** | `ubuntu-24.04` | `make lint` passes: ruff and mypy strict, the same target as on the laptop |
-| **test** | `ubuntu-24.04` + a `pgvector/pgvector:pg16` service container | Migrations apply to an empty database, match the models (`alembic check`), reverse, and re-apply. All 40 tests pass against real Postgres; none can skip |
+| **lint** | `ubuntu-24.04` | `make lint` passes: ruff and mypy strict, the same target as on the laptop. On a PR, every commit message it adds follows the convention (added by `KAV-25`, [Lab 07](lab-07-commits-and-jira-link.md)) |
+| **test** | `ubuntu-24.04` + a `pgvector/pgvector:pg16` service container | Migrations apply to an empty database, match the models (`alembic check`), reverse, and re-apply. All 61 tests pass (40 against real Postgres, plus 21 for the commit checker since `KAV-25`); none can skip |
 | **secrets** | `ubuntu-24.04` | gitleaks finds nothing in the **whole history** |
 | **terraform** | `ubuntu-24.04` | Every `.tf` file is formatted, and every environment validates, offline |
 | **images** (×2) | `ubuntu-24.04-arm` | gateway and collector build natively for arm64, run as uid 10001, import their code, and have no fixable HIGH/CRITICAL vulnerabilities (Trivy) |
@@ -157,7 +157,7 @@ had a made-up account ID in exactly that spot.
 
 - [ ] `make sync && make lint && make test` pass on the laptop
 - [ ] A pull request shows the seven checks (lint, test, secrets, terraform, 2 × images, plus Dependabot's own config check), all green
-- [ ] The test job's log ends with `40 passed`, and no skips
+- [ ] The test job's log ends with `61 passed` (40 before `KAV-25` added the commit checker's tests), and no skips
 - [ ] `uv lock --check` fails after an unlocked `pyproject.toml` edit
 - [ ] The PR merged with `gh pr merge --merge` only after every check was green
 - [ ] Journal entry appended

@@ -62,13 +62,13 @@ bench: ## Measure the local model shortlist on the dev server (KAV-22, ~20 min)
 
 .PHONY: test
 test: ## Unit tests + policy tests
-	pytest services/ -q
+	pytest services/ scripts/dev/ -q
 	@command -v opa >/dev/null 2>&1 && opa test policy/ -v || echo "opa not installed — skipping policy tests"
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check services/ migrations/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/dev/bench_models.py
-	mypy services/
+	ruff check services/ migrations/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py
+	mypy services/ scripts/dev/check_commits.py
 
 .PHONY: lock
 lock: ## Re-resolve uv.lock after editing pyproject.toml's dependencies (then commit both)

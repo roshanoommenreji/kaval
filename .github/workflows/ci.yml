@@ -39,13 +39,15 @@ env:
 
 jobs:
   lint:
-    name: lint (ruff + mypy)
+    name: lint (ruff + mypy + commit messages)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Full history, so the commit check below can see every commit the PR adds.
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -54,6 +56,16 @@ jobs:
       # resolving something new. The lockfile is the dependency set CI vouches for.
       - run: uv sync --locked --all-extras
       - run: uv run make lint
+      # Every commit the PR adds follows the convention and carries its KAV key (KAV-25).
+      # The local commit-msg hook checks the same rules; this catches a clone without it.
+      # Values go through env, never straight into the script: a branch name is user input.
+      - name: commit messages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: uv run python scripts/dev/check_commits.py --range "$BASE_SHA..$HEAD_SHA" --branch "$HEAD_REF"
 
   test:
     name: test (pytest + migrations, real Postgres)
@@ -93,7 +105,7 @@ jobs:
       - name: migrations reverse cleanly, then re-apply
         run: uv run alembic downgrade base && uv run alembic upgrade head
       - name: pytest
-        run: uv run pytest services/ -ra
+        run: uv run pytest services/ scripts/dev/ -ra
 
   secrets:
     name: secrets (gitleaks, full history)
