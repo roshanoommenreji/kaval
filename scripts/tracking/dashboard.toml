@@ -82,7 +82,9 @@ cost      = "~$4/session"
         { label = "Lab 06", url = "https://roshanoommenreji.atlassian.net/wiki/spaces/KAV/pages/6291484" },
         { label = "Lab 07", url = "https://roshanoommenreji.atlassian.net/wiki/spaces/KAV/pages/6488083" },
       ] }
-2 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-7" }
+2 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-7", confluence = [
+        { label = "Lab 08", url = "https://roshanoommenreji.atlassian.net/wiki/spaces/KAV/pages/6783022" },
+      ] }
 3 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-8" }
 4 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-9" }
 5 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-10" }
