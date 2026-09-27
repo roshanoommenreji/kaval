@@ -870,7 +870,7 @@ kind = "service"
 phase = 1
 col = 2
 row = 4
-note = "Conventional commits carrying the KAV key, checked by a commit-msg hook and by CI (ADR-0011). GitHub for Jira links each commit, branch and PR to its issue by that key; status moves with jira-sync.py, since smart-commit commands need the commit email to match a Jira user and this repo commits under the noreply address."
+note = "Conventional commits carrying the KAV key, checked by a commit-msg hook and by CI (ADR-0011). GitHub for Atlassian links each commit, branch and PR to its issue by that key; status moves with jira-sync.py, since smart-commit commands need the commit email to match a Jira user and this repo commits under the noreply address."
 
 [[delivery.node]]
 id = "d-build"

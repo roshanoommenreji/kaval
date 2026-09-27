@@ -31,7 +31,8 @@ They don't match.
 1. **Keep the noreply commit email.** The repo goes public at v1, and every commit carries its
    author email for good. A personal address in public history gets harvested by scrapers and
    can't be removed without rewriting history.
-2. **Link Jira to GitHub with the GitHub for Jira app** (Atlassian's own, free), installed on
+2. **Link Jira to GitHub with the GitHub for Atlassian app** (Atlassian's own, free; it was
+   called "GitHub for Jira" until recently), installed on
    the `kaval` repository only. Linking works by the `KAV-<n>` key in a branch name, commit
    message or PR title, with no email match needed. Each issue then shows its commits, branch,
    pull request and CI result.
@@ -74,8 +75,14 @@ They don't match.
   staging (Jira automation or `release.yml`).
 - The Phase 4 change records take their "linked issues" from the KAV keys in the commits since
   the last tag, which the check guarantees are there. They no longer depend on smart commits.
-- A third-party app now reads the repository. It's Atlassian's own app, scoped to this one
-  repository, and it can be removed in GitHub → Settings → Applications at any time.
+- A third-party app now has access to the repository, and more than it needs for linking.
+  GitHub's install screen grants it **read** on Dependabot alerts, Actions, administration,
+  metadata, secret-scanning alerts and security events. It also gets **read and write** on code,
+  deployments, issues and pull requests, which serves Jira features like "create branch" that
+  Kaval doesn't use. The scope can't be narrowed per feature. What limits it: it's Atlassian's
+  own app, it's installed on this one repository only ("Only select repositories"), and it can be
+  removed in GitHub → Settings → Applications at any time. Phase 9's security pass reviews it
+  again before the repo goes public.
 - Semantic versioning moves to Phase 4. A version only means something once there's a release to
   tag, and `release.yml` will derive it from these same commit types.
 

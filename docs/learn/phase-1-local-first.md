@@ -271,7 +271,7 @@ to its issue), and a summary short enough for `git log --oneline`. Written by ha
 decays within weeks. Checked, it holds. The check lives in two places, the `commit-msg` hook and
 CI, but it's **one function called by both**, so the two can't disagree.
 
-Connecting the tracker to the repository is what makes the key pay off. With GitHub for Jira, each
+Connecting the tracker to the repository is what makes the key pay off. With GitHub for Atlassian (Atlassian's app), each
 issue shows its branch, commits, pull request and CI result, and nobody links anything by hand.
 Jira's *smart commits* (`KAV-25 #done`) would also move the issue, but only when the commit's
 author email matches a Jira user. This repo commits under the GitHub noreply address, so the

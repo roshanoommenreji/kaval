@@ -1,6 +1,6 @@
 # Lab 07 — Commit messages that link themselves to Jira
 
-**Phase:** 1 · **Time:** ~30 min · **Cost:** $0 (the GitHub for Jira app is free; the CI step adds
+**Phase:** 1 · **Time:** ~30 min · **Cost:** $0 (the GitHub for Atlassian app is free; the CI step adds
 seconds to a job that already runs)
 
 A commit message is data. If every one starts with a type and carries its Jira key, three things
@@ -91,16 +91,23 @@ Clean up: `git checkout main && git branch -D feat/KAV-99-try-it && rm scratch.m
 
 ## Step 4 — Connect Jira to GitHub
 
-In a browser, logged in to Jira as an admin:
+The app is **GitHub for Atlassian**, by Atlassian (it used to be called "GitHub for Jira"). The
+marketplace also lists third-party look-alikes, some of them paid, so check the publisher.
 
-1. Top bar: **Apps → Explore more apps**. Search **GitHub for Jira** (publisher: Atlassian) →
-   **Get app**.
-2. **Connect GitHub organization** → **Continue with GitHub cloud** → sign in to GitHub.
-3. Pick your account. When GitHub asks which repositories: **Only select repositories →
-   `kaval`** → **Install**. Least privilege applies here too, so give the app one repository,
-   not every one you own.
-4. Back in Jira the connection shows as connected, with a **backfill** of existing history
-   running. Backfill can take a few minutes.
+1. In Jira: **Apps → Explore more apps**. Search `GitHub`, pick **GitHub for Atlassian**
+   (by Atlassian, Free), then **Get app**. Jira says "Your app is ready for use".
+2. That only installs the Jira half. The GitHub half is on the app's setup page, not on the
+   admin page that "manage your app" leads to:
+   `https://<your-site>.atlassian.net/plugins/servlet/ac/com.github.integration.production/github-post-install-page`
+3. **Select an organization in GitHub** opens a pop-up window. If Chrome blocks it, click the
+   blocked-pop-up icon at the right end of the address bar, choose **Always allow pop-ups from**
+   your Atlassian site, and click the button again.
+4. On GitHub's **Install Atlassian** screen, change **All repositories** (the default) to
+   **Only select repositories**, pick `kaval`, then **Install**. Least privilege applies here too:
+   the app asks for read and write on code, issues and pull requests (see ADR-0011's
+   consequences), so give it one repository, not every one you own.
+5. Jira shows "`<account>` is now connected!", with "Only select repos connected". A **backfill**
+   of existing history starts; CI builds appear first, then commits and pull requests.
 
 ## Step 5 — See the link, and why there are no `#` commands
 
@@ -158,6 +165,13 @@ It checks `base..head`, i.e. only the commits the PR adds. History before the co
 - [ ] The **commit messages** step is green on a pull request
 
 ## What went wrong, and why (2026-09-27)
+
+- **The app had been renamed.** Searching "GitHub for Jira" lists "GitHub for Atlassian" (the
+  real one) among paid look-alikes. Installing it in Jira then connects nothing until the GitHub
+  half is done, and Chrome blocked that pop-up the first time.
+- **Its permissions were wider than expected.** The install screen asks for write access to code,
+  which linking doesn't need. There's no narrower option, so the scope is limited by giving it one
+  repository instead, and the ADR says so rather than calling it read-only.
 
 - **The plan assumed smart commits would just work.** Reading the vendor's docs, rather than
   remembering them, turned up the email-match requirement before anything was built on it. The
