@@ -210,6 +210,7 @@ Run `make migrate` to bring a database up to date.
 | `scripts/tracking/jira-sync.py` | Lists, creates and moves Jira stories; ticks their acceptance criteria; records UAT verdicts (`uat pass\|fail`, [ADR-0012](adr/0012-user-acceptance-testing.md)); fills the Service field from the code each story changed (`backfill-service`). `make jira EPIC=KAV-6` | Working |
 | `scripts/tracking/atlassian.py` | The Jira/Confluence login code, shared by the two scripts above | Working |
 | **`scripts/dev/`** | **Setting up your own machine** | |
+| `scripts/tracking/jira-dashboards.toml` + `jira-dashboards.py` | The Jira dashboards (Delivery, UAT, Releases) and their filters, as data; the script creates or updates them, and a second run changes nothing (`make jira-dashboards`) | Working (`KAV-36`) |
 | `scripts/tracking/jira_adf.py` | Builds and reads Jira story descriptions (Context, Acceptance Criteria, UAT scenarios) and maps code folders to the Service field; no network, so it's unit-tested in `test_jira_adf.py` | Working (`KAV-34`) |
 | `scripts/dev/install-hooks.sh` | Installs the two Git hooks: `pre-commit` (blocks secrets) and `commit-msg` (the commit convention) | Working |
 | `scripts/dev/check_commits.py` | The commit-convention checker, used by the `commit-msg` hook and by CI on every PR; tests in `test_check_commits.py` ([ADR-0011](adr/0011-commit-convention-and-jira-link.md), [Lab 07](labs/lab-07-commits-and-jira-link.md)) | Working (`KAV-25`) |

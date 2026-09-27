@@ -67,7 +67,7 @@ test: ## Unit tests + policy tests
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check services/ migrations/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py
+	ruff check services/ migrations/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py
 	mypy services/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
 
 .PHONY: lock
@@ -228,6 +228,10 @@ docs-sync: dashboard ## Regenerate the dashboard and republish Confluence (Defin
 .PHONY: jira
 jira: ## Show an epic's stories. Usage: make jira EPIC=KAV-6
 	@python scripts/tracking/jira-sync.py show $(or $(EPIC),KAV-6)
+
+.PHONY: jira-dashboards
+jira-dashboards: ## Create or update the Jira dashboards from scripts/tracking/jira-dashboards.toml
+	@python scripts/tracking/jira-dashboards.py
 
 .PHONY: lab
 lab: ## Scaffold a new lab doc + journal entry. Usage: make lab NAME=setup-flux

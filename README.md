@@ -105,7 +105,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 
 | Tool | Home in this repo | Run with |
 |---|---|---|
-| Jira | `scripts/tracking/jira-sync.py` | `make jira EPIC=KAV-6` |
+| Jira | `scripts/tracking/jira-sync.py` (stories, UAT verdicts) · `scripts/tracking/jira-dashboards.toml` (the Delivery, UAT and Releases dashboards) | `make jira EPIC=KAV-6` · `make jira-dashboards` |
 | Confluence | `scripts/tracking/publish-confluence.py` — a generated mirror, never edited by hand | `make docs-sync` |
 | Dashboard | `scripts/tracking/dashboard.py` + `scripts/tracking/dashboard.toml` + `docs/architecture/architecture.toml` | `make dashboard` |
 | AWS | `infra/` (Terraform) · `scripts/ops/cost-report.sh` | `make plan` · `make cost-report` |

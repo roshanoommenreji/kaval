@@ -96,7 +96,22 @@ cost      = "~$4/session"
 [[links]]
 label = "Jira — project KAV"
 url   = "https://roshanoommenreji.atlassian.net/jira/software/projects/KAV/boards/1"
-note  = "Ten epics (KAV-5..14), one per phase. Workflow: To Do → In Definition → In Review → Ready → In Progress → In Staging → Ready for Prod → Done."
+note  = "Ten epics (KAV-5..14), one per phase, one sprint per phase. Workflow: To Do → In Definition → Ready → In Progress → In Review → In Staging (UAT) → Ready for Prod → Done."
+
+[[links]]
+label = "Jira — Delivery dashboard"
+url   = "https://roshanoommenreji.atlassian.net/jira/dashboards/10001"
+note  = "Every phase including finished ones, the current sprint, work by service. Built from scripts/tracking/jira-dashboards.toml (KAV-36)."
+
+[[links]]
+label = "Jira — UAT dashboard"
+url   = "https://roshanoommenreji.atlassian.net/jira/dashboards/10002"
+note  = "What awaits your acceptance, what you signed off, open UAT defects (ADR-0012)."
+
+[[links]]
+label = "Jira — Releases dashboard"
+url   = "https://roshanoommenreji.atlassian.net/jira/dashboards/10003"
+note  = "Releases named Kaval X.Y.Z with their component versions (ADR-0013). Empty until Phase 4."
 
 [[links]]
 label = "Confluence — Kaval space"
