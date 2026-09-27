@@ -58,7 +58,8 @@ class Health(BaseModel):
 def check_postgres() -> Check:
     try:
         with get_engine().connect() as conn:
-            revision = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+            query = text("SELECT version_num FROM alembic_version")
+            revision: str = conn.execute(query).scalar_one()
     except Exception as exc:
         return Check(ok=False, detail=type(exc).__name__)
     return Check(ok=True, detail=f"migrated to {revision}")

@@ -1,0 +1,45 @@
+# Dependabot opens pull requests for outdated dependencies (KAV-24, ADR-0010). Each one
+# runs through ci.yml like any other change, and merges only when it's green.
+#
+# Weekly and grouped, so a solo project with weekly sessions gets one PR per ecosystem
+# per week rather than a pile of them. Security updates are separate: Dependabot opens
+# those as soon as an advisory lands (they need "Dependabot security updates" switched
+# on under the repository's Settings → Code security).
+#
+# Not covered here: the gitleaks and Trivy binaries in ci.yml (pinned by version and
+# sha256, bumped by hand) and the pgvector service image in ci.yml.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: saturday }
+    groups:
+      actions: { patterns: ["*"] }
+    commit-message: { prefix: chore }
+
+  - package-ecosystem: uv # reads pyproject.toml and updates uv.lock
+    directory: /
+    schedule: { interval: weekly, day: saturday }
+    groups:
+      python: { patterns: ["*"] }
+    commit-message: { prefix: chore }
+
+  - package-ecosystem: docker # the digest-pinned base images
+    directories: [/services/gateway, /services/collector]
+    schedule: { interval: weekly, day: saturday }
+    groups:
+      base-images: { patterns: ["*"] }
+    ignore:
+      # Python stays 3.11 (CLAUDE.md conventions) until that's a decision: take new digests
+      # of 3.11-slim-bookworm, never a jump to 3.12+.
+      - dependency-name: python
+        update-types: [version-update:semver-minor, version-update:semver-major]
+    commit-message: { prefix: chore }
+
+  - package-ecosystem: terraform
+    directories: [/infra/envs/prod, /infra/envs/dev]
+    schedule: { interval: weekly, day: saturday }
+    groups:
+      terraform: { patterns: ["*"] }
+    commit-message: { prefix: chore }

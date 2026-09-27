@@ -70,6 +70,14 @@ lint: ## Lint and type-check
 	ruff check services/ migrations/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/dev/bench_models.py
 	mypy services/
 
+.PHONY: lock
+lock: ## Re-resolve uv.lock after editing pyproject.toml's dependencies (then commit both)
+	uv lock
+
+.PHONY: sync
+sync: ## Install exactly what uv.lock says into .venv (what CI and the images use)
+	uv sync --locked --all-extras
+
 .PHONY: migrate
 migrate: ## Apply database migrations (reads POSTGRES_* from .env)
 	alembic upgrade head

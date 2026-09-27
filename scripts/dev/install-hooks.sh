@@ -40,7 +40,9 @@ else
 fi
 
 # Belt and braces: catch a real 12-digit account ID that slipped past the rules.
-if git diff --cached -U0 | grep -nE '^\+.*[^0-9]([0-9]{12})[^0-9]' \
+# The boundaries exclude hex letters too, so a digit run inside a sha256 (uv.lock, image
+# digests) doesn't count; an account ID sits between ':' '"' or spaces (KAV-24).
+if git diff --cached -U0 | grep -nE '^\+(.*[^0-9a-fA-F])?[0-9]{12}([^0-9a-fA-F]|$)' \
      | grep -vE '000000000000' >/dev/null 2>&1; then
   echo ""
   echo "  A 12-digit number is being committed. If that is an AWS account ID,"

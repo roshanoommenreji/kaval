@@ -67,7 +67,7 @@ def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
 
 def _page(
     db: Session,
-    query: Select[tuple[Row]],
+    query: Select[Row],  # SQLAlchemy 2.1 typing: Select[Row], was Select[tuple[Row]]
     ts: InstrumentedAttribute[datetime],
     row_id: InstrumentedAttribute[uuid.UUID],
     limit: int,
