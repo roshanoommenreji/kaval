@@ -189,6 +189,33 @@ signals, its proposals and its outcome, together.
 The general lesson is worth carrying: **adding a specialised datastore is a cost, and it should be
 paid only when the general one has actually failed you.**
 
+### Fake data should look real, and still be labelled fake
+
+Everything downstream of the collector needs signals to work on long before a real cluster
+exists. The synthetic generator (`KAV-23`) therefore writes each scenario as the exact burst
+one real failure produces: a memory warning from Prometheus, a Kubernetes `Event` with
+`reason: OOMKilled`, three `BackOff` events with a rising restart count, then an Alertmanager
+alert. Same payload shapes the real sources use, so when they arrive nothing downstream changes.
+
+Two properties make fake data safe to keep around. It is **labelled**: every row carries
+`synthetic: true`, so metrics and production can exclude it and a fake can never be mistaken for
+an outage. And it is **reproducible**: the same seed gives the same pods and numbers, which is
+what lets an eval compare two models on identical input.
+
+### An API is a contract, and paging is part of it
+
+The gateway's endpoints are what the phone app will be built against, so their shape outlives the
+code behind them. [ADR-0009](../adr/0009-gateway-api-conventions.md) fixes the rules first:
+
+- **Versioned** under `/v1`, so a breaking change can live beside the old one.
+- **Documented from the code.** FastAPI generates the OpenAPI description, so it can't drift.
+- **Cursor paging, not page numbers.** On a table that grows while you read it, `?page=2` shifts
+  every time a row arrives, so rows get skipped or shown twice. A cursor says "older than this exact
+  row" (its timestamp plus its id, because two rows can share a timestamp) and can't slip.
+- **Read-only enforced by the database.** Each request's transaction starts `READ ONLY`, so even
+  a buggy endpoint can't change the audit trail. "The code doesn't write" is a promise;
+  "Postgres refuses writes" is a guarantee.
+
 ---
 
 ## Common mistakes
@@ -205,6 +232,10 @@ paid only when the general one has actually failed you.**
 | Asking a small model for JSON and trusting it | Gemma returned fenced JSON 9/9 times and dropped the safety fields 6/9. Constrain decoding to a schema, then validate |
 | Measuring model memory with `docker stats` | It counts file cache too and overstated every model by ~0.7 GB. Read the processes' resident memory |
 | Using a bind mount with a remote Docker context | The path resolves on the server, not the laptop; the container quietly sees an empty folder |
+| Paging a growing table with `?page=N` | Rows skipped or repeated as new ones arrive. Use a cursor with a tie-breaker |
+| Enforcing "read-only" only in application code | One bug writes to the audit trail. Make the database refuse it (`READ ONLY` transaction, then a read-only role) |
+| Letting fake data look exactly like real data | A test run is mistaken for an outage, or pollutes a metric. Flag every fake row |
+| Assuming a closed SSH client closes the server's connection | Through Session Manager it doesn't: 42 connections leaked in 20 minutes. `ClientAliveInterval` makes the server check |
 
 ## Glossary
 
@@ -234,6 +265,10 @@ paid only when the general one has actually failed you.**
 | **pgvector** | Postgres extension adding vector types, operators and indexes |
 | **HNSW** | A graph index for fast approximate nearest-neighbour search |
 | **Stateless** | Retains nothing between requests |
+| **Synthetic signal** | A fake observation in a real payload shape, flagged `synthetic: true` |
+| **OpenAPI** | A machine-readable description of an HTTP API; FastAPI generates it at `/openapi.json` and renders it at `/docs` |
+| **Cursor pagination** | Paging by "rows after this one" instead of by page number; stable while rows are added |
+| **Read-only transaction** | `SET TRANSACTION READ ONLY`: Postgres rejects any write inside it |
 
 ## Check yourself
 
@@ -244,6 +279,8 @@ paid only when the general one has actually failed you.**
 5. Why would "OOMKilled" and "terminated due to memory limit" match in vector search but not keyword search?
 6. Why is 10 tokens/second acceptable for this system but not for a chatbot?
 7. Why Postgres with pgvector rather than a dedicated vector database — and at what point would that answer change?
+8. Signals arrive every few seconds. Why does `?page=2` return different rows each time you ask, and what does a cursor use to avoid it?
+9. The gateway's code never writes to the database. Why make Postgres enforce that anyway?
 
 ## In an interview
 

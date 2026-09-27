@@ -17,10 +17,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Dependencies and code first, migrations after: editing a migration doesn't
-# reinstall anything.
+# reinstall anything. pyproject.toml lists every service package, so all of them must be
+# present for the build; only the gateway's extra dependencies get installed.
 COPY pyproject.toml ./
 COPY services/shared/kaval_shared services/shared/kaval_shared
 COPY services/gateway/kaval_gateway services/gateway/kaval_gateway
+COPY services/collector/kaval_collector services/collector/kaval_collector
 RUN pip install ".[gateway]"
 COPY migrations migrations
 

@@ -1,7 +1,9 @@
-"""The gateway's first endpoint: a health check that proves the stack is wired.
+"""The gateway app: `/healthz` (KAV-22) plus the read-only /v1 REST surface (KAV-23).
 
-KAV-22 ships only `/healthz`. The REST skeleton and OpenAPI surface arrive with KAV-23.
-The check answers the two questions that matter before anything else can work: is the
+OpenAPI is generated from the code: interactive docs at /docs, the schema at /openapi.json.
+`/healthz` stays outside /v1 because probes aren't part of the versioned API contract.
+
+The health check answers the two questions that matter before anything else can work: is the
 database reachable *and migrated*, and is the local model actually pulled, not merely is
 Ollama up.
 """
@@ -17,7 +19,25 @@ from kaval_shared.db import get_engine
 from pydantic import BaseModel
 from sqlalchemy import text
 
-app = FastAPI(title="Kaval gateway", version="0.1.0")
+from kaval_gateway.api import router
+
+app = FastAPI(
+    title="Kaval gateway",
+    version="0.1.0",
+    summary="The mobile-facing API of an ops agent that acts only with human approval.",
+    description=(
+        "Read-only in Phase 1: signals as collected, and incidents with their full timeline "
+        "(proposals, actions, decisions, executions, outcomes). No authentication yet: the "
+        "server binds to 127.0.0.1 and is reached through an SSH tunnel. Cognito JWTs "
+        "arrive with the mobile app (Phase 5)."
+    ),
+    openapi_tags=[
+        {"name": "health", "description": "Is the stack wired: database migrated, model pulled"},
+        {"name": "signals", "description": "Raw observations, exactly as collected"},
+        {"name": "incidents", "description": "Correlated problems and everything done about them"},
+    ],
+)
+app.include_router(router)
 
 
 class Check(BaseModel):
@@ -58,7 +78,7 @@ def check_ollama() -> Check:
     return Check(ok=True, detail=f"{model or 'no model configured'} ready")
 
 
-@app.get("/healthz", response_model=Health)
+@app.get("/healthz", response_model=Health, tags=["health"])
 def healthz(response: Response) -> Health:
     pg, ol = check_postgres(), check_ollama()
     healthy = pg.ok and ol.ok

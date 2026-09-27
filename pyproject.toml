@@ -20,7 +20,7 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.4",
     "mypy>=1.9",
-    "httpx>=0.27",      # FastAPI's TestClient
+    "httpx2>=2.13",     # Starlette's TestClient (successor to httpx; Tom Christie, maintained by Pydantic)
 ]
 
 [build-system]
@@ -28,7 +28,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["services/shared/kaval_shared", "services/gateway/kaval_gateway"]
+packages = [
+    "services/shared/kaval_shared",
+    "services/gateway/kaval_gateway",
+    "services/collector/kaval_collector",
+]
 
 [tool.alembic]
 # Database migrations (was alembic.ini, moved here 2026-09-26, KAV-33). The database URL

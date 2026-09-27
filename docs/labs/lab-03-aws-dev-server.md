@@ -185,6 +185,27 @@ on *standard output*, not standard error. The Makefile's `2>/dev/null` didn't hi
 server-ID variable filled up with warning text. The Makefile now keeps only text that matches
 `i-` plus hex characters.
 
+### Dead SSH connections kept the server "busy" (found 2026-09-27, `KAV-23`)
+
+Through Session Manager, the SSH daemon's TCP peer is the local SSM worker, not the laptop, and
+that worker stays up after the laptop's `ssh` exits. So each `docker --context` connection lingered
+for SSM's 20-minute idle timeout: 42 open within 20 minutes of `compose` commands, new handshakes
+timing out, **and the idle stop counting them as someone working**. The first-boot script now
+writes `ClientAliveInterval 30` / `ClientAliveCountMax 3` to
+`/etc/ssh/sshd_config.d/10-kaval-keepalive.conf`: the daemon probes each client and drops one that
+doesn't answer in ~90 seconds. On a server built before this, apply the same file with
+`aws ssm send-command` and `systemctl reload sshd`, as
+[Lab 05](lab-05-gateway-api-and-synthetic-signals.md#troubleshooting) describes.
+
+### "Online" didn't mean "reachable" (found 2026-09-27, `KAV-23`)
+
+`make devbox-up` used to report ready as soon as Session Manager said the server was `Online`.
+Right after a start, that status can still be the one from before the stop. The first
+`make dev` then connected too early: the server's SSH log shows no connection at all, `ssh` gave
+up after 30 seconds, and the SSM plugin it left behind kept Docker's pipe open, so `compose`
+hung with no error. `devbox-up` now finishes with a real SSH login, retried every 5 seconds for
+up to 2 minutes. A cold `make dev` from a stopped server took 102 s afterwards.
+
 ---
 
 ## Step 7 — Prove the idle stop, don't assume it

@@ -154,6 +154,7 @@ exactly why item 9 isn't optional when they change.
 make help          # all targets
 make dev           # the Compose stack, on the AWS dev server (starts it if needed)
 make dev-tunnel    # forward gateway :8000, Postgres :5432, Ollama :11435 to the laptop
+make signals SCENARIO=oom-crashloop   # write one fake incident's signals (no SCENARIO: list them)
 make bench         # measure the local model shortlist
 make test          # unit + policy tests
 make up            # provision the AWS node (~5 min, starts billing)

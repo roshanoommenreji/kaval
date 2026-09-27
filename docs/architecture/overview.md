@@ -34,7 +34,7 @@
 | `collector` | Python | Scrape Prometheus, K8s events, Alertmanager webhooks, Cost Explorer. Normalise into `signals`. | read-only |
 | `agent` | Python | Correlate signals into incidents. Build context. Call the LLM. Emit a validated `Proposal`. | **read-only** |
 | `executor` | Python | The only component that mutates anything. Consumes approved proposals. Records before/after state. | scoped write |
-| `gateway` | Python / FastAPI | Mobile-facing REST + WebSocket. Auth. Push dispatch. | own DB only |
+| `gateway` | Python / FastAPI | Mobile-facing REST + WebSocket. Auth. Push dispatch. Today: read-only `/v1` signals and incidents, cursor-paged, OpenAPI at `/docs` ([ADR-0009](../adr/0009-gateway-api-conventions.md)) | own DB only; READ ONLY transactions until approvals exist |
 | `inference` | Ollama | Serves Gemma 3 1B (q4) over an OpenAI-compatible API. | none |
 | `chaos` | K8s CronJob | Injects controlled failures into a labelled namespace. | scoped write |
 

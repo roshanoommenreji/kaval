@@ -82,7 +82,20 @@ inputs = [
 ]
 outputs = ["signal rows — INSERT only"]
 tables = ["signal"]
-note = "Normalises four unlike sources into one shape. The database is the record; the event stream is only the feed."
+note = "Normalises four unlike sources into one shape. The database is the record; the event stream is only the feed. Phase 1 runs only the synthetic source (KAV-23); the real ones write the same row shapes from Phase 3."
+
+[[system.node]]
+id = "synthetic"
+label = "synthetic signals"
+kind = "source"
+phase = 1
+col = 4.2
+row = 0
+credentials = "database INSERT on signal only"
+inputs = ["make signals SCENARIO=… [SEED=…]"]
+outputs = ["One fake incident's signals in real payload shapes: OOM crashloop, exec-format, cost spike, idle volume"]
+tables = ["signal"]
+note = "Stands in for the cluster and the bill until they exist (KAV-23, Lab 05). Every row carries synthetic: true, the scenario and a run_id, so a fake can never pass for real. Same seed, same content; every run a fresh run_id."
 
 # ── row 2: the store ───────────────────────────────────────────────────
 
@@ -178,10 +191,10 @@ phase = 1
 col = 1.5
 row = 5
 credentials = "own database role · Cognito JWT verification"
-inputs = ["Pending proposals from the database", "Approve/deny from the mobile app"]
-outputs = ["REST + WebSocket to the app", "Push dispatch", "decision rows"]
+inputs = ["Signals, incidents and pending proposals from the database", "Approve/deny from the mobile app"]
+outputs = ["REST + WebSocket to the app (today: read-only /v1 signals and incidents, OpenAPI at /docs)", "Push dispatch", "decision rows"]
 tables = ["proposal", "decision"]
-note = "Verifies the JWT signature against Cognito's public keys — decoding a token and trusting its claims is the classic vulnerability."
+note = "Verifies the JWT signature against Cognito's public keys — decoding a token and trusting its claims is the classic vulnerability. Until Phase 5 it has no auth and no writes: it binds to 127.0.0.1 and every request runs in a READ ONLY transaction (ADR-0009, KAV-23)."
 
 [[system.node]]
 id = "tunnel"
@@ -357,6 +370,11 @@ to = "collector"
 label = "daily cost"
 
 [[system.edge]]
+from = "synthetic"
+to = "collector"
+label = "fake incidents"
+
+[[system.edge]]
 from = "collector"
 to = "db"
 label = "INSERT signal"
@@ -397,7 +415,7 @@ label = "INSERT proposal + class"
 [[system.edge]]
 from = "db"
 to = "gateway"
-label = "pending proposals"
+label = "signals · incidents · proposals"
 
 [[system.edge]]
 from = "gateway"
@@ -541,12 +559,12 @@ note = "pgvector similarity against the incident history. This routing decision 
 
 [[journey.node]]
 id = "j-local"
-label = "Gemma 3 1B · local"
+label = "local model · Ollama"
 kind = "service"
 phase = 1
 col = 0
 row = 5
-note = "Effectively free — amortised node cost only. Handles incidents resembling ones already seen."
+note = "Effectively free — amortised node cost only. Handles incidents resembling ones already seen. Dev default gemma3:1b-it-qat; the Phase 2 evals pick between it, llama3.2:1b and qwen3:1.7b (docs/architecture/model-shortlist.md)."
 
 [[journey.node]]
 id = "j-bedrock"
@@ -889,7 +907,7 @@ kind = "target"
 phase = 4
 col = 2
 row = 8
-note = "Exact parity with prod: same instance type, same 4 GB, same Gemma 3 1B. That matters because memory pressure is this project's binding constraint, and a smaller staging node would miss precisely that."
+note = "Exact parity with prod: same instance type, same 4 GB, same local model. That matters because memory pressure is this project's binding constraint, and a smaller staging node would miss precisely that."
 
 [[delivery.node]]
 id = "d-smoke"

@@ -113,7 +113,17 @@ Prices verified 2026-09-26 against the AWS Price List API for ap-south-1.
 | `t4g.medium` on-demand | $0.0224/hr, only while running | $1.95 |
 | Public IPv4 address | $0.005/hr, only while running | $0.44 |
 | 30 GB gp3 disk | $0.0912/GB-month, **also while stopped** | $2.74 |
+| CPU above the 20% baseline (T4g "unlimited" credit mode, the default) | $0.04 per vCPU-hour of surplus credits | ~$0.05 measured; $1.30 worst case |
 | **Per month** | | **~$5.10** |
+
+**CPU credits, verified 2026-09-27 (KAV-23).** A `t4g.medium` earns CPU credits for 20% of its
+2 vCPUs. In *unlimited* mode, going above that isn't throttled; the extra is billed at $0.04 per
+vCPU-hour. The balance starts near zero after every start, so image builds and model runs early in
+a session draw surplus credits. Measured: 7.4 surplus credits (about $0.005) in the KAV-22 bench
+session, and about the same on 2026-09-27. Worst case, 100% of both vCPUs for a whole hour, is
+about $0.064/hr on top of the $0.0224/hr instance. *Standard* mode would remove the charge, but it
+throttles to 20% CPU, which makes local-model inference unusably slow. So unlimited stays, and this
+row makes the cost visible.
 
 Left running around the clock by mistake, the compute alone would be $16.35/month. The idle stop
 exists to make that mistake impossible. Behind it, three layers:

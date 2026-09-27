@@ -49,7 +49,7 @@ before the plugin was installed. Open a new one, or add
 
 | File | What it does |
 |---|---|
-| `compose.yaml` | Five services: `postgres`, `ollama`, `model-pull` (one-off: downloads `LOCAL_MODEL`), `migrate` (one-off: `alembic upgrade head`), `gateway` |
+| `compose.yaml` | Five services: `postgres`, `ollama`, `model-pull` (one-off: downloads `LOCAL_MODEL`), `migrate` (one-off: `alembic upgrade head`), `gateway`. A sixth, `signals`, arrived in [Lab 05](lab-05-gateway-api-and-synthetic-signals.md) |
 | `services/gateway/Dockerfile` | Builds the gateway for arm64, as a non-root user. The same image runs `migrate` |
 | `.dockerignore` | An **allowlist**: only `pyproject.toml`, `services/` and `migrations/` are sent to the server. `.env` can't be sent by accident |
 | `services/gateway/kaval_gateway/main.py` | `GET /healthz`: 200 only if Postgres is **migrated** and the model is **downloaded** |

@@ -52,6 +52,10 @@ dev-tunnel: ## Forward the stack's ports to the laptop (runs until Ctrl-C)
 logs: ## Tail the stack's logs
 	$(COMPOSE) logs -f --tail=100
 
+.PHONY: signals
+signals: ## Write one fake incident's signals: SCENARIO=oom-crashloop [SEED=42]; no SCENARIO lists them
+	$(COMPOSE) run --rm --build signals $(if $(SCENARIO),$(SCENARIO) $(if $(SEED),--seed $(SEED)),--list)
+
 .PHONY: bench
 bench: ## Measure the local model shortlist on the dev server (KAV-22, ~20 min)
 	python scripts/dev/bench_models.py
@@ -72,10 +76,11 @@ migrate: ## Apply database migrations (reads POSTGRES_* from .env)
 
 .PHONY: build
 build: ## Build arm64 images (Graviton — amd64 will NOT run on the node)
-	docker buildx build --platform linux/arm64 -t kaval/gateway:dev  services/gateway
-	docker buildx build --platform linux/arm64 -t kaval/agent:dev    services/agent
-	docker buildx build --platform linux/arm64 -t kaval/executor:dev services/executor
-	docker buildx build --platform linux/arm64 -t kaval/collector:dev services/collector
+	# Context is the repo root: images need services/shared and pyproject.toml, and the
+	# root .dockerignore allowlist is what keeps .env out. Agent and executor join here
+	# when they have code (Phases 2-3).
+	docker buildx build --platform linux/arm64 -f services/gateway/Dockerfile   -t kaval/gateway:dev   .
+	docker buildx build --platform linux/arm64 -f services/collector/Dockerfile -t kaval/collector:dev .
 
 # ─────────────────────────────────────────────────────────────
 ##@ AWS  (starts and stops billing — read docs/cost/budget-plan.md)
@@ -125,6 +130,12 @@ devbox-up: devbox-exists ## Start the dev server and wait until you can connect 
 	@echo "running - waiting for Session Manager..."
 	@until [ "$$(aws ssm describe-instance-information --filters Key=InstanceIds,Values=$(DEVBOX) \
 	    --query 'InstanceInformationList[0].PingStatus' --output text)" = "Online" ]; do sleep 5; done
+	@# "Online" isn't proof: right after a start it can still be the status from before the stop,
+	@# and a docker command that connects too early hangs for good (its ssh times out, but the
+	@# orphaned SSM plugin keeps the pipe open). So ready means one real SSH login worked.
+	@echo "online - waiting for SSH..."
+	@for i in $$(seq 1 24); do ssh -o ConnectTimeout=20 -o BatchMode=yes kaval-devbox true 2>/dev/null && break; \
+	  [ $$i -eq 24 ] && { echo "SSH still failing after 2 min: see docs/labs/lab-03-aws-dev-server.md"; exit 1; }; sleep 5; done
 	@echo "ready: make devbox-ssh, or docker --context kaval-devbox ..."
 
 .PHONY: devbox-down
