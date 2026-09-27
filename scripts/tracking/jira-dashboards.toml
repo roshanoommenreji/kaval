@@ -1,0 +1,189 @@
+# Jira dashboards and the filters behind them, as data (KAV-36).
+#
+#   make jira-dashboards     # create or update; a second run changes nothing
+#
+# Filters and dashboards are matched by name, so renaming one here creates a new one in Jira
+# (delete the old one in the UI). Gadgets are found by their catalogue title. A pref value of
+# "@<filter key>" becomes that filter's "filter-<id>".
+#
+# Jira's Summary page hides Done epics; these don't. The repo dashboard (artifact) stays the full
+# picture: cost, ADRs, architecture, learning. These cover work items only.
+
+# ── filters ────────────────────────────────────────────────────────────────────
+[[filter]]
+key  = "all"
+name = "Kaval — all work"
+jql  = "project = KAV AND issuetype != Epic ORDER BY Rank"
+
+[[filter]]
+key  = "epics"
+name = "Kaval — phases (epics)"
+jql  = "project = KAV AND issuetype = Epic ORDER BY key"
+
+[[filter]]
+key  = "sprint"
+name = "Kaval — current sprint"
+jql  = "project = KAV AND sprint in openSprints() ORDER BY Rank"
+
+[[filter]]
+key  = "uat-awaiting"
+name = "Kaval — UAT: awaiting acceptance"
+jql  = 'project = KAV AND labels = uat AND status = "In Staging" ORDER BY updated'
+
+[[filter]]
+key  = "uat-signed"
+name = "Kaval — UAT: signed off"
+jql  = 'project = KAV AND labels = uat AND status in ("Ready for Prod", Done) ORDER BY updated DESC'
+
+[[filter]]
+key  = "uat-defects"
+name = "Kaval — UAT: open defects"
+jql  = "project = KAV AND issuetype = Bug AND labels = uat-defect AND statusCategory != Done ORDER BY priority DESC"
+
+[[filter]]
+key  = "uat-all"
+name = "Kaval — UAT: everything"
+jql  = "project = KAV AND labels in (uat, uat-defect)"
+
+[[filter]]
+key  = "rel-unreleased"
+name = "Kaval — releases: not yet released"
+jql  = "project = KAV AND fixVersion in unreleasedVersions() ORDER BY fixVersion, Rank"
+
+[[filter]]
+key  = "rel-released"
+name = "Kaval — releases: released"
+jql  = "project = KAV AND fixVersion in releasedVersions() ORDER BY fixVersion DESC"
+
+[[filter]]
+key  = "flagged"
+name = "Kaval — flagged"
+jql  = "project = KAV AND Flagged is not EMPTY"
+
+# ── dashboards ─────────────────────────────────────────────────────────────────
+# column 0 is the wide left column, 1 the right. "@service" is the Story's Service field id,
+# looked up at run time (team-managed projects give each work type its own copy).
+
+[[dashboard]]
+name        = "Kaval — Delivery"
+description = "Every phase, including finished ones; the current sprint; work by service. Built by scripts/tracking/jira-dashboards.py."
+
+  [[dashboard.gadget]]
+  type = "Two Dimensional Filter Statistics"
+  title = "Every phase: stories by status"
+  column = 0
+  row = 0
+  prefs = { filterId = "@all", ystattype = "parent", xstattype = "statuses", showTotals = "true", sortBy = "natural", sortDirection = "asc", numberToShow = "20" }
+
+  [[dashboard.gadget]]
+  type = "Filter Results"
+  title = "Phases"
+  column = 0
+  row = 1
+  prefs = { filterId = "@epics", num = "12", columnNames = "issuekey|summary|status" }
+
+  [[dashboard.gadget]]
+  type = "Two Dimensional Filter Statistics"
+  title = "By service"
+  column = 0
+  row = 2
+  prefs = { filterId = "@all", ystattype = "@service", xstattype = "statuses", showTotals = "true", sortBy = "natural", sortDirection = "asc", numberToShow = "20" }
+
+  [[dashboard.gadget]]
+  type = "Sprint Health Gadget"
+  title = "Current sprint"
+  column = 1
+  row = 0
+  prefs = { rapidViewId = "1", sprintId = "auto", showRapidViewName = "true", showSprintName = "true" }
+
+  [[dashboard.gadget]]
+  type = "Days Remaining in Sprint Gadget"
+  title = "Days left in the sprint"
+  column = 1
+  row = 1
+  prefs = { rapidViewId = "1", sprintId = "auto", showRapidViewName = "false", showSprintName = "true" }
+
+  [[dashboard.gadget]]
+  type = "Sprint Burndown Gadget"
+  title = "Sprint burndown"
+  column = 1
+  row = 2
+  prefs = { rapidViewId = "1", sprintId = "auto", showRapidViewName = "false", showSprintName = "true" }
+
+  [[dashboard.gadget]]
+  type = "Created vs. Resolved Chart"
+  title = "Created vs resolved, last 30 days"
+  column = 1
+  row = 3
+  prefs = { projectOrFilterId = "@all", periodName = "daily", daysprevious = "30", isCumulative = "true", showUnresolvedTrend = "false", versionLabel = "none" }
+
+[[dashboard]]
+name        = "Kaval — UAT"
+description = "User acceptance (ADR-0012): what awaits acceptance, what was signed off, open UAT defects. Built by scripts/tracking/jira-dashboards.py."
+
+  [[dashboard.gadget]]
+  type = "Filter Results"
+  title = "Awaiting your acceptance (In Staging)"
+  column = 0
+  row = 0
+  prefs = { filterId = "@uat-awaiting", num = "20", columnNames = "issuekey|summary|status|updated" }
+
+  [[dashboard.gadget]]
+  type = "Filter Results"
+  title = "Open UAT defects"
+  column = 0
+  row = 1
+  prefs = { filterId = "@uat-defects", num = "20", columnNames = "issuekey|summary|priority|status" }
+
+  [[dashboard.gadget]]
+  type = "Filter Results"
+  title = "Signed off"
+  column = 0
+  row = 2
+  prefs = { filterId = "@uat-signed", num = "20", columnNames = "issuekey|summary|status|updated" }
+
+  [[dashboard.gadget]]
+  type = "Pie Chart"
+  title = "UAT work by status"
+  column = 1
+  row = 0
+  prefs = { projectOrFilterId = "@uat-all", statType = "statuses" }
+
+  [[dashboard.gadget]]
+  type = "Two Dimensional Filter Statistics"
+  title = "UAT by service"
+  column = 1
+  row = 1
+  prefs = { filterId = "@uat-all", ystattype = "@service", xstattype = "statuses", showTotals = "true", sortBy = "natural", sortDirection = "asc", numberToShow = "20" }
+
+[[dashboard]]
+name        = "Kaval — Releases"
+description = "Releases named Kaval X.Y.Z with their component versions (ADR-0013). Empty until the first release in Phase 4. Built by scripts/tracking/jira-dashboards.py."
+
+  [[dashboard.gadget]]
+  type = "Filter Results"
+  title = "Going into the next release"
+  column = 0
+  row = 0
+  prefs = { filterId = "@rel-unreleased", num = "30", columnNames = "issuekey|summary|status|fixVersions" }
+
+  [[dashboard.gadget]]
+  type = "Filter Results"
+  title = "Released"
+  column = 0
+  row = 1
+  prefs = { filterId = "@rel-released", num = "30", columnNames = "issuekey|summary|fixVersions" }
+
+  [[dashboard.gadget]]
+  type = "Filter Results"
+  title = "Flagged (blocked)"
+  column = 1
+  row = 0
+  prefs = { filterId = "@flagged", num = "10", columnNames = "issuekey|summary|status" }
+
+  [[dashboard.gadget]]
+  type = "Pie Chart"
+  title = "Work by release"
+  column = 1
+  row = 1
+  prefs = { projectOrFilterId = "@all", statType = "fixfor" }

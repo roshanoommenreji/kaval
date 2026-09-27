@@ -244,6 +244,9 @@ def main() -> None:
         bullets([
             f"Live progress dashboard (derived from the repo, updated every session): [{dashboard_url}]({dashboard_url})",
             f"Jira board (10 epics, one per phase): [{jira_url}]({jira_url})",
+            "Jira dashboards, built from the repo (KAV-36): "
+            f"[Delivery]({BASE}/jira/dashboards/10001) · [UAT]({BASE}/jira/dashboards/10002) · "
+            f"[Releases]({BASE}/jira/dashboards/10003)",
             "Source code, ADRs, labs, learning material: private GitHub repo (public at v1)",
         ]),
         h(2, "How this space is organised"),
