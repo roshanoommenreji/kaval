@@ -3,8 +3,8 @@
 #
 # Weekly and grouped, so a solo project with weekly sessions gets one PR per ecosystem
 # per week rather than a pile of them. Security updates are separate: Dependabot opens
-# those as soon as an advisory lands (they need "Dependabot security updates" switched
-# on under the repository's Settings → Code security).
+# those as soon as an advisory lands (switched on 2026-09-27: Settings → Code security →
+# Dependabot security updates, or `gh api -X PUT repos/{owner}/{repo}/automated-security-fixes`).
 #
 # Not covered here: the gitleaks and Trivy binaries in ci.yml (pinned by version and
 # sha256, bumped by hand) and the pgvector service image in ci.yml.

@@ -76,6 +76,7 @@ Only a merged commit should produce an artifact.
   each image would each have resolved whatever was newest on the day they ran.
 - The pre-commit account-ID check was matching digit runs inside sha256 hashes, so it would have
   blocked every lockfile. It now ignores digit runs that are part of a hex string.
-- Cost: $0. GitHub Free includes 2,000 Actions minutes a month for private repos, and a CI run
-  uses a few minutes (measured in Lab 06).
+- Cost: $0. GitHub Free includes 2,000 Actions minutes a month for private repos. A run bills 6
+  (68 s wall-clock, each job rounded up to a minute), about 12 a PR counting the run on `main`
+  (measured in Lab 06).
 - `opa test` joins the test job in Phase 2, once `policy/` holds policies.

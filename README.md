@@ -63,6 +63,9 @@ make bench         # measure the local model shortlist (docs/architecture/model-
 make dev-down      # stop the stack; the database and models are kept
 make devbox-down   # stop the server (or let it stop itself after 1 h idle)
 make test          # unit + policy tests
+make lint          # ruff + mypy, the same target CI runs
+make sync          # install exactly what uv.lock pins into .venv
+make lock          # after editing pyproject.toml's dependencies; commit uv.lock with it
 make cost-report   # what AWS is charging right now
 ```
 

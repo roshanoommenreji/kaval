@@ -159,6 +159,9 @@ make dev-tunnel    # forward gateway :8000, Postgres :5432, Ollama :11435 to the
 make signals SCENARIO=oom-crashloop   # write one fake incident's signals (no SCENARIO: list them)
 make bench         # measure the local model shortlist
 make test          # unit + policy tests
+make lint          # ruff + mypy, the same target CI runs
+make sync          # install exactly what uv.lock pins into .venv
+make lock          # after editing pyproject.toml's dependencies; commit uv.lock with it
 make up            # provision the AWS node (~5 min, starts billing)
 make down          # destroy the node, keep state (~$2/mo)
 make cost-report   # current month-to-date spend

@@ -189,6 +189,7 @@ its own server (~$14 before ADR-0008).
 |---|---|
 | Jira Cloud (free tier, ≤10 users) | $0 |
 | GitHub private repo | $0 |
+| GitHub Actions CI (`KAV-24`) — Free plan's 2,000 min/month for private repos; a run bills 6 (68 s, each job rounded up to a minute), ~12 per PR | $0 — if the minutes ran out, runs stop; nothing is billed without a payment method and a spending limit above $0 |
 | Cloudflare Tunnel | $0 |
 | Expo local builds | $0 |
 | Gemma weights | $0 |

@@ -2,7 +2,8 @@
 
 `db_session` is the one way a test touches Postgres. Tests that use it are skipped, not
 failed, when no database is reachable, so `make test` stays green on a laptop with the
-dev server stopped; `make dev` + `make dev-tunnel` bring the database up.
+dev server stopped; `make dev` + `make dev-tunnel` bring the database up. CI sets
+`KAVAL_REQUIRE_DB=1`, which turns that skip into a failure.
 """
 
 from __future__ import annotations
