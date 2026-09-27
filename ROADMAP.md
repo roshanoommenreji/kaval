@@ -37,7 +37,7 @@ confirms `dry_run=True`, correct warning message. **Phase 0 complete 2026-09-15.
 
 ---
 
-## Phase 1 — Local first · weeks 3–5 · `[~]`
+## Phase 1 — Local first · weeks 3–5 · `[x]`
 
 Prove the loop on the AWS dev server ([ADR-0007](docs/adr/0007-develop-on-an-aws-dev-server.md),
 changed from "the laptop" on 2026-09-26). About $5/month, and it stops itself when idle.
@@ -51,11 +51,12 @@ changed from "the laptop" on 2026-09-26). About $5/month, and it stops itself wh
 - [x] `.github/workflows/ci.yml` — ruff · mypy · pytest on real Postgres · migrations up/check/down · gitleaks (full history) · terraform fmt/validate · native arm64 build · Trivy; `uv.lock`, SHA-pinned actions, Dependabot ([ADR-0010](docs/adr/0010-ci-pipeline-and-supply-chain.md), `KAV-24`, Lab 06)
 - [x] Jira project `KAV` workflow: To Do → In Definition → Ready → In Progress → In Review → In Staging → Ready for Prod → Done (`KAV-17`; the staging states wait for Phase 4)
 - [x] Conventional commits, enforced by a `commit-msg` hook and CI; Jira linked to GitHub by the `KAV-<n>` key, smart-commit commands declined (noreply commit email) ([ADR-0011](docs/adr/0011-commit-convention-and-jira-link.md), `KAV-25`, Lab 07)
-- [ ] `docs/learn/phase-1-local-first.md` — flip **Written from** to `experience`
+- [x] `docs/learn/phase-1-local-first.md` — flip **Written from** to `experience` (`KAV-26`: what was assumed vs measured, and the interview answers rewritten from what was built)
 
-**Exit gate:** a fake incident flows end-to-end and lands in the database.
-*Met for signals 2026-09-27 (`KAV-23`): generator → Postgres → `/v1` API, verified on the dev server.
-Grouping those signals into an `incident` row is correlation, the first step of Phase 2.*
+**Exit gate:** a fake incident flows end-to-end and lands in the database. ✅
+Met for signals 2026-09-27 (`KAV-23`): generator → Postgres → `/v1` API, verified on the dev server.
+Grouping those signals into an `incident` row is correlation, the first step of Phase 2.
+$0.13 of AWS usage, covered by credits. **Phase 1 complete 2026-09-27.**
 
 ---
 
