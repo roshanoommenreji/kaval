@@ -561,7 +561,7 @@ note = "pgvector similarity against the incident history. This routing decision 
 id = "j-local"
 label = "local model · Ollama"
 kind = "service"
-phase = 1
+phase = 2
 col = 0
 row = 5
 note = "Effectively free — amortised node cost only. Handles incidents resembling ones already seen. Dev default gemma3:1b-it-qat; the Phase 2 evals pick between it, llama3.2:1b and qwen3:1.7b (docs/architecture/model-shortlist.md)."
@@ -1021,10 +1021,10 @@ note = "docs/releases/YYYY-MM-DD-vX.Y.Z.md — digests, changes, linked issues, 
 id = "d-jira"
 label = "Jira version released"
 kind = "store"
-phase = 1
+phase = 4
 col = 2
 row = 17
-note = "Fix Version marked released, issues transitioned to Done. The board reflects reality without anyone dragging a card across it."
+note = "Fix Version marked released by promote.yml, issues transitioned to Done. The board reflects reality without anyone dragging a card across it. Until Phase 4, jira-sync.py moves issues by hand (ADR-0011); the GitHub link already shows each issue its commits and PRs."
 
 [[delivery.node]]
 id = "d-dora"

@@ -1,55 +1,83 @@
 # Phase 1 — Local first
 
-> **Written from:** theory
-> **Lab:** to be written
-> **Cost:** ~$5/month. Changed from $0: the stack now runs on an AWS dev server, not the laptop
-
-> **Changed 2026-09-26 ([ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md)).** This page
-> was written arguing for the laptop, and the argument below is still sound. The decision went
-> the other way for two reasons: measurements (memory and speed of the candidate models) need
-> the real 4 GB Graviton machine, and building natively on arm64 removes a whole class of Phase 4
-> surprises. Two things keep the original worry small. The dev server uses the default VPC and a
-> single role, so no networking or IAM work is pulled forward. And the laptop stays the editor:
-> `docker` commands reach the server through a Docker context. The cost is slower builds (the
-> build context travels over the tunnel) and about $5 a month. "Local" in this phase's name now
-> means *your own environment*, wherever it runs.
+> **Written from:** experience (rewritten 2026-09-27, when the phase closed; `KAV-26`)
+> **Labs:** [02 data model](../labs/lab-02-data-model.md) · [03 dev server](../labs/lab-03-aws-dev-server.md) · [04 Compose stack](../labs/lab-04-compose-stack.md) · [05 API and signals](../labs/lab-05-gateway-api-and-synthetic-signals.md) · [06 CI](../labs/lab-06-ci-pipeline.md) · [07 commits and Jira](../labs/lab-07-commits-and-jira-link.md)
+> **Decisions:** [ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md) dev server · [ADR-0008](../adr/0008-production-database-on-its-own-server.md) database server · [ADR-0009](../adr/0009-gateway-api-conventions.md) API · [ADR-0010](../adr/0010-ci-pipeline-and-supply-chain.md) CI · [ADR-0011](../adr/0011-commit-convention-and-jira-link.md) commits
+> **Cost:** $0.13 of AWS usage in September, all covered by credits, so $0 billed. The dev server
+> runs only during sessions and stops itself after an idle hour; planned at ~$5/month if used weekly
 
 ## Where this sits
 
-Phase 0 made spending safe. This phase deliberately spends nothing anyway.
+Phase 0 made spending safe. This phase built every piece the agent will need, and proved the
+pieces talk to each other before any of it has to survive a cluster.
 
-It unlocks: a working end-to-end loop you understand completely, before any of it has to survive
-a network, a cluster, or a bill.
+It unlocks Phase 2. The agent loop now has:
+- a database with the full audit spine;
+- real-shaped signals to reason about;
+- a measured choice of model;
+- the API the phone will use;
+- a pipeline that checks every change.
 
-## What we're doing
+## What we did
 
-A `docker-compose` stack on the dev server containing everything the real system will have, in
-miniature:
+A `docker-compose` stack on an AWS dev server (a `t4g.medium`, the production node's size),
+driven from the laptop through a Docker context:
 
-- **Ollama** serving a small local model: Gemma 3 1B, Gemma 3 1B QAT, Llama 3.2 1B and Qwen3 1.7B
-  are measured side by side ([results](../architecture/model-shortlist.md)), and Phase 2's evals
-  pick one. Gemma 4 E2B was on the first list and is 7.2 GB at 4-bit: a model's name says "2B",
-  its file says otherwise, so check the download size before believing it fits
-- **Postgres** with the `pgvector` extension
-- **gateway** — a FastAPI service exposing REST
-- **a synthetic signal generator** — fake pod crashes and cost spikes, so there is something to react to
+- **Postgres 16** (the `pgvector/pgvector` image) with the **7-table spine**: `signal`, `incident`,
+  `proposal`, `action`, `decision`, `execution`, `outcome`. It's built as SQLAlchemy models and an
+  Alembic migration that CI applies, checks for drift, reverses and re-applies (`KAV-21`)
+- **Ollama** with four small models **measured side by side** on the real hardware: memory, speed,
+  and whether each can produce a valid proposal
+  ([model-shortlist.md](../architecture/model-shortlist.md)). `gemma3:1b-it-qat` became the
+  default; plain `gemma3:1b` was dropped (`KAV-22`)
+- **The gateway**: `/healthz`, which passes only when the database is migrated *and* the model is
+  pulled, plus a read-only, versioned, cursor-paged `/v1` API for signals and incidents (`KAV-23`)
+- **A synthetic signal generator**: four failure scenarios in the exact payload shapes real
+  sources produce, every row flagged `synthetic` (`KAV-23`)
+- **CI on every pull request**: lint, tests on a real Postgres, migrations, a secrets scan of the
+  whole history, Terraform, and native arm64 images scanned by Trivy. Everything it uses is pinned
+  against supply-chain attacks (`KAV-24`)
+- **A delivery workflow**: a commit convention checked by a hook and by CI, and Jira linked to
+  GitHub so each issue shows its commits, branches and PRs (`KAV-25`)
 
-Plus the database schema: `signal`, `incident`, `proposal`, `action`, `decision`, `execution`,
-`outcome`.
+The exit gate, "a fake incident flows end-to-end and lands in the database", was met for signals:
+generator → Postgres → `/v1` API, verified on the dev server. Grouping those signals into an
+`incident` row is correlation, which is the first task of Phase 2.
 
-## Why this way
+## Why this way, and what changed on the way
 
-**Because the hard part is not the cloud.** The hard part is getting an LLM to produce something
-structured and trustworthy from messy telemetry. That problem is identical whether it runs on your
-laptop or on a Graviton node in Mumbai — and it is enormously faster to iterate on locally, where
-a change takes two seconds instead of a container build, a registry push, and a reconciliation.
+**The plan was the laptop, and the argument for it was sound.** The hard part is getting an LLM to
+produce something structured and trustworthy from messy telemetry, and that problem iterates
+fastest close to hand. Starting "on AWS to make it real" front-loads networking and IAM while
+you're still working out what the system does.
 
-The rejected alternative was starting on AWS "to make it real." That front-loads the least
-interesting failures — networking, IAM, image architecture — while you are still working out what
-the system even does.
+**Measurement changed it.** This phase had to answer three questions:
+- How much memory does a model really take?
+- How fast does it run on 2 Graviton cores?
+- Does an arm64 image build and run?
 
-There is also a discipline point. Anything that only works because it is on AWS is a thing you do
-not understand yet.
+A Windows laptop can't answer any of them. So the stack moved to a dev server the size of the
+production node ([ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md)). What kept it cheap and
+small:
+- it uses the default VPC and a single role, so no Phase 4 networking arrived early;
+- access is only through Session Manager, with no open SSH port;
+- it stops itself after an idle hour;
+- the laptop stays the editor.
+
+"Local" in this phase's name ended up meaning *your own environment*, wherever it runs.
+
+The same instinct, to measure rather than assume, decided most of the phase:
+
+| Assumed | Measured | What it changed |
+|---|---|---|
+| A 1B model takes ~900 MB | 1.1–1.3 GB loaded; Qwen3 1.7B takes 1.9 GB | Postgres moved off the app node to its own server ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)), and the ceiling rose to $40 |
+| Gemma 4 E2B fits the 4 GB node | The 4-bit file alone is 7.2 GB | Dropped before measuring. A name's "2B" is not a size |
+| Asking for JSON gets JSON | Both Gemmas fenced it 9/9 times and dropped the safety fields 6/9 | The agent always decodes against the proposal's JSON schema, then validates with Pydantic |
+| `docker stats` shows a model's memory | It counted file cache, ~0.7 GB too high | Memory is read from the processes' resident size |
+| The 4-bit formats are interchangeable | `Q4_0` read prompts 3× faster than `Q4_K_M` on Graviton | The QAT build (`Q4_0`) is the default |
+| `pip install` from `pyproject.toml` is reproducible | The first lockfile pulled SQLAlchemy 2.1 and broke type-checking | `uv.lock` with hashes, used by the laptop, CI and the images alike |
+| A clean base image passes a scan | Trivy found 2 HIGH CVEs inside the base image's `setuptools` | Packaging tools are removed from the runtime images |
+| Smart commits move Jira issues | Only if the commit email matches a Jira user | Link by key; status moves by script ([ADR-0011](../adr/0011-commit-convention-and-jira-link.md)) |
 
 ---
 
@@ -76,14 +104,21 @@ Layers are cached and content-addressed. If a layer's inputs have not changed, i
 
 This is why the conventional Dockerfile ordering exists:
 
+The gateway's Dockerfile, simplified:
+
 ```dockerfile
-COPY requirements.txt .
-RUN pip install -r requirements.txt   # cached unless requirements change
-COPY . .                              # changes on every edit
+COPY --from=lock /requirements.txt /tmp/requirements.txt
+RUN pip install --require-hashes -r /tmp/requirements.txt   # cached until uv.lock changes
+COPY services/ services/                                    # changes on every edit
+RUN pip install --no-deps .
 ```
 
-Reverse those two and every source edit reinstalls every dependency. The rule is: **least
-frequently changing first**.
+Reverse them and every source edit reinstalls every dependency. The rule is: **least
+frequently changing first**. Two more things the real file does are worth copying:
+- **A multi-stage build.** `uv` turns the lockfile into a hashed requirements list in a throwaway
+  first stage, so the final image never contains `uv`.
+- **Deleting what the running service never uses.** `pip`, `setuptools` and `wheel` come out, and
+  a scanner finding went with them.
 
 ### docker-compose is a local orchestrator, not a deployment tool
 
@@ -129,7 +164,9 @@ not, which is exactly why the architecture escalates hard cases to Bedrock rathe
 a quantized 1B model is enough.
 
 Naming you will see: `q4_0`, `q4_K_M`, `q8_0`. The number is bits; the suffix describes the
-scheme. `q4_K_M` is a common quality/size sweet spot.
+scheme. `q4_K_M` is often called the quality/size sweet spot, and on x86 it usually is. On this ARM
+hardware the plainer `q4_0` was faster. The general lesson: a format's reputation was
+earned on someone else's hardware.
 
 ### Tokens and the context window
 
@@ -156,7 +193,7 @@ server, the 1B–1.7B models generate **11–21 tokens/second**, and a whole dia
 once the model is loaded.
 
 For a chat interface that is uncomfortably slow. For this system it is fine, because incident
-diagnosis is **asynchronous** — a signal arrives, the agent thinks for twenty seconds, a proposal
+diagnosis is **asynchronous** — a signal arrives, the agent thinks for about ten seconds, a proposal
 appears. Nobody is watching a cursor blink.
 
 Recognising when latency does and does not matter is what makes the $9/month node sufficient
@@ -175,6 +212,10 @@ identical direction scores 1.0 and unrelated text scores near 0.
 
 This is how the system finds prior incidents resembling the current one, which is what lets a
 small model handle a case it has effectively seen before.
+
+*Not exercised yet.* Phase 1 runs the `pgvector` image, but nothing stores an embedding so far.
+The first vector column arrives with Phase 2's runbook retrieval, and this section will be
+rewritten from that experience then.
 
 ### pgvector, and why not a dedicated vector database
 
@@ -377,18 +418,29 @@ feature that fails silently looks exactly like one that works.
 
 ## In an interview
 
-**"You self-hosted an LLM. Why not just use an API?"**
+**"How did you choose which model to run?"**
 
-> "Both, actually — and the routing between them is the point. A quantized Gemma 3 1B runs on the
-> same $9/month ARM node as everything else and handles incidents that resemble ones I've already
-> seen, matched by vector similarity against the incident history. That's most of them, and it
-> costs nothing per call. Novel or low-confidence cases escalate to Bedrock. I record tokens and
-> cost on both paths, so the saving is measured rather than claimed. The reason self-hosting is
-> viable at all is that diagnosis is asynchronous — nobody's watching a cursor, so 10 tokens a
-> second is fine. If it were an interactive chat product I'd have made the opposite call."
+> "I measured, because the first guesses were wrong. I ran four small models on a server the same
+> size as production: 2 Graviton cores, 4 GB. I recorded resident memory, load time, speed, and
+> whether each could produce a valid remediation proposal. Two findings changed the architecture.
+> First, the models took 1.1 to 1.9 GB, not the 900 MB I'd estimated, so I moved Postgres to its
+> own server rather than squeeze it. Second, left unconstrained, the Gemma models dropped the two
+> fields my policy engine decides on, blast radius and reversibility, six times out of nine. So the
+> agent never trusts free-form output: it decodes against the JSON schema and then validates.
+> Speed, about ten seconds a diagnosis, was never the problem, because nobody watches the agent
+> think."
 
-The strength there is treating it as an engineering trade-off with a measurement, rather than an
-ideological preference for self-hosting.
+The strength there is that every number is one you measured, and each one changed a decision.
+Which model is *most accurate* is deliberately left to Phase 2's evals, and saying so is part of
+the answer.
+
+**"What does your CI actually protect against?"**
+
+> "Three things. First, code that only works on my machine: tests run on a clean runner against a
+> real Postgres, and they're not allowed to skip. Second, drift: the lockfile, image digests and
+> action SHAs mean CI tests exactly what ships. Third, the pipeline itself as an attack path: every
+> third-party action is pinned to a commit, because in March 2026 someone re-pointed a popular
+> scanner's version tags to credential-stealing code."
 
 ## Further reading
 
@@ -397,3 +449,6 @@ ideological preference for self-hosting.
 - Ollama documentation — Modelfiles and the OpenAI-compatible endpoint
 - Google's Gemma model card — sizes, context window, intended uses
 - Any current explainer on tokenization; the details change, the principle does not
+- GitHub Docs — *Security hardening for GitHub Actions* (pinning actions to a full-length commit SHA)
+- Atlassian Support — *Process work items with smart commits* (the email-match condition)
+- uv documentation — *Locking and syncing*

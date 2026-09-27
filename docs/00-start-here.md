@@ -80,12 +80,14 @@ agent retrieves from when diagnosing. Writing one improves the product.
 
 ## Before you run anything
 
-Phases 0–3 are entirely local and cost nothing. Do not provision AWS resources until Phase 4, and
-not before the budget guardrails from Phase 0 are proven to fire.
+Phases 1–3 run on one small AWS dev server that stops itself after an idle hour
+([ADR-0007](adr/0007-develop-on-an-aws-dev-server.md), about $5/month if used weekly). Nothing
+else is provisioned until Phase 4. Nothing gets provisioned at all before the Phase 0 budget
+guardrails are proven to fire ([Lab 01](labs/lab-01-aws-guardrails.md)).
 
 ```bash
 make help    # see what's available
-make dev     # local stack — Ollama, Postgres, gateway
+make dev     # the stack on the dev server — Ollama, Postgres, gateway (starts the server if needed)
 ```
 
 Toolchain setup: [labs/lab-00-toolchain.md](labs/lab-00-toolchain.md)

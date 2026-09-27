@@ -24,10 +24,10 @@ signals ──▶ correlate ──▶ context ──▶ LLM ──▶ proposal �
 
 | | |
 |---|---|
-| **Phase** | 0 — Foundations |
+| **Phase** | 2 — The agent loop, next (Phase 0 done 2026-09-15, Phase 1 done 2026-09-27) |
 | **Started** | 2026-08-22 |
 | **Target v1** | ~March 2027 |
-| **Running cost** | $0 (nothing provisioned yet) |
+| **Running cost** | Budget guardrails, plus a dev server that runs only during sessions: $0.13 of usage in September, covered by credits |
 | **Visibility** | Private until v1 |
 
 Live progress: [ROADMAP.md](ROADMAP.md) · **[Dashboard](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c)** · [System](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#system) · [Journey](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#journey) · [Delivery](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#delivery)
