@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Install the pre-commit hook. Run once after cloning.
+# Install the Git hooks. Run once after cloning.
 #
 #   ./scripts/dev/install-hooks.sh
+#
+#   pre-commit  gitleaks + account-ID check on what's staged
+#   commit-msg  the commit convention (scripts/dev/check_commits.py, KAV-25)
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOOK="$ROOT/.git/hooks/pre-commit"
+MSG_HOOK="$ROOT/.git/hooks/commit-msg"
 
 [[ -d "$ROOT/.git" ]] || { echo "not a git repository — run 'git init' first"; exit 1; }
 
@@ -55,6 +59,25 @@ EOF
 
 chmod +x "$HOOK"
 echo "installed: .git/hooks/pre-commit"
+
+cat > "$MSG_HOOK" <<'EOF'
+#!/usr/bin/env bash
+# Kaval commit-msg — the commit convention, checked before the commit exists.
+# Same rules CI applies to every pull request: docs/contributing.md#commits.
+
+set -euo pipefail
+
+PY="$(command -v python3 || command -v python || true)"
+if [[ -z "$PY" ]]; then
+  echo "  WARNING: no python found — commit message NOT checked (CI still checks it)."
+  exit 0
+fi
+BRANCH="$(git symbolic-ref --short -q HEAD || true)"
+exec "$PY" scripts/dev/check_commits.py --file "$1" --branch "$BRANCH"
+EOF
+
+chmod +x "$MSG_HOOK"
+echo "installed: .git/hooks/commit-msg"
 
 command -v gitleaks >/dev/null 2>&1 \
   || echo "NOTE: gitleaks is not installed yet — the hook will warn but not scan."
