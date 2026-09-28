@@ -7,9 +7,9 @@ Idempotent: filters and dashboards are matched by name; a dashboard's gadgets ar
 when their layout differs from the TOML, and a gadget's settings are written only when they
 differ. So a second run reports everything unchanged.
 
-Gadget settings live in each dashboard item's properties, one per setting, as the Jira UI
-stores them. isConfigured=true is set on every gadget, so it renders instead of asking to be
-configured.
+Gadget settings live in one dashboard item property, "config": an object of string values, as
+the Jira UI stores them (read off the Default dashboard's gadgets). isConfigured=true is set on
+every gadget, so it renders instead of asking to be configured.
 """
 from __future__ import annotations
 
@@ -66,13 +66,17 @@ def sync_filters(filters: list[dict[str, str]]) -> dict[str, str]:
     return ids
 
 
-def resolve(prefs: dict[str, str], filters: dict[str, str], service: str) -> dict[str, str]:
+def resolve(gadget_type: str, prefs: dict[str, str], filters: dict[str, str],
+            service: str) -> dict[str, str]:
+    """A gadget's config object. Filter Results takes a bare filter id; the chart and
+    statistics gadgets take "filter-<id>" (checked against their /rest/gadget endpoints)."""
     out = {"isConfigured": "true"}
     for k, v in prefs.items():
         if v == "@service":
             v = service
         elif v.startswith("@"):
-            v = f"filter-{filters[v[1:]]}"
+            fid = filters[v[1:]]
+            v = fid if gadget_type == "Filter Results" else f"filter-{fid}"
         out[k] = v
     return out
 
@@ -112,15 +116,18 @@ def sync_dashboard(d: dict[str, Any], catalogue: dict[str, str], filters: dict[s
     for g in d["gadget"]:
         item = by_pos[(g["column"], g["row"])]["id"]
         base = f"/rest/api/3/dashboard/{did}/items/{item}/properties"
-        changed = 0
-        for key, value in resolve(g.get("prefs", {}), filters, service).items():
-            status, cur = call("GET", f"{base}/{key}")
-            if status == 200 and cur.get("value") == value:
-                continue
-            # A property's body is the bare JSON value (a string here), not an object.
-            ok(*call("PUT", f"{base}/{key}", value), f"set {key} on {g['title']}")  # type: ignore[arg-type]
-            changed += 1
-        note = f"set {changed} setting(s)" if changed else "settings unchanged"
+        want_cfg = resolve(g["type"], g.get("prefs", {}), filters, service)
+        # Anything other than "config" is left over from the first version of this script,
+        # which wrote one property per setting; Jira ignores those.
+        keys = ok(*call("GET", base), "list properties").get("keys", [])
+        for stale in (k["key"] for k in keys if k["key"] != "config"):
+            ok(*call("DELETE", f"{base}/{stale}"), f"remove {stale} on {g['title']}")
+        status, cur = call("GET", f"{base}/config")
+        if status == 200 and cur.get("value") == want_cfg:
+            note = "settings unchanged"
+        else:
+            ok(*call("PUT", f"{base}/config", want_cfg), f"set config on {g['title']}")
+            note = "settings written"
         print(f"    {note:<20} {g['title']}")
     return f"{BASE}/jira/dashboards/{did}"
 

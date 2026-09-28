@@ -149,9 +149,23 @@ re-run after editing the file.
 | **Kaval — UAT** | Awaiting your acceptance, open UAT defects, signed off, UAT by service |
 | **Kaval — Releases** | Stories going into the next release, released ones, flagged work. Empty until Phase 4 |
 
-Gadget settings (which filter, which axes) are written as the dashboard item's properties, the
-same way the Jira UI stores them. That part of Jira's API is thinly documented. So the dashboards
-story was itself a `uat` story, and it was signed off only after someone looked at each dashboard.
+Gadget settings (which filter, which axes) are written as **one** dashboard item property named
+`config`, an object of strings, the same way the Jira UI stores them. To see that format for
+yourself, read a gadget on Jira's own Default dashboard:
+
+```bash
+python - <<'EOF'
+import sys; sys.path.insert(0, "scripts/tracking")
+from atlassian import call
+_, g = call("GET", "/rest/api/3/dashboard/10000/gadget")
+for x in g["gadgets"]:
+    print(x["title"], call("GET", f"/rest/api/3/dashboard/10000/items/{x['id']}/properties/config"))
+EOF
+```
+
+Filter Results takes a bare filter id (`10033`); the chart and statistics gadgets take
+`filter-10033`. That part of Jira's API is thinly documented. So the dashboards story was itself
+a `uat` story, and it was signed off only after someone looked at each dashboard.
 
 ---
 
@@ -174,5 +188,11 @@ story was itself a `uat` story, and it was signed off only after someone looked 
 - **Jira created three Service fields.** Each work type got its own copy. JQL `Service = gateway`
   searches all of them, but the API needs the right id per work type, so the scripts look it up
   by name.
+- **The dashboards came up empty, and UAT caught it.** The first version of the script wrote each
+  setting as its own property (`filterId`, `num`, …). The API accepted every write, and a second
+  run said `unchanged`, but Jira reads only a single `config` property, so each gadget showed
+  nothing. Reading the Default dashboard's gadgets showed the real format. This is the case for
+  UAT in one line: every automated check passed, and only a person looking at the page could
+  tell it was wrong.
 - **The first backfill dry run was wrong for one story.** A moved placeholder file counted as a
   change to infra. Reading the dry run before applying caught it.
