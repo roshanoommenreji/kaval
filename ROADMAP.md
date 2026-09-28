@@ -69,7 +69,7 @@ The hard, interesting part. Still no AWS.
 - [x] Jira dashboards as code: Delivery, UAT, Releases (`KAV-36`, signed off in UAT 2026-09-28)
 - [x] Signal correlation → incident fingerprinting ([ADR-0014](docs/adr/0014-signal-correlation-and-incident-fingerprints.md), `KAV-39`, signed off in UAT 2026-09-28)
 - [x] Context builder: runbook RAG (pgvector) + past incidents + recent changes ([ADR-0015](docs/adr/0015-context-builder-retrieval-design.md), `KAV-40`, signed off in UAT 2026-09-28)
-- [ ] JSON-schema-enforced proposal output — the model must not ramble ([ADR-0016](docs/adr/0016-json-schema-enforced-proposal-output.md), `KAV-41`)
+- [x] JSON-schema-enforced proposal output — the model must not ramble ([ADR-0016](docs/adr/0016-json-schema-enforced-proposal-output.md), `KAV-41`, signed off in UAT 2026-09-28)
 - [ ] Policy engine: `auto` / `ask` / `never`, blast-radius classification
 - [ ] Jev risk rating feeding the policy engine (ADR-0006, `KAV-27`) — `typesafe-sdk`, pinned version, redaction, rules-only fallback
 - [ ] Eval harness + 20 golden incidents — including Jev calibration vs the rules-only baseline
