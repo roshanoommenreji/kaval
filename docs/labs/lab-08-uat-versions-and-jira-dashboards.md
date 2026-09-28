@@ -164,7 +164,15 @@ EOF
 ```
 
 Filter Results takes a bare filter id (`10033`); the chart and statistics gadgets take
-`filter-10033`. That part of Jira's API is thinly documented. So the dashboards story was itself
+`filter-10033`.
+
+If a gadget still says **"This gadget hasn't been configured yet"** although its `config` reads
+back correctly, Jira is showing what the gadget rendered the first time it was opened. Replace
+the gadgets with fresh ones, then hard-reload the page (Ctrl+Shift+R):
+
+```bash
+python scripts/tracking/jira-dashboards.py --rebuild --only "— UAT"
+``` That part of Jira's API is thinly documented. So the dashboards story was itself
 a `uat` story, and it was signed off only after someone looked at each dashboard.
 
 ---
@@ -194,5 +202,9 @@ a `uat` story, and it was signed off only after someone looked at each dashboard
   nothing. Reading the Default dashboard's gadgets showed the real format. This is the case for
   UAT in one line: every automated check passed, and only a person looking at the page could
   tell it was wrong.
+- **After the fix, two of the three still said "not configured".** Delivery rendered; UAT and
+  Releases didn't, although all three stored the same `config` format. Jira kept the
+  "unconfigured" state those gadgets were first opened in. Replacing them with fresh gadgets
+  (`--rebuild`) cleared it. The second UAT look was what showed this, too.
 - **The first backfill dry run was wrong for one story.** A moved placeholder file counted as a
   change to infra. Reading the dry run before applying caught it.
