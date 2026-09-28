@@ -130,13 +130,13 @@ that's a later Phase 2 task.
 
 ## Done when
 
-- [ ] `make pull-embed-model` then `make index-runbooks` twice: the second run is all
+- [x] `make pull-embed-model` then `make index-runbooks` twice: the second run is all
       `unchanged`
-- [ ] Editing one runbook heading and re-indexing shows exactly that chunk as `updated`
-- [ ] `make context` on an OOM incident shows no runbook match and `unmapped workload`
-- [ ] `make context` on an exec-format incident (`gateway`) shows real recent commits
-- [ ] A recurrence shows the earlier incident under **similar past incidents**
-- [ ] KAV-40 signed off: `jira-sync.py uat KAV-40 pass --env dev`
+- [x] Editing one runbook heading and re-indexing shows exactly that chunk as `updated`
+- [x] `make context` on an OOM incident shows no runbook match and `unmapped workload`
+- [x] `make context` on an exec-format incident (`gateway`) shows real recent commits
+- [x] A recurrence shows the earlier incident under **similar past incidents**
+- [x] KAV-40 signed off: `jira-sync.py uat KAV-40 pass --env dev`
 
 ## What went wrong, and why (2026-09-28)
 
