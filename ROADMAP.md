@@ -64,9 +64,9 @@ $0.13 of AWS usage, covered by credits. **Phase 1 complete 2026-09-27.**
 
 The hard, interesting part. Still no AWS.
 
-- [ ] UAT process: `uat` label, UAT scenarios, `jira-sync.py uat pass|fail` ([ADR-0012](docs/adr/0012-user-acceptance-testing.md), `KAV-34`)
-- [ ] Component versions and release naming: Kaval X.Y.Z with its components' versions ([ADR-0013](docs/adr/0013-component-versions-and-release-naming.md), `KAV-35`)
-- [ ] Jira dashboards as code: Delivery, UAT, Releases (`KAV-36`)
+- [x] UAT process: `uat` label, UAT scenarios, `jira-sync.py uat pass|fail` ([ADR-0012](docs/adr/0012-user-acceptance-testing.md), `KAV-34`)
+- [x] Component versions and release naming: Kaval X.Y.Z with its components' versions ([ADR-0013](docs/adr/0013-component-versions-and-release-naming.md), `KAV-35`)
+- [x] Jira dashboards as code: Delivery, UAT, Releases (`KAV-36`, signed off in UAT 2026-09-28)
 - [ ] Signal correlation → incident fingerprinting
 - [ ] Context builder: runbook RAG (pgvector) + past incidents + recent changes
 - [ ] JSON-schema-enforced proposal output — the model must not ramble
