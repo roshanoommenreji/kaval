@@ -129,7 +129,7 @@ def list_incidents(
     cursor: Cursor = None,
     status: Literal["open", "closed"] | None = None,
 ) -> IncidentPage:
-    """Correlated problems, newest first. Empty until correlation lands in Phase 2."""
+    """Correlated problems, newest first, written by the agent's correlator (KAV-39)."""
     query = select(Incident)
     if status == "open":
         query = query.where(Incident.closed_at.is_(None))

@@ -55,7 +55,7 @@ are never edited by hand. If they disagree with the repo, the repo is right.
 | `README.md` | The front page: what Kaval is, current status, quick start, and a short map | Working |
 | `ROADMAP.md` | All 10 phases as checklists. **The only place progress is recorded.** The dashboard, Jira mirror and architecture diagrams all read their status from here | Working |
 | `CLAUDE.md` | Instructions for Claude Code: the cost ceiling, the security rules, conventions and the Definition of Done | Working |
-| `Makefile` | Short commands for everything (`make help` lists them): `make dev`, `make signals`, `make test`, `make lint`, `make sync`, `make lock`, `make migrate`, `make docs-sync`, `make jira`, `make plan`... | Working. Some targets wait on later phases (see below) |
+| `Makefile` | Short commands for everything (`make help` lists them): `make dev`, `make signals`, `make correlate`, `make test`, `make lint`, `make sync`, `make lock`, `make migrate`, `make docs-sync`, `make jira`, `make plan`... | Working. Some targets wait on later phases (see below) |
 | `uv.lock` | The **exact** version and file hashes of every Python package (46), generated from `pyproject.toml` by `make lock`. CI, the laptop (`make sync`) and both images install from it, so all three run the same code. Never edited by hand | Working (`KAV-24`) |
 | `pyproject.toml` | Python project settings: dependencies, the rules for `ruff`, `mypy` and `pytest`, and Alembic's settings (`[tool.alembic]`, pointing it at `migrations/`; there is no `alembic.ini`) | Working |
 | `.env.example` | A template listing every setting and secret the project needs, with fake values. Copy it to `.env` and fill it in | Working |
@@ -63,7 +63,7 @@ are never edited by hand. If they disagree with the repo, the repo is right.
 | `.gitignore` | Tells Git which files never to save: secrets, Terraform state, caches, generated files | Working |
 | `.gitattributes` | Line-ending rules. Stops Windows from adding `\r` characters that break shell scripts on Linux | Working |
 | `.vscode/settings.json` | Hides tool caches (`.venv`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `__pycache__`, `.terraform`) from VS Code's file tree so the top level stays readable. They still exist on disk and are gitignored | Working |
-| `compose.yaml` | The Phase 1–2 stack: Ollama (the AI model), Postgres + pgvector, a one-off migration step, the gateway, and an on-demand `signals` step that writes fake incidents (`make signals`). `make dev` runs it **on the AWS dev server**, not the laptop. No folder-sharing (bind mounts), because those would point at the server's disk; data lives in named volumes there. Never used for staging or prod (the Helm chart is) | Working (`KAV-22`, `signals` in `KAV-23`) |
+| `compose.yaml` | The Phase 1–2 stack: Ollama (the AI model), Postgres + pgvector, a one-off migration step, the gateway, and on-demand `signals` and `agent` steps that write fake incidents (`make signals`) and group them into incidents (`make correlate`). `make dev` runs it **on the AWS dev server**, not the laptop. No folder-sharing (bind mounts), because those would point at the server's disk; data lives in named volumes there. Never used for staging or prod (the Helm chart is) | Working (`KAV-22`, `signals` in `KAV-23`, `agent` in `KAV-39`) |
 | `.dockerignore` | What `docker build` may send to the dev server. An allowlist: only `pyproject.toml`, `uv.lock`, `services/` and `migrations/`, so `.env` and Terraform files can't leave the laptop by accident | Working |
 | `.gitleaks.toml` | Rules for gitleaks, the scanner that blocks any commit containing a secret | Working |
 
@@ -97,7 +97,10 @@ think.**
 | `services/collector/kaval_collector/synthetic.py` | Writes fake incidents: the burst of signals one real failure produces (memory kill, wrong-CPU image, cost spike, forgotten disk), in the real payload shapes, always flagged `synthetic: true`. `make signals SCENARIO=oom-crashloop` | Working (`KAV-23`) |
 | `services/collector/Dockerfile` | The collector image: arm64, non-root, only the core dependencies (no web framework). Run one-shot by the `signals` service in `compose.yaml` | Working (`KAV-23`) |
 | `services/collector/tests/` | Tests for the fake signals: shapes, flags, same seed same content, a run landing whole in the database | Working |
-| `services/agent/` | Groups signals into incidents, asks the AI for a diagnosis, and writes a `proposal`. **Read-only credentials; it can only suggest** | Placeholder, Phase 2 |
+| `services/agent/` | Groups signals into incidents, asks the AI for a diagnosis, and writes a `proposal`. **Read-only credentials; it can only suggest** | Correlation working (`KAV-39`); diagnosis later in Phase 2 |
+| `services/agent/kaval_agent/correlate.py` | Groups the signals not yet in an incident into `incident` rows, by what's broken (the workload or AWS resource) and why (the most specific cause). Names each with a fingerprint like `oom_killed:k8s:kaval-demo/checkout`, and closes it once quiet. Rules, not AI ([ADR-0014](adr/0014-signal-correlation-and-incident-fingerprints.md)). `make correlate` | Working (`KAV-39`) |
+| `services/agent/Dockerfile` | The agent image: arm64, non-root, only the core dependencies. It has no Kubernetes or AWS library to change anything with. Run one-shot by the `agent` service in `compose.yaml` | Working (`KAV-39`) |
+| `services/agent/tests/` | Tests for correlation: each scenario becomes the incident a person would name, restarts keep their fingerprint, quiet windows close, a second pass changes nothing, two correlators can't run at once | Working (`KAV-39`) |
 | `services/executor/` | The **only** component allowed to change the cluster or AWS. Acts only on proposals that passed the policy check and, where required, human approval | Placeholder, Phase 3 |
 | `services/gateway/` | The web API (FastAPI) the phone app talks to. Today: `GET /healthz` (passes only when the database is migrated **and** the model is downloaded) and a read-only `/v1` API for signals and incidents, documented at `/docs`. Its rules are in [ADR-0009](adr/0009-gateway-api-conventions.md). `Dockerfile` builds it for arm64 as a non-root user; the same image runs the database migrations | Health check (`KAV-22`) and read-only API (`KAV-23`) working; approve/deny and push in Phase 5 |
 | `services/gateway/kaval_gateway/api.py` | The `/v1` routes: list and fetch signals and incidents, newest first, paged with a cursor. Every request's database transaction is read-only, so the database itself refuses writes | Working (`KAV-23`) |
@@ -109,7 +112,7 @@ think.**
 
 | Path | What it is | Status |
 |---|---|---|
-| `migrations/versions/` | One file per change to the database structure. The first one creates the seven tables | Working |
+| `migrations/versions/` | One file per change to the database structure. The first one creates the seven tables; the second adds the index correlation uses to find signals not yet in an incident (`KAV-39`) | Working |
 | `migrations/env.py` | Connects Alembic to the database and to `models.py` | Working |
 | `migrations/script.py.mako` | Template for new migration files | Working |
 

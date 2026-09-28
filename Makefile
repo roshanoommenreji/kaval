@@ -56,6 +56,10 @@ logs: ## Tail the stack's logs
 signals: ## Write one fake incident's signals: SCENARIO=oom-crashloop [SEED=42]; no SCENARIO lists them
 	$(COMPOSE) run --rm --build signals $(if $(SCENARIO),$(SCENARIO) $(if $(SEED),--seed $(SEED)),--list)
 
+.PHONY: correlate
+correlate: ## Group the signals not yet in an incident into incidents, one pass (KAV-39)
+	$(COMPOSE) run --rm --build agent
+
 .PHONY: bench
 bench: ## Measure the local model shortlist on the dev server (KAV-22, ~20 min)
 	python scripts/dev/bench_models.py
@@ -85,10 +89,11 @@ migrate: ## Apply database migrations (reads POSTGRES_* from .env)
 .PHONY: build
 build: ## Build arm64 images (Graviton — amd64 will NOT run on the node)
 	# Context is the repo root: images need services/shared and pyproject.toml, and the
-	# root .dockerignore allowlist is what keeps .env out. Agent and executor join here
-	# when they have code (Phases 2-3).
+	# root .dockerignore allowlist is what keeps .env out. The executor joins here when
+	# it has code (Phase 3).
 	docker buildx build --platform linux/arm64 -f services/gateway/Dockerfile   -t kaval/gateway:dev   .
 	docker buildx build --platform linux/arm64 -f services/collector/Dockerfile -t kaval/collector:dev .
+	docker buildx build --platform linux/arm64 -f services/agent/Dockerfile     -t kaval/agent:dev     .
 
 # ─────────────────────────────────────────────────────────────
 ##@ AWS  (starts and stops billing — read docs/cost/budget-plan.md)

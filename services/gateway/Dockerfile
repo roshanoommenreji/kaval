@@ -41,6 +41,7 @@ COPY pyproject.toml ./
 COPY services/shared/kaval_shared services/shared/kaval_shared
 COPY services/gateway/kaval_gateway services/gateway/kaval_gateway
 COPY services/collector/kaval_collector services/collector/kaval_collector
+COPY services/agent/kaval_agent services/agent/kaval_agent
 # Then drop the packaging tools the base image ships: nothing runs them after this line,
 # and setuptools vendors old copies of jaraco.context and wheel that Trivy flags HIGH
 # (CVE-2026-23949, CVE-2026-24049; found by the first CI run, KAV-24). pip goes too: the
