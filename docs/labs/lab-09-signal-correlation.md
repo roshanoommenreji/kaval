@@ -99,12 +99,12 @@ Two correlators running at once would open the same incident twice. Each pass ta
 
 ## Done when
 
-- [ ] `pytest services/agent` passes
-- [ ] `make signals SCENARIO=oom-crashloop` + `make correlate` opens one high incident with 6
+- [x] `pytest services/agent` passes
+- [x] `make signals SCENARIO=oom-crashloop` + `make correlate` opens one high incident with 6
       signals, and a second `make correlate` says `nothing new`
-- [ ] `/v1/incidents` shows it, with its signals
-- [ ] `cost-spike` opens one incident, for the spike day only
-- [ ] KAV-39 signed off: `jira-sync.py uat KAV-39 pass --env dev`
+- [x] `/v1/incidents` shows it, with its signals
+- [x] `cost-spike` opens one incident, for the spike day only
+- [x] KAV-39 signed off: `jira-sync.py uat KAV-39 pass --env dev`
 
 ## What went wrong, and why (2026-09-28)
 
@@ -117,3 +117,8 @@ Two correlators running at once would open the same incident twice. Each pass ta
   second opens nothing. That's the intended behaviour, and the test now runs its pass two minutes
   later. The 60 s wait catches people out, so that's where to look first if `make correlate` says
   `waiting`.
+- **UAT hit the dev server's idle-stop mid-session** (ADR-0007): the SSH tunnel and `docker
+  --context kaval-devbox` both failed with connection errors partway through. `make devbox-up`
+  brought it back in about a minute. The accidental pause turned out to be a useful extra check:
+  the next `make correlate` correctly closed an incident that had gone quiet purely on wall-clock
+  time, with no pass having run while it happened — proof the quiet window isn't counting passes.
