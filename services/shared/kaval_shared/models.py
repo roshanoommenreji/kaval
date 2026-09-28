@@ -14,6 +14,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
@@ -27,6 +28,11 @@ from sqlalchemy import (
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+# The dimension of every stored embedding (KAV-40): all-minilm's output size. Defined here,
+# next to the column that uses it, so kaval_agent.embeddings imports it rather than repeating
+# the number — a mismatch would only be caught by Postgres refusing the INSERT.
+RUNBOOK_EMBED_DIM = 384
 
 
 class Base(DeclarativeBase):
@@ -269,3 +275,30 @@ class Outcome(Base):
     )
 
     incident: Mapped[Incident] = relationship(back_populates="outcomes")
+
+
+class RunbookChunk(Base):
+    """One H2 section of a runbook in `docs/runbooks/`, with its embedding (KAV-40, ADR-0015).
+
+    Not part of the append-only spine above: `docs/runbooks/` is the source of truth, this
+    table is its index, and `kaval_agent.index_runbooks` re-syncs it — creating, updating or
+    deleting rows — whenever a runbook changes. Nothing else writes here.
+    """
+
+    __tablename__ = "runbook_chunk"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    path: Mapped[str] = mapped_column(Text, nullable=False)  # e.g. "restore-from-backup.md"
+    heading: Mapped[str] = mapped_column(Text, nullable=False)  # e.g. "Likely causes"
+    ordinal: Mapped[int] = mapped_column(nullable=False)  # position within the file
+    content: Mapped[str] = mapped_column(Text, nullable=False)  # title + heading + body
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)  # sha256(content)
+    embedding: Mapped[list[float]] = mapped_column(Vector(RUNBOOK_EMBED_DIM), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (UniqueConstraint("path", "heading", name="uq_runbook_chunk_path_heading"),)

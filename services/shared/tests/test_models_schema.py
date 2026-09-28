@@ -8,7 +8,10 @@ TABLES = Base.metadata.tables
 
 
 def test_all_spine_tables_present() -> None:
-    expected = {
+    # A subset, not equality: other tables may exist alongside the append-only spine (e.g.
+    # runbook_chunk, KAV-40's reference index, which is explicitly not part of it). This
+    # still catches a typo dropping a spine table, which is the check's actual job.
+    spine = {
         "signal",
         "incident",
         "incident_signal",
@@ -18,7 +21,7 @@ def test_all_spine_tables_present() -> None:
         "execution",
         "outcome",
     }
-    assert expected == set(TABLES)
+    assert spine.issubset(set(TABLES))
 
 
 def test_every_table_has_id_and_created_at() -> None:

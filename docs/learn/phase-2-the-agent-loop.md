@@ -106,6 +106,26 @@ Why retrieval rather than fine-tuning:
 - **It is cheap.** An embedding call and a vector query, versus GPU hours.
 - **Fine-tuning teaches style and format, not facts.** It is the wrong instrument for "what does this specific error mean in my cluster."
 
+**What Kaval does** ([ADR-0015](../adr/0015-context-builder-retrieval-design.md)): three
+sources, three different retrieval mechanisms, because they're three different questions.
+- **Runbooks** genuinely need similarity search: "the pod keeps OOMing" and
+  `container_memory_near_limit` are the same problem in different words, and a keyword match
+  would miss that. Chunked by `## ` heading, embedded with a small model (**all-minilm**,
+  384-dim), retrieved by cosine distance in pgvector.
+- **Past incidents don't.** The fingerprint from correlation (`cause:domain:subject`) already
+  says precisely what kind of failure this is — matching on it beats a similarity score, which
+  would be a strictly *less* precise version of information already sitting in a column.
+- **Recent changes** turned out to be the hardest of the three to source honestly: there's no
+  real deployment history yet (Phase 3 wires that), so it's a git-log proxy against this
+  repo's own commits, run from the laptop only — the agent's Docker image never receives
+  `.git`, a security boundary set in Phase 0 that this feature wasn't worth punching a hole in.
+- **The relevance cutoff was measured, not guessed.** A first guess (0.35) turned out to sit
+  *inside* the noise floor — two genuinely unrelated queries against the same runbook scored
+  0.38–0.40, just past that guess. Measuring one real match (0.69) against that noise floor
+  found the actual gap, and 0.5 sits in it. The lesson generalises past this one number: a
+  threshold chosen by intuition on an embedding model you haven't measured is a guess wearing
+  a precise-looking decimal.
+
 ### Context construction is the actual engineering
 
 The prompt is assembled, not written. Roughly:
@@ -234,6 +254,7 @@ creates false comfort.
 | Skipping evals because output "looks good" | No way to know a prompt change made things worse |
 | Optimising accuracy, ignoring calibration | Confidently wrong, and every routing decision built on it is broken |
 | Giving the model tools instead of proposals | Prompt injection through a log line becomes cluster access |
+| Guessing a similarity-score cutoff instead of measuring it | It can land inside the noise floor and never notice |
 
 ## Glossary
 

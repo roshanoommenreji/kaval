@@ -60,6 +60,8 @@ make dev           # start the dev server if needed, then the stack on it:
 make dev-tunnel    # in a second terminal: gateway :8000, Postgres :5432, Ollama :11435
 make signals SCENARIO=oom-crashloop   # write a fake incident's signals; then http://localhost:8000/docs
 make correlate                        # group them into an incident (/v1/incidents)
+make index-runbooks                   # sync docs/runbooks/ into the retrieval index
+make context INCIDENT=<uuid>          # see what a diagnosis would be given: runbooks, history, changes
 make bench         # measure the local model shortlist (docs/architecture/model-shortlist.md)
 make dev-down      # stop the stack; the database and models are kept
 make devbox-down   # stop the server (or let it stop itself after 1 h idle)
