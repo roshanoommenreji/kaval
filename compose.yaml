@@ -75,6 +75,22 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # One-shot, same idea, but on demand (`tools` profile): nothing in `make dev` depends on
+  # it, and Compose's `--wait` treats an undepended-on container exiting — even at code 0 —
+  # as a failure. `make index-runbooks` and `make context` pull it first (KAV-40); a no-op
+  # after the first run. Only one model is resident at a time
+  # (OLLAMA_MAX_LOADED_MODELS=1), so this costs disk, not RAM.
+  model-pull-embed:
+    image: ollama/ollama:0.34.4
+    profiles: [tools]
+    environment:
+      OLLAMA_HOST: ollama:11434
+    command: ["pull", "${EMBED_MODEL:?set EMBED_MODEL in .env}"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
   # One-shot: apply database migrations, from the same image the gateway runs.
   migrate:
     build: *gateway-build

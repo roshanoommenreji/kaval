@@ -8,12 +8,22 @@ dependencies = [
     "alembic>=1.13",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.6",
+    # The Vector column type (KAV-40). Core, not an extra: kaval_shared.models imports it,
+    # and every image — gateway, collector, agent — imports kaval_shared.models.
+    "pgvector>=0.3.6",
 ]
 
 [project.optional-dependencies]
 gateway = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.53.0",
+    "httpx>=0.27",
+]
+agent = [
+    # Calls Ollama for embeddings (KAV-40) and, later, the diagnosis itself. Not installed
+    # in the agent's own image: correlate.py has no network call, by ADR-0014 design.
+    # kaval_agent.context and .index_runbooks are laptop-run tools (see Lab 10) and get it
+    # from `uv sync --all-extras`, same as gateway's extra does for the gateway image.
     "httpx>=0.27",
 ]
 dev = [

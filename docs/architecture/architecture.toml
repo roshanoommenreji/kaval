@@ -546,7 +546,7 @@ kind = "service"
 phase = 2
 col = 1
 row = 3
-note = "Runbook chunks by vector similarity, similar past incidents WITH their outcomes, recent changes. The outcome of a similar past incident is the single most useful element — stronger evidence than any amount of general knowledge."
+note = "Built (KAV-40, ADR-0015): kaval_agent.context assembles all three. Runbooks chunked by ## heading, embedded with all-minilm, retrieved by pgvector cosine similarity (cutoff 0.5, measured against real data). Past incidents matched by cause+domain (exact fingerprint first), not embeddings — the fingerprint is already more precise. Recent changes: a laptop-only git-log proxy until Phase 3's real deploy signals exist. The outcome of a similar past incident is the single most useful element — stronger evidence than any amount of general knowledge."
 
 [[journey.node]]
 id = "j-known"

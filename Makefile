@@ -234,6 +234,19 @@ docs-sync: dashboard ## Regenerate the dashboard and republish Confluence (Defin
 jira: ## Show an epic's stories. Usage: make jira EPIC=KAV-6
 	@python scripts/tracking/jira-sync.py show $(or $(EPIC),KAV-6)
 
+.PHONY: pull-embed-model
+pull-embed-model: ## Ensure EMBED_MODEL is pulled into Ollama (KAV-40); a no-op after the first run
+	$(COMPOSE) run --rm model-pull-embed
+
+.PHONY: index-runbooks
+index-runbooks: pull-embed-model ## Sync docs/runbooks/*.md into runbook_chunk (KAV-40). Needs make dev-tunnel.
+	@python -m kaval_agent.index_runbooks
+
+.PHONY: context
+context: pull-embed-model ## Print the context built for one incident. Usage: make context INCIDENT=<uuid>
+	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<uuid>" && exit 1)
+	@python -m kaval_agent.context $(INCIDENT) --with-changes
+
 .PHONY: jira-dashboards
 jira-dashboards: ## Create or update the Jira dashboards from scripts/tracking/jira-dashboards.toml
 	@python scripts/tracking/jira-dashboards.py
