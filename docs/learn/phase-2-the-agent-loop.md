@@ -91,6 +91,20 @@ The third layer is not optional even with the second, because valid JSON can sti
 `confidence: 1.5`, an action type that does not exist, a target pod that is not in this cluster.
 **Schema validity and semantic validity are different problems**, and both need checking.
 
+**What Kaval does** ([ADR-0016](../adr/0016-json-schema-enforced-proposal-output.md)):
+`kaval_agent.diagnose` sends a Pydantic model's `model_json_schema()` as Ollama's `format`
+(layer 2), then re-validates the parsed reply against the same Pydantic model regardless
+(layer 3) — a reply that fails validation gets one corrective retry, and a second failure
+writes nothing. This is not a theoretical caution: on the very first incident that exercised
+it live, `gemma3:1b-it-qat` returned `confidence: 70` — the exact `confidence: 1.5`-shaped
+failure mode above, playing out for real — and it survived Ollama's own `format` schema (which
+states `maximum: 1`) *twice*, because constrained decoding is grammar-based and enforces field
+names, types and enum membership, not a bounded float's numeric range. Layer 3 caught what
+layer 2 didn't. The actual fix was neither layer: stating the format explicitly in the prompt
+("a fraction between 0 and 1, never a percentage") made the model stop making the mistake in
+the first place — the cheapest layer, and the one that's easy to skip because it feels
+redundant with the schema.
+
 ### RAG, and why not fine-tuning
 
 **Retrieval-Augmented Generation**: rather than training knowledge into the model, retrieve
@@ -255,6 +269,7 @@ creates false comfort.
 | Optimising accuracy, ignoring calibration | Confidently wrong, and every routing decision built on it is broken |
 | Giving the model tools instead of proposals | Prompt injection through a log line becomes cluster access |
 | Guessing a similarity-score cutoff instead of measuring it | It can land inside the noise floor and never notice |
+| Trusting constrained decoding to enforce a schema's numeric bounds | It only guarantees shape and type — `confidence: 70` still parsed against a schema stating `maximum: 1` (KAV-41) |
 
 ## Glossary
 

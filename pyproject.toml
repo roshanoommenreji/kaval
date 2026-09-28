@@ -20,10 +20,13 @@ gateway = [
     "httpx>=0.27",
 ]
 agent = [
-    # Calls Ollama for embeddings (KAV-40) and, later, the diagnosis itself. Not installed
-    # in the agent's own image: correlate.py has no network call, by ADR-0014 design.
-    # kaval_agent.context and .index_runbooks are laptop-run tools (see Lab 10) and get it
-    # from `uv sync --all-extras`, same as gateway's extra does for the gateway image.
+    # Calls Ollama for embeddings (KAV-40) and chat (KAV-41). Not installed in the agent's
+    # own image: correlate.py has no network call, by ADR-0014 design. kaval_agent.context,
+    # .index_runbooks and .diagnose are laptop-run tools for now (see Lab 10, Lab 11) and get
+    # it from `uv sync --all-extras`, same as gateway's extra does for the gateway image.
+    # diagnose.py itself has no git dependency, so — unlike recent_changes.py — nothing stops
+    # it running inside the deployed agent image later; it stays laptop-only only because
+    # nothing has decided how the deployed agent should be triggered yet (ADR-0016).
     "httpx>=0.27",
 ]
 dev = [

@@ -1,8 +1,14 @@
 # syntax=docker/dockerfile:1
 #
-# Agent image. Today it runs correlation (KAV-39): signals in, incident rows out.
+# Agent image. Its entrypoint runs correlation (KAV-39): signals in, incident rows out.
 #   make correlate                                   # one pass
 #   python -m kaval_agent.correlate --every 30       # a loop, for when it's deployed
+# Context assembly (KAV-40) and diagnosis (KAV-41, ADR-0016) ship in this image too — the
+# whole kaval_agent package is copied below — but run as laptop-invoked tools for now
+# (`make index-runbooks`, `make context`, `make diagnose`; see Lab 10, Lab 11), not as part
+# of the entrypoint's own loop: no orchestration decision for "run diagnosis automatically
+# after every correlation pass" has been made yet, and the `agent` extra (httpx) isn't
+# installed here, so an unattended run would fail loudly rather than silently doing nothing.
 # Build context is the REPO ROOT, like the other images (compose.yaml sets it), and the
 # root .dockerignore allowlist decides what leaves the laptop.
 #

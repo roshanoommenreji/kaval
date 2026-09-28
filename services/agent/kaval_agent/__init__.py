@@ -1,8 +1,9 @@
 """Kaval agent: reads signals, writes suggestions. It never gets write access to the cluster or AWS.
 
-Its only outputs are rows in its own tables: `incident` (from `kaval_agent.correlate`, KAV-39)
-and, from the context builder and the model call later in Phase 2, `proposal` and `action`.
-Anything that changes a real system is the executor's job, and only after policy and a human.
+Its only outputs are rows in its own tables: `incident` (from `kaval_agent.correlate`, KAV-39),
+and `proposal`/`action` (from `kaval_agent.diagnose`, KAV-41 — context assembled by
+`kaval_agent.context`, KAV-40). Anything that changes a real system is the executor's job, and
+only after policy and a human.
 """
 
 # This component's own version (ADR-0013). Bumped by the conventional commits that touch
