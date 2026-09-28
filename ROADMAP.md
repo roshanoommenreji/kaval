@@ -68,7 +68,7 @@ The hard, interesting part. Still no AWS.
 - [x] Component versions and release naming: Kaval X.Y.Z with its components' versions ([ADR-0013](docs/adr/0013-component-versions-and-release-naming.md), `KAV-35`)
 - [x] Jira dashboards as code: Delivery, UAT, Releases (`KAV-36`, signed off in UAT 2026-09-28)
 - [x] Signal correlation → incident fingerprinting ([ADR-0014](docs/adr/0014-signal-correlation-and-incident-fingerprints.md), `KAV-39`, signed off in UAT 2026-09-28)
-- [ ] Context builder: runbook RAG (pgvector) + past incidents + recent changes ([ADR-0015](docs/adr/0015-context-builder-retrieval-design.md), `KAV-40`; built, awaiting UAT)
+- [x] Context builder: runbook RAG (pgvector) + past incidents + recent changes ([ADR-0015](docs/adr/0015-context-builder-retrieval-design.md), `KAV-40`, signed off in UAT 2026-09-28)
 - [ ] JSON-schema-enforced proposal output — the model must not ramble
 - [ ] Policy engine: `auto` / `ask` / `never`, blast-radius classification
 - [ ] Jev risk rating feeding the policy engine (ADR-0006, `KAV-27`) — `typesafe-sdk`, pinned version, redaction, rules-only fallback
