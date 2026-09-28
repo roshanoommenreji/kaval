@@ -13,6 +13,7 @@ every gadget, so it renders instead of asking to be configured.
 """
 from __future__ import annotations
 
+import argparse
 import sys
 import tomllib
 import urllib.parse
@@ -82,7 +83,7 @@ def resolve(gadget_type: str, prefs: dict[str, str], filters: dict[str, str],
 
 
 def sync_dashboard(d: dict[str, Any], catalogue: dict[str, str], filters: dict[str, str],
-                   service: str) -> str:
+                   service: str, rebuild: bool = False) -> str:
     q = urllib.parse.quote(d["name"])
     found = ok(*call("GET", f"/rest/api/3/dashboard/search?dashboardName={q}"), "dashboard search")
     match = next((x for x in found.get("values", []) if x["name"] == d["name"]), None)
@@ -99,7 +100,7 @@ def sync_dashboard(d: dict[str, Any], catalogue: dict[str, str], filters: dict[s
     have_raw = ok(*call("GET", f"/rest/api/3/dashboard/{did}/gadget"), "list gadgets")["gadgets"]
     have = sorted((g.get("title", ""), g.get("uri", ""), g["position"]["column"],
                    g["position"]["row"]) for g in have_raw)
-    if have != sorted(want):
+    if rebuild or have != sorted(want):
         for g in have_raw:
             ok(*call("DELETE", f"/rest/api/3/dashboard/{did}/gadget/{g['id']}"), "remove gadget")
         for g in d["gadget"]:
@@ -133,6 +134,13 @@ def sync_dashboard(d: dict[str, Any], catalogue: dict[str, str], filters: dict[s
 
 
 def main() -> None:
+    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p.add_argument("--rebuild", action="store_true",
+                   help="replace every gadget with a fresh one; for a gadget that still says "
+                        "'not configured' although its config is right (Jira caches what a "
+                        "gadget first rendered)")
+    p.add_argument("--only", help="limit to the dashboard whose name contains this text")
+    args = p.parse_args()
     cfg = tomllib.loads(CONFIG.read_text(encoding="utf-8"))
     listed = ok(*call("GET", "/rest/api/3/dashboard/gadgets"), "gadget catalogue")["gadgets"]
     catalogue = {g["title"]: g.get("uri") or g.get("moduleKey") for g in listed}
@@ -142,7 +150,9 @@ def main() -> None:
     filters = sync_filters(cfg["filter"])
     service = service_field()
     for d in cfg["dashboard"]:
-        url = sync_dashboard(d, catalogue, filters, service)
+        if args.only and args.only not in d["name"]:
+            continue
+        url = sync_dashboard(d, catalogue, filters, service, args.rebuild)
         print(f"    {url}")
 
 
