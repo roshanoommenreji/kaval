@@ -60,14 +60,14 @@ $0.13 of AWS usage, covered by credits. **Phase 1 complete 2026-09-27.**
 
 ---
 
-## Phase 2 — The agent loop · weeks 6–9 · `[ ]`
+## Phase 2 — The agent loop · weeks 6–9 · `[~]`
 
 The hard, interesting part. Still no AWS.
 
 - [x] UAT process: `uat` label, UAT scenarios, `jira-sync.py uat pass|fail` ([ADR-0012](docs/adr/0012-user-acceptance-testing.md), `KAV-34`)
 - [x] Component versions and release naming: Kaval X.Y.Z with its components' versions ([ADR-0013](docs/adr/0013-component-versions-and-release-naming.md), `KAV-35`)
 - [x] Jira dashboards as code: Delivery, UAT, Releases (`KAV-36`, signed off in UAT 2026-09-28)
-- [ ] Signal correlation → incident fingerprinting
+- [ ] Signal correlation → incident fingerprinting ([ADR-0014](docs/adr/0014-signal-correlation-and-incident-fingerprints.md), `KAV-39`; built, awaiting UAT)
 - [ ] Context builder: runbook RAG (pgvector) + past incidents + recent changes
 - [ ] JSON-schema-enforced proposal output — the model must not ramble
 - [ ] Policy engine: `auto` / `ask` / `never`, blast-radius classification

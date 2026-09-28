@@ -121,6 +121,24 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  # One-shot, on demand only, like `signals`:
+  #   make correlate
+  # Groups the signals not yet in an incident into incident rows (KAV-39, ADR-0014). Not a
+  # loop here on purpose: in the inner loop you want to see each pass's result. The image
+  # also runs as a loop (`--every 30`) for when the agent is deployed.
+  agent:
+    build:
+      context: .
+      dockerfile: services/agent/Dockerfile
+    image: kaval/agent:dev
+    platform: linux/arm64
+    profiles: [tools]
+    environment: *db-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
 volumes:
   pgdata:
   ollama-models:

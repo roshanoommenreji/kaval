@@ -112,6 +112,10 @@ class IncidentSignal(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+    # The primary key leads with incident_id, so it can't answer "is this signal in an
+    # incident yet?", the question correlation asks of every new signal (KAV-39).
+    __table_args__ = (Index("ix_incident_signal_signal_id", "signal_id"),)
+
 
 class Incident(Base):
     """A correlated group of signals the agent has decided to treat as one problem."""

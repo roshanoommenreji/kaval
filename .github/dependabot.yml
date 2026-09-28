@@ -26,7 +26,7 @@ updates:
     commit-message: { prefix: chore }
 
   - package-ecosystem: docker # the digest-pinned base images
-    directories: [/services/gateway, /services/collector]
+    directories: [/services/gateway, /services/collector, /services/agent]
     schedule: { interval: weekly, day: saturday }
     groups:
       base-images: { patterns: ["*"] }

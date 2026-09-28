@@ -139,6 +139,16 @@ accumulates.
 This is unglamorous and it decides whether the retrieval in the previous section has anything
 useful to find.
 
+**What Kaval does** ([ADR-0014](../adr/0014-signal-correlation-and-incident-fingerprints.md)):
+the fingerprint is `cause:domain:subject`, e.g. `oom_killed:k8s:kaval-demo/checkout`.
+- The subject is the **workload**, not the pod, because a restarted pod has a new name.
+- The cause is the most specific one in the group: the kill, not the restarts it causes.
+- A group waits 60 s before it opens, so the cause has arrived by the time the name is fixed.
+- An incident closes after 15 quiet minutes. If the problem comes back, it's a new incident with
+  the same fingerprint.
+
+All of it is rules, and none of it is the model: grouping is bookkeeping, and it has to be exact.
+
 ### Policy engines, OPA and Rego
 
 **OPA** (Open Policy Agent) is a general policy engine: it evaluates policies written in **Rego**

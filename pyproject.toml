@@ -32,6 +32,7 @@ packages = [
     "services/shared/kaval_shared",
     "services/gateway/kaval_gateway",
     "services/collector/kaval_collector",
+    "services/agent/kaval_agent",
 ]
 
 [tool.alembic]

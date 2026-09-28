@@ -161,6 +161,7 @@ make help          # all targets
 make dev           # the Compose stack, on the AWS dev server (starts it if needed)
 make dev-tunnel    # forward gateway :8000, Postgres :5432, Ollama :11435 to the laptop
 make signals SCENARIO=oom-crashloop   # write one fake incident's signals (no SCENARIO: list them)
+make correlate     # group signals not yet in an incident into incidents, one pass
 make bench         # measure the local model shortlist
 make test          # unit + policy tests
 make lint          # ruff + mypy, the same target CI runs

@@ -44,4 +44,5 @@ first client exists.
 - The first write endpoint (a `decision` from approve/deny) needs a deliberate, separate
   read-write session. That makes the change visible in review.
 - `/v1/incidents` is empty until correlation lands in Phase 2. That's expected: the endpoint and
-  its contract exist first.
+  its contract exist first. *(Update 2026-09-28: correlation landed in `KAV-39`; `make correlate`
+  fills it. See [ADR-0014](0014-signal-correlation-and-incident-fingerprints.md).)*
