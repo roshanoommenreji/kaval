@@ -247,6 +247,11 @@ context: pull-embed-model ## Print the context built for one incident. Usage: ma
 	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<uuid>" && exit 1)
 	@python -m kaval_agent.context $(INCIDENT) --with-changes
 
+.PHONY: diagnose
+diagnose: pull-embed-model ## Diagnose one incident with the local model and write a proposal (KAV-41). Usage: make diagnose INCIDENT=<uuid> [DRY_RUN=1]
+	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<uuid>" && exit 1)
+	@python -m kaval_agent.diagnose $(INCIDENT) --with-changes $(if $(DRY_RUN),--dry-run,)
+
 .PHONY: jira-dashboards
 jira-dashboards: ## Create or update the Jira dashboards from scripts/tracking/jira-dashboards.toml
 	@python scripts/tracking/jira-dashboards.py

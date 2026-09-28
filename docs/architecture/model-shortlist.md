@@ -59,8 +59,20 @@ radius. Those are exactly the fields the policy engine decides on.
 **Constrained decoding fixes it for every model, at no speed cost.** With the proposal's JSON
 schema passed as Ollama's `format`, every model produced a valid proposal every time. So the
 agent will **always** call the model schema-constrained and then validate with Pydantic anyway
-(`CLAUDE.md`: every LLM output is validated before it touches the database). The unconstrained
-column stays interesting as a measure of instruction-following, but it no longer rules any
+(`CLAUDE.md`: every LLM output is validated before it touches the database).
+
+**"Every time" here meant shape, not bounds — confirmed the hard way when `kaval_agent.diagnose`
+went live (`KAV-41`, [ADR-0016](0016-json-schema-enforced-proposal-output.md)).**
+`gemma3:1b-it-qat` reliably returned `confidence: 70` for one real incident, twice, despite
+`format`'s schema stating `maximum: 1`: Ollama's constrained decoding is grammar-based and
+enforces field names, types and enum membership, but not a bounded float's numeric range. The
+"always validate with Pydantic anyway" rule above is exactly what caught it — zero rows were
+written while this was happening. Fixed by stating the format in the prompt itself ("a
+fraction between 0 and 1, never a percentage"), not by the schema or the retry alone. The
+lesson generalises: constrained decoding is a strong but partial guarantee, and this table's
+9/9 and 3/3 columns measure conformance to *shape*, not to every constraint the schema states.
+
+The unconstrained column stays interesting as a measure of instruction-following, but it no longer rules any
 model out.
 
 ## Findings

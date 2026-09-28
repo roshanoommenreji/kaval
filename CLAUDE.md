@@ -164,6 +164,7 @@ make signals SCENARIO=oom-crashloop   # write one fake incident's signals (no SC
 make correlate       # group signals not yet in an incident into incidents, one pass
 make index-runbooks  # sync docs/runbooks/ into the pgvector retrieval index
 make context INCIDENT=<uuid>  # print the context (runbooks, history, changes) built for one incident
+make diagnose INCIDENT=<uuid> # ask the local model to diagnose it; writes a proposal, or nothing at all
 make bench         # measure the local model shortlist
 make test          # unit + policy tests
 make lint          # ruff + mypy, the same target CI runs
