@@ -111,6 +111,12 @@ questions to the human".
 waitlist hasn't issued a key by the time Phase 2 starts, or an open-weight model of the same kind
 appears that could run on the node.
 
+**Noted 2026-09-29 ([ADR-0017](0017-opa-policy-engine-and-earned-autonomy.md)):** the policy
+engine this ADR's fields feed is now built, and it consumes `blast_radius`/`reversible` from
+whatever wrote the `action` row and `confidence` from the `proposal` — currently the model
+itself (KAV-41), same as before Jev exists. `KAV-27` plugging Jev in later changes who populates
+those fields, not `kaval_agent.policy`, which has no dependency on where they came from.
+
 ## Sources
 
 Checked 2026-09-26. Several secondary sources disagree on access and free credit; TypeSafe's own

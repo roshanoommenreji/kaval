@@ -165,6 +165,7 @@ make correlate       # group signals not yet in an incident into incidents, one 
 make index-runbooks  # sync docs/runbooks/ into the pgvector retrieval index
 make context INCIDENT=<uuid>  # print the context (runbooks, history, changes) built for one incident
 make diagnose INCIDENT=<uuid> # ask the local model to diagnose it; writes a proposal, or nothing at all
+make policy-check TYPE= BLAST_RADIUS= CONFIDENCE= [REVERSIBLE=1]  # classify one hypothetical action against policy/, no database
 make bench         # measure the local model shortlist
 make test          # unit + policy tests
 make lint          # ruff + mypy, the same target CI runs

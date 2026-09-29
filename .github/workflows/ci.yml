@@ -36,6 +36,8 @@ env:
   TRIVY_VERSION: "0.74.0"
   TRIVY_SHA256: "b94ce1976bbf3c15b514b605ee88be7c6d94a29be2302847ff01cb794d47aad5" # Linux-ARM64
   TERRAFORM_VERSION: "1.11.4"
+  OPA_VERSION: "1.21.0"
+  OPA_SHA256: "5eef70644868bb04d0556bcc795ee42f2ab379e73f51d1bfa30f83e1305bc9b9" # linux_amd64_static
 
 jobs:
   lint:
@@ -98,6 +100,15 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
       - run: uv sync --locked --all-extras
+      - name: install opa (checksum-verified) — KAV-42, joins this job per ADR-0010
+        run: |
+          curl -fsSLo opa \
+            "https://github.com/open-policy-agent/opa/releases/download/v${OPA_VERSION}/opa_linux_amd64_static"
+          echo "${OPA_SHA256}  opa" | sha256sum --check --strict
+          chmod +x opa
+          sudo mv opa /usr/local/bin/opa
+      - name: opa test policy/
+        run: opa test policy/ -v
       - name: migrations apply from empty
         run: uv run alembic upgrade head
       - name: models and migrations agree (no drift)
@@ -105,6 +116,11 @@ jobs:
       - name: migrations reverse cleanly, then re-apply
         run: uv run alembic downgrade base && uv run alembic upgrade head
       - name: pytest
+        # KAVAL_REQUIRE_OPA=1: kaval_agent/tests/test_policy.py otherwise skips gracefully
+        # when opa is missing (services/conftest.py's pattern for KAVAL_REQUIRE_DB) — here
+        # opa is always installed above, so a skip would hide a real regression instead.
+        env:
+          KAVAL_REQUIRE_OPA: "1"
         run: uv run pytest services/ scripts/dev/ scripts/tracking/ -ra
 
   secrets:
@@ -189,6 +205,17 @@ jobs:
           test "$(docker run --rm --entrypoint id "$image" -u)" = 10001
           docker run --rm --entrypoint python "$image" \
             -c "import kaval_shared.models, kaval_${{ matrix.service }}, alembic; print('imports ok')"
+      - name: agent image carries a working opa and the real policy bundle (KAV-42)
+        if: matrix.service == 'agent'
+        run: |
+          image=kaval/agent:ci
+          docker run --rm --entrypoint opa "$image" version
+          docker run --rm --entrypoint python "$image" -c "
+          from kaval_agent import policy
+          from kaval_shared.models import BlastRadius
+          assert policy.classify('delete_pvc', BlastRadius.pod, True, 0.99).value == 'never'
+          print('policy bundle reachable from inside the image')
+          "
       - name: image label carries the version the code inside it reports
         env:
           WANT: ${{ steps.version.outputs.version }}

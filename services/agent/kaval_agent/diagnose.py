@@ -2,11 +2,12 @@
 touches the database (KAV-41, ADR-0016).
 
 The model only ever gets to suggest field values inside `schema.Diagnosis`. It never sets
-`Action.policy_class` — the schema doesn't even have that field. Every action this module
-writes starts `PolicyClass.ask`, the same "everything starts on ask" `.env.example` already
-documents (`DEFAULT_AUTONOMY`); the real classifier (blast radius, reversibility, confidence
--> auto/ask/never) is the next story on the roadmap and will recompute this, not silently
-trust it.
+`Action.policy_class` — the schema doesn't even have that field. `write_proposal` asks
+`kaval_agent.policy` (KAV-42, ADR-0017) to classify each action from the same fields this
+module already validated, and OPA's own answer decides `auto` / `ask` / `never`, never the
+model. Rows written before KAV-42 landed carry the earlier hardcoded `ask` stopgap and are
+left as they are — `action` is append-only (`kaval_shared.models`'s own module docstring),
+and rewriting them would erase an honest record of what the system actually did that day.
 
 Two layers keep the output honest, not one:
 - Ollama's `format` is given `Diagnosis.model_json_schema()`, so constrained decoding already
@@ -37,10 +38,11 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 import httpx
-from kaval_shared.models import Action, BlastRadius, Incident, PolicyClass, Proposal, RiskLevel
+from kaval_shared.models import Action, BlastRadius, Incident, Proposal, RiskLevel
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from kaval_agent import policy
 from kaval_agent.context import Context, build_context
 from kaval_agent.schema import Diagnosis
 
@@ -159,18 +161,20 @@ def write_proposal(
     session.add(proposal)
     session.flush()  # assigns proposal.id, needed by the actions below
     for a in diagnosis.actions:
+        blast_radius = BlastRadius(a.blast_radius)
         session.add(Action(
             proposal_id=proposal.id,
             type=a.type,
             target=a.target,
             params=a.params,
             reversible=a.reversible,
-            blast_radius=BlastRadius(a.blast_radius),
-            # No policy engine yet — it's the next story on the roadmap. Every action starts
-            # `ask`, the same default `.env.example`'s DEFAULT_AUTONOMY documents; the real
-            # classifier will recompute this from blast_radius/reversible/confidence, not
-            # trust it as final. See diagnose.py's module docstring.
-            policy_class=PolicyClass.ask,
+            blast_radius=blast_radius,
+            # KAV-42, ADR-0017: policy/policy.rego decides this, not the model — schema.py has
+            # no policy_class field for the model to set. The inputs are exactly what this
+            # module already validated (blast_radius, reversible from the action; confidence
+            # from the proposal as a whole), whoever produced them — Jev (ADR-0006) can supply
+            # the same three fields later without this call changing.
+            policy_class=policy.classify(a.type, blast_radius, a.reversible, diagnosis.confidence),
         ))
     session.commit()
     return proposal
@@ -220,8 +224,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         model = os.environ.get("LOCAL_MODEL", "")
         proposal = write_proposal(session, incident, diagnosis, usage, model=model)
-        print(f"\nwrote proposal {proposal.id} with {len(diagnosis.actions)} action(s), "
-              f"policy_class=ask")
+        classes = ", ".join(a.policy_class.value for a in proposal.actions) or "no actions"
+        print(f"\nwrote proposal {proposal.id} with {len(diagnosis.actions)} action(s): {classes}")
     return 0
 
 
