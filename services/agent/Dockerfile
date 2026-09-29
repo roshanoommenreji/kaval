@@ -19,6 +19,10 @@
 # It also carries the `opa` binary and policy/ (KAV-42, ADR-0017): kaval_agent.policy shells
 # out to `opa eval` to classify every action, so both need to be inside the image the same
 # entrypoint loop actually runs from — unlike diagnose.py's httpx, this one isn't optional.
+# KAVAL_POLICY_DIR points at where policy/ lands below (/app/policy): hatchling's wheel build
+# installs kaval_agent flattened into site-packages, so __file__-relative guessing at runtime
+# resolves to the wrong place inside a built image — found the hard way, by a CI failure, not
+# guessed. See kaval_agent.policy's module docstring.
 #
 # linux/arm64 always (CLAUDE.md constraint 2). Base images pinned by digest (KAV-24).
 
@@ -49,7 +53,8 @@ FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    KAVAL_POLICY_DIR=/app/policy
 
 WORKDIR /app
 

@@ -78,3 +78,24 @@ def test_an_unrecognised_decision_falls_back_to_ask(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(policy, "_run_opa", lambda *a, **kw: "quarantine")
     result = policy.classify("restart_pod", BlastRadius.pod, True, 0.99)
     assert result == PolicyClass.ask
+
+
+def test_default_policy_dir_prefers_the_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The bug this guards against was real, not hypothetical: hatchling's wheel build installs
+    `kaval_agent` flattened into site-packages, so inside a *built* image `__file__` is nowhere
+    near the repo root, and the four-parents fallback below silently pointed at a directory
+    that doesn't exist — every action fell back to `ask` with no error visible short of a CI
+    log (ADR-0017). `KAVAL_POLICY_DIR`, set by the Dockerfile, is what actually gets used
+    there; this only checks it wins over the fallback when both are present."""
+    monkeypatch.setenv("KAVAL_POLICY_DIR", "/some/explicit/path")
+    assert policy._default_policy_dir() == Path("/some/explicit/path")
+
+
+def test_default_policy_dir_falls_back_to_the_repo_layout_without_the_env_var(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("KAVAL_POLICY_DIR", raising=False)
+    # The laptop / editable-install case: correct only because __file__ still resolves inside
+    # the real source tree there, unlike inside a built wheel.
+    assert policy._default_policy_dir().name == "policy"
+    assert (policy._default_policy_dir() / "policy.rego").is_file()

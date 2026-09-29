@@ -102,6 +102,20 @@ data.auto_promotions as [...]` and shows the identical input classifying `auto`.
 the demonstration of what a real promotion changes: one entry in `policy/promotions.json`, cited
 to an ADR, and nothing else in the engine moves.
 
+## Step 6 — Why the deployed image needs an environment variable this lab doesn't
+
+If you check out `services/agent/kaval_agent/policy.py`, `DEFAULT_POLICY_DIR` is computed from
+`__file__`, four `.parent`s up. That's correct here, on a laptop with an editable install —
+`kaval_agent/policy.py -> kaval_agent -> agent -> services -> repo root`. It is **not** correct
+inside the built agent image, where `pyproject.toml`'s hatchling build installs `kaval_agent`
+flattened into site-packages rather than nested under `services/agent/`. CI's per-image check
+(`.github/workflows/ci.yml`'s `images` job, the one that actually runs `opa eval` inside a
+built container) caught this: every action silently fell back to `ask`, for the boring but
+easy-to-miss reason that its policy directory didn't exist. `KAVAL_POLICY_DIR=/app/policy`, set
+in the Dockerfile, is now checked first; the `__file__` walk is the fallback for exactly the
+case this lab exercises. See ADR-0017 for the full account, and pytest's
+`test_default_policy_dir_prefers_the_env_var` for the regression test.
+
 ---
 
 ## Done when

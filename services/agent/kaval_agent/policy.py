@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import subprocess
 import sys
 from collections.abc import Sequence
@@ -39,10 +40,27 @@ from kaval_shared.models import BlastRadius, PolicyClass
 
 logger = logging.getLogger(__name__)
 
-# kaval_agent/policy.py -> kaval_agent -> agent -> services -> repo root -> policy/.
-# In the agent's Docker image the same four levels hold: /app/services/agent/kaval_agent/
-# policy.py copied alongside a top-level /app/policy/ (the Dockerfile COPYs both).
-DEFAULT_POLICY_DIR = Path(__file__).resolve().parents[3] / "policy"
+
+def _default_policy_dir() -> Path:
+    """`KAVAL_POLICY_DIR`, set by the Dockerfile, wins — it has to: hatchling's wheel build
+    (`pyproject.toml`'s `packages = [...]`) installs `kaval_agent` flattened into
+    site-packages, not as `services/agent/kaval_agent`, so `__file__` inside a *built* image
+    is nowhere near the repo root, however many `.parent`s are walked. (Found by CI, not
+    guessed: `opa eval` against a directory that didn't exist, failing every action closed to
+    `ask` rather than raising anything visible — see ADR-0017.)
+
+    Without the env var — a laptop run against an editable install (`uv sync`/`pip install -e
+    ".[agent]"`) — `__file__` still resolves inside the real source tree, so the four-parents
+    walk (`kaval_agent/policy.py -> kaval_agent -> agent -> services -> repo root`) is correct
+    there, and is kept as that case's fallback rather than a second env var to set locally.
+    """
+    env = os.environ.get("KAVAL_POLICY_DIR")
+    if env:
+        return Path(env)
+    return Path(__file__).resolve().parents[3] / "policy"
+
+
+DEFAULT_POLICY_DIR = _default_policy_dir()
 DEFAULT_OPA_BIN = "opa"
 DEFAULT_TIMEOUT = 5.0
 
@@ -69,7 +87,10 @@ def _run_opa(
     except (OSError, subprocess.SubprocessError) as exc:
         raise PolicyEvaluationError(f"could not run {opa_bin!r}: {exc}") from exc
     if proc.returncode != 0:
-        raise PolicyEvaluationError(f"opa eval exited {proc.returncode}: {proc.stderr.strip()}")
+        raise PolicyEvaluationError(
+            f"opa eval exited {proc.returncode} (policy_dir={policy_dir}): "
+            f"stderr={proc.stderr.strip()!r} stdout={proc.stdout.strip()!r}"
+        )
     try:
         body = json.loads(proc.stdout)
         return str(body["result"][0]["expressions"][0]["value"])

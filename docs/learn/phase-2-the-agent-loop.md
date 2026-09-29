@@ -288,6 +288,7 @@ creates false comfort.
 | Guessing a similarity-score cutoff instead of measuring it | It can land inside the noise floor and never notice |
 | Trusting constrained decoding to enforce a schema's numeric bounds | It only guarantees shape and type — `confidence: 70` still parsed against a schema stating `maximum: 1` (KAV-41) |
 | Mocking the exact thing a test is trying to prove is absent or unreachable | The mock supplies the very path whose realness is in question; it passes whether or not the real code reaches the same place (KAV-42) |
+| Deriving a runtime path from `__file__`'s directory nesting | True for an editable install, false inside a built wheel/image the moment packaging flattens the source tree — silent failures, not import errors (KAV-42) |
 
 ## Glossary
 

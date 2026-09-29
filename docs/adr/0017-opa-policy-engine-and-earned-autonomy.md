@@ -99,6 +99,30 @@ not compute `confidence > 0.9` as a standalone threshold. Today the list is `[]`
   doesn't have to reuse the generic `0.9` figure — a category with less evidence, or a wider
   blast radius, can be promoted at a stricter threshold than the first one is.
 
+### A second finding, caught by CI rather than guessed: `__file__`-relative paths don't survive a wheel build
+
+`kaval_agent.policy` originally computed its default `policy/` location by walking four
+`.parent`s up from `__file__` — correct for a laptop checkout with an editable install, where
+`__file__` still resolves inside the real source tree. It is **not** correct inside the built
+agent image: `pyproject.toml`'s hatchling `packages` list installs `kaval_agent` flattened
+straight into site-packages, not nested under `services/agent/`, so the same four-parents walk
+lands somewhere like `/usr/local/lib/policy` — a directory that doesn't exist.
+
+The failure mode this produced was quiet rather than loud: `opa eval` against a missing
+directory exits non-zero, `classify()`'s fallback catches exactly that and returns
+`PolicyClass.ask` — so every action would have kept working, silently mis-explained as "the
+policy engine is behaving conservatively" rather than "the policy engine can't find its own
+policy." CI's per-image check (`docker run ... opa eval`, added specifically because the pure
+Python and pure Rego test suites both run from a checkout and couldn't have caught this) failed
+loudly instead, which is the entire reason that check exists rather than trusting the two test
+suites to cover the deployed shape.
+
+**Fix:** `KAVAL_POLICY_DIR=/app/policy`, set in the Dockerfile, is checked first; the
+four-parents walk is now only the fallback for the no-env-var, editable-install case. The same
+category of mistake as ADR-0016's `confidence: 70` and this ADR's own mocked-data-path bug
+(below): something that is true in every test environment and false in the one environment that
+actually matters, found only because a check exercised the real, built thing.
+
 ### Existing rows are not reclassified
 
 `kaval_shared.models`'s own module docstring: "Nothing here is ever UPDATEd in place except
