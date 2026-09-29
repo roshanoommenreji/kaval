@@ -63,6 +63,7 @@ make correlate                        # group them into an incident (/v1/inciden
 make index-runbooks                   # sync docs/runbooks/ into the retrieval index
 make context INCIDENT=<uuid>          # see what a diagnosis would be given: runbooks, history, changes
 make diagnose INCIDENT=<uuid>         # ask the local model to diagnose it; writes a proposal or nothing
+make policy-check TYPE=restart_pod BLAST_RADIUS=pod CONFIDENCE=0.95 REVERSIBLE=1  # classify one hypothetical action, no database
 make bench         # measure the local model shortlist (docs/architecture/model-shortlist.md)
 make dev-down      # stop the stack; the database and models are kept
 make devbox-down   # stop the server (or let it stop itself after 1 h idle)

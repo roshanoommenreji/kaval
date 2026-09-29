@@ -7,6 +7,7 @@
 !uv.lock
 !services/
 !migrations/
+!policy/
 
 # ...and within those, nothing generated or test-only.
 **/__pycache__

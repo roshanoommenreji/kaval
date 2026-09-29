@@ -252,6 +252,13 @@ diagnose: pull-embed-model ## Diagnose one incident with the local model and wri
 	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<uuid>" && exit 1)
 	@python -m kaval_agent.diagnose $(INCIDENT) --with-changes $(if $(DRY_RUN),--dry-run,)
 
+.PHONY: policy-check
+policy-check: ## Classify one hypothetical action against policy/ (KAV-42), no database. Usage: make policy-check TYPE=restart_pod BLAST_RADIUS=pod CONFIDENCE=0.95 [REVERSIBLE=1]
+	@test -n "$(TYPE)" && test -n "$(BLAST_RADIUS)" && test -n "$(CONFIDENCE)" || \
+		(echo "set TYPE= BLAST_RADIUS= CONFIDENCE=" && exit 1)
+	@python -m kaval_agent.policy --type $(TYPE) --blast-radius $(BLAST_RADIUS) \
+		--confidence $(CONFIDENCE) $(if $(REVERSIBLE),--reversible,)
+
 .PHONY: jira-dashboards
 jira-dashboards: ## Create or update the Jira dashboards from scripts/tracking/jira-dashboards.toml
 	@python scripts/tracking/jira-dashboards.py
