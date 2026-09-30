@@ -173,7 +173,7 @@ Run `make migrate` to bring a database up to date.
 
 | Path | What it will do | Status |
 |---|---|---|
-| `evals/` | A set of 20 known incidents with known right answers. Checks that the AI's diagnoses are correct, not just confident | Design in `README.md`; built in Phase 2 |
+| `evals/` | `golden.py`: 20 known incidents (routine, adversarial, sparse, recurrence), built independently so they can't collide on one fingerprint. `run.py` runs each through correlate → context → diagnose → policy and scores it (`scoring.py`); action safety and schema validity are hard gates. `make evals [ONLY=name]` ([ADR-0018](adr/0018-eval-harness-and-golden-incidents.md)) | Working (`KAV-43`) |
 | `chaos/` | Scheduled experiments that break things on purpose (kill a pod, fill a disk) inside a fenced-off area, to prove Kaval heals them. Measures time to recovery | Design in `README.md`; built in Phase 6 |
 
 ---

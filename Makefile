@@ -66,13 +66,13 @@ bench: ## Measure the local model shortlist on the dev server (KAV-22, ~20 min)
 
 .PHONY: test
 test: ## Unit tests + policy tests
-	pytest services/ scripts/dev/ scripts/tracking/ -q
+	pytest services/ scripts/dev/ scripts/tracking/ evals/ -q
 	@command -v opa >/dev/null 2>&1 && opa test policy/ -v || echo "opa not installed — skipping policy tests"
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check services/ migrations/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py
-	mypy services/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
+	ruff check services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py
+	mypy services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
 
 .PHONY: lock
 lock: ## Re-resolve uv.lock after editing pyproject.toml's dependencies (then commit both)
@@ -214,10 +214,6 @@ verify-outcome: ## Assert an incident resolved within SLO. Usage: make verify-ou
 	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<id>" && exit 1)
 	@bash scripts/verify-outcome.sh $(INCIDENT)
 
-.PHONY: evals
-evals: ## Run the LLM eval harness against the golden incident set
-	pytest evals/ -q
-
 # ─────────────────────────────────────────────────────────────
 ##@ Housekeeping
 
@@ -251,6 +247,10 @@ context: pull-embed-model ## Print the context built for one incident. Usage: ma
 diagnose: pull-embed-model ## Diagnose one incident with the local model and write a proposal (KAV-41). Usage: make diagnose INCIDENT=<uuid> [DRY_RUN=1]
 	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<uuid>" && exit 1)
 	@python -m kaval_agent.diagnose $(INCIDENT) --with-changes $(if $(DRY_RUN),--dry-run,)
+
+.PHONY: evals
+evals: pull-embed-model ## Run the 20 golden incidents through the real pipeline and score them (KAV-43). Usage: make evals [ONLY=name] [JSON=path]
+	@python -m evals.run $(if $(ONLY),--only $(ONLY),) $(if $(JSON),--json $(JSON),)
 
 .PHONY: policy-check
 policy-check: ## Classify one hypothetical action against policy/ (KAV-42), no database. Usage: make policy-check TYPE=restart_pod BLAST_RADIUS=pod CONFIDENCE=0.95 [REVERSIBLE=1]
