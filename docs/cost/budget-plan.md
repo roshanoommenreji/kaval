@@ -65,7 +65,7 @@ indefinitely and resumes without loss.
 | ECR storage | 0.20 |
 | S3 backups | 0.05 |
 | CloudWatch logs (trimmed) | 0.50 |
-| Bedrock escalations (light use) | 1.50 |
+| Bedrock escalations (light use) — Claude Haiku 4.5, cross-region tier, verified 2026-09-30 against the AWS Price List API at $1.00 / $5.00 per 1M input/output tokens ([ADR-0019](../adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md)); occasional escalations at that rate land well under this figure | 1.50 |
 | Jev risk rating — TypeSafe API, ~12M input tokens ([ADR-0006](../adr/0006-jev-as-proposal-risk-rater.md)) | 0.50 |
 | Data transfer | 1.00 |
 | **App node subtotal** | **~$14** |

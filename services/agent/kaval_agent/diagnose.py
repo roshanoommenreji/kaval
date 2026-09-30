@@ -24,7 +24,12 @@ small (a string where a bool was asked for). A second failure raises `DiagnosisE
 writes nothing: "the model returns validated JSON or the attempt fails"
 (docs/learn/phase-2-the-agent-loop.md), never half a proposal.
 
-    python -m kaval_agent.diagnose <incident-id> [--dry-run] [--with-changes]
+This module is only the local half of the model-routing design. `kaval_agent.escalate`
+(KAV-44, ADR-0019) is the other half: novel or low-confidence incidents escalate to Bedrock
+Claude Haiku instead, through the same two-layer validation contract. `--escalate` on this
+module's CLI opts into that path; without it, this always was and still is local-model-only.
+
+    python -m kaval_agent.diagnose <incident-id> [--dry-run] [--with-changes] [--escalate]
 """
 
 from __future__ import annotations
@@ -141,10 +146,15 @@ def diagnose(
 
 def write_proposal(
     session: Session, incident: Incident, diagnosis: Diagnosis, usage: ModelUsage, *, model: str,
+    cost_usd: Decimal = Decimal("0"),
 ) -> Proposal:
     """Persist a validated diagnosis as one `proposal` row plus one `action` row per proposed
-    action. Nothing here is called unless `diagnose()` already returned successfully — there
-    is deliberately no path that writes an unvalidated diagnosis."""
+    action. Nothing here is called unless `diagnose()` (or `escalate()`) already returned
+    successfully — there is deliberately no path that writes an unvalidated diagnosis.
+
+    `cost_usd` defaults to 0: self-hosted local inference has no metered cost. A Bedrock
+    escalation (KAV-44, ADR-0019) passes its real, measured cost instead —
+    `kaval_agent.escalate.estimate_cost_usd` — never a guess made in advance."""
     proposal = Proposal(
         incident_id=incident.id,
         summary=diagnosis.summary,
@@ -154,9 +164,7 @@ def write_proposal(
         model=model,
         tokens_in=usage.tokens_in,
         tokens_out=usage.tokens_out,
-        # Self-hosted local inference has no metered cost. Stops being 0 once the Bedrock
-        # escalation path (later in Phase 2) can produce a proposal instead.
-        cost_usd=Decimal("0"),
+        cost_usd=cost_usd,
     )
     session.add(proposal)
     session.flush()  # assigns proposal.id, needed by the actions below
@@ -192,6 +200,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--with-changes", action="store_true",
                         help="also look up recent git commits for the incident's workload "
                              "(laptop-only; see kaval_agent.recent_changes)")
+    parser.add_argument("--escalate", action="store_true",
+                        help="allow escalation to Bedrock (KAV-44, ADR-0019) when the local "
+                             "model is unconfident or the context has no evidence. Incurs a "
+                             "small, real Bedrock cost and requires BEDROCK_MODEL_ID plus AWS "
+                             "credentials (AWS_PROFILE=kaval). Without this flag, the local "
+                             "model is the only path, same as before KAV-44.")
     args = parser.parse_args(argv)
 
     from kaval_shared.db import get_engine  # only a real run needs the database
@@ -212,18 +226,36 @@ def main(argv: Sequence[str] | None = None) -> int:
             changes = rc.for_workload(subject.rsplit("/", 1)[-1])
         context = build_context(session, incident, changes=changes)
 
-        try:
-            diagnosis, usage = diagnose(context)
-        except DiagnosisError as exc:
-            sys.exit(f"diagnosis failed: {exc}")
+        cost = Decimal("0")
+        if args.escalate:
+            from kaval_agent.escalate import diagnose_with_escalation
+
+            try:
+                result = diagnose_with_escalation(
+                    context, local_model=os.environ.get("LOCAL_MODEL", "")
+                )
+            except DiagnosisError as exc:
+                sys.exit(f"diagnosis failed: {exc}")
+            diagnosis, usage, model, cost = (
+                result.diagnosis, result.usage, result.model, result.cost_usd
+            )
+            if result.escalated:
+                print(f"(escalated to Bedrock: {model}, ~${cost})")
+        else:
+            try:
+                diagnosis, usage = diagnose(context)
+            except DiagnosisError as exc:
+                sys.exit(f"diagnosis failed: {exc}")
+            model = os.environ.get("LOCAL_MODEL", "")
 
         print(diagnosis.model_dump_json(indent=2))
         if args.dry_run:
             print("(--dry-run: nothing written)")
             return 0
 
-        model = os.environ.get("LOCAL_MODEL", "")
-        proposal = write_proposal(session, incident, diagnosis, usage, model=model)
+        proposal = write_proposal(
+            session, incident, diagnosis, usage, model=model, cost_usd=cost
+        )
         classes = ", ".join(a.policy_class.value for a in proposal.actions) or "no actions"
         print(f"\nwrote proposal {proposal.id} with {len(diagnosis.actions)} action(s): {classes}")
     return 0

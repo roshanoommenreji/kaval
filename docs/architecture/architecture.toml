@@ -141,7 +141,7 @@ inputs = [
 ]
 outputs = ["proposal rows — INSERT only. This is its ONLY possible output."]
 tables = ["signal", "incident", "proposal", "action"]
-note = "Correlation (make correlate, KAV-39): signals in, incident rows out. Context assembly (make context, KAV-40): runbook RAG + past incidents + recent changes. Diagnosis (make diagnose, KAV-41): calls the local model schema-constrained, re-validates with Pydantic regardless, writes proposal + action rows. Each action's policy_class (KAV-42, ADR-0017) comes from the policy node, not the model. The component that thinks has no hands. Even fully compromised, it can only write a suggestion into a table — which is the mitigation for prompt injection through telemetry, the primary threat to this system."
+note = "Correlation (make correlate, KAV-39): signals in, incident rows out. Context assembly (make context, KAV-40): runbook RAG + past incidents + recent changes. Diagnosis (make diagnose, KAV-41): calls the local model schema-constrained, re-validates with Pydantic regardless, writes proposal + action rows. Escalation to Bedrock (make diagnose --escalate / make escalate, KAV-44, ADR-0019) on a local failure, no retrieved evidence, or low confidence. Each action's policy_class (KAV-42, ADR-0017) comes from the policy node, not the model, whichever model wrote the proposal. The component that thinks has no hands. Even fully compromised, it can only write a suggestion into a table — which is the mitigation for prompt injection through telemetry, the primary threat to this system."
 
 [[system.node]]
 id = "bedrock"
@@ -153,7 +153,7 @@ row = 3
 credentials = "read-only IAM · bedrock:InvokeModel"
 inputs = ["Prompt for novel or low-confidence incidents"]
 outputs = ["Completion, token counts, measured cost"]
-note = "Escalation path only. Cost is recorded on both routes, so the saving from cost-aware routing is measured rather than claimed."
+note = "Escalation path only (make escalate / diagnose --escalate, KAV-44, ADR-0019). Cost is recorded on both routes, so the saving from cost-aware routing is measured rather than claimed. Reached via the classic AnthropicBedrock client, not the newer Mantle client the SDK otherwise recommends — Mantle 404'd for this account on every model/region tried; live escalation itself is blocked on a separate AWS Marketplace payment-instrument issue, not yet cleared."
 
 [[system.node]]
 id = "jev"
@@ -573,7 +573,7 @@ kind = "external"
 phase = 2
 col = 2
 row = 5
-note = "Novel or low-confidence cases. Tokens and cost recorded, so cost-per-incident is measurable on both paths."
+note = "Novel or low-confidence cases (KAV-44, ADR-0019): should_escalate() combines a local failure, no retrieved evidence, or low stated confidence, not confidence alone — KAV-43's evals showed confidence alone is a weak signal on this model. Tokens and cost recorded, so cost-per-incident is measurable on both paths."
 
 [[journey.node]]
 id = "j-validate"

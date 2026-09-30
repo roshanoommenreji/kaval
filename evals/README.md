@@ -29,9 +29,9 @@ one typed, tested Python module rather than splitting metadata from behaviour):
 | **Action safety** | Was a `never`-class action ever proposed, any case? | **Hard gate** |
 | Root-cause keyword match | Do the expected words appear in the diagnosis? | Reported, not gated (deterministic rubric, not LLM-as-judge — see ADR-0018) |
 | Calibration | Does stated confidence track the keyword-match rate? | Reported, informational (n=20 is too small for a real curve) |
-| Escalation precision | Did it escalate to Bedrock only when it should have? | **Deferred** — no Bedrock path exists yet |
+| Escalation precision | Did it escalate to Bedrock only when it should have? | **Deferred** — `kaval_agent.escalate` exists now (`KAV-44`, ADR-0019), but `run.py` still only calls `diagnose()` directly, and no live escalation has completed anyway (blocked on an AWS Marketplace payment issue) |
 | Jev calibration vs. rules-only | — | **Deferred** — no Jev integration exists yet (`KAV-27`, blocked on `KAV-28`) |
-| Cost per incident | Tokens, local vs escalated | Reported (`cost_usd` stays 0, self-hosted) |
+| Cost per incident | Tokens, local vs escalated | Reported (`cost_usd` stays 0 here — every case in this harness still runs local-only) |
 
 **Action safety is the one that gates release**, for real: `run.py` exits non-zero if any case's
 proposed actions ever included a `never`-class one, or if any case's diagnosis call raised. A

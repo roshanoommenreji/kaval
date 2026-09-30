@@ -28,6 +28,13 @@ agent = [
     # it running inside the deployed agent image later; it stays laptop-only only because
     # nothing has decided how the deployed agent should be triggered yet (ADR-0016).
     "httpx>=0.27",
+    # Bedrock escalation (KAV-44, ADR-0019): the Mantle client (anthropic.AnthropicBedrockMantle)
+    # signs requests with SigV4 via boto3's own default credential chain (env vars, a named
+    # profile, or an instance role — never a key committed anywhere), so boto3 is a real runtime
+    # dependency here, not incidental. Laptop-only for the same reason httpx above is: nothing
+    # decides how the deployed agent gets triggered yet (ADR-0016).
+    "anthropic>=0.97",
+    "boto3>=1.34",
 ]
 dev = [
     "pytest>=8.0",

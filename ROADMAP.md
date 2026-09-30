@@ -73,7 +73,7 @@ The hard, interesting part. Still no AWS.
 - [x] Policy engine: `auto` / `ask` / `never`, blast-radius classification ([ADR-0017](docs/adr/0017-opa-policy-engine-and-earned-autonomy.md), `KAV-42`, signed off in UAT 2026-09-29)
 - [ ] Jev risk rating feeding the policy engine (ADR-0006, `KAV-27`) — `typesafe-sdk`, pinned version, redaction, rules-only fallback
 - [x] Eval harness + 20 golden incidents: schema validity and action safety as hard gates; root-cause keywords, calibration and cost reported ([ADR-0018](docs/adr/0018-eval-harness-and-golden-incidents.md), `KAV-43`, signed off in UAT 2026-09-30) — Jev calibration vs the rules-only baseline and escalation precision wait for `KAV-27`/Bedrock below
-- [ ] Bedrock escalation path for low-confidence cases
+- [ ] Bedrock escalation path for low-confidence cases ([ADR-0019](docs/adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md), `KAV-44` — built and unit-tested; blocked live on an AWS Marketplace payment issue, not yet UAT-signed-off)
 - [ ] `docs/learn/phase-2-the-agent-loop.md` — flip **Written from** to `experience`
 
 **Exit gate:** 20 synthetic incidents produce valid, sane proposals; evals pass.
