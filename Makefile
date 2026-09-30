@@ -244,9 +244,15 @@ context: pull-embed-model ## Print the context built for one incident. Usage: ma
 	@python -m kaval_agent.context $(INCIDENT) --with-changes
 
 .PHONY: diagnose
-diagnose: pull-embed-model ## Diagnose one incident with the local model and write a proposal (KAV-41). Usage: make diagnose INCIDENT=<uuid> [DRY_RUN=1]
+diagnose: pull-embed-model ## Diagnose one incident with the local model and write a proposal (KAV-41). Usage: make diagnose INCIDENT=<uuid> [DRY_RUN=1] [ESCALATE=1]
 	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<uuid>" && exit 1)
-	@python -m kaval_agent.diagnose $(INCIDENT) --with-changes $(if $(DRY_RUN),--dry-run,)
+	@python -m kaval_agent.diagnose $(INCIDENT) --with-changes $(if $(DRY_RUN),--dry-run,) $(if $(ESCALATE),--escalate,)
+
+.PHONY: escalate
+escalate: ## Force one incident straight to Bedrock (KAV-44), bypassing the local-first decision. Usage: make escalate INCIDENT=<uuid> [DRY_RUN=1]. Needs BEDROCK_MODEL_ID and AWS_PROFILE=kaval.
+	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<uuid>" && exit 1)
+	@test -n "$(BEDROCK_MODEL_ID)" || (echo "set BEDROCK_MODEL_ID=<model or inference-profile id>" && exit 1)
+	@python -m kaval_agent.escalate $(INCIDENT) $(if $(DRY_RUN),--dry-run,)
 
 .PHONY: evals
 evals: pull-embed-model ## Run the 20 golden incidents through the real pipeline and score them (KAV-43). Usage: make evals [ONLY=name] [JSON=path]

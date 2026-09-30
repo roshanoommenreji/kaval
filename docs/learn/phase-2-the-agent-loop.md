@@ -2,7 +2,8 @@
 
 > **Written from:** theory
 > **Lab:** to be written
-> **Cost:** $0 — still entirely local
+> **Cost:** $0 so far — Bedrock escalation is built (`KAV-44`) but blocked on an AWS Marketplace
+> payment issue before any real escalation has actually run and spent anything
 
 ## Where this sits
 
@@ -253,9 +254,13 @@ adversarial ones — an eval-only distinction would be exactly the kind of thing
 doesn't respect. Root-cause accuracy is scored by a keyword rubric, not an LLM judge (see
 below); calibration is reported but not gated, because twenty cases split into three confidence
 buckets is too coarse to trust as a real curve. Escalation precision, and Jev's calibration
-against the rules-only baseline, are both explicitly **not measured yet** — neither Bedrock
-escalation nor Jev exist in the codebase at the time this was built, and reporting a metric with
-nothing behind it would be worse than reporting nothing.
+against the rules-only baseline, are both still **not measured** — but for two different reasons
+now, worth telling apart. Jev doesn't exist yet (`KAV-27`/`KAV-28`). Bedrock escalation
+(`KAV-44`, [ADR-0019](../adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md)) does
+exist — the decision logic and the Bedrock call itself are built and unit-tested — but no live
+escalation has actually completed: the account hit a real AWS Marketplace payment-instrument
+error on every attempt, a billing state to fix in the console, not a code gap. Reporting a
+precision number with zero live escalations behind it would still be worse than reporting none.
 
 ### LLM-as-judge, and its limits
 
