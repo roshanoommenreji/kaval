@@ -2,6 +2,8 @@
 
 **കാവൽ** — *the watch.*
 
+[![CI](https://github.com/roshanoommenreji/kaval/actions/workflows/ci.yml/badge.svg)](https://github.com/roshanoommenreji/kaval/actions/workflows/ci.yml)
+
 An autonomous operations agent that watches a Kubernetes cluster and an AWS bill, diagnoses
 problems with a self-hosted LLM, proposes fixes, and executes them only after a human approves
 from their phone.
@@ -145,4 +147,4 @@ did not pass staging — and that refusal is tested. See
 
 ## Licence
 
-TBD before the repo goes public.
+[MIT](LICENSE).
