@@ -72,7 +72,7 @@ The hard, interesting part. Still no AWS.
 - [x] JSON-schema-enforced proposal output — the model must not ramble ([ADR-0016](docs/adr/0016-json-schema-enforced-proposal-output.md), `KAV-41`, signed off in UAT 2026-09-28)
 - [x] Policy engine: `auto` / `ask` / `never`, blast-radius classification ([ADR-0017](docs/adr/0017-opa-policy-engine-and-earned-autonomy.md), `KAV-42`, signed off in UAT 2026-09-29)
 - [ ] Jev risk rating feeding the policy engine (ADR-0006, `KAV-27`) — `typesafe-sdk`, pinned version, redaction, rules-only fallback
-- [ ] Eval harness + 20 golden incidents — including Jev calibration vs the rules-only baseline
+- [ ] Eval harness + 20 golden incidents: schema validity and action safety as hard gates; root-cause keywords, calibration and cost reported ([ADR-0018](docs/adr/0018-eval-harness-and-golden-incidents.md), `KAV-43`) — Jev calibration vs the rules-only baseline and escalation precision wait for `KAV-27`/Bedrock below
 - [ ] Bedrock escalation path for low-confidence cases
 - [ ] `docs/learn/phase-2-the-agent-loop.md` — flip **Written from** to `experience`
 
