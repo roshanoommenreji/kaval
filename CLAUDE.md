@@ -16,7 +16,7 @@ an AI platform role. Two consequences that override normal defaults:
 - **Every session produces documentation.** See "Definition of Done" below. This is not optional
   polish — the docs become a course.
 
-The full plan lives at `C:\Users\rosha\.claude\plans\i-want-to-do-twinkly-thompson.md`.
+The full plan lives outside this repo, in Roshan's local Claude Code plan files.
 
 ---
 

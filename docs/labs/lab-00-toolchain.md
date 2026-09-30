@@ -75,7 +75,7 @@ done
 All should read `ok`. Then:
 
 ```bash
-cd "c:/Users/rosha/Desktop/Claude/AWS AI"
+cd /path/to/kaval   # wherever you cloned the repo
 make help
 ```
 
