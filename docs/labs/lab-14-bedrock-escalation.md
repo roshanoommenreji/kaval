@@ -90,10 +90,19 @@ try again after 5 minutes.'}
 
 This is a genuine account-level AWS Marketplace billing gap — Anthropic's Bedrock models are
 delivered as Marketplace listings with their own payment-instrument validation, separate from the
-account's general AWS billing that already pays for the dev server. **Fix in the AWS Console**
-(Billing → Payment methods, and/or re-completing the Marketplace subscription under Bedrock's
-Model catalog), not in this repo. Once fixed, re-run Step 4; a clean response confirms it, and
-Steps 5–6 below become runnable for real.
+account's general AWS billing that already pays for the dev server.
+
+**Root cause, confirmed 2026-10-01 via AWS Support, not guessed:** this account is billed through
+AISPL (AWS's India entity). RBI regulations since March 2022 block AWS Marketplace from accepting
+stored card payments for contract-pricing subscriptions on AISPL accounts — which is exactly how
+Anthropic's Bedrock models are sold. The console's **Payment Preferences** page confirms it two
+ways: "Payment currency: No currency selected," locked from editing by an active e-mandate; and
+**AWS Marketplace → Manage subscriptions → Inactive subscriptions** shows the Claude subscriptions
+this lab's calls created, both auto-**Terminated** within the same minute they were born. **Fix:**
+switch the account's default payment method to **Pay by Invoice** (root user, Payment Preferences
+— needs billing contact details, up to 7 days to activate for new Marketplace purchases; a
+Marketplace subscription attempt then has one hour to complete payment or it voids). Once that's
+done, re-run Step 4; a clean response confirms it, and Steps 5–6 below become runnable for real.
 
 ## Step 5 — escalate one real incident (once Step 4 is clean)
 
@@ -123,16 +132,23 @@ local-only and print nothing about Bedrock — that's the correct behaviour, not
 - [x] `make test` and `make lint` (mypy + ruff, CI's exact scope) both clean
 - [x] The Mantle-vs-classic-client finding reproduced (Step 3)
 - [x] The Marketplace payment finding reproduced and documented (Step 4)
-- [ ] **Blocked on the AWS Marketplace payment fix:** a real escalation actually written as a
-      proposal (Step 5); `make diagnose ... ESCALATE=1` exercised on a real low-confidence case
-      (Step 6)
+- [x] Root cause confirmed, not just worked around — AISPL/Marketplace contract-pricing
+      restriction, via AWS Support (2026-10-01)
+- [ ] **Blocked, left as-is by choice (Pay by Invoice not yet started — see the journal):** a
+      real escalation actually written as a proposal (Step 5); `make diagnose ... ESCALATE=1`
+      exercised on a real low-confidence case (Step 6)
 
-## What actually happened, live (2026-09-30)
+## What actually happened, live (2026-09-30, root cause confirmed 2026-10-01)
 
 Both findings above are exactly what happened while building this, not a hypothetical someone
 might hit — see [ADR-0019](../adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md)'s
 Decision section for the full sequence: five Mantle model/ID/region combinations tried and 404'd,
 one classic-client call that briefly succeeded before every subsequent call (same model, same
 credentials) started returning the Marketplace payment-instrument 403, reproduced again minutes
-later rather than accepted as a fluke. UAT is **not** signed off in this story — see the journal
-for why an honest "blocked" beats a fabricated pass.
+later rather than accepted as a fluke. The next day, ADR-0019's "Update 2026-10-01" section
+records the actual root cause, confirmed through AWS Support rather than guessed further: an
+AISPL (India-entity) account restriction on Marketplace contract-pricing subscriptions, dating to
+an RBI regulation from March 2022 — not a code bug, not a one-off glitch, and not something more
+model-ID guessing would ever have found. UAT is **not** signed off in this story — see the
+journal for why an honest "blocked, root-caused" beats a fabricated pass or a model swap made
+under time pressure.
