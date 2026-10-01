@@ -38,6 +38,10 @@ env:
   TERRAFORM_VERSION: "1.11.4"
   OPA_VERSION: "1.21.0"
   OPA_SHA256: "5eef70644868bb04d0556bcc795ee42f2ab379e73f51d1bfa30f83e1305bc9b9" # linux_amd64_static
+  HELM_VERSION: "4.3.0"
+  HELM_SHA256: "86584a54def73570558f66f5111cc53dfed56689637ae32c1201205d494f54fb" # linux-amd64
+  KUBECONFORM_VERSION: "0.8.0"
+  KUBECONFORM_SHA256: "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883" # linux-amd64
 
 jobs:
   lint:
@@ -162,6 +166,45 @@ jobs:
             echo "::group::$env"
             terraform -chdir="$env" init -backend=false -input=false -lockfile=readonly
             terraform -chdir="$env" validate
+            echo "::endgroup::"
+          done
+
+  helm:
+    name: helm (lint + render + schema validate)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: install helm (checksum-verified)
+        run: |
+          curl -fsSLo helm.tgz \
+            "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  helm.tgz" | sha256sum --check --strict
+          tar -xzf helm.tgz linux-amd64/helm
+          sudo install -m 0755 linux-amd64/helm /usr/local/bin/helm
+      - name: install kubeconform (checksum-verified)
+        run: |
+          curl -fsSLo kubeconform.tgz \
+            "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  kubeconform.tgz" | sha256sum --check --strict
+          tar -xzf kubeconform.tgz kubeconform
+          sudo install -m 0755 kubeconform /usr/local/bin/kubeconform
+      # Every environment that has its own values.yaml today (only local exists; staging and
+      # prod are Phase 4). Found live, not hypothetically (Lab 15): a {{- -}} trim pair ate the
+      # newline between a template's top comment and its apiVersion: line, silently turning the
+      # whole resource into a YAML comment — helm lint alone did not catch it; only rendering
+      # and reading the output did. kubeconform is the automated version of that reading.
+      - name: lint and render every environment's chart
+        run: |
+          for env in deploy/environments/*/; do
+            values="${env}values.yaml"
+            [ -f "$values" ] || continue   # placeholder envs hold only .gitkeep
+            echo "::group::$env"
+            helm lint deploy/charts/kaval -f "$values"
+            helm template "kaval-$(basename "$env")" deploy/charts/kaval -f "$values" \
+              | kubeconform -strict -kubernetes-version 1.35.5 -summary -
             echo "::endgroup::"
           done
 

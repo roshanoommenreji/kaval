@@ -1,0 +1,14 @@
+# k3d on the dev server (Phase 3, Lab 15). Images are built and imported locally — see the
+# lab — never pulled from a registry, so pullPolicy stays IfNotPresent everywhere.
+#
+# Plain dev credentials, same posture as .env.example: never a real secret, and this file is
+# committed because it never holds one. Staging/prod get their own values.yaml with a
+# password sourced from a real secret store (Phase 4), not a literal here.
+postgres:
+  password: kaval-local-dev
+
+gateway:
+  replicas: 1
+
+agent:
+  correlateEverySeconds: 30

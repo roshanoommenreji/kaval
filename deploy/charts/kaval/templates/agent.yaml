@@ -1,0 +1,59 @@
+# Runs kaval_agent.correlate as a loop (--every), the one piece of the agent loop ADR-0016
+# has actually decided how to trigger continuously — context assembly, diagnosis and
+# escalation stay laptop-run tools (see Lab 10, Lab 11, Lab 14) until that design lands.
+# Read-only by construction: this container never gets Kubernetes API credentials, because
+# correlate() only reads and writes Postgres rows — no ServiceAccount token is mounted
+# (automountServiceAccountToken: false), so there is nothing here to scope with RBAC yet.
+# Real K8s-events-as-signals (a later Phase 3 story) is what first gives this component a
+# reason to talk to the API server at all, and that's also where its RBAC Role shows up.
+
+{{ $component := "agent" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaval.fullname" . }}-agent
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+    {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      # Found live on the first real install (Lab 15): without this, the agent crashed on its
+      # first tick racing postgres's own startup — correlate.py's --every loop doesn't catch a
+      # connection failure and retry, it exits, and Kubernetes' restart masked that as a single
+      # harmless-looking restart rather than a real race. The migrate Job already needed the
+      # identical wait; this gives the agent the same guarantee instead of leaning on a restart
+      # happening to land after postgres comes up.
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.postgres.image }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ include "kaval.fullname" . }}-postgres -p 5432; do
+                echo "waiting for postgres..."; sleep 2
+              done
+      containers:
+        - name: agent
+          image: "{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag }}"
+          imagePullPolicy: {{ .Values.agent.image.pullPolicy }}
+          args: ["--every", {{ .Values.agent.correlateEverySeconds | quote }}]
+          envFrom:
+            - secretRef:
+                name: {{ include "kaval.fullname" . }}-postgres
+          env:
+            - name: POSTGRES_HOST
+              value: {{ include "kaval.fullname" . }}-postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+          resources:
+            {{- toYaml .Values.agent.resources | nindent 12 }}

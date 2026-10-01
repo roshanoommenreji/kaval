@@ -1,0 +1,50 @@
+# Chart defaults. An environment's own values.yaml (deploy/environments/<env>/values.yaml)
+# overrides only what that environment needs — CLAUDE.md: "a template change needed for one
+# environment and not another is a defect, not a special case."
+
+nameOverride: ""
+
+postgres:
+  image: pgvector/pgvector:pg16
+  storage: 2Gi
+  storageClassName: ""   # "" = the cluster's default StorageClass
+  database: kaval
+  username: kaval
+  # No default password. Every environment's own values.yaml sets postgres.password
+  # explicitly (local: a plain dev value, matching .env.example; staging/prod: from a
+  # real secret store, Phase 4 — never a value committed here, same reasoning as
+  # docs/adr/0008's SSM Parameter Store decision for the standalone DB server).
+  password: ""
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+gateway:
+  image:
+    repository: kaval/gateway
+    tag: dev
+    pullPolicy: IfNotPresent
+  replicas: 1
+  port: 8000
+  # Reached by the gateway's own /healthz check (kaval_gateway/main.py's check_ollama()).
+  # Empty by default: no environment's chart deploys Ollama yet (ADR-0016's deployed-agent
+  # trigger design is still unresolved, and diagnose.py/escalate.py stay laptop-run tools) —
+  # see Lab 15 for what that means for this check in a local k3d deployment.
+  ollamaBaseUrl: ""
+  localModel: ""
+  logLevel: INFO
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 250m, memory: 256Mi }
+
+agent:
+  image:
+    repository: kaval/agent
+    tag: dev
+    pullPolicy: IfNotPresent
+  # Seconds between correlation passes (kaval_agent.correlate's own --every flag). Short
+  # locally so a demo doesn't sit waiting; a real environment would widen this.
+  correlateEverySeconds: 30
+  resources:
+    requests: { cpu: 25m, memory: 32Mi }
+    limits: { cpu: 100m, memory: 128Mi }

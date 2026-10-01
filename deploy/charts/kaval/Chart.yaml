@@ -1,0 +1,10 @@
+# One umbrella chart (CLAUDE.md): environments differ only by values files
+# (deploy/environments/<env>/values.yaml), never by template changes or separate charts.
+# A template change needed for one environment and not another is a defect, not a special
+# case — see ADR-0004.
+apiVersion: v2
+name: kaval
+description: Autonomous ops agent with human-in-the-loop approval
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
