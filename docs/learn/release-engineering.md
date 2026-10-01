@@ -358,27 +358,34 @@ something checks it: here a `commit-msg` hook and CI run the same checker.
 
 **"You're a Release Manager. What was your release process on this project?"**
 
-> "Three environments — local, staging, prod — with staging as a genuine second cluster rather
-> than a namespace: its own node, own k3s, own database. It's identical to prod, same instance
-> type and same model, because memory pressure on a 4 GB node is this project's binding
-> constraint and a smaller staging box would miss exactly that. It's created per release by
-> Terraform and destroyed after, so it costs about a dollar a month and every release exercises
-> the from-scratch rebuild path.
->
-> The pipeline builds once. CI runs on the PR, merge to main pushes an image tagged by commit SHA
-> and deploys it to staging, and promotion deploys *that same digest* — promote refuses a digest
-> with no record of passing staging, and I test that refusal, because a gate that's never said no
-> isn't a gate. Every production deploy generates a change record with the digests, the changes,
-> the linked issues, the staging evidence, and a rollback plan carrying the last *measured*
-> time-to-restore rather than an assertion.
->
-> I track the four DORA metrics. The absolute numbers are unimpressive — it's a solo project at
-> five hours a week — but they're measured, and the honest gap is that staging is created fresh
-> so it holds no accumulated data. Anything that only shows up after months of production data
-> won't be caught there, and I compensate with monitoring rather than pretending otherwise."
+This page spans three phases, and only the first is built at the time of writing — the honest
+answer says exactly where that line is, not papers over it:
 
-Two things make that answer work: the negative test on the gate, and volunteering the parity gap
-before being asked.
+> "What's running today: every pull request goes through a CI pipeline — lint, type checks, the
+> test suite against a real Postgres, a full-history secret scan, Terraform validation, and an
+> arm64 image build scanned with Trivy — and nothing merges to `main` until all of that is green
+> and a second pass of the same checks confirms it on the merged commit, enforced by branch
+> protection, not just convention. Conventional commits link every change to a tracked issue.
+>
+> What's designed but not built yet is the promotion path past that: a genuine second cluster for
+> staging — its own node, own k3s, own database, identical to prod rather than a namespace,
+> because memory pressure on a 4 GB node is this project's binding constraint and a smaller
+> staging box would miss exactly that — created per release by Terraform and destroyed after. The
+> pipeline builds once and promotes the same digest through every environment; a promotion gate
+> refuses any digest without a recorded staging pass. Every production deploy would generate a
+> change record with the digests, the linked issues, the staging evidence, and a rollback plan
+> carrying a *measured* time-to-restore rather than an assertion — and I'd track the four DORA
+> metrics against that from day one, not retrofit them later.
+>
+> I designed it this way, rather than skip straight to 'deploy to prod,' because the build-once/
+> promote-the-artifact principle and a negative test on the gate are the two things that turn a
+> release process from a script into something you can actually trust — and I'd rather describe
+> that design honestly, including what's still ahead, than claim a pipeline I haven't built yet."
+
+Two things make that answer work even though most of it describes a design, not a system: it's
+explicit about the line between built and designed, and it says *why* the design looks the way it
+does rather than just listing components. Both survive a good follow-up question; a vague "yes,
+we have staging" the moment someone asks "show me" does not.
 
 ## Further reading
 
