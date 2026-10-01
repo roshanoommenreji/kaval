@@ -85,8 +85,8 @@ The hard, interesting part. Still no AWS.
 - [x] k3d cluster on the dev server ([ADR-0020](docs/adr/0020-the-helm-chart-and-the-local-k3d-environment.md), `KAV-46`)
 - [x] Helm umbrella chart, `local` values — Postgres, gateway, the correlate loop running continuously in real Kubernetes, verified live (`KAV-46`, Lab 15)
 - [ ] Real K8s events + Prometheus as signal sources
-- [ ] Executor with scoped RBAC — the privilege split made real
-- [ ] **Executor redacts `stdout` at write time** — prod must never store a secret (ADR-0005)
+- [x] Executor with scoped RBAC — the privilege split made real, proven live with `kubectl auth can-i` ([ADR-0021](docs/adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md), `KAV-47`, Lab 16)
+- [x] **Executor redacts `stdout` at write time** — prod must never store a secret (ADR-0005, closed by `KAV-47`)
 - [ ] `arm64` multi-arch image builds *(Graviton is coming in Phase 4)*
 - [ ] Split values: `deploy/environments/staging` and `prod`, each pinning image digests
 - [ ] Promotion mechanics rehearsed on k3d — deploy staging, gate, deploy prod

@@ -217,7 +217,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [gateway, collector, agent]
+        service: [gateway, collector, agent, executor]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -248,10 +248,12 @@ jobs:
           test "$(docker run --rm --entrypoint id "$image" -u)" = 10001
           docker run --rm --entrypoint python "$image" \
             -c "import kaval_shared.models, kaval_${{ matrix.service }}, alembic; print('imports ok')"
-      - name: agent image carries a working opa and the real policy bundle (KAV-42)
-        if: matrix.service == 'agent'
+      - name: agent and executor images carry a working opa and the real policy bundle
+          (KAV-42, KAV-47 — both evaluate the identical Rego, policy/README.md's "one
+          definition, two enforcement points")
+        if: matrix.service == 'agent' || matrix.service == 'executor'
         run: |
-          image=kaval/agent:ci
+          image=kaval/${{ matrix.service }}:ci
           docker run --rm --entrypoint opa "$image" version
           docker run --rm --entrypoint python "$image" -c "
           from kaval_agent import policy

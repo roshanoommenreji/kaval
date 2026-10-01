@@ -45,6 +45,20 @@ class DecisionOut(_Row):
     decided_at: datetime
 
 
+class DecisionIn(BaseModel):
+    """The body of `POST /v1/actions/{action_id}/decisions` — a human's approve or deny
+    (KAV-47). No `auto_approved` here: that verdict is written only by the policy engine
+    itself, at proposal time, never by a human-facing endpoint — see `Verdict` in
+    `kaval_shared.models`. `actor` is free text for now (a name, or `cli` from the Phase-3
+    approve script); Cognito identity replaces it when the mobile app (Phase 5) exists."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    verdict: Literal["approved", "denied"]
+    actor: str = Field(min_length=1, examples=["roshan", "cli"])
+    reason: str | None = Field(default=None, max_length=2000)
+
+
 class ExecutionOut(_Row):
     id: uuid.UUID
     status: ExecutionStatus

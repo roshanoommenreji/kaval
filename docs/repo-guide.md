@@ -109,7 +109,7 @@ think.**
 | `services/agent/kaval_agent/policy.py` | Classifies one action as `auto`/`ask`/`never` by shelling out to `opa eval` against `policy/policy.rego`. Falls back to `ask` if OPA can't be evaluated at all ([ADR-0017](adr/0017-opa-policy-engine-and-earned-autonomy.md)). `make policy-check TYPE=... BLAST_RADIUS=... CONFIDENCE=...` | Working (`KAV-42`) |
 | `services/agent/kaval_agent/escalate.py` | Escalates one incident to Claude Haiku 4.5 on Bedrock when the local model fails, the context has no retrieved evidence, or confidence is low — same schema-validate-regardless contract as `diagnose.py`, via a forced tool call ([ADR-0019](adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md)). Uses the classic `AnthropicBedrock` client, not the newer Mantle client, which 404'd for this account. `make escalate INCIDENT=<uuid>`, or `make diagnose INCIDENT=<uuid> ESCALATE=1` | Built and unit-tested; live escalation blocked on an AWS Marketplace payment issue (`KAV-44`) |
 | `services/agent/tests/` | Tests for correlation, context assembly, embeddings (mocked, never a real Ollama), runbook syncing, the diagnosis schema, the model call (mocked), the policy classifier (a real `opa`, never mocked), and the Bedrock escalation call (mocked, never a real Bedrock request) | Working (`KAV-39`–`KAV-42`, `KAV-44`) |
-| `services/executor/` | The **only** component allowed to change the cluster or AWS. Acts only on proposals that passed the policy check and, where required, human approval | Placeholder, Phase 3 |
+| `services/executor/` | The **only** component allowed to change the cluster or AWS. Consumes `auto`-classified or human-approved actions, re-checks policy itself before acting, redacts `stdout` at write time | Working (`restart_pod`), scoped RBAC in `deploy/charts/kaval` — Phase 3, `KAV-47` |
 | `services/gateway/` | The web API (FastAPI) the phone app talks to. Today: `GET /healthz` (passes only when the database is migrated **and** the model is downloaded) and a read-only `/v1` API for signals and incidents, documented at `/docs`. Its rules are in [ADR-0009](adr/0009-gateway-api-conventions.md). `Dockerfile` builds it for arm64 as a non-root user; the same image runs the database migrations | Health check (`KAV-22`) and read-only API (`KAV-23`) working; approve/deny and push in Phase 5 |
 | `services/gateway/kaval_gateway/api.py` | The `/v1` routes: list and fetch signals and incidents, newest first, paged with a cursor. Every request's database transaction is read-only, so the database itself refuses writes | Working (`KAV-23`) |
 | `services/gateway/kaval_gateway/schemas.py` | The shapes the API returns, kept separate from the database tables so a new column can't leak out by accident | Working (`KAV-23`) |
@@ -164,7 +164,7 @@ Run `make migrate` to bring a database up to date.
 
 | Path | What it will do | Status |
 |---|---|---|
-| `deploy/charts/kaval/` | One Helm chart. Deploys Postgres, the gateway and the agent's correlate loop to a real cluster; the executor and RBAC are the next Phase 3 stories ([ADR-0020](adr/0020-the-helm-chart-and-the-local-k3d-environment.md)). `helm lint`/`helm template` run through kubeconform in CI, on every environment that has a values file | Working — `local` (`KAV-46`, Lab 15) |
+| `deploy/charts/kaval/` | One Helm chart. Deploys Postgres, the gateway, the agent's correlate loop and the scoped-RBAC executor to a real cluster ([ADR-0020](adr/0020-the-helm-chart-and-the-local-k3d-environment.md), [ADR-0021](adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md)). `helm lint`/`helm template` run through kubeconform in CI, on every environment that has a values file | Working — `local` (`KAV-46`, `KAV-47`, Labs 15–16) |
 | `deploy/environments/local/`, `staging/`, `prod/`, `lab-eks/` | One settings file per environment. **These are the only differences between environments.** The code and the chart are identical everywhere (ADR-0004) | `local` working (`KAV-46`); `staging`/`prod` in Phase 4; `lab-eks` in Phase 8 |
 | `deploy/gitops/` | Flux configuration. The cluster pulls its setup from Git and rebuilds itself if the server is lost | Placeholder, Phase 4 |
 
@@ -211,6 +211,7 @@ Run `make migrate` to bring a database up to date.
 |---|---|---|
 | **`scripts/ops/`** | **AWS and the database** | |
 | `scripts/ops/cost-report.sh` | Month-to-date AWS spend against the $40 ceiling (`make cost-report`) | Working |
+| `scripts/ops/approve.py` | Approve or deny one proposed action through the gateway's decision endpoint (`make approve`) — the Phase-3 stand-in for the mobile app's swipe-to-approve screen | Working (`KAV-47`) |
 | `scripts/ops/backup.sh` | Nightly database dump to S3 (`make backup`) | Written, not yet run. Needs the production database from Phase 4 |
 | `scripts/ops/restore.sh` | Restores a backup into staging (made anonymous first) or, in an emergency, into production | Written, not yet run (Phase 4) |
 | `scripts/ops/anonymise.sql` | Strips personal and secret data from a copy before staging gets it | Written, not yet run (Phase 4) |

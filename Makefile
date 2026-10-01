@@ -71,7 +71,7 @@ test: ## Unit tests + policy tests
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py
+	ruff check services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
 	mypy services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
 
 .PHONY: lock
@@ -89,11 +89,11 @@ migrate: ## Apply database migrations (reads POSTGRES_* from .env)
 .PHONY: build
 build: ## Build arm64 images (Graviton — amd64 will NOT run on the node)
 	# Context is the repo root: images need services/shared and pyproject.toml, and the
-	# root .dockerignore allowlist is what keeps .env out. The executor joins here when
-	# it has code (Phase 3).
+	# root .dockerignore allowlist is what keeps .env out.
 	docker buildx build --platform linux/arm64 -f services/gateway/Dockerfile   -t kaval/gateway:dev   .
 	docker buildx build --platform linux/arm64 -f services/collector/Dockerfile -t kaval/collector:dev .
 	docker buildx build --platform linux/arm64 -f services/agent/Dockerfile     -t kaval/agent:dev     .
+	docker buildx build --platform linux/arm64 -f services/executor/Dockerfile  -t kaval/executor:dev  .
 
 # ─────────────────────────────────────────────────────────────
 ##@ AWS  (starts and stops billing — read docs/cost/budget-plan.md)
@@ -264,6 +264,15 @@ policy-check: ## Classify one hypothetical action against policy/ (KAV-42), no d
 		(echo "set TYPE= BLAST_RADIUS= CONFIDENCE=" && exit 1)
 	@python -m kaval_agent.policy --type $(TYPE) --blast-radius $(BLAST_RADIUS) \
 		--confidence $(CONFIDENCE) $(if $(REVERSIBLE),--reversible,)
+
+.PHONY: approve
+approve: ## Approve or deny one proposed action via the gateway (KAV-47, Phase-3 stand-in for the mobile app). Usage: make approve ACTION=<uuid> VERDICT=approved|denied [ACTOR=you] [REASON="..."]
+	@test -n "$(ACTION)" && test -n "$(VERDICT)" || (echo "set ACTION=<uuid> VERDICT=approved|denied" && exit 1)
+	@python scripts/ops/approve.py $(ACTION) $(VERDICT) $(if $(ACTOR),--actor "$(ACTOR)",) $(if $(REASON),--reason "$(REASON)",)
+
+.PHONY: execute
+execute: ## Run the executor one pass against the database in .env (KAV-47). Needs a reachable Kubernetes cluster — make dev-tunnel does not provide one; run this on the devbox or against k3d.
+	@python -m kaval_executor.executor
 
 .PHONY: jira-dashboards
 jira-dashboards: ## Create or update the Jira dashboards from scripts/tracking/jira-dashboards.toml

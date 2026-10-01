@@ -56,6 +56,13 @@ paths = [
   '''\.env\.example$''',
   '''.*\.tfvars\.example$''',
   '''docs/.*\.md$''',        # docs must never contain real values anyway — see CLAUDE.md
+  # kaval_executor.redact's own tests (KAV-47, ADR-0021): fabricated, secret-SHAPED fixtures
+  # — a textbook AWS account id/ARN, a JWT built from `{"alg":"HS256"}`/`{"sub":"a"}`, a
+  # base64 "c29tZXNlY3JldA==" (literally the string "somesecret") — that exist specifically
+  # to prove the redactor catches that shape. Real secrets never touch this repo (CLAUDE.md);
+  # these are the opposite, deliberately realistic-looking so the test is honest.
+  '''services/executor/tests/test_redact\.py$''',
+  '''services/executor/tests/test_executor_selection\.py$''',
 ]
 
 regexes = [

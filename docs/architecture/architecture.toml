@@ -192,9 +192,9 @@ col = 1.5
 row = 5
 credentials = "own database role · Cognito JWT verification"
 inputs = ["Signals, incidents and pending proposals from the database", "Approve/deny from the mobile app"]
-outputs = ["REST + WebSocket to the app (today: read-only /v1 signals and incidents, OpenAPI at /docs)", "Push dispatch", "decision rows"]
+outputs = ["REST + WebSocket to the app (today: read-only /v1 signals and incidents, plus one write — POST /v1/actions/{id}/decisions, KAV-47)", "Push dispatch", "decision rows"]
 tables = ["proposal", "decision"]
-note = "Verifies the JWT signature against Cognito's public keys — decoding a token and trusting its claims is the classic vulnerability. Until Phase 5 it has no auth and no writes: it binds to 127.0.0.1 and every request runs in a READ ONLY transaction (ADR-0009, KAV-23)."
+note = "Verifies the JWT signature against Cognito's public keys — decoding a token and trusting its claims is the classic vulnerability. Still no auth until Phase 5: binds to 127.0.0.1, reached through an SSH tunnel. Every request runs in a READ ONLY transaction (ADR-0009, KAV-23) except the one approve/deny write (KAV-47, ADR-0021), on its own session — not the security boundary itself, since the executor re-checks policy independently regardless of what this endpoint wrote. scripts/ops/approve.py is the Phase-3 stand-in for the mobile app's approval screen."
 
 [[system.node]]
 id = "tunnel"
@@ -233,7 +233,7 @@ credentials = "SCOPED WRITE — RoleBinding in the app namespace only; IRSA on E
 inputs = ["Approved proposals", "A second policy evaluation before every action"]
 outputs = ["Cluster and AWS mutations", "execution and outcome rows"]
 tables = ["execution", "outcome"]
-note = "The only component that changes anything, and it never calls an LLM. Bound with a RoleBinding rather than a ClusterRoleBinding, so it structurally cannot touch kube-system — blast radius is enforced below the application code."
+note = "The only component that changes anything, and it never calls an LLM. Built live (KAV-47, ADR-0021): bound with a RoleBinding, in a separate kaval-demo namespace it doesn't itself run in, so it structurally cannot touch kube-system OR its own siblings (postgres/gateway/agent) — proven with kubectl auth can-i, not just asserted. Its RBAC grants exactly the verbs its one handler (restart_pod) calls today — get, delete on pods, nothing speculative. Re-checks policy itself from each action's own fields immediately before acting, never trusting the stored policy_class — verified live by bypassing the gateway's own refusal of a never-class approval and watching the executor refuse it anyway."
 
 [[system.node]]
 id = "chaos"
@@ -259,7 +259,7 @@ row = 7
 credentials = "acted on by executor only"
 inputs = ["patch, delete, scale, cordon — from the executor"]
 outputs = ["New state, which becomes new events"]
-note = "k3s on one spot instance in production; EKS during the Phase 8 chapter. The same Helm chart deploys to both, differing only by values file. Locally: k3d on the dev server (KAV-46, ADR-0020) — Postgres, gateway and the correlate loop running continuously, verified live; the executor and its RBAC are the next Phase 3 story."
+note = "k3s on one spot instance in production; EKS during the Phase 8 chapter. The same Helm chart deploys to both, differing only by values file. Locally: k3d on the dev server (KAV-46, ADR-0020) — Postgres, gateway and the correlate loop running continuously, verified live. The executor now also runs here (KAV-47, ADR-0021), scoped-RBAC-bound to the separate kaval-demo namespace, proven live with kubectl auth can-i — not the kaval namespace postgres/gateway/agent run in."
 
 [[system.node]]
 id = "aws-apis"

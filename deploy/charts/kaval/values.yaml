@@ -48,3 +48,21 @@ agent:
   resources:
     requests: { cpu: 25m, memory: 32Mi }
     limits: { cpu: 100m, memory: 128Mi }
+
+executor:
+  image:
+    repository: kaval/executor
+    tag: dev
+    pullPolicy: IfNotPresent
+  # Seconds between execution passes (kaval_executor.executor's own --every flag).
+  executeEverySeconds: 15
+  # The namespace the executor's Role/RoleBinding are granted in — deliberately NOT this
+  # release's own namespace (CLAUDE.md constraint 3, KAV-47: see deploy/charts/kaval/
+  # templates/executor.yaml's header comment for why that split is the point). This is
+  # where a demo workload for the executor to act on lives, e.g. `kubectl create deployment
+  # checkout --image=nginx:alpine -n kaval-demo` — the chart creates the namespace, not a
+  # workload in it; chaos (Phase 6) is what will later populate it on purpose.
+  demoNamespace: kaval-demo
+  resources:
+    requests: { cpu: 25m, memory: 32Mi }
+    limits: { cpu: 100m, memory: 128Mi }

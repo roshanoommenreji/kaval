@@ -1,8 +1,10 @@
-"""The /v1 REST surface: read-only views of signals and incidents (KAV-23).
+"""The /v1 REST surface: read-only views of signals and incidents (KAV-23), plus the one
+write the gateway makes — a human's approve/deny becoming a `decision` row (KAV-47).
 
-Read-only on purpose. The gateway's writes (a human's approve/deny becoming a `decision`
-row) arrive with the approval flow; until then nothing here can change the audit trail,
-and `read_session` makes the database enforce that, not just the code.
+Everything except `decide()` stays read-only, and `read_session` makes the database enforce
+that, not just the code. `decide()` is the sole exception, on its own `write_session` — see
+that function's docstring for why a human's verdict landing in `decision` is not the same
+kind of risk as a read endpoint gaining a write.
 
 Lists are newest first and paged with an opaque cursor, not `?page=N`. Signals arrive
 continuously, so offset paging would skip or repeat rows as new ones land between two
@@ -15,16 +17,18 @@ import base64
 import binascii
 import uuid
 from collections.abc import Generator
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Literal, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from kaval_shared.db import get_engine
-from kaval_shared.models import Action, Incident, Proposal, Signal
+from kaval_shared.models import Action, Decision, Incident, PolicyClass, Proposal, Signal, Verdict
 from sqlalchemy import Select, literal, select, text, tuple_
 from sqlalchemy.orm import InstrumentedAttribute, Session, selectinload
 
 from kaval_gateway.schemas import (
+    DecisionIn,
+    DecisionOut,
     IncidentDetail,
     IncidentPage,
     IncidentSummary,
@@ -48,7 +52,26 @@ def read_session() -> Generator[Session, None, None]:
         yield session
 
 
+def write_session() -> Generator[Session, None, None]:
+    """One session per request, ordinary read-write.
+
+    This is the gateway's only writable path. It is not a weaker guarantee than
+    `read_session`'s database-enforced READ ONLY, just a differently-shaped one: there is
+    exactly one statement this session is ever asked to run (`INSERT INTO decision`, via
+    `decide()` below), the row it writes is itself an audit record, and `action.decision`'s
+    `UniqueConstraint` (one decision per action) means even a buggy caller can't overwrite
+    an earlier verdict — only ever insert a brand new, append-only one. The actual safety
+    boundary a `decision` row crosses is not "can the gateway write to Postgres" but "can an
+    approval make the executor do something it shouldn't" — and that boundary is enforced a
+    layer down, by the executor's own independent policy re-check immediately before it
+    acts (`kaval_executor.executor`, `policy/README.md`'s "evaluated twice").
+    """
+    with Session(get_engine()) as session:
+        yield session
+
+
 DB = Annotated[Session, Depends(read_session)]
+WriteDB = Annotated[Session, Depends(write_session)]
 Limit = Annotated[int, Query(ge=1, le=200, description="Page size")]
 Cursor = Annotated[str | None, Query(description="next_cursor from the previous page")]
 
@@ -160,3 +183,50 @@ def get_incident(incident_id: uuid.UUID, db: DB) -> IncidentDetail:
     if incident is None:
         raise HTTPException(status_code=404, detail="incident not found")
     return IncidentDetail.model_validate(incident)
+
+
+@router.post(
+    "/actions/{action_id}/decisions", response_model=DecisionOut, status_code=201,
+    tags=["actions"],
+    responses={
+        404: {"description": "No such action"},
+        409: {"description": "Already decided, or policy class 'never'"},
+    },
+)
+def decide(action_id: uuid.UUID, body: DecisionIn, db: WriteDB) -> DecisionOut:
+    """Record a human's approve or deny on one proposed action (KAV-47). There is no
+    corresponding GET-then-act race to worry about: `action.decision`'s `UniqueConstraint`
+    means a second decision on the same action fails at the database regardless of what
+    this function checks first — the checks below exist to fail with a clear 409 instead of
+    an unhandled `IntegrityError`, not to be the only thing preventing a double-decision.
+
+    `policy_class == never` is refused here too, before the database even gets asked,
+    because ADR-0006's rule 1 means "never" regardless of what a human says, not just
+    regardless of what the model's confidence says. This is a convenience rejection, not
+    the enforcement boundary: even if this check were removed, or this whole endpoint were
+    compromised and wrote an `approved` decision directly, the executor's own independent
+    policy re-check (`kaval_executor.executor`) evaluates the identical `never` rule again,
+    from the action's real fields, immediately before it would act — and refuses it there
+    too. Two independent refusals, not one checked twice.
+    """
+    action = db.get(Action, action_id)
+    if action is None:
+        raise HTTPException(status_code=404, detail="action not found")
+    if action.policy_class == PolicyClass.never:
+        raise HTTPException(
+            status_code=409,
+            detail="action is policy class 'never' — it cannot be approved or denied",
+        )
+    if action.decision is not None:
+        raise HTTPException(status_code=409, detail="action already has a decision")
+    decision = Decision(
+        action_id=action.id,
+        verdict=Verdict(body.verdict),
+        actor=body.actor,
+        reason=body.reason,
+        decided_at=datetime.now(UTC),
+    )
+    db.add(decision)
+    db.commit()
+    db.refresh(decision)
+    return DecisionOut.model_validate(decision)

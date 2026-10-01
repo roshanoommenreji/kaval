@@ -36,6 +36,13 @@ agent = [
     "anthropic>=0.97",
     "boto3>=1.34",
 ]
+executor = [
+    # The only client the executor needs (KAV-47): it talks to the Kubernetes API, not to
+    # AWS directly — cost actions (Phase 7) will add boto3 then, scoped the same way. Core,
+    # not laptop-only like agent's httpx/boto3 above: kaval_executor.executor's entrypoint
+    # loop calls it every pass, deployed or not.
+    "kubernetes>=31.0",
+]
 dev = [
     "pytest>=8.0",
     "ruff>=0.4",
@@ -53,6 +60,7 @@ packages = [
     "services/gateway/kaval_gateway",
     "services/collector/kaval_collector",
     "services/agent/kaval_agent",
+    "services/executor/kaval_executor",
 ]
 
 [tool.alembic]
@@ -75,6 +83,13 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+
+[[tool.mypy.overrides]]
+# No published type stubs (KAV-47). boto3/anthropic don't need this override: they're
+# imported only from laptop-run tools (kaval_agent.escalate), never type-checked here
+# the same way; kubernetes is a real runtime dependency of the deployed executor.
+module = "kubernetes.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["services", "scripts/dev", "scripts/tracking", "evals"]

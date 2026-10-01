@@ -27,15 +27,17 @@ app = FastAPI(
     version=__version__,  # the gateway component's version, not the product's (ADR-0013)
     summary="The mobile-facing API of an ops agent that acts only with human approval.",
     description=(
-        "Read-only in Phase 1: signals as collected, and incidents with their full timeline "
-        "(proposals, actions, decisions, executions, outcomes). No authentication yet: the "
-        "server binds to 127.0.0.1 and is reached through an SSH tunnel. Cognito JWTs "
-        "arrive with the mobile app (Phase 5)."
+        "Signals as collected, incidents with their full timeline (proposals, actions, "
+        "decisions, executions, outcomes), and one write: approve or deny a proposed "
+        "action (KAV-47). No authentication yet: the server binds to 127.0.0.1 and is "
+        "reached through an SSH tunnel. Cognito JWTs arrive with the mobile app (Phase 5) "
+        "— until then, `scripts/ops/approve.py` is the approval flow."
     ),
     openapi_tags=[
         {"name": "health", "description": "Is the stack wired: database migrated, model pulled"},
         {"name": "signals", "description": "Raw observations, exactly as collected"},
         {"name": "incidents", "description": "Correlated problems and everything done about them"},
+        {"name": "actions", "description": "Approve or deny one proposed action"},
     ],
 )
 app.include_router(router)
