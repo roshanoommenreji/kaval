@@ -1,6 +1,7 @@
 # ADR-0019 — Bedrock escalation, and why the Mantle client isn't used
 
-- **Status:** Accepted — built, unit-tested, blocked on a live AWS Marketplace payment issue
+- **Status:** Accepted — built, unit-tested, blocked on a confirmed AISPL/Marketplace billing
+  restriction (root cause found 2026-10-01, see Update below)
 - **Date:** 2026-09-30
 - **Deciders:** Roshan
 
@@ -145,6 +146,41 @@ Phase 7 (FinOps) or wherever Bedrock is next touched.
 verification below become runnable, and Mantle is worth trying again once there's a specific
 reason to (a feature only it supports, or confirmation the account has whatever it's currently
 missing).
+
+## Update 2026-10-01 — the root cause, confirmed
+
+The Marketplace payment-instrument error above wasn't a generic billing glitch. Checked directly
+in the AWS console the next day:
+
+- **Payment Preferences showed "No currency selected"** on the account's default payment
+  method, and that field couldn't be edited — blocked by an active **e-mandate** (an
+  RBI-regulated recurring-payment authorization tied to the card, India-specific).
+- **AWS Marketplace → Manage subscriptions → Inactive subscriptions** showed exactly what the
+  live test had triggered: both "Claude 3 Haiku" and "Claude Haiku 4.5 (Amazon Bedrock Edition)"
+  listed as **Terminated**, timestamped to the minute the live calls were run the day before — a
+  Marketplace subscription was created automatically on first use, then killed almost
+  immediately because billing couldn't complete.
+
+Root cause, confirmed via AWS Support: this account is billed through **AISPL (Amazon Internet
+Services Private Limited)**, AWS's India legal entity. Since March 2022, RBI regulations
+restrict payment aggregators from storing card data for recurring charges, and as a result
+**AWS Marketplace no longer supports stored credit/debit cards for contract-pricing
+subscriptions on AISPL accounts** — which is exactly what Anthropic's Bedrock models are sold
+as. UPI AutoPay (the mechanism actually active on this account) is valid for ordinary AWS
+invoices but doesn't satisfy a Marketplace contract-pricing subscription's payment requirement.
+That mismatch is the entire explanation for every symptom above: the missing currency, the
+e-mandate lock, and the subscription being born and terminated in the same minute.
+
+**The fix** (AWS Support's own guidance, not yet actioned): switch the account's default
+payment method to **Pay by Invoice** — a root-user console action requiring billing contact
+details, taking up to 7 days to activate for new Marketplace purchases. Once active, a Marketplace
+subscription attempt has a one-hour window to complete payment before it voids and has to be
+retried. A same-day alternative exists (Amazon Nova models, which aren't sold through Marketplace
+and so aren't subject to this restriction at all) but was **declined** — swapping the escalation
+path's model family is a real design decision this ADR was built around (Claude Haiku 4.5
+specifically, priced and documented above), not a substitution to make silently to route around a
+billing constraint. **KAV-44 stays blocked, on purpose, rather than switching models under time
+pressure** — see the journal entry for the reasoning.
 
 ## Verification
 
