@@ -1,0 +1,8 @@
+Kaval ({{ .Release.Name }}) deployed.
+
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl port-forward svc/{{ include "kaval.fullname" . }}-gateway {{ .Values.gateway.port }}:{{ .Values.gateway.port }}
+  curl http://localhost:{{ .Values.gateway.port }}/healthz
+
+/healthz's "ollama" check will read unhealthy unless gateway.ollamaBaseUrl points at a
+reachable Ollama — expected in this chart version, see Lab 15.

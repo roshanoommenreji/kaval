@@ -18,6 +18,31 @@ buildx_url=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/late
 curl -fsSL -o "$plugins/docker-buildx" "$buildx_url"
 chmod +x "$plugins/docker-compose" "$plugins/docker-buildx"
 
+# ── k3d, kubectl, helm (Phase 3, Lab 15) — checksum-verified, same pattern as the opa/
+# gitleaks/Trivy downloads elsewhere in this repo, unlike the docker-compose/buildx plugins
+# above which trust "latest" with no checksum (an earlier gap, not repeated for new tools) ──
+K3D_VERSION=v5.9.0
+K3D_SHA256=03cde5cf23e6e8e67de5a039ecf26e5b85aca82fba3e5d13dadf904cd218a250
+curl -fsSLo /tmp/k3d "https://github.com/k3d-io/k3d/releases/download/$${K3D_VERSION}/k3d-linux-arm64"
+echo "$${K3D_SHA256}  /tmp/k3d" | sha256sum --check --strict
+install -m 0755 /tmp/k3d /usr/local/bin/k3d
+rm /tmp/k3d
+
+KUBECTL_VERSION=v1.37.1
+KUBECTL_SHA256=ff749f4b78d9c4f1ec87307df9b50119ed819e2094aa9810cb9acffc3286c8c7
+curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/$${KUBECTL_VERSION}/bin/linux/arm64/kubectl"
+echo "$${KUBECTL_SHA256}  /tmp/kubectl" | sha256sum --check --strict
+install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
+rm /tmp/kubectl
+
+HELM_VERSION=v4.3.0
+HELM_SHA256=31c5794dd55c66a51e6b7d2e2ac7a114ae8b1de41ff1d9ba51748ac973b06a08
+curl -fsSLo /tmp/helm.tgz "https://get.helm.sh/helm-$${HELM_VERSION}-linux-arm64.tar.gz"
+echo "$${HELM_SHA256}  /tmp/helm.tgz" | sha256sum --check --strict
+tar -xzf /tmp/helm.tgz -C /tmp linux-arm64/helm
+install -m 0755 /tmp/linux-arm64/helm /usr/local/bin/helm
+rm -rf /tmp/helm.tgz /tmp/linux-arm64
+
 # ── SSH, reachable only through the SSM tunnel (no inbound port is open) ──
 install -d -m 700 -o ec2-user -g ec2-user /home/ec2-user/.ssh
 echo "${ssh_public_key}" >> /home/ec2-user/.ssh/authorized_keys

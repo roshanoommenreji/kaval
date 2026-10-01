@@ -80,10 +80,10 @@ The hard, interesting part. Still no AWS.
 
 ---
 
-## Phase 3 — Kubernetes local · weeks 10–12 · `[ ]`
+## Phase 3 — Kubernetes local · weeks 10–12 · `[~]`
 
-- [ ] k3d cluster on the dev server
-- [ ] Helm umbrella chart, `local` values
+- [x] k3d cluster on the dev server ([ADR-0020](docs/adr/0020-the-helm-chart-and-the-local-k3d-environment.md), `KAV-46`)
+- [x] Helm umbrella chart, `local` values — Postgres, gateway, the correlate loop running continuously in real Kubernetes, verified live (`KAV-46`, Lab 15)
 - [ ] Real K8s events + Prometheus as signal sources
 - [ ] Executor with scoped RBAC — the privilege split made real
 - [ ] **Executor redacts `stdout` at write time** — prod must never store a secret (ADR-0005)

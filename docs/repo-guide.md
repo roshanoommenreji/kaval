@@ -73,7 +73,7 @@ are never edited by hand. If they disagree with the repo, the repo is right.
 |---|---|---|
 | `.claude/settings.json` | Which read-only commands (e.g. `terraform plan`, `kubectl get`) Claude Code may run without asking you each time | Working |
 | `.claude/skills/` | Project-specific Claude Code skills, e.g. a `cost-check` skill | Placeholder, no phase set |
-| `.github/workflows/ci.yml` | Runs on every pull request and on `main`: lint, tests against a real Postgres, migration checks, a secrets scan of the whole history, Terraform checks, and arm64 image builds scanned by Trivy. Builds, never publishes. Also checks every commit message a PR adds (`KAV-25`). A PR merges only when all of it is green ([ADR-0010](adr/0010-ci-pipeline-and-supply-chain.md), [Lab 06](labs/lab-06-ci-pipeline.md)) | Working (`KAV-24`) |
+| `.github/workflows/ci.yml` | Runs on every pull request and on `main`: lint, tests against a real Postgres, migration checks, a secrets scan of the whole history, Terraform checks, the Helm chart linted/rendered/schema-validated (kubeconform), and arm64 image builds scanned by Trivy. Builds, never publishes. Also checks every commit message a PR adds (`KAV-25`). A PR merges only when all of it is green — enforced by branch protection since the repo went public (`KAV-45`) ([ADR-0010](adr/0010-ci-pipeline-and-supply-chain.md), [Lab 06](labs/lab-06-ci-pipeline.md)) | Working (`KAV-24`, `KAV-46`) |
 | `.github/workflows/` (the rest) | `release.yml`, `promote.yml` and `rollback.yml` will move a build through staging to production | Placeholder, Phase 4 |
 | `.github/dependabot.yml` | Once a week, opens one pull request per kind of dependency (GitHub Actions, Python, Docker base images, Terraform) that has an update. Each goes through CI like any other change | Working (`KAV-24`) |
 
@@ -145,7 +145,7 @@ Run `make migrate` to bring a database up to date.
 | Path | What it is | Status |
 |---|---|---|
 | `infra/modules/budget/` | Budget alarms at $30 and $35, and a Lambda function that shuts compute down at $38 (raised from $18 / $22 / $24 with the $40 ceiling, ADR-0008). Built **before** anything that can cost money. `lambda/hard_stop.py` is that function. Today it **stops the dev server** (and any other `Project=kaval` server outside a server group), and it scales the Phase 4 group to zero once that exists | Working, applied and fired for real |
-| `infra/modules/devbox/` | The development server: a `t4g.medium` with **no open ports** (reached only through AWS Session Manager) that stops itself after an idle hour. `user_data.sh.tftpl` is its first-boot setup: Docker, your SSH key, the idle-stop timer | Working, applied in AWS (Lab 03) |
+| `infra/modules/devbox/` | The development server: a `t4g.medium` with **no open ports** (reached only through AWS Session Manager) that stops itself after an idle hour. `user_data.sh.tftpl` is its first-boot setup: Docker, `k3d`/`kubectl`/`helm` (checksum-verified, `KAV-46`), your SSH key, the idle-stop timer | Working, applied in AWS (Lab 03) |
 | `infra/modules/database/` | The production **database server**: its own `t4g.small`, a separate encrypted data volume, a firewall that only lets the app server in, daily snapshots and a snapshot before every stop ([ADR-0008](adr/0008-production-database-on-its-own-server.md)). Staging gets one from the same module | Placeholder, Phase 4 (`KAV-32`) |
 | `infra/modules/network/` | The VPC, subnets and firewall rules. No NAT Gateway, which alone would cost $32/month | Placeholder, Phase 4 |
 | `infra/modules/node/` | The single cheap `t4g.medium` spot server that runs k3s | Placeholder, Phase 4 |
@@ -164,8 +164,8 @@ Run `make migrate` to bring a database up to date.
 
 | Path | What it will do | Status |
 |---|---|---|
-| `deploy/charts/kaval/` | One Helm chart that describes how to run every Kaval service on Kubernetes | Placeholder, Phase 3 |
-| `deploy/environments/local/`, `staging/`, `prod/`, `lab-eks/` | One settings file per environment. **These are the only differences between environments.** The code and the chart are identical everywhere (ADR-0004) | Placeholder. Phase 3; `lab-eks` in Phase 8 |
+| `deploy/charts/kaval/` | One Helm chart. Deploys Postgres, the gateway and the agent's correlate loop to a real cluster; the executor and RBAC are the next Phase 3 stories ([ADR-0020](adr/0020-the-helm-chart-and-the-local-k3d-environment.md)). `helm lint`/`helm template` run through kubeconform in CI, on every environment that has a values file | Working — `local` (`KAV-46`, Lab 15) |
+| `deploy/environments/local/`, `staging/`, `prod/`, `lab-eks/` | One settings file per environment. **These are the only differences between environments.** The code and the chart are identical everywhere (ADR-0004) | `local` working (`KAV-46`); `staging`/`prod` in Phase 4; `lab-eks` in Phase 8 |
 | `deploy/gitops/` | Flux configuration. The cluster pulls its setup from Git and rebuilds itself if the server is lost | Placeholder, Phase 4 |
 
 ---
