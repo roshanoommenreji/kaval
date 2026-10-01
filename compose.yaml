@@ -155,6 +155,23 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  # One-shot: `make execute`. Builds and smoke-tests the image; this compose stack has no
+  # Kubernetes cluster for it to actually act against (k3d, deployed via Helm, does — Lab
+  # 16), so a real run here always finds nothing to execute, same shape as agent's `make
+  # correlate` against an empty signal table.
+  executor:
+    build:
+      context: .
+      dockerfile: services/executor/Dockerfile
+    image: kaval/executor:dev
+    platform: linux/arm64
+    profiles: [tools]
+    environment: *db-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
 volumes:
   pgdata:
   ollama-models:

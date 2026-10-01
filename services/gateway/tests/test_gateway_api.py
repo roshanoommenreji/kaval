@@ -41,8 +41,11 @@ NOW = datetime(2026, 9, 27, 12, 0, tzinfo=UTC)
 
 @pytest.fixture
 def client(db_session: Session) -> Iterator[TestClient]:
-    """The app, reading through the test's rolled-back session instead of its own."""
+    """The app, reading and writing through the test's rolled-back session instead of its
+    own — both `read_session` and `write_session` need overriding, since `decide()` (KAV-47)
+    uses the latter."""
     app.dependency_overrides[api.read_session] = lambda: db_session
+    app.dependency_overrides[api.write_session] = lambda: db_session
     try:
         yield TestClient(app)
     finally:
@@ -120,6 +123,23 @@ def test_one_signal_by_id_and_404_for_none(client: TestClient, db_session: Sessi
     assert missing.status_code == 404 and missing.json() == {"detail": "signal not found"}
 
 
+def _bare_action(db: Session, *, policy_class: PolicyClass = PolicyClass.ask) -> Action:
+    """One action with no decision yet — what `decide()` (KAV-47) acts on."""
+    (signal,) = _signals(db, f"test/{uuid.uuid4()}", [NOW])
+    incident = Incident(fingerprint=f"test-{uuid.uuid4()}", severity=Severity.high,
+                        opened_at=NOW, signals=[signal])
+    proposal = Proposal(incident=incident, summary="restart checkout",
+                        root_cause="memory limit too low", confidence=0.82,
+                        risk=RiskLevel.low, model="gemma3:1b-it-qat", tokens_in=900,
+                        tokens_out=120, cost_usd=Decimal("0.000000"))
+    action = Action(proposal=proposal, type="restart_pod", target=signal.target,
+                    params={}, reversible=True, blast_radius=BlastRadius.pod,
+                    policy_class=policy_class)
+    db.add_all([incident, proposal, action])
+    db.flush()
+    return action
+
+
 def _incident_with_timeline(db: Session) -> Incident:
     (signal,) = _signals(db, f"test/{uuid.uuid4()}", [NOW])
     incident = Incident(fingerprint=f"test-{uuid.uuid4()}", severity=Severity.high,
@@ -186,3 +206,67 @@ def test_the_database_refuses_writes_from_a_read_session(db_session: Session) ->
             ))
     finally:
         dependency.close()
+
+
+def test_decide_records_an_approval(client: TestClient, db_session: Session) -> None:
+    action = _bare_action(db_session)
+    resp = client.post(
+        f"/v1/actions/{action.id}/decisions",
+        json={"verdict": "approved", "actor": "roshan", "reason": "known-good runbook"},
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["verdict"] == "approved" and body["actor"] == "roshan"
+    db_session.refresh(action)
+    assert action.decision is not None and action.decision.verdict == Verdict.approved
+
+
+def test_decide_records_a_denial_with_no_reason_required(
+    client: TestClient, db_session: Session
+) -> None:
+    action = _bare_action(db_session)
+    resp = client.post(
+        f"/v1/actions/{action.id}/decisions", json={"verdict": "denied", "actor": "roshan"},
+    )
+    assert resp.status_code == 201 and resp.json()["reason"] is None
+
+
+def test_decide_refuses_a_second_decision_on_the_same_action(
+    client: TestClient, db_session: Session
+) -> None:
+    action = _bare_action(db_session)
+    first = client.post(f"/v1/actions/{action.id}/decisions",
+                        json={"verdict": "approved", "actor": "roshan"})
+    assert first.status_code == 201
+    second = client.post(f"/v1/actions/{action.id}/decisions",
+                         json={"verdict": "denied", "actor": "roshan"})
+    assert second.status_code == 409
+
+
+def test_decide_refuses_a_never_class_action_even_when_a_human_approves(
+    client: TestClient, db_session: Session
+) -> None:
+    action = _bare_action(db_session, policy_class=PolicyClass.never)
+    resp = client.post(f"/v1/actions/{action.id}/decisions",
+                       json={"verdict": "approved", "actor": "roshan"})
+    assert resp.status_code == 409
+    assert "never" in resp.json()["detail"]
+
+
+def test_decide_404_for_a_missing_action(client: TestClient) -> None:
+    resp = client.post(f"/v1/actions/{uuid.uuid4()}/decisions",
+                       json={"verdict": "approved", "actor": "roshan"})
+    assert resp.status_code == 404
+
+
+def test_decide_rejects_auto_approved_from_a_human(
+    client: TestClient, db_session: Session
+) -> None:
+    # auto_approved is a real Verdict value, but it's written only by the policy engine at
+    # proposal time (there is no code path that does that yet) — never through this
+    # human-facing endpoint. DecisionIn's Literal doesn't include it, so this is a 422,
+    # not a 201 that silently accepted it.
+    action = _bare_action(db_session)
+    resp = client.post(f"/v1/actions/{action.id}/decisions",
+                       json={"verdict": "auto_approved", "actor": "policy-engine"})
+    assert resp.status_code == 422

@@ -1,0 +1,110 @@
+# The only component that mutates anything (CLAUDE.md constraint 3, KAV-47). Everything
+# below exists to make that true structurally, not just in application code:
+#
+# - Its ServiceAccount lives in this release's own namespace ({{ .Release.Namespace }}), same
+#   as gateway/agent/postgres — but its Role is granted in a SEPARATE namespace
+#   (.Values.executor.demoNamespace, "kaval-demo" by default), bound with a RoleBinding, not
+#   a ClusterRoleBinding. The executor therefore has ZERO RBAC grant in its own release's
+#   namespace — it cannot touch the very postgres/gateway/agent pods it's deployed alongside,
+#   let alone kube-system. That's a stronger guarantee than "scoped to the app namespace"
+#   usually buys, and it falls directly out of Kaval's own namespace split, not an extra rule.
+# - The Role's rules are exactly the two verbs `kaval_executor.k8s.restart_pod` actually
+#   calls today — get, delete on pods. No list/watch (nothing enumerates or watches), no
+#   patch on deployments (no handler calls it yet, see ADR-00NN). RBAC grows in the same PR
+#   as the code that would use it, not ahead of it.
+# - `kubectl auth can-i delete pods --as=system:serviceaccount:{{ .Release.Namespace }}:
+#   {{ include "kaval.fullname" . }}-executor -n {{ .Release.Namespace }}` must say "no" —
+#   see Lab 16. That command, not this comment, is the actual proof.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.executor.demoNamespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kaval.fullname" . }}-executor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "kaval.fullname" . }}-executor
+  namespace: {{ .Values.executor.demoNamespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "kaval.fullname" . }}-executor
+  namespace: {{ .Values.executor.demoNamespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "kaval.fullname" . }}-executor
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kaval.fullname" . }}-executor
+    namespace: {{ .Release.Namespace }}
+---
+{{ $component := "executor" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaval.fullname" . }}-executor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+    {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "kaval.fullname" . }}-executor
+      automountServiceAccountToken: true
+      # The same race agent.yaml already found and fixed (Lab 15): execute_one's first pass
+      # can land before postgres is reachable, and the executor's --every loop doesn't retry
+      # a connection failure either, it exits.
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.postgres.image }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ include "kaval.fullname" . }}-postgres -p 5432; do
+                echo "waiting for postgres..."; sleep 2
+              done
+      containers:
+        - name: executor
+          image: "{{ .Values.executor.image.repository }}:{{ .Values.executor.image.tag }}"
+          imagePullPolicy: {{ .Values.executor.image.pullPolicy }}
+          args: ["--every", {{ .Values.executor.executeEverySeconds | quote }}]
+          envFrom:
+            - secretRef:
+                name: {{ include "kaval.fullname" . }}-postgres
+          env:
+            - name: POSTGRES_HOST
+              value: {{ include "kaval.fullname" . }}-postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+          resources:
+            {{- toYaml .Values.executor.resources | nindent 12 }}
