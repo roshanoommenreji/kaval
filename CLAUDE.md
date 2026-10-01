@@ -193,6 +193,10 @@ make jira EPIC=KAV-6   # an epic's stories and status
   recalling it. Prices and free-tier terms in particular change.
 - The `claude-api` skill is the authority on Bedrock/Anthropic model IDs and pricing. Use it
   rather than remembered figures.
+- **Plain-language recap at phase/story boundaries, unprompted.** When a story or a `ROADMAP.md`
+  phase finishes, and again right before starting the next one, give a short what/why/how recap
+  in plain language — no unexplained jargon, written for the gist rather than the implementation.
+  This is in addition to the ADR/lab/journal entries, which stay technical.
 
 ## Vault
 
