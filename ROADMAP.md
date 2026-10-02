@@ -84,7 +84,8 @@ The hard, interesting part. Still no AWS.
 
 - [x] k3d cluster on the dev server ([ADR-0020](docs/adr/0020-the-helm-chart-and-the-local-k3d-environment.md), `KAV-46`)
 - [x] Helm umbrella chart, `local` values — Postgres, gateway, the correlate loop running continuously in real Kubernetes, verified live (`KAV-46`, Lab 15)
-- [ ] Real K8s events + Prometheus as signal sources
+- [x] Real K8s events as a signal source — polled continuously, de-duplicated by count, proven live with a real unscripted pod failure ([ADR-0022](docs/adr/0022-real-kubernetes-events-as-signals.md), `KAV-48`, Lab 17)
+- [ ] Prometheus as a signal source *(deliberately deferred, ADR-0022 — a second real source, not bundled into `KAV-48`)*
 - [x] Executor with scoped RBAC — the privilege split made real, proven live with `kubectl auth can-i` ([ADR-0021](docs/adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md), `KAV-47`, Lab 16)
 - [x] **Executor redacts `stdout` at write time** — prod must never store a secret (ADR-0005, closed by `KAV-47`)
 - [ ] `arm64` multi-arch image builds *(Graviton is coming in Phase 4)*

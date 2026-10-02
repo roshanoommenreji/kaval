@@ -274,6 +274,10 @@ approve: ## Approve or deny one proposed action via the gateway (KAV-47, Phase-3
 execute: ## Run the executor one pass against the database in .env (KAV-47). Needs a reachable Kubernetes cluster — make dev-tunnel does not provide one; run this on the devbox or against k3d.
 	@python -m kaval_executor.executor
 
+.PHONY: watch-events
+watch-events: ## Poll real Kubernetes events into signal rows, one pass (KAV-48). Same cluster requirement as `make execute`.
+	@python -m kaval_collector.k8s_events $(if $(NAMESPACE),--namespace $(NAMESPACE),)
+
 .PHONY: jira-dashboards
 jira-dashboards: ## Create or update the Jira dashboards from scripts/tracking/jira-dashboards.toml
 	@python scripts/tracking/jira-dashboards.py

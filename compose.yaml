@@ -137,6 +137,23 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  # Builds and smoke-tests the image; this compose stack has no Kubernetes cluster for it
+  # to actually watch (k3d, deployed via Helm, does — Lab 17), so a real run here always
+  # finds nothing, same shape as executor's compose service.
+  watch-events:
+    build:
+      context: .
+      dockerfile: services/collector/Dockerfile
+    image: kaval/collector:dev
+    platform: linux/arm64
+    profiles: [tools]
+    environment: *db-env
+    entrypoint: ["python", "-m", "kaval_collector.k8s_events"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
   # One-shot, on demand only, like `signals`:
   #   make correlate
   # Groups the signals not yet in an incident into incident rows (KAV-39, ADR-0014). Not a

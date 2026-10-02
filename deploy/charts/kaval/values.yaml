@@ -66,3 +66,15 @@ executor:
   resources:
     requests: { cpu: 25m, memory: 32Mi }
     limits: { cpu: 100m, memory: 128Mi }
+
+collector:
+  image:
+    repository: kaval/collector
+    tag: dev
+    pullPolicy: IfNotPresent
+  # Seconds between event polls (kaval_collector.k8s_events' own --every flag). Short
+  # locally, same reasoning as agent.correlateEverySeconds and executor.executeEverySeconds.
+  watchEverySeconds: 15
+  resources:
+    requests: { cpu: 25m, memory: 32Mi }
+    limits: { cpu: 100m, memory: 128Mi }

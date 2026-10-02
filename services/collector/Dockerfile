@@ -1,23 +1,26 @@
 # syntax=docker/dockerfile:1
 #
-# Collector image. Phase 1 runs only the synthetic source in it, one-shot:
-#   make signals SCENARIO=oom-crashloop
+# Collector image. Two entrypoints live here:
+#   make signals SCENARIO=oom-crashloop         # fake incidents (Phase 1), one-shot
+#   python -m kaval_collector.k8s_events --every 15   # real K8s events (KAV-48), the
+#                                                       # Helm-deployed shape — overrides
+#                                                       # this image's default ENTRYPOINT
 # Build context is the REPO ROOT, like the gateway's (compose.yaml sets it), and the
 # root .dockerignore allowlist decides what leaves the laptop.
 #
-# One pyproject.toml covers every service, so the wheel carries all the service packages,
-# but this image installs only the core dependencies: no FastAPI, no uvicorn. The
-# collector's attack surface is its own code plus SQLAlchemy and psycopg.
+# One pyproject.toml covers every service, so the wheel carries all the service packages.
+# This image installs core deps plus its own `collector` extra (the Kubernetes client,
+# KAV-48) — but still no FastAPI, no uvicorn, no Anthropic/Bedrock client.
 #
 # linux/arm64 always (CLAUDE.md constraint 2). Base images pinned by digest (KAV-24).
 
-# ── Stage 1: uv.lock → hash-pinned requirements (core dependencies only) ─────
+# ── Stage 1: uv.lock → hash-pinned requirements, core deps + the collector extra only ──────
 FROM ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 AS uv
 FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637cecc392d97f980d4fec56b AS lock
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
 COPY pyproject.toml uv.lock ./
-RUN uv export --frozen --no-dev --no-emit-project -o /requirements.txt
+RUN uv export --frozen --no-dev --no-emit-project --extra collector -o /requirements.txt
 
 # ── Stage 2: the runtime image ──────────────────────────────────────────────
 FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637cecc392d97f980d4fec56b
