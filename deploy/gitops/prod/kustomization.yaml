@@ -7,3 +7,4 @@ resources:
   - namespace.yaml
   - source.yaml
   - helmrelease.yaml
+  - sync.yaml

@@ -23,6 +23,13 @@ spec:
       sourceRef:
         kind: GitRepository
         name: kaval
+      # Default is ChartVersion, which only repackages when Chart.yaml's own `version:`
+      # field changes (source-controller's own documented warning) — useless for a
+      # GitOps chart whose version nobody bumps by hand on every commit. Revision
+      # repackages whenever the GitRepository's revision changes instead (found live,
+      # KAV-51: without this, a real template fix merged to main sat un-reconciled
+      # indefinitely, Flux silently retrying the stale, pre-fix artifact).
+      reconcileStrategy: Revision
       valuesFiles:
         - ./deploy/environments/prod/values.yaml
   valuesFrom:

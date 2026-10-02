@@ -140,6 +140,27 @@ version to `0.1.0+1` and confirming `helm template` renders `kaval-0.1.0_1`, not
 the fix — a label that happens to work once, from one real value, is not the same as knowing
 the substitution is correct for every version string this project will ever use.
 
+## Decision 7: a Kustomization, not just a one-time apply, actually watches the directory
+
+Found live, immediately after Decision 6's fix merged: `GitRepository` picked up the new
+commit, but `HelmRelease` kept failing with the *identical, pre-fix* error. The reason wasn't
+the label fix itself — it was that `HelmChart`'s default `reconcileStrategy` (`ChartVersion`)
+only repackages the chart when `Chart.yaml`'s own `version:` field changes, not merely because
+the underlying files did (source-controller's own documented warning, read and missed the
+first time). Fixing *that* (`reconcileStrategy: Revision`) exposed the deeper gap: cloud-init's
+`kaval-gitops-bootstrap` script only ever `kubectl apply`s `namespace.yaml`/`source.yaml`/
+`helmrelease.yaml` **once**, at boot (and every 6h via the credential-refresh timer, which
+re-applies them as a side effect, but still only on that schedule). Nothing was actually
+watching `deploy/gitops/prod/` for changes between those points — so this very fix would have
+sat un-applied on the already-running node for up to 6 hours, which is not "reconciles itself
+from Git" in any meaningful sense.
+
+A Flux `Kustomization` (`kustomize-controller`, `sync.yaml`) closes the gap properly: it
+watches the same `GitRepository`, on its own 1-minute interval, and reconciles the whole
+directory — including its own definition and `helmrelease.yaml`'s `reconcileStrategy` field,
+had cloud-init not already set it. It deliberately does **not** manage `kaval-registry`/
+`ecr-cred`: those are never committed (Decision 1), so they stay the bootstrap script's job.
+
 ## Consequences
 
 - A spot reclamation today reaches the state this story set out to prove: a fresh node boots,

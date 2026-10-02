@@ -172,6 +172,9 @@ unset ECR_PASSWORD AUTH_B64 DOCKERCONFIGJSON_B64
 
 curl -fsSL "$RAW/source.yaml" | kubectl apply -f -
 curl -fsSL "$RAW/helmrelease.yaml" | kubectl apply -f -
+# From here, kustomize-controller's own Kustomization (sync.yaml) takes over watching this
+# whole directory from Git on its own interval — this script only has to seed it once.
+curl -fsSL "$RAW/sync.yaml" | kubectl apply -f -
 SCRIPT
 chmod +x /usr/local/sbin/kaval-gitops-bootstrap
 /usr/local/sbin/kaval-gitops-bootstrap
