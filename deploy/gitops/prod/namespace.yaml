@@ -1,0 +1,7 @@
+# The release's own namespace — separate from flux-system, where the GitRepository and
+# HelmRelease objects below live (KAV-51). Same split every other environment's Helm
+# release already uses.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kaval-prod

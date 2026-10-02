@@ -1,13 +1,20 @@
-# Phase 3 (KAV-49): rehearsed as a second Helm release — `kaval-prod` — in its own
-# namespace, in the SAME k3d cluster `local` and `staging` already run in. Not yet the real
-# `t4g.medium` node ADR-0004 describes; that arrives in Phase 4, and this file gets a real
-# secret-store-sourced password then, per docs/adr/0008. See
-# docs/adr/0023-promotion-rehearsal-on-k3d.md for the scope of this rehearsal.
+# KAV-50 (ADR-0024) put this on the real `t4g.medium` node, live on AWS. KAV-51
+# (ADR-0025) is what actually deploys onto it: Flux reconciles this values file from Git
+# (deploy/gitops/prod/helmrelease.yaml), merging in the real ECR registry at reconcile
+# time — that hostname is never committed here, see deploy/charts/kaval/values.yaml's
+# global.imageRegistry comment and ADR-0025. See docs/adr/0023-promotion-rehearsal-on-k3d.md
+# for the k3d rehearsal this superseded.
 #
-# Plain dev credentials for now — same posture as local/staging. A different value than
-# either of theirs, same reasoning as staging/values.yaml.
+# Still a plain dev password (SSM Parameter Store, ADR-0008, is Phase 4's DB-server story,
+# KAV-32 — not yet built).
 postgres:
   password: kaval-prod-dev
+
+global:
+  # The registry itself (the AWS account ID) is injected by Flux's HelmRelease, never
+  # committed here — see deploy/gitops/prod/helmrelease.yaml. Only the Secret's *name* is
+  # a repo fact, not a secret.
+  imagePullSecretName: ecr-cred
 
 gateway:
   # The one deliberate difference from staging that isn't just a namespace or a password:
@@ -15,13 +22,25 @@ gateway:
   # values" true but untested — this is the value that actually needs two running pods to
   # roll out without a gap, which is what a rollout (and a rollback) actually exercises.
   replicas: 2
+  image:
+    # Build once, promote the artifact (ADR-0004): the digest tagged `sha-ffb436b` is the
+    # one commit this story manually built and pushed to ECR (KAV-51, ADR-0025) — a
+    # one-time bootstrap push, not a rebuild. release.yml (still unbuilt, later in this
+    # phase) is what tags and pushes every future commit automatically.
+    tag: sha-ffb436b
 
 agent:
   correlateEverySeconds: 60
+  image:
+    tag: sha-ffb436b
 
 executor:
   demoNamespace: kaval-demo-prod
   executeEverySeconds: 30
+  image:
+    tag: sha-ffb436b
 
 collector:
   watchEverySeconds: 30
+  image:
+    tag: sha-ffb436b

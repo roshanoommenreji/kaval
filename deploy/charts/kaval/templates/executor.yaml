@@ -78,6 +78,7 @@ spec:
       labels:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
     spec:
+      {{- include "kaval.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ include "kaval.fullname" . }}-executor
       automountServiceAccountToken: true
       # The same race agent.yaml already found and fixed (Lab 15): execute_one's first pass
@@ -95,7 +96,7 @@ spec:
               done
       containers:
         - name: executor
-          image: "{{ .Values.executor.image.repository }}:{{ .Values.executor.image.tag }}"
+          image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.executor.image.repository "tag" .Values.executor.image.tag) }}"
           imagePullPolicy: {{ .Values.executor.image.pullPolicy }}
           args: ["--every", {{ .Values.executor.executeEverySeconds | quote }}]
           envFrom:

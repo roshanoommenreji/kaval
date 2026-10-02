@@ -88,7 +88,7 @@ The hard, interesting part. Still no AWS.
 - [ ] Prometheus as a signal source *(deliberately deferred, ADR-0022 — a second real source, not bundled into `KAV-48`)*
 - [x] Executor with scoped RBAC — the privilege split made real, proven live with `kubectl auth can-i` ([ADR-0021](docs/adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md), `KAV-47`, Lab 16)
 - [x] **Executor redacts `stdout` at write time** — prod must never store a secret (ADR-0005, closed by `KAV-47`)
-- [ ] `arm64` multi-arch image builds *(Graviton is coming in Phase 4)*
+- [x] `arm64` multi-arch image builds — CI already built and Trivy-scanned these natively on every PR; this phase's hardware is what proved it end-to-end: the first real images, pushed to ECR and running on the real Graviton node (`KAV-51`, [ADR-0025](docs/adr/0025-flux-gitops-and-ecr-bootstrap.md), Lab 20)
 - [x] Split values: `deploy/environments/staging` and `prod`, each pinning image digests — rehearsed as two Helm releases on the local k3d cluster, not yet the real second AWS cluster ([ADR-0023](docs/adr/0023-promotion-rehearsal-on-k3d.md), `KAV-49`, Lab 18)
 - [x] Promotion mechanics rehearsed on k3d — deploy staging, gate, deploy prod — proven live with a byte-for-byte image-digest match between the two releases (`KAV-49`, Lab 18)
 - [x] **First rollback drill, timed** — `helm rollback`, record time-to-restore — 1.49s, with the honest finding that Kubernetes' own rollout default, not the rollback, was what kept the service up (`KAV-49`, Lab 18)
@@ -104,7 +104,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 
 - [x] Terraform: network, spot node, ECR, IAM — live, `kubectl get nodes` reports `Ready` over the real SSM-tunnelled SSH path ([ADR-0024](docs/adr/0024-prod-landing-network-ecr-iam-node.md), `KAV-50`, Lab 19)
 - [x] k3s bootstrap via cloud-init — checksum-verified binary, not the unauthenticated `curl | sh` installer (`KAV-50`, Lab 19)
-- [ ] Flux GitOps reconciliation
+- [x] Flux GitOps reconciliation — installed via checksum-verified binary in cloud-init, bootstrapped against this repo's own `main`; a replacement node (spot reclamation) now reconciles itself, which is the Phase 4 exit gate (`KAV-51`, [ADR-0025](docs/adr/0025-flux-gitops-and-ecr-bootstrap.md), Lab 20)
 - [ ] Cloudflare Tunnel — no ALB, no NAT Gateway
 - [ ] **Database server** — `infra/modules/database` ([ADR-0008](docs/adr/0008-production-database-on-its-own-server.md), `KAV-32`): `t4g.small` on-demand, separate encrypted 20 GB data volume (`prevent_destroy`), security group allowing 5432 only from the app node, SSM only (no SSH), termination protection, Postgres TLS, passwords in SSM Parameter Store, per-service roles, graceful shutdown (`stop_grace_period: 60s`)
 - [ ] DB backups — DLM daily EBS snapshots (keep 7) + nightly dump to S3 (`scripts/ops/backup.sh`, RPO 24 h)

@@ -1,0 +1,38 @@
+# The prod release itself (KAV-51, ADR-0025). `chart.spec.valuesFiles` paths are relative
+# to the GitRepository root (source-controller's own documented behaviour), matching the
+# repo-relative path to the file every other environment already uses.
+#
+# The ECR registry hostname is never committed — it embeds the AWS account ID (CLAUDE.md:
+# no real account IDs in git). It's injected here at reconcile time from a ConfigMap the
+# node's own cloud-init creates from its instance identity document
+# (infra/modules/node/user_data.sh.tftpl), merged into global.imageRegistry by
+# valuesFrom/targetPath below — see deploy/charts/kaval/values.yaml and
+# deploy/charts/kaval/templates/_helpers.tpl's "kaval.image".
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kaval-prod
+  namespace: flux-system
+spec:
+  interval: 1m
+  releaseName: kaval-prod
+  targetNamespace: kaval-prod
+  chart:
+    spec:
+      chart: ./deploy/charts/kaval
+      sourceRef:
+        kind: GitRepository
+        name: kaval
+      valuesFiles:
+        - ./deploy/environments/prod/values.yaml
+  valuesFrom:
+    - kind: ConfigMap
+      name: kaval-registry
+      valuesKey: registry
+      targetPath: global.imageRegistry
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3

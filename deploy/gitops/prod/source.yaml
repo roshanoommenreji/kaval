@@ -1,0 +1,16 @@
+# Flux's source for this whole repository (KAV-51, ADR-0025). The repo is public, so this
+# is an anonymous HTTPS clone — no deploy key or token, same access anyone cloning it has.
+# `interval: 1m` is how often source-controller checks `main` for a new commit; it's also
+# the real test of the Phase 4 exit gate ("terminate the node; it rebuilds itself from Git
+# in under 5 minutes") — the node's cloud-init re-applies this file on every boot, so a
+# spot-reclaimed replacement node re-registers the same source without any manual step.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: kaval
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/roshanoommenreji/kaval
+  ref:
+    branch: main

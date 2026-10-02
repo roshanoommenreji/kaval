@@ -22,3 +22,33 @@ helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/component: {{ .component }}
 {{- end -}}
+
+{{/*
+Full image reference, with the registry a GitOps environment injects at reconcile time
+prepended when set (KAV-51). `global.imageRegistry` stays empty for local/k3d, where
+`repository` alone (e.g. "kaval/gateway") already resolves against the node's own image
+store — no registry ever gets committed here, because an ECR registry hostname embeds the
+AWS account ID (CLAUDE.md: no real account IDs in git); prod's Flux HelmRelease merges it
+in from a ConfigMap the node's cloud-init writes from its own instance identity document.
+Call as: {{ include "kaval.image" (dict "root" $ "repository" .Values.gateway.image.repository "tag" .Values.gateway.image.tag) }}
+*/}}
+{{- define "kaval.image" -}}
+{{- if .root.Values.global.imageRegistry -}}
+{{- .root.Values.global.imageRegistry }}/{{ .repository }}:{{ .tag -}}
+{{- else -}}
+{{- .repository }}:{{ .tag -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Pod-level imagePullSecrets, only when global.imagePullSecretName is set (KAV-51). Empty
+for local/k3d, where images are loaded directly and nothing is ever pulled from a registry
+that needs auth; prod's HelmRelease merges the name in the same way it merges
+global.imageRegistry. Call as: {{- include "kaval.imagePullSecrets" . | nindent 6 }}
+*/}}
+{{- define "kaval.imagePullSecrets" -}}
+{{- if .Values.global.imagePullSecretName }}
+imagePullSecrets:
+  - name: {{ .Values.global.imagePullSecretName }}
+{{- end -}}
+{{- end -}}

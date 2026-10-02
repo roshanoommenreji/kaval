@@ -98,3 +98,81 @@ ClientAliveInterval 30
 ClientAliveCountMax 3
 CONF
 systemctl reload sshd
+
+# ── Flux, checksum-verified (KAV-51) — same reasoning as k3s/kubectl/helm above. `flux
+# install` only (not `flux bootstrap`, which commits a flux-system manifest straight to
+# `main` and would bypass the PR-required branch protection, CLAUDE.md) — it applies the
+# controllers' own manifests, embedded in the binary, with no extra network fetch. ──────
+FLUX_VERSION="${flux_version}"
+FLUX_SHA256="${flux_sha256_arm64}"
+curl -fsSLo /tmp/flux.tar.gz \
+  "https://github.com/fluxcd/flux2/releases/download/v$${FLUX_VERSION}/flux_$${FLUX_VERSION}_linux_arm64.tar.gz"
+echo "$${FLUX_SHA256}  /tmp/flux.tar.gz" | sha256sum --check --strict
+tar -xzf /tmp/flux.tar.gz -C /tmp flux
+install -m 0755 /tmp/flux /usr/local/bin/flux
+rm -f /tmp/flux.tar.gz /tmp/flux
+
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+flux install
+
+# This node has no EKS-style credential provider for ECR (ADR-0024's IAM-scoping decision:
+# per-workload AWS identity is Phase 7/8 IRSA territory, not this story). So two things get
+# refreshed from the node's own instance role instead of committed to Git: the registry
+# hostname itself (it embeds the AWS account ID — CLAUDE.md forbids that in any committed
+# file) and an ECR login token (ecr:GetAuthorizationToken tokens expire every 12h). Both
+# are consumed by deploy/gitops/prod/helmrelease.yaml's valuesFrom (the ConfigMap) and the
+# chart's imagePullSecrets (the Secret) — see deploy/charts/kaval/values.yaml.
+cat > /usr/local/sbin/kaval-gitops-bootstrap <<'SCRIPT'
+#!/bin/bash
+set -euxo pipefail
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+REGION=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
+ACCOUNT=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/dynamic/instance-identity/document \
+  | sed -n 's/.*"accountId" *: *"\([0-9]\+\)".*/\1/p')
+REGISTRY="$ACCOUNT.dkr.ecr.$REGION.amazonaws.com"
+
+# The repo's own bootstrap manifests. Flux's own GitRepository (applied below, once) takes
+# over all reconciliation of these same files from here on — this apply only has to run
+# again if the node itself is replaced (spot reclamation), which is the self-healing
+# property the Phase 4 exit gate tests.
+RAW="https://raw.githubusercontent.com/roshanoommenreji/kaval/main/deploy/gitops/prod"
+curl -fsSL "$RAW/namespace.yaml" | kubectl apply -f -
+
+kubectl create configmap kaval-registry --from-literal=registry="$REGISTRY" \
+  -n flux-system --dry-run=client -o yaml | kubectl apply -f -
+
+ECR_PASSWORD=$(aws ecr get-login-password --region "$REGION")
+kubectl create secret docker-registry ecr-cred \
+  --docker-server="$REGISTRY" --docker-username=AWS --docker-password="$ECR_PASSWORD" \
+  -n kaval-prod --dry-run=client -o yaml | kubectl apply -f -
+
+curl -fsSL "$RAW/source.yaml" | kubectl apply -f -
+curl -fsSL "$RAW/helmrelease.yaml" | kubectl apply -f -
+SCRIPT
+chmod +x /usr/local/sbin/kaval-gitops-bootstrap
+/usr/local/sbin/kaval-gitops-bootstrap
+
+# Refreshed well inside the 12h ECR token lifetime, so a long-running node never drifts
+# into a stale credential between reconciles.
+cat > /etc/systemd/system/kaval-gitops-bootstrap.service <<'UNIT'
+[Unit]
+Description=Refresh Kaval's GitOps bootstrap (ECR credential + registry ConfigMap)
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kaval-gitops-bootstrap
+UNIT
+
+cat > /etc/systemd/system/kaval-gitops-bootstrap.timer <<'UNIT'
+[Unit]
+Description=Run the Kaval GitOps bootstrap refresh every 6 hours
+[Timer]
+OnBootSec=6h
+OnUnitActiveSec=6h
+[Install]
+WantedBy=timers.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now kaval-gitops-bootstrap.timer

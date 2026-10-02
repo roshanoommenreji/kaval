@@ -65,6 +65,7 @@ spec:
       labels:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
     spec:
+      {{- include "kaval.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ include "kaval.fullname" . }}-collector
       automountServiceAccountToken: true
       # The same race agent.yaml and executor.yaml already found and fixed (Lab 15, Lab 16):
@@ -81,7 +82,7 @@ spec:
               done
       containers:
         - name: collector
-          image: "{{ .Values.collector.image.repository }}:{{ .Values.collector.image.tag }}"
+          image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.collector.image.repository "tag" .Values.collector.image.tag) }}"
           imagePullPolicy: {{ .Values.collector.image.pullPolicy }}
           # Overrides the image's default ENTRYPOINT (kaval_collector.synthetic, the
           # one-shot fake-incident generator) — this Deployment runs the real watcher.

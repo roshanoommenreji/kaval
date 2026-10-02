@@ -4,6 +4,19 @@
 
 nameOverride: ""
 
+global:
+  # Prefixed onto every service's image.repository when set (see _helpers.tpl's
+  # "kaval.image"). Empty for local/k3d, where the bare repository name already resolves.
+  # Prod's Flux HelmRelease injects the real ECR registry here via valuesFrom/targetPath —
+  # never committed, since that hostname embeds the AWS account ID (KAV-51).
+  imageRegistry: ""
+  # Name of a pre-existing docker-registry Secret, in this release's own namespace, to
+  # pull with. Empty for local/k3d (above). Prod's Flux HelmRelease sets it to "ecr-cred" —
+  # a Secret the node's cloud-init keeps refreshed from the node's own IAM role, since ECR
+  # login tokens expire every 12h and this node has no EKS-style credential provider
+  # (KAV-51; that lands with IRSA in Phase 7/8, per ADR-0024's IAM scoping decision).
+  imagePullSecretName: ""
+
 postgres:
   image: pgvector/pgvector:pg16
   storage: 2Gi
