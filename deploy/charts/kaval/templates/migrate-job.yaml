@@ -27,6 +27,7 @@ spec:
       labels:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" "migrate") | nindent 8 }}
     spec:
+      {{- include "kaval.imagePullSecrets" . | nindent 6 }}
       restartPolicy: Never
       initContainers:
         - name: wait-for-postgres
@@ -40,7 +41,7 @@ spec:
               done
       containers:
         - name: migrate
-          image: "{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag }}"
+          image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.gateway.image.repository "tag" .Values.gateway.image.tag) }}"
           imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
           command: ["alembic", "upgrade", "head"]
           envFrom:

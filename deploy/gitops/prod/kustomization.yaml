@@ -1,0 +1,9 @@
+# Not consumed by the node's cloud-init (which applies each file directly, by URL, since
+# `kubectl apply -k` against a remote git target has its own quirks) — this exists so the
+# set is a single, lintable unit for anyone reading or applying it by hand.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - source.yaml
+  - helmrelease.yaml

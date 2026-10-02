@@ -285,7 +285,7 @@ row = 8
 credentials = "instance role"
 inputs = ["cloud-init user data", "Container images from ECR"]
 outputs = ["A k3s cluster, rebuilt from Git in under 5 minutes"]
-note = "ARM/Graviton — every image must be linux/arm64 or it fails at runtime with exec format error. ~$8/month on spot (verified live, ap-south-1b) against ~$24 on-demand. AWS may reclaim it with two minutes' notice, which chaos-tests the rebuild path continuously and for free. Live since KAV-50 (ADR-0024): ASG-managed, k3s, verified Ready over SSH through an SSM tunnel — Flux and the Cloudflare Tunnel are still separate follow-on stories, so a reclamation today means a manual redeploy, not yet a self-heal."
+note = "ARM/Graviton — every image must be linux/arm64 or it fails at runtime with exec format error. ~$8/month on spot (verified live) against ~$24 on-demand. AWS may reclaim it with two minutes' notice, which chaos-tests the rebuild path continuously and for free — the ASG spans all three ap-south-1 AZs (KAV-51), since two different AZs each ran out of t4g.medium spot capacity within one day. Live since KAV-50 (ADR-0024): ASG-managed, k3s, verified Ready over SSH through an SSM tunnel. Flux now closes the loop (KAV-51, ADR-0025): cloud-init bootstraps it against this repo's own main, so a reclamation really does rebuild and redeploy itself — a self-heal, not a manual redeploy. The Cloudflare Tunnel is still a separate follow-on story."
 
 [[system.node]]
 id = "db-host"
@@ -319,9 +319,9 @@ phase = 4
 col = 2
 row = 8
 credentials = "IAM-authenticated pull"
-inputs = ["arm64 images pushed by CI"]
+inputs = ["arm64 images, built once and tagged by commit SHA"]
 outputs = ["Images pulled by the node"]
-note = "First 500 MB free. Four repos live since KAV-50: kaval/gateway, kaval/agent, kaval/executor, kaval/collector, immutable tags."
+note = "First 500 MB free. Four repos live since KAV-50: kaval/gateway, kaval/agent, kaval/executor, kaval/collector, immutable tags. First real images pushed KAV-51 — a one-time manual bootstrap (release.yml, still unbuilt, automates this later); the node pulls them using a registry/credential pair its own cloud-init refreshes from its IAM role, never committed (ADR-0025)."
 
 [[system.node]]
 id = "s3"

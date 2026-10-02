@@ -60,7 +60,7 @@ indefinitely and resumes without loss.
 
 | Item | $/mo |
 |---|---|
-| `t4g.medium` spot, 730 hrs, **verified live 2026-10-02** (ap-south-1b, `KAV-50`) at $0.0103–0.0109/hr, not the original estimate | ~7.8 |
+| `t4g.medium` spot, 730 hrs, **verified live 2026-10-02** (ap-south-1b at the time, `KAV-50`) at $0.0103–0.0109/hr, not the original estimate — the ASG now spans all three `ap-south-1` AZs (`KAV-51`), since spot capacity ran out in two different ones within the same day; the rate doesn't vary meaningfully by AZ | ~7.8 |
 | EBS gp3, 20 GB | 1.82 |
 | Public IPv4 ($0.005/hr) | 3.65 |
 | ECR storage, four repos (`KAV-50`) | 0.20 |

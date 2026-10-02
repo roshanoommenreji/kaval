@@ -3,10 +3,11 @@
 # capacity can be reclaimed with two minutes' notice — the ASG's job is to replace it
 # without anyone paged. See docs/cost/budget-plan.md for the spot math.
 #
-# What this story does NOT yet give the replacement instance: the Helm releases back.
-# Nothing here is GitOps-managed yet (Flux arrives in a follow-on Phase 4 story), so a
-# reclamation today means a fresh, empty k3s — `helm upgrade --install` has to be re-run
-# by hand. Documented in docs/labs/lab-19-aws-landing.md, not hidden.
+# A replacement instance now gets the Helm release back on its own: cloud-init installs
+# Flux and bootstraps it against this repo (KAV-51, ADR-0025), so a reclamation today
+# means a fresh k3s that reconciles itself to the last commit on `main` within Flux's own
+# poll interval — the self-healing property the Phase 4 exit gate tests. See
+# docs/labs/lab-19-aws-landing.md and docs/labs/lab-20-flux-gitops.md.
 
 terraform {
   required_providers {
@@ -69,9 +70,11 @@ resource "aws_launch_template" "node" {
   }
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh.tftpl", {
-    ssh_public_key   = var.ssh_public_key
-    k3s_version      = var.k3s_version
-    k3s_sha256_arm64 = var.k3s_sha256_arm64
+    ssh_public_key    = var.ssh_public_key
+    k3s_version       = var.k3s_version
+    k3s_sha256_arm64  = var.k3s_sha256_arm64
+    flux_version      = var.flux_version
+    flux_sha256_arm64 = var.flux_sha256_arm64
   }))
 
   tag_specifications {
@@ -90,7 +93,7 @@ resource "aws_autoscaling_group" "node" {
   min_size            = 1
   max_size            = 1
   desired_capacity    = 1
-  vpc_zone_identifier = [var.subnet_id]
+  vpc_zone_identifier = var.subnet_ids
   health_check_type   = "EC2" # no load balancer target to check against
 
   launch_template {

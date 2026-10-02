@@ -83,7 +83,7 @@ module "node" {
   source = "../../modules/node"
 
   vpc_id                = module.network.vpc_id
-  subnet_id             = module.network.public_subnet_id
+  subnet_ids            = module.network.public_subnet_ids
   instance_profile_name = module.iam.instance_profile_name
   ssh_public_key        = var.ssh_public_key
   # instance_type, disk_gb, k3s_version, k3s_sha256_arm64 keep their module defaults.

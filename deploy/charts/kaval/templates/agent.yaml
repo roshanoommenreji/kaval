@@ -25,6 +25,7 @@ spec:
       labels:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
     spec:
+      {{- include "kaval.imagePullSecrets" . | nindent 6 }}
       automountServiceAccountToken: false
       # Found live on the first real install (Lab 15): without this, the agent crashed on its
       # first tick racing postgres's own startup — correlate.py's --every loop doesn't catch a
@@ -44,7 +45,7 @@ spec:
               done
       containers:
         - name: agent
-          image: "{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag }}"
+          image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.agent.image.repository "tag" .Values.agent.image.tag) }}"
           imagePullPolicy: {{ .Values.agent.image.pullPolicy }}
           args: ["--every", {{ .Values.agent.correlateEverySeconds | quote }}]
           envFrom:

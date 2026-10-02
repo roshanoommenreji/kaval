@@ -1,0 +1,118 @@
+# ADR-0025: Flux GitOps reconciliation, and the ECR bootstrap it needed
+
+**Status:** Accepted — built, deployed, verified live
+**Date:** 2026-10-02
+**Related:** [ADR-0004](0004-environment-strategy-and-promotion.md) (build once, promote the
+artifact), [ADR-0024](0024-prod-landing-network-ecr-iam-node.md) (the node this installs
+onto, and the IAM-scoping decision this ADR builds on), `KAV-51`, Lab 20
+
+## Context
+
+KAV-50 landed a real node on AWS, but nothing was deployed onto it — `main.tf`'s own header
+comment called this out: a spot reclamation would produce a fresh, empty k3s, with
+`helm upgrade --install` needing to be re-run by hand. That's not the self-healing property
+Phase 4's exit gate actually tests ("terminate the node by hand; it rebuilds itself from Git
+in under 5 minutes"). This story closes that gap with Flux.
+
+Doing that honestly surfaced two problems that had to be solved first, not glossed over:
+
+1. **Nothing was in ECR yet.** CI builds and Trivy-scans real arm64 images on every PR
+   (`images` job, `ci.yml`) but deliberately never pushes — that's `release.yml`'s job, and
+   `release.yml` doesn't exist yet (it's later in Phase 4's own task list). Flux needs
+   something real to pull, so this story did a one-time manual build+push — the same
+   `sha-<short>` tagging `release.yml` will automate later, not a different scheme.
+2. **An ECR registry hostname embeds the AWS account ID.** CLAUDE.md forbids a real account
+   ID in any committed file. A GitOps values file is, by definition, committed. Those two
+   facts are in direct tension, and the resolution below is the actual substance of this ADR.
+
+## Decision 1: the registry and the ECR credential never reach Git
+
+Two things Flux's `HelmRelease` needs are both derived from the node's own identity at
+reconcile time, from a `ConfigMap` and a `Secret` the node's cloud-init creates — never from a
+committed value:
+
+| What | Where it lives | How it's derived | Why it can't be committed |
+|---|---|---|---|
+| Registry hostname | `ConfigMap/kaval-registry` (`flux-system`) | `$ACCOUNT.dkr.ecr.$REGION.amazonaws.com`, read from the node's own IMDSv2 instance identity document | Embeds the AWS account ID |
+| ECR login token | `Secret/ecr-cred` (`kaval-prod`, `docker-registry` type) | `aws ecr get-login-password`, using the node's own IAM role (already scoped to the four repos by ADR-0024) | Expires every 12h — committing one would be committing a credential that's already stale |
+
+The `HelmRelease` merges the registry in via `valuesFrom`/`targetPath` into a new chart value,
+`global.imageRegistry` (empty for local/k3d, where images are loaded directly and nothing is
+ever pulled from a registry that needs auth):
+
+```yaml
+valuesFrom:
+  - kind: ConfigMap
+    name: kaval-registry
+    valuesKey: registry
+    targetPath: global.imageRegistry
+```
+
+A new Helm helper, `kaval.image` (`deploy/charts/kaval/templates/_helpers.tpl`), prepends it
+onto every service's `image.repository` when set; `global.imagePullSecretName` (set to
+`ecr-cred` only in prod's `values.yaml` — the Secret's *name* is a repo fact, not a secret)
+adds `imagePullSecrets` to every Deployment/Job's pod spec the same way.
+
+**The alternative considered and rejected:** `flux bootstrap github`, the usual one-command
+Flux setup. It commits a `flux-system` manifest straight to `main` on your behalf — which
+would both bypass the PR-required branch protection this repo has enforced since `KAV-24`,
+and give Flux's own tooling write access to the repo, neither of which this project does
+casually. Cloud-init instead runs plain `flux install` (controllers only, manifests embedded
+in the binary) and applies the `GitRepository`/`HelmRelease` objects directly from
+`deploy/gitops/prod/`, authored and reviewed through a normal PR like everything else.
+
+## Decision 2: a refreshed Secret, not an EKS-style credential provider
+
+The idiomatic way for a *self-managed* Kubernetes node to authenticate to ECR without a
+refresh loop is the kubelet image credential provider plugin
+(`kubernetes/cloud-provider-aws`'s `ecr-credential-provider`) — the mechanism EKS's own
+optimized AMIs use internally. This project doesn't use it, deliberately: ADR-0024 already
+decided that a per-workload AWS identity (IRSA or equivalent) is Phase 7/8 scope, because
+self-managed k3s has no IRSA equivalent and nothing yet calls AWS write APIs directly. Pulling
+in a credential-provider binary now, with no prebuilt checksummed release artifact readily
+available for it, would be solving a Phase 7/8 problem two phases early.
+
+Instead: a systemd timer (`kaval-gitops-bootstrap.timer`, every 6h — comfortably inside the
+12h ECR token lifetime) re-runs the same script cloud-init runs at boot, refreshing both the
+`ecr-cred` Secret and the `kaval-registry` ConfigMap from the node's own role. Documented
+honestly as the interim answer, not the final one.
+
+## Decision 3: the network spans three AZs, not one
+
+Unrelated to Flux on paper, found while bringing the node back up for this story: AWS refused
+`t4g.medium` spot capacity in `ap-south-1a` at KAV-50's apply (2026-10-02), so that story
+pinned `ap-south-1b` as the default. This story's own apply then hit the identical error
+*in `ap-south-1b`*, the same day — with AWS's error pointing at `ap-south-1a`/`-1c`. Two
+different AZs failing within one day is spot capacity being genuinely volatile, not a one-off
+worth another single-AZ pin.
+
+`infra/modules/network` now provisions one public subnet per AZ (`ap-south-1a/b/c`), all
+routed through the same internet gateway and route table (routing doesn't vary by AZ — only
+the subnet's placement does), and the ASG's `vpc_zone_identifier` takes all three. A single
+instance still only ever runs in one AZ at a time; this just lets the ASG's own launch choose
+whichever has capacity right now, instead of a human re-pinning one AZ after every failure.
+
+## Consequences
+
+- A spot reclamation today reaches the state this story set out to prove: a fresh node boots,
+  installs Flux, bootstraps the same `GitRepository`/`HelmRelease`, and Flux reconciles the
+  last commit on `main` — no `helm upgrade --install` by hand.
+- `release.yml` (still unbuilt) inherits the tagging scheme this story's manual bootstrap push
+  used (`sha-<short>`) rather than inventing its own.
+- The ECR-credential-refresh timer is an acknowledged interim measure. IRSA-equivalent
+  per-workload identity, when it lands in Phase 7/8, likely replaces it outright rather than
+  coexisting with it.
+- Multi-AZ spreads where the node *can* land, but the project is still one instance — a
+  genuinely region-wide `t4g.medium` spot shortage (not just the specific AZs already seen)
+  would still block a launch. Not solved here; `t4g.small`/on-demand fallback would be the
+  next lever, and isn't built.
+
+## Sources
+
+- Flux `GitRepository`/`HelmChart`/`HelmRelease` v2 API docs (fluxcd.io: source-controller,
+  helm-controller) — `valuesFiles` paths are relative to the Source reference;
+  `valuesFrom`/`targetPath` merges a ConfigMap/Secret key into a values path.
+- `kubernetes/cloud-provider-aws` — the `ecr-credential-provider` kubelet plugin, considered
+  and deferred per Decision 2.
+- AWS's own `terraform apply` error messages (quoted verbatim in Lab 20) for the AZ-capacity
+  findings.
