@@ -1,6 +1,15 @@
 # Not consumed by the node's cloud-init (which applies each file directly, by URL, since
 # `kubectl apply -k` against a remote git target has its own quirks) — this exists so the
-# set is a single, lintable unit for anyone reading or applying it by hand.
+# set is a single, lintable unit for anyone reading or applying it by hand. It IS what
+# kustomize-controller actually builds and applies (sync.yaml points its Kustomization at
+# this directory).
+#
+# A configMapGenerator reading ../../environments/prod/values.yaml was tried first (KAV-51)
+# to avoid duplicating that file's content into helmrelease.yaml's inline values below —
+# Kustomize refuses it: "file '...' is not in or below" this directory, its own security
+# restriction against reading outside the kustomization root, found live and not worth
+# fighting for one file. helmrelease.yaml's header comment carries the resulting duplication
+# and the known-gap note.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
