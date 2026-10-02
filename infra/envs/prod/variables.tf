@@ -35,3 +35,8 @@ variable "hard_stop_usd" {
   type    = number
   default = 38
 }
+
+variable "ssh_public_key" {
+  description = "For ec2-user on the prod node. SSH only works through the SSM tunnel; no port is open. See infra/modules/node."
+  type        = string
+}

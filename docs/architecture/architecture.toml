@@ -285,7 +285,7 @@ row = 8
 credentials = "instance role"
 inputs = ["cloud-init user data", "Container images from ECR"]
 outputs = ["A k3s cluster, rebuilt from Git in under 5 minutes"]
-note = "ARM/Graviton — every image must be linux/arm64 or it fails at runtime with exec format error. ~$9.20/month on spot against ~$24 on-demand. AWS may reclaim it with two minutes' notice, which chaos-tests the rebuild path continuously and for free."
+note = "ARM/Graviton — every image must be linux/arm64 or it fails at runtime with exec format error. ~$8/month on spot (verified live, ap-south-1b) against ~$24 on-demand. AWS may reclaim it with two minutes' notice, which chaos-tests the rebuild path continuously and for free. Live since KAV-50 (ADR-0024): ASG-managed, k3s, verified Ready over SSH through an SSM tunnel — Flux and the Cloudflare Tunnel are still separate follow-on stories, so a reclamation today means a manual redeploy, not yet a self-heal."
 
 [[system.node]]
 id = "db-host"
@@ -321,7 +321,7 @@ row = 8
 credentials = "IAM-authenticated pull"
 inputs = ["arm64 images pushed by CI"]
 outputs = ["Images pulled by the node"]
-note = "First 500 MB free."
+note = "First 500 MB free. Four repos live since KAV-50: kaval/gateway, kaval/agent, kaval/executor, kaval/collector, immutable tags."
 
 [[system.node]]
 id = "s3"

@@ -1,0 +1,100 @@
+#!/bin/bash
+# First-boot setup for the Kaval prod node. Runs once, as root, via cloud-init.
+# Log: /var/log/cloud-init-output.log
+set -euxo pipefail
+
+# ── k3s, checksum-verified (not the official `curl | sh` installer — same reasoning as
+#    the k3d/kubectl/helm downloads in infra/modules/devbox/user_data.sh.tftpl: trust a
+#    pinned hash, not an unauthenticated script) ───────────────────────────────────────
+K3S_VERSION="${k3s_version}"
+K3S_SHA256="${k3s_sha256_arm64}"
+curl -fsSLo /tmp/k3s "https://github.com/k3s-io/k3s/releases/download/$${K3S_VERSION/+/%2B}/k3s-arm64"
+echo "$${K3S_SHA256}  /tmp/k3s" | sha256sum --check --strict
+install -m 0755 /tmp/k3s /usr/local/bin/k3s
+rm /tmp/k3s
+
+modprobe br_netfilter || true
+modprobe overlay || true
+
+# Systemd unit hand-written from k3s's own install.sh template (SYSTEMD_TYPE=notify for a
+# server), so the checksum-verified binary above gets the same supervision the official
+# installer would have given it, without running that installer's own unverified script.
+cat > /etc/systemd/system/k3s.service <<'UNIT'
+[Unit]
+Description=Kaval k3s server
+Documentation=https://k3s.io
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=notify
+KillMode=process
+Delegate=yes
+User=root
+LimitNOFILE=1048576
+LimitNPROC=infinity
+LimitCORE=infinity
+TasksMax=infinity
+TimeoutStartSec=0
+Restart=always
+RestartSec=5s
+ExecStartPre=-/sbin/modprobe br_netfilter
+ExecStartPre=-/sbin/modprobe overlay
+ExecStart=/usr/local/bin/k3s server --write-kubeconfig-mode=644 --disable=traefik
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now k3s
+
+# ── kubectl + helm, same checksum-verified versions already pinned on the dev server ──
+KUBECTL_VERSION=v1.37.1
+KUBECTL_SHA256=ff749f4b78d9c4f1ec87307df9b50119ed819e2094aa9810cb9acffc3286c8c7
+curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/$${KUBECTL_VERSION}/bin/linux/arm64/kubectl"
+echo "$${KUBECTL_SHA256}  /tmp/kubectl" | sha256sum --check --strict
+install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
+rm /tmp/kubectl
+
+HELM_VERSION=v4.3.0
+HELM_SHA256=31c5794dd55c66a51e6b7d2e2ac7a114ae8b1de41ff1d9ba51748ac973b06a08
+curl -fsSLo /tmp/helm.tgz "https://get.helm.sh/helm-$${HELM_VERSION}-linux-arm64.tar.gz"
+echo "$${HELM_SHA256}  /tmp/helm.tgz" | sha256sum --check --strict
+tar -xzf /tmp/helm.tgz -C /tmp linux-arm64/helm
+install -m 0755 /tmp/linux-arm64/helm /usr/local/bin/helm
+rm -rf /tmp/helm.tgz /tmp/linux-arm64
+
+# kubectl/helm need a kubeconfig; k3s writes one root-only by default even with
+# write-kubeconfig-mode=644 applied to its *contents* permissions, not its location.
+install -d -m 755 /home/ec2-user/.kube
+# Written after k3s has actually started and produced the file, not at the ExecStart
+# line above -- ready-to-poll, not fixed-delay, since first boot is doing a lot else too.
+for i in $(seq 1 60); do
+  [ -s /etc/rancher/k3s/k3s.yaml ] && break
+  sleep 2
+done
+cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/.kube/config
+chown -R ec2-user:ec2-user /home/ec2-user/.kube
+chmod 600 /home/ec2-user/.kube/config
+
+# A root shell reached via `sudo -i` or `aws ssm send-command` has no ~/.kube/config and
+# (found live, KAV-50) no $HOME at all under plain SSM RunShellScript, so ~-expansion
+# can't find one anyway. k3s's own file is already 644 (write-kubeconfig-mode above), so
+# pointing KUBECONFIG at it directly sidesteps both problems without a second copy to
+# keep in sync. /etc/environment covers login shells (SSH, `sudo -i`); a non-login
+# `ssm send-command` still needs --kubeconfig spelled out explicitly, which is the
+# ad-hoc-verification path, not the documented one (SSH through the SSM tunnel).
+echo "KUBECONFIG=/etc/rancher/k3s/k3s.yaml" >> /etc/environment
+
+# ── SSH, reachable only through the SSM tunnel (no inbound port is open) — same pattern
+#    as infra/modules/devbox ──────────────────────────────────────────────────────────
+install -d -m 700 -o ec2-user -g ec2-user /home/ec2-user/.ssh
+echo "${ssh_public_key}" >> /home/ec2-user/.ssh/authorized_keys
+chown ec2-user:ec2-user /home/ec2-user/.ssh/authorized_keys
+chmod 600 /home/ec2-user/.ssh/authorized_keys
+
+cat > /etc/ssh/sshd_config.d/10-kaval-keepalive.conf <<'CONF'
+ClientAliveInterval 30
+ClientAliveCountMax 3
+CONF
+systemctl reload sshd
