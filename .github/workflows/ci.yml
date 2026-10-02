@@ -191,9 +191,10 @@ jobs:
           echo "${KUBECONFORM_SHA256}  kubeconform.tgz" | sha256sum --check --strict
           tar -xzf kubeconform.tgz kubeconform
           sudo install -m 0755 kubeconform /usr/local/bin/kubeconform
-      # Every environment that has its own values.yaml today (only local exists; staging and
-      # prod are Phase 4). Found live, not hypothetically (Lab 15): a {{- -}} trim pair ate the
-      # newline between a template's top comment and its apiVersion: line, silently turning the
+      # Every environment that has its own values.yaml today (local, plus staging/prod as a
+      # k3d rehearsal, ADR-0023; lab-eks is still a placeholder, Phase 8). Found live, not
+      # hypothetically (Lab 15): a {{- -}} trim pair ate the newline between a template's top
+      # comment and its apiVersion: line, silently turning the
       # whole resource into a YAML comment — helm lint alone did not catch it; only rendering
       # and reading the output did. kubeconform is the automated version of that reading.
       - name: lint and render every environment's chart

@@ -1,0 +1,28 @@
+# Phase 3 (KAV-49): rehearsed as a second Helm release — `kaval-staging` — in its own
+# namespace, in the SAME k3d cluster `local` already runs in. Not yet the real second
+# cluster ADR-0004 describes; that's a separate `t4g.medium` node, built in Phase 4. See
+# docs/adr/0023-promotion-rehearsal-on-k3d.md for why rehearsing the mechanics now, on
+# shared hardware, is still worth doing before that infrastructure exists.
+#
+# Plain dev credentials, same posture as local/values.yaml: never a real secret, so this
+# file is committed. Deliberately a different value than local's and prod's, so a stray
+# `kubectl get secret` makes it obvious which environment it came from.
+postgres:
+  password: kaval-staging-dev
+
+gateway:
+  replicas: 1
+
+agent:
+  # Wider than local's 30s — staging isn't optimised for a live demo watching the terminal.
+  correlateEverySeconds: 45
+
+executor:
+  # A namespace of its own, not local's `kaval-demo` and not prod's `kaval-demo-prod` — so
+  # staging's own demo workloads, and the rollback drill run against prod, can't see each
+  # other even though both releases share one physical cluster.
+  demoNamespace: kaval-demo-staging
+  executeEverySeconds: 20
+
+collector:
+  watchEverySeconds: 20

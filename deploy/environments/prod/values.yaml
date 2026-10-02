@@ -1,0 +1,27 @@
+# Phase 3 (KAV-49): rehearsed as a second Helm release — `kaval-prod` — in its own
+# namespace, in the SAME k3d cluster `local` and `staging` already run in. Not yet the real
+# `t4g.medium` node ADR-0004 describes; that arrives in Phase 4, and this file gets a real
+# secret-store-sourced password then, per docs/adr/0008. See
+# docs/adr/0023-promotion-rehearsal-on-k3d.md for the scope of this rehearsal.
+#
+# Plain dev credentials for now — same posture as local/staging. A different value than
+# either of theirs, same reasoning as staging/values.yaml.
+postgres:
+  password: kaval-prod-dev
+
+gateway:
+  # The one deliberate difference from staging that isn't just a namespace or a password:
+  # prod runs two replicas. Staying at 1 everywhere would make "environments differ only by
+  # values" true but untested — this is the value that actually needs two running pods to
+  # roll out without a gap, which is what a rollout (and a rollback) actually exercises.
+  replicas: 2
+
+agent:
+  correlateEverySeconds: 60
+
+executor:
+  demoNamespace: kaval-demo-prod
+  executeEverySeconds: 30
+
+collector:
+  watchEverySeconds: 30
