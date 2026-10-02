@@ -161,6 +161,32 @@ directory — including its own definition and `helmrelease.yaml`'s `reconcileSt
 had cloud-init not already set it. It deliberately does **not** manage `kaval-registry`/
 `ecr-cred`: those are never committed (Decision 1), so they stay the bootstrap script's job.
 
+## Decision 8: `valuesFiles` silently drops the chart's own defaults — use `values:` instead
+
+Found live, once the Kustomization (Decision 7) let the fixed `HelmRelease` actually
+reconcile: `Helm install failed ... PersistentVolumeClaim "kaval-prod-postgres" is invalid:
+spec.resources[storage]: Invalid value: "0"`. `postgres.storage` is never set in
+`deploy/environments/prod/values.yaml` — it relies on the chart's own default, `2Gi`.
+Locally, `helm template -f deploy/environments/prod/values.yaml` renders that default
+correctly, every time. Flux's packaging did not.
+
+The cause is in source-controller's own documented wording: `.spec.chart.spec.valuesFiles`
+is "an alternative list of values files to use **as** the chart values (`values.yaml`)" —
+not merged with the chart's bundled defaults, but substituted for them during packaging.
+Any key `deploy/environments/prod/values.yaml` doesn't set (nearly everything except its own
+explicit overrides) simply isn't there in the packaged chart, and Kubernetes' own API
+validation is what actually surfaces the result as `"0"`, not Helm.
+
+Fixed by using `HelmRelease.spec.values`/`spec.valuesFrom` instead — a different mechanism
+from `chart.spec.valuesFiles`, one that merges normally **on top of** the chart's defaults
+(Flux's own docs show this exact "prod env values" pattern). The first attempt at this tried
+to avoid duplicating `deploy/environments/prod/values.yaml`'s content by generating a
+ConfigMap from it via Kustomize's `configMapGenerator` with a relative `../../` path —
+Kustomize refused it outright (`file '...' is not in or below` the kustomization's own
+directory), a security restriction not worth fighting for one file. `helmrelease.yaml`'s
+`spec.values` carries a hand-kept copy of that file's content instead, flagged as a known gap
+in both files until `release.yml` gives this project a real env-values pipeline.
+
 ## Consequences
 
 - A spot reclamation today reaches the state this story set out to prove: a fresh node boots,
@@ -173,8 +199,14 @@ had cloud-init not already set it. It deliberately does **not** manage `kaval-re
   coexisting with it.
 - Multi-AZ spreads where the node *can* land, but the project is still one instance — a
   genuinely region-wide `t4g.medium` spot shortage (not just the specific AZs already seen)
-  would still block a launch. Not solved here; `t4g.small`/on-demand fallback would be the
-  next lever, and isn't built.
+  would still block a launch. Confirmed live during this very story: several consecutive
+  launch attempts failed across all three AZs in the same minutes-long window before one
+  succeeded. Not solved here; `t4g.small`/on-demand fallback would be the next lever, and
+  isn't built.
+- `helmrelease.yaml`'s inline `values:` duplicates `deploy/environments/prod/values.yaml`
+  (Decision 8) — a real, open gap. A change to one without the other silently diverges prod's
+  real deployment from what Lab 18's rehearsal and CI's helm-lint loop both render. Flagged in
+  both files; `release.yml`'s eventual env-values pipeline is the real fix.
 
 ## Sources
 

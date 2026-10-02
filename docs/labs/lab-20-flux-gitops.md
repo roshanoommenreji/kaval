@@ -173,6 +173,19 @@ refresh). A proper Flux `Kustomization` (`sync.yaml`, reconciling the whole dire
 own 1-minute interval) closes that, and is what "reconciles itself from Git" actually requires
 (ADR-0025, Decision 7).
 
+**A fifth finding, once the Kustomization let the real fix actually land:** `HelmRelease`
+install failed on the postgres `PersistentVolumeClaim` — `spec.resources[storage]: Invalid
+value: "0"`. `postgres.storage` isn't set in `deploy/environments/prod/values.yaml`; it
+relies on the chart's own `2Gi` default, which renders correctly with plain
+`helm template -f`. The cause: `chart.spec.valuesFiles` doesn't merge with the chart's
+bundled defaults — source-controller's own docs say it uses the given files "as the chart
+values," replacing them during packaging. Fixed by switching to `HelmRelease.spec.values`
+(which merges normally on top of defaults, like every other environment in this project) —
+at the cost of a hand-kept duplicate of `deploy/environments/prod/values.yaml`'s content,
+since Kustomize refused a `configMapGenerator` reading that file via a `../../` relative
+path ("not in or below" its own directory). A real, flagged gap, not a hidden one
+(ADR-0025, Decision 8).
+
 ## Done when
 
 - [ ] `helm template --set global.imageRegistry=...` shows every service's image correctly
