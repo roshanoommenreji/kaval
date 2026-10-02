@@ -119,13 +119,19 @@ the end of Phase 3.
   (`KAVAL_REQUIRE_DB=1`) — including `kind_for()`'s mapping table and `poll()`'s de-dup logic
   against a fake `CoreV1Api` stand-in (the same "fake the Kubernetes client, not the cluster"
   shape `kaval_executor`'s own tests use).
-- `helm lint`/`helm template | kubeconform` clean — the chart now renders 18 resources
-  (the collector's `ServiceAccount`, `Role`, `RoleBinding` and `Deployment`, alongside the 14
+- `helm lint`/`helm template | kubeconform` clean — the chart now renders 17/17 resources
+  (the collector's `ServiceAccount`, `Role`, `RoleBinding` and `Deployment`, alongside the 13
   from `KAV-46`/`KAV-47`).
 - Live, on the real k3d cluster: `kubectl auth can-i list events --as=...:collector -n
-  kaval-demo` -> `yes`; the same check for `delete pods` -> `no` — the collector can watch,
-  never act, proven the same way `KAV-47`'s executor checks were.
-- **The real exit-gate demo, with no hand-written signal:** a real pod in `kaval-demo`
-  deliberately given a bad image (or deleted enough times to cross the `BackOff` threshold);
-  the deployed collector's own log shows a real `pod_back_off`/`pod_oom_killed` line within one
-  poll; the deployed agent opens a real incident from it, unprompted, on its own next tick.
+  kaval-demo` -> `yes`; the same check for `delete pods`, and for `list events` in the
+  collector's own namespace -> `no`, `no` — the collector can watch one namespace, never act
+  anywhere, proven the same way `KAV-47`'s executor checks were.
+- **The real exit-gate demo, with no hand-written signal:** a real `busybox:1.36` pod set to
+  `exit 1` immediately, in `kaval-demo`. The deployed collector's own log, unattended:
+  `pod_back_off kaval-demo/crashy count=2` through `count=5`, climbing with every real
+  restart — the count-based de-dup working against a real event, not a fake one. The deployed
+  agent's own log, same window, no prompting: `opened crashloop:k8s:kaval-demo/crashy medium 3
+  signals` then `attached 1 signals to 1 open incident(s)`. `GET /v1/incidents/{id}` through
+  the gateway's own read API read back one open incident with five real `pod_back_off`
+  signals, counts 2 through 6, each timestamped from the real event's own `lastTimestamp` —
+  the complete chain, with not one row written by hand. Full transcript: Lab 17.

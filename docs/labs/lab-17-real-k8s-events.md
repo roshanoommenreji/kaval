@@ -28,8 +28,8 @@ helm template kaval-local deploy/charts/kaval -f deploy/environments/local/value
   | kubeconform -strict -kubernetes-version 1.35.5 -summary -
 ```
 
-Expect `18/18` resources valid — the collector's `ServiceAccount`, `Role`, `RoleBinding` and
-`Deployment`, alongside the 14 from Lab 16.
+Expect `17/17` resources valid — the collector's `ServiceAccount`, `Role`, `RoleBinding` and
+`Deployment`, alongside the 13 from Lab 16.
 
 ## Step 3 — get the image into k3d, upgrade the release
 
@@ -75,7 +75,7 @@ kubectl logs -l app.kubernetes.io/component=agent --tail=5
 
 ## Done when
 
-- [x] `helm lint`/`helm template | kubeconform` clean, 18/18 resources
+- [x] `helm lint`/`helm template | kubeconform` clean, 17/17 resources
 - [x] The three `kubectl auth can-i` checks return exactly `yes, no, no`
 - [x] A real, unscripted pod failure produces a real signal within one poll, with no row
       written by hand
@@ -84,3 +84,56 @@ kubectl logs -l app.kubernetes.io/component=agent --tail=5
 ---
 
 ## What actually happened, live (2026-10-02)
+
+`make devbox-up` hit `InsufficientInstanceCapacity` repeatedly before succeeding on a retry —
+the same known transient AWS issue earlier journal entries already flag, not a Kaval bug. The
+k3d cluster from Lab 16 had survived untouched: 11 hours up, zero restarts on any of the four
+existing pods.
+
+**The resource count came out at 17, not 18** — an arithmetic slip in the first draft of this
+lab and ADR-0022 (13 resources from Lab 16 + 4 new ones, not 14 + 4). Fixed before merging,
+not after — a reminder that a number only becomes a fact once it's actually counted.
+
+RBAC, live:
+
+```
+$ kubectl auth can-i list events --as=...:kaval-local-collector -n kaval-demo
+yes
+$ kubectl auth can-i delete pods --as=...:kaval-local-collector -n kaval-demo
+no
+$ kubectl auth can-i list events --as=...:kaval-local-collector -n default
+no
+```
+
+Step 5's real crash-looping pod (`busybox:1.36`, `exit 1`) produced a real `Warning`/`BackOff`
+event within seconds. The deployed collector's own log, completely unattended:
+
+```
+pod_back_off   kaval-demo/crashy  count=2
+pod_back_off   kaval-demo/crashy  count=3
+pod_back_off   kaval-demo/crashy  count=4
+pod_back_off   kaval-demo/crashy  count=5
+```
+
+— the count climbing with every real restart, exactly the de-duplication design from
+ADR-0022: one new signal per real increase, not one per poll and not one ever. The deployed
+agent's own log, in the same window, with no prompting:
+
+```
+opened    crashloop:k8s:kaval-demo/crashy  medium  3 signals
+attached  1 signals to 1 open incident(s)
+```
+
+`GET /v1/incidents/{id}` through the gateway's own read API confirmed it: one open incident,
+`crashloop:k8s:kaval-demo/crashy`, five `pod_back_off` signals with counts 2 through 6, each
+timestamped from the real event's own `lastTimestamp` — the complete chain (a real pod crash →
+a real Kubernetes event → a real signal → a real incident) with not one row written by hand,
+read back through the same API the phone will eventually use.
+
+A leftover real event from a much earlier session (`failed_scheduling` on the original
+`checkout` pod) was also picked up and correctly opened-and-immediately-closed as its own
+low-severity incident — a small, unplanned proof that the generic reason→kind fallback (not
+just the two specifically-mapped reasons) works against something genuinely real, not just the
+test suite's fakes.
+
+The throwaway `crashy` pod was deleted afterwards; `checkout` (Lab 16's demo target) stays.
