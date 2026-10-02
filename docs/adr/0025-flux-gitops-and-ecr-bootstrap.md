@@ -187,6 +187,30 @@ directory), a security restriction not worth fighting for one file. `helmrelease
 `spec.values` carries a hand-kept copy of that file's content instead, flagged as a known gap
 in both files until `release.yml` gives this project a real env-values pipeline.
 
+## Decision 9: a stuck remediation needs a fresh `HelmRelease`, and the launch template needs a real apply, not just a `kubectl apply`
+
+Two closing findings, once Decision 8's fix had actually merged. First: `HelmRelease` kept
+retrying with values that resolved to `{}` (helm-controller's own log: `resetting values to
+the chart's original version: {}`) even on the commit carrying the fix — several consecutive
+`upgrade` attempts had already been exhausted against the *pre-fix* chart (missing
+`postgres.image`, PVC `storage: "0"`, etc.), and the accumulated failure/remediation state
+didn't clear itself just because the underlying commit changed. `kubectl delete helmrelease
+kaval-prod -n flux-system` followed by re-applying the same file gave it a clean slate — a
+fresh `install`, not a confused `upgrade` — and it succeeded immediately. Flux's own documented
+`reconcile.fluxcd.io/requestedAt` annotation is the lighter-weight way to request this without
+deleting the object; worth trying first if this recurs.
+
+Second: the live node that finally succeeded was running an **older** launch-template version
+than `main` — it had been spot-reclaimed and relaunched by the ASG between this story's commits,
+picking up everything through the CIDR/credential fix but not yet `sync.yaml`'s own bootstrap
+step, because that fix had only ever been hand-applied to the *previous* node over SSH, never
+actually baked into the launch template via `terraform apply`. The Kustomization genuinely
+didn't exist on the cluster until it was applied by hand one more time. A final
+`terraform apply` (0 added, 2 changed, 0 destroyed — no instance replacement, just the launch
+template's `user_data` for future boots) closed that gap for real. The lesson generalizes: a
+manual `kubectl apply` during live debugging fixes *that* node; only a `terraform apply` makes
+the fix part of what a replacement node actually boots with.
+
 ## Consequences
 
 - A spot reclamation today reaches the state this story set out to prove: a fresh node boots,

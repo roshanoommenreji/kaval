@@ -188,13 +188,25 @@ path ("not in or below" its own directory). A real, flagged gap, not a hidden on
 
 ## Done when
 
-- [ ] `helm template --set global.imageRegistry=...` shows every service's image correctly
+- [x] `helm template --set global.imageRegistry=...` shows every service's image correctly
       prefixed, and local/staging unaffected
-- [ ] `terraform apply` succeeds with the node spanning all three AZs
-- [ ] All four images pushed to ECR, tagged `sha-<short>`
-- [ ] This story merged to `main` through a PR, CI green
-- [ ] `kubectl get gitrepository,helmrelease -n flux-system` shows both `Ready`
-- [ ] `kubectl get pods -n kaval-prod` shows the real Kaval services running on the real node
+- [x] `terraform apply` succeeds with the node spanning all three AZs
+- [x] All four images pushed to ECR, tagged `sha-ffb436b`
+- [x] This story merged to `main` through four PRs (#40–#43), CI green on each
+- [x] `kubectl get gitrepository,kustomization,helmrelease -n flux-system` all report `Ready`
+- [x] `kubectl get pods -n kaval-prod` shows the real Kaval services `1/1 Running` on the real
+      node — 2× gateway, agent, collector, executor, postgres; the migrate Job `Completed`
+
+**A sixth and seventh finding, closing this out:** `HelmRelease` kept retrying with values
+that resolved to `{}` even on the commit carrying Decision 8's fix — several `upgrade` attempts
+against the *pre-fix* chart had already exhausted its remediation retries, and that state
+didn't clear on its own just because the commit changed. `kubectl delete helmrelease
+kaval-prod -n flux-system` + re-apply gave it a clean `install` instead of a confused
+`upgrade`, and it succeeded immediately. Separately, the node that finally succeeded was
+running an older launch-template version — `sync.yaml`'s bootstrap step had only ever been
+hand-applied over SSH to a *previous*, since-reclaimed node, never actually baked into the
+launch template via `terraform apply`. A final `terraform apply` (0 added, 2 changed, no
+instance replacement) closed that for real. See ADR-0025, Decision 9.
 
 ---
 
