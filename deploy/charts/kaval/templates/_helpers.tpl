@@ -10,11 +10,20 @@ cluster, or a dev chart alongside someone else's) never collide on resource name
 {{- end -}}
 {{- end -}}
 
-{{/* Labels every resource in this chart carries, for `kubectl get -l` and `helm uninstall`. */}}
+{{/*
+Labels every resource in this chart carries, for `kubectl get -l` and `helm uninstall`.
+`replace "+" "_"` on the chart version (KAV-51, found live): Flux's helm-controller
+packages a HelmChart with valuesFiles set under an appended `+<n>` semver build-metadata
+suffix (source-controller's own documented behaviour — each distinct values combination
+needs a distinct artifact revision), and `+` isn't a legal Kubernetes label-value
+character. `helm install`/`upgrade` run directly (every environment before prod) never
+produces that suffix, so this was latent until Flux's packaging path exercised it. The
+underscore substitution is Helm's own standard scaffold convention for this exact case.
+*/}}
 {{- define "kaval.labels" -}}
 app.kubernetes.io/part-of: kaval
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
 {{- end -}}
 
 {{/* Per-component selector labels — the stable identity a Service/Deployment pair matches on. */}}

@@ -124,8 +124,16 @@ flux install
 # chart's imagePullSecrets (the Secret) — see deploy/charts/kaval/values.yaml.
 cat > /usr/local/sbin/kaval-gitops-bootstrap <<'SCRIPT'
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+# `set -x` stays OFF for this whole script, deliberately — it would otherwise trace the
+# ECR token (a real, live credential, not a name or an ID) into /var/log/cloud-init-
+# output.log in plaintext. Found live, re-running this script by hand during KAV-51:
+# the trace put the token straight into the SSH session's own output. Fixed by never
+# tracing here, and by building the Secret's YAML ourselves (piped via stdin) instead of
+# passing the password as a `kubectl` argument, where it would sit in `ps aux` for any
+# other process on the node to read for as long as the command runs.
 
 TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
 REGION=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
@@ -143,10 +151,24 @@ curl -fsSL "$RAW/namespace.yaml" | kubectl apply -f -
 kubectl create configmap kaval-registry --from-literal=registry="$REGISTRY" \
   -n flux-system --dry-run=client -o yaml | kubectl apply -f -
 
+# Built and applied entirely via stdin, never a kubectl argument — `kubectl create secret
+# ... --docker-password=` would otherwise sit in this process's own argv (readable via
+# `ps aux` by anything else on the node) for as long as the command runs.
 ECR_PASSWORD=$(aws ecr get-login-password --region "$REGION")
-kubectl create secret docker-registry ecr-cred \
-  --docker-server="$REGISTRY" --docker-username=AWS --docker-password="$ECR_PASSWORD" \
-  -n kaval-prod --dry-run=client -o yaml | kubectl apply -f -
+AUTH_B64=$(printf '%s' "AWS:$ECR_PASSWORD" | base64 -w0)
+DOCKERCONFIGJSON_B64=$(printf '{"auths":{"%s":{"username":"AWS","password":"%s","auth":"%s"}}}' \
+  "$REGISTRY" "$ECR_PASSWORD" "$AUTH_B64" | base64 -w0)
+cat <<MANIFEST | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ecr-cred
+  namespace: kaval-prod
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: $DOCKERCONFIGJSON_B64
+MANIFEST
+unset ECR_PASSWORD AUTH_B64 DOCKERCONFIGJSON_B64
 
 curl -fsSL "$RAW/source.yaml" | kubectl apply -f -
 curl -fsSL "$RAW/helmrelease.yaml" | kubectl apply -f -
