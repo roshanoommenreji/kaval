@@ -43,6 +43,13 @@ executor = [
     # loop calls it every pass, deployed or not.
     "kubernetes>=31.0",
 ]
+collector = [
+    # Real Kubernetes events (KAV-48): kaval_collector.k8s_events' entrypoint loop calls it
+    # every pass, deployed or not — core, same reasoning as executor's own kubernetes extra.
+    # kaval_collector.synthetic doesn't need it (no network call, pure fixture generation),
+    # so this stays its own extra rather than merging into the always-installed core deps.
+    "kubernetes>=31.0",
+]
 dev = [
     "pytest>=8.0",
     "ruff>=0.4",

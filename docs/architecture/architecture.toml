@@ -75,14 +75,14 @@ col = 1.5
 row = 1
 credentials = "read-only — Kubernetes RBAC and IAM"
 inputs = [
-  "Kubernetes events API (watch)",
-  "Prometheus /api/v1/query",
-  "Alertmanager webhook receiver",
-  "Cost Explorer GetCostAndUsage",
+  "Kubernetes events API (list, polled every 15s — not a watch stream, KAV-48, ADR-0022)",
+  "Prometheus /api/v1/query (not built yet)",
+  "Alertmanager webhook receiver (not built yet)",
+  "Cost Explorer GetCostAndUsage (not built yet)",
 ]
 outputs = ["signal rows — INSERT only"]
 tables = ["signal"]
-note = "Normalises four unlike sources into one shape. The database is the record; the event stream is only the feed. Phase 1 runs only the synthetic source (KAV-23); the real ones write the same row shapes from Phase 3."
+note = "Normalises unlike sources into one shape. The database is the record; the event stream is only the feed. Phase 1 runs only the synthetic source (KAV-23); the first real one, Kubernetes events, arrived in Phase 3 (KAV-48, ADR-0022) — kaval_collector.k8s_events polls (list, de-duplicated by the event's own count) rather than holding a persistent watch connection, scoped to one namespace and Pod-involved events only. Downstream code can't tell a real signal from a synthetic one except the synthetic flag, by design. Its RBAC (list, watch on events, nothing else) is granted in kaval-demo, not its own release namespace — the same split KAV-47's executor established. Prometheus, Alertmanager and Cost Explorer are still not built."
 
 [[system.node]]
 id = "synthetic"

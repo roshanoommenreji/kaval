@@ -902,6 +902,9 @@ agent = [
     { name = "boto3" },
     { name = "httpx" },
 ]
+collector = [
+    { name = "kubernetes" },
+]
 dev = [
     { name = "httpx2" },
     { name = "mypy" },
@@ -926,6 +929,7 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'agent'", specifier = ">=0.27" },
     { name = "httpx", marker = "extra == 'gateway'", specifier = ">=0.27" },
     { name = "httpx2", marker = "extra == 'dev'", specifier = ">=2.13" },
+    { name = "kubernetes", marker = "extra == 'collector'", specifier = ">=31.0" },
     { name = "kubernetes", marker = "extra == 'executor'", specifier = ">=31.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.9" },
     { name = "pgvector", specifier = ">=0.3.6" },
@@ -936,7 +940,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.0.29" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'gateway'", specifier = ">=0.53.0" },
 ]
-provides-extras = ["gateway", "agent", "executor", "dev"]
+provides-extras = ["gateway", "agent", "executor", "collector", "dev"]
 
 [[package]]
 name = "kubernetes"

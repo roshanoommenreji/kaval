@@ -1,0 +1,103 @@
+# Real Kubernetes events, watched continuously (KAV-48, ADR-0022). Read-only, by RBAC, not
+# just by convention — same structural guarantee executor.yaml's RBAC gives the other
+# direction: a bug in this component's code cannot escalate into a write, because no binding
+# anywhere grants one.
+#
+# Scoped to list/watch `events` in .Values.executor.demoNamespace only — the same namespace
+# the executor acts on, since that's the one namespace with anything worth watching today.
+# Not `get` (nothing here ever fetches one named event), not pods/deployments (the Event
+# objects this reads already carry everything kaval_collector.k8s_events needs in their own
+# involvedObject field) — exactly the verbs the code calls, nothing provisioned ahead of it,
+# the same rule executor.yaml's RBAC follows.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kaval.fullname" . }}-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "kaval.fullname" . }}-collector
+  namespace: {{ .Values.executor.demoNamespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "kaval.fullname" . }}-collector
+  namespace: {{ .Values.executor.demoNamespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "kaval.fullname" . }}-collector
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kaval.fullname" . }}-collector
+    namespace: {{ .Release.Namespace }}
+---
+{{ $component := "collector" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaval.fullname" . }}-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+    {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "kaval.fullname" . }}-collector
+      automountServiceAccountToken: true
+      # The same race agent.yaml and executor.yaml already found and fixed (Lab 15, Lab 16):
+      # the first poll can land before postgres is reachable.
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.postgres.image }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ include "kaval.fullname" . }}-postgres -p 5432; do
+                echo "waiting for postgres..."; sleep 2
+              done
+      containers:
+        - name: collector
+          image: "{{ .Values.collector.image.repository }}:{{ .Values.collector.image.tag }}"
+          imagePullPolicy: {{ .Values.collector.image.pullPolicy }}
+          # Overrides the image's default ENTRYPOINT (kaval_collector.synthetic, the
+          # one-shot fake-incident generator) — this Deployment runs the real watcher.
+          command: ["python", "-m", "kaval_collector.k8s_events"]
+          args:
+            - "--namespace"
+            - {{ .Values.executor.demoNamespace | quote }}
+            - "--every"
+            - {{ .Values.collector.watchEverySeconds | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "kaval.fullname" . }}-postgres
+          env:
+            - name: POSTGRES_HOST
+              value: {{ include "kaval.fullname" . }}-postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+          resources:
+            {{- toYaml .Values.collector.resources | nindent 12 }}
