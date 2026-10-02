@@ -89,9 +89,9 @@ The hard, interesting part. Still no AWS.
 - [x] Executor with scoped RBAC — the privilege split made real, proven live with `kubectl auth can-i` ([ADR-0021](docs/adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md), `KAV-47`, Lab 16)
 - [x] **Executor redacts `stdout` at write time** — prod must never store a secret (ADR-0005, closed by `KAV-47`)
 - [ ] `arm64` multi-arch image builds *(Graviton is coming in Phase 4)*
-- [ ] Split values: `deploy/environments/staging` and `prod`, each pinning image digests
-- [ ] Promotion mechanics rehearsed on k3d — deploy staging, gate, deploy prod
-- [ ] **First rollback drill, timed** — `helm rollback`, record time-to-restore
+- [x] Split values: `deploy/environments/staging` and `prod`, each pinning image digests — rehearsed as two Helm releases on the local k3d cluster, not yet the real second AWS cluster ([ADR-0023](docs/adr/0023-promotion-rehearsal-on-k3d.md), `KAV-49`, Lab 18)
+- [x] Promotion mechanics rehearsed on k3d — deploy staging, gate, deploy prod — proven live with a byte-for-byte image-digest match between the two releases (`KAV-49`, Lab 18)
+- [x] **First rollback drill, timed** — `helm rollback`, record time-to-restore — 1.49s, with the honest finding that Kubernetes' own rollout default, not the rollback, was what kept the service up (`KAV-49`, Lab 18)
 - [ ] `docs/learn/phase-3-kubernetes-local.md` — flip **Written from** to `experience`
 
 **Exit gate:** kill a pod locally → agent proposes → you approve → executor fixes it.

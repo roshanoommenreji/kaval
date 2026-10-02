@@ -259,7 +259,7 @@ row = 7
 credentials = "acted on by executor only"
 inputs = ["patch, delete, scale, cordon — from the executor"]
 outputs = ["New state, which becomes new events"]
-note = "k3s on one spot instance in production; EKS during the Phase 8 chapter. The same Helm chart deploys to both, differing only by values file. Locally: k3d on the dev server (KAV-46, ADR-0020) — Postgres, gateway and the correlate loop running continuously, verified live. The executor now also runs here (KAV-47, ADR-0021), scoped-RBAC-bound to the separate kaval-demo namespace, proven live with kubectl auth can-i — not the kaval namespace postgres/gateway/agent run in."
+note = "k3s on one spot instance in production; EKS during the Phase 8 chapter. The same Helm chart deploys to both, differing only by values file. Locally: k3d on the dev server (KAV-46, ADR-0020) — Postgres, gateway and the correlate loop running continuously, verified live. The executor now also runs here (KAV-47, ADR-0021), scoped-RBAC-bound to the separate kaval-demo namespace, proven live with kubectl auth can-i — not the kaval namespace postgres/gateway/agent run in. The build-once-promote-the-artifact and rollback mechanics (KAV-49, ADR-0023) were rehearsed as kaval-staging/kaval-prod, two more Helm releases in this same k3d cluster — torn down after, not the real second AWS cluster ADR-0004 still schedules for Phase 4."
 
 [[system.node]]
 id = "aws-apis"

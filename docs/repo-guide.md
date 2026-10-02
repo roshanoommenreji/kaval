@@ -166,7 +166,7 @@ Run `make migrate` to bring a database up to date.
 | Path | What it will do | Status |
 |---|---|---|
 | `deploy/charts/kaval/` | One Helm chart. Deploys Postgres, the gateway, the agent's correlate loop, the scoped-RBAC executor, and the real-event collector to a real cluster ([ADR-0020](adr/0020-the-helm-chart-and-the-local-k3d-environment.md), [ADR-0021](adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md), [ADR-0022](adr/0022-real-kubernetes-events-as-signals.md)). `helm lint`/`helm template` run through kubeconform in CI, on every environment that has a values file | Working — `local` (`KAV-46`–`48`, Labs 15–17) |
-| `deploy/environments/local/`, `staging/`, `prod/`, `lab-eks/` | One settings file per environment. **These are the only differences between environments.** The code and the chart are identical everywhere (ADR-0004) | `local` working (`KAV-46`); `staging`/`prod` in Phase 4; `lab-eks` in Phase 8 |
+| `deploy/environments/local/`, `staging/`, `prod/`, `lab-eks/` | One settings file per environment. **These are the only differences between environments.** The code and the chart are identical everywhere (ADR-0004). `staging`/`prod` are rehearsed today as two more Helm releases in the *same* k3d cluster `local` runs in — not yet the real second AWS cluster ADR-0004 describes ([ADR-0023](adr/0023-promotion-rehearsal-on-k3d.md)) | `local` working (`KAV-46`); `staging`/`prod` values rehearsed on k3d (`KAV-49`, Lab 18), the real second cluster still Phase 4; `lab-eks` in Phase 8 |
 | `deploy/gitops/` | Flux configuration. The cluster pulls its setup from Git and rebuilds itself if the server is lost | Placeholder, Phase 4 |
 
 ---
