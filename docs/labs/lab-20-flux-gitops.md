@@ -132,6 +132,35 @@ kubectl get gitrepository,helmrelease -n flux-system
 kubectl get pods -n kaval-prod
 ```
 
+**Found live, right here:** the `GitRepository` reported `failed to checkout and determine
+revision: ... dial tcp: lookup github.com on 10.43.0.10:53: server misbehaving`. The node itself
+resolved `github.com` fine (`getent hosts github.com`) — only pods couldn't. `kubectl logs -n
+kube-system -l k8s-app=kube-dns` showed CoreDNS's own upstream forward failing with
+`connection refused`/`i/o timeout`. Root cause: `infra/modules/network`'s VPC CIDR was
+`10.42.0.0/16` — **identical to k3s's own default pod-network CIDR**. The VPC's real DNS
+resolver lives at the base-plus-2 address, `10.42.0.2`, which then sat inside the range
+Flannel's overlay claims for pods, so pod traffic to it never left the overlay. Fixed by moving
+the VPC to `10.60.0.0/16` (ADR-0025, Decision 4) — not a workaround, the actual collision.
+
+Separately, re-running `kaval-gitops-bootstrap` by hand to pick up the published manifests
+(Step 5) showed the live ECR token in the SSH session's own output — the script's `set -x` was
+tracing the `kubectl create secret ... --docker-password=<token>` command in full, which also
+meant it was sitting in `/var/log/cloud-init-output.log` on the node in plaintext. Fixed by
+turning tracing off for this script and building the Secret as YAML piped via stdin instead of
+a `--docker-password=` argument (ADR-0025, Decision 5) — a real credential-handling bug in this
+story's own code, not an AWS quirk.
+
+**A third finding, once the CIDR fix actually let `GitRepository` clone the repo:** the
+`HelmRelease` install itself then failed —
+`Namespace "kaval-demo-prod" is invalid: metadata.labels: Invalid value: "kaval-0.1.0+1"`.
+Flux's helm-controller packages a chart with `valuesFiles` set under an appended `+<n>` semver
+suffix (source-controller's own documented behaviour), and the chart's `helm.sh/chart` label
+put `.Chart.Version` into a label value raw — `+` isn't legal there. Every prior lab ran `helm
+install`/`upgrade` directly, which never produces that suffix, so this was latent the whole
+time. Fixed with Helm's own standard convention, `{{ .Chart.Version | replace "+" "_" }}`
+(ADR-0025, Decision 6) — verified by temporarily setting `Chart.yaml` to `0.1.0+1` and
+confirming `helm template` renders the sanitised label, not just reading the fix and trusting it.
+
 ## Done when
 
 - [ ] `helm template --set global.imageRegistry=...` shows every service's image correctly

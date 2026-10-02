@@ -1,7 +1,16 @@
 variable "vpc_cidr" {
-  description = "A dedicated VPC for prod, distinct from the default VPC the dev server uses."
+  description = <<-EOT
+    A dedicated VPC for prod, distinct from the default VPC the dev server uses. NOT
+    10.42.0.0/16 (KAV-51, found live): that's k3s's own default pod-network CIDR, and
+    using it for the VPC too meant the VPC's real DNS resolver (base+2, so 10.42.0.2) sat
+    inside the range Flannel's overlay claims for pods — traffic to it got captured by the
+    overlay instead of reaching the resolver, so CoreDNS's upstream forward failed with
+    "connection refused"/timeout and nothing in the cluster could resolve an external name,
+    including Flux's own GitRepository clone. 10.43.0.0/16 (k3s's default service CIDR) is
+    the other one to avoid.
+  EOT
   type        = string
-  default     = "10.42.0.0/16"
+  default     = "10.60.0.0/16"
 }
 
 variable "availability_zones" {
@@ -20,5 +29,5 @@ variable "availability_zones" {
 variable "public_subnet_cidrs" {
   description = "One /24 per AZ, in the same order as availability_zones."
   type        = list(string)
-  default     = ["10.42.1.0/24", "10.42.2.0/24", "10.42.3.0/24"]
+  default     = ["10.60.1.0/24", "10.60.2.0/24", "10.60.3.0/24"]
 }

@@ -92,6 +92,54 @@ the subnet's placement does), and the ASG's `vpc_zone_identifier` takes all thre
 instance still only ever runs in one AZ at a time; this just lets the ASG's own launch choose
 whichever has capacity right now, instead of a human re-pinning one AZ after every failure.
 
+## Decision 4: the VPC CIDR cannot be `10.42.0.0/16`
+
+Found live, during this story's own verification: k3s's default pod-network CIDR (Flannel)
+is `10.42.0.0/16` — the exact range `infra/modules/network`'s `vpc_cidr` had used since
+ADR-0024. The VPC's own Amazon-provided DNS resolver sits at `10.42.0.2` (AWS's base+2
+convention); because that address also falls inside the range Flannel's overlay claims for
+pods, traffic from a pod to `10.42.0.2:53` got captured by the overlay instead of reaching the
+real resolver. CoreDNS's upstream `forward . /etc/resolv.conf` failed with
+`connection refused`/`i/o timeout` on every external name — including Flux's own
+`GitRepository` trying to clone GitHub, which is what surfaced it. The host itself resolved
+names fine throughout (it isn't behind the pod overlay), which is what made this a
+pods-only, DNS-only symptom rather than an obviously-broken network.
+
+`vpc_cidr` moved to `10.60.0.0/16` (subnets `10.60.1/2/3.0/24`), clear of both k3s's pod CIDR
+(`10.42.0.0/16`) and its default service CIDR (`10.43.0.0/16`, visible as CoreDNS's own
+`10.43.0.10` ClusterIP). No code elsewhere referenced the old range by value.
+
+## Decision 5: the ECR credential never gets traced or passed as an argument
+
+Also found live, re-running the bootstrap script by hand while diagnosing the above: the
+script's `set -x` (inherited from the pattern every other section of this file uses) traced
+`kubectl create secret docker-registry ... --docker-password=<token>` in full — putting a
+real, live ECR credential into both `/var/log/cloud-init-output.log` in plaintext and this
+session's own SSH output. Fixed two ways, not one: `set -x` is off for this script specifically
+(every other credential-free section of `user_data.sh.tftpl` keeps it), and the Secret is now
+built as a YAML manifest and piped to `kubectl apply -f -` via stdin rather than passed through
+`--docker-password=`, so it never sits in the process's own argv (`ps aux`-visible to anything
+else on the node) either.
+
+## Decision 6: a chart label can't carry Flux's own chart-version suffix
+
+Found live, once the CIDR fix (Decision 4) let `GitRepository` actually clone the repo: the
+`HelmRelease` install itself then failed — `Namespace "kaval-demo-prod" is invalid:
+metadata.labels: Invalid value: "kaval-0.1.0+1"`. Source-controller's own documented
+behaviour is the cause: packaging a `HelmChart` with `valuesFiles` set appends `+<n>` semver
+build metadata to the chart version, because each distinct values combination needs its own
+artifact revision. `kaval.labels` (`_helpers.tpl`) put `.Chart.Version` straight into
+`helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}` — and `+` isn't a legal Kubernetes
+label-value character. Every environment before this one ran `helm install`/`upgrade`
+directly, which never produces that suffix, so the bug was latent in every prior lab, invisible
+until Flux's packaging path exercised it.
+
+Fixed with Helm's own standard scaffold convention for exactly this case:
+`{{ .Chart.Version | replace "+" "_" }}`. Verified by temporarily setting `Chart.yaml`'s
+version to `0.1.0+1` and confirming `helm template` renders `kaval-0.1.0_1`, not a re-read of
+the fix — a label that happens to work once, from one real value, is not the same as knowing
+the substitution is correct for every version string this project will ever use.
+
 ## Consequences
 
 - A spot reclamation today reaches the state this story set out to prove: a fresh node boots,
