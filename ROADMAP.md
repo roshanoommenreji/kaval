@@ -98,12 +98,12 @@ The hard, interesting part. Still no AWS.
 
 ---
 
-## Phase 4 — AWS landing · weeks 13–15 · `[ ]`
+## Phase 4 — AWS landing · weeks 13–15 · `[~]`
 
 First real spend. **Posture: paused between sessions** (`make down`).
 
-- [ ] Terraform: network, spot node, ECR, IAM
-- [ ] k3s bootstrap via cloud-init
+- [x] Terraform: network, spot node, ECR, IAM — live, `kubectl get nodes` reports `Ready` over the real SSM-tunnelled SSH path ([ADR-0024](docs/adr/0024-prod-landing-network-ecr-iam-node.md), `KAV-50`, Lab 19)
+- [x] k3s bootstrap via cloud-init — checksum-verified binary, not the unauthenticated `curl | sh` installer (`KAV-50`, Lab 19)
 - [ ] Flux GitOps reconciliation
 - [ ] Cloudflare Tunnel — no ALB, no NAT Gateway
 - [ ] **Database server** — `infra/modules/database` ([ADR-0008](docs/adr/0008-production-database-on-its-own-server.md), `KAV-32`): `t4g.small` on-demand, separate encrypted 20 GB data volume (`prevent_destroy`), security group allowing 5432 only from the app node, SSM only (no SSH), termination protection, Postgres TLS, passwords in SSM Parameter Store, per-service roles, graceful shutdown (`stop_grace_period: 60s`)

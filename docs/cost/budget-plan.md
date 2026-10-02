@@ -60,21 +60,22 @@ indefinitely and resumes without loss.
 
 | Item | $/mo |
 |---|---|
-| `t4g.medium` spot, 730 hrs | 9.20 |
-| EBS gp3, 20 GB | 1.60 |
-| ECR storage | 0.20 |
+| `t4g.medium` spot, 730 hrs, **verified live 2026-10-02** (ap-south-1b, `KAV-50`) at $0.0103–0.0109/hr, not the original estimate | ~7.8 |
+| EBS gp3, 20 GB | 1.82 |
+| Public IPv4 ($0.005/hr) | 3.65 |
+| ECR storage, four repos (`KAV-50`) | 0.20 |
 | S3 backups | 0.05 |
 | CloudWatch logs (trimmed) | 0.50 |
 | Bedrock escalations (light use) — Claude Haiku 4.5, cross-region tier, verified 2026-09-30 against the AWS Price List API at $1.00 / $5.00 per 1M input/output tokens ([ADR-0019](../adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md)); occasional escalations at that rate land well under this figure | 1.50 |
 | Jev risk rating — TypeSafe API, ~12M input tokens ([ADR-0006](../adr/0006-jev-as-proposal-risk-rater.md)) | 0.50 |
 | Data transfer | 1.00 |
-| **App node subtotal** | **~$14** |
+| **App node subtotal** | **~$13** |
 | Database server `t4g.small` on-demand, 730 hrs ($0.0112/hr) | 8.18 |
 | Database server root disk, 8 GB gp3 | 0.73 |
 | Database data volume, 20 GB gp3 ($0.0912/GB-month) | 1.82 |
 | Database server public IPv4 ($0.005/hr) | 3.65 |
 | Database EBS snapshots, daily, keep 7 (incremental; price to verify in Phase 4) | ~0.30 |
-| **Total** | **~$28** |
+| **Total** | **~$27** |
 
 The database server ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)) is
 **on-demand, never spot**, because a database must not be reclaimable at two minutes' notice.

@@ -145,15 +145,15 @@ Run `make migrate` to bring a database up to date.
 
 | Path | What it is | Status |
 |---|---|---|
-| `infra/modules/budget/` | Budget alarms at $30 and $35, and a Lambda function that shuts compute down at $38 (raised from $18 / $22 / $24 with the $40 ceiling, ADR-0008). Built **before** anything that can cost money. `lambda/hard_stop.py` is that function. Today it **stops the dev server** (and any other `Project=kaval` server outside a server group), and it scales the Phase 4 group to zero once that exists | Working, applied and fired for real |
+| `infra/modules/budget/` | Budget alarms at $30 and $35, and a Lambda function that shuts compute down at $38 (raised from $18 / $22 / $24 with the $40 ceiling, ADR-0008). Built **before** anything that can cost money. `lambda/hard_stop.py` is that function. It **stops the dev server** (and any other `Project=kaval` server outside a server group) and, since `KAV-50`, scales the real prod Auto Scaling Group to zero — armed (not dry-run) and proven live with a manual test invocation | Working, applied and fired for real |
 | `infra/modules/devbox/` | The development server: a `t4g.medium` with **no open ports** (reached only through AWS Session Manager) that stops itself after an idle hour. `user_data.sh.tftpl` is its first-boot setup: Docker, `k3d`/`kubectl`/`helm` (checksum-verified, `KAV-46`), your SSH key, the idle-stop timer | Working, applied in AWS (Lab 03) |
 | `infra/modules/database/` | The production **database server**: its own `t4g.small`, a separate encrypted data volume, a firewall that only lets the app server in, daily snapshots and a snapshot before every stop ([ADR-0008](adr/0008-production-database-on-its-own-server.md)). Staging gets one from the same module | Placeholder, Phase 4 (`KAV-32`) |
-| `infra/modules/network/` | The VPC, subnets and firewall rules. No NAT Gateway, which alone would cost $32/month | Placeholder, Phase 4 |
-| `infra/modules/node/` | The single cheap `t4g.medium` spot server that runs k3s | Placeholder, Phase 4 |
-| `infra/modules/ecr/` | Where container images are stored in AWS | Placeholder, Phase 4 |
-| `infra/modules/iam/` | Permissions, including the narrow write access only the executor gets | Placeholder, Phase 4 |
+| `infra/modules/network/` | The VPC, subnets and firewall rules. No NAT Gateway, which alone would cost $32/month | Working, applied in AWS (`KAV-50`, Lab 19) |
+| `infra/modules/node/` | The single cheap `t4g.medium` spot server that runs k3s, in a size-1 Auto Scaling Group so a reclaimed spot instance gets replaced automatically | Working, applied in AWS (`KAV-50`, Lab 19) — `k3s` is live, `Ready`; Flux/GitOps self-healing is still a later story |
+| `infra/modules/ecr/` | Where container images are stored in AWS — one repo per service, immutable tags | Working, applied in AWS (`KAV-50`, Lab 19) |
+| `infra/modules/iam/` | The node's own AWS identity — SSM management and scoped ECR pulls. **Not** a per-service agent/executor AWS role: that split already exists at the Kubernetes RBAC layer (`KAV-47`); see [ADR-0024](adr/0024-prod-landing-network-ecr-iam-node.md) | Working, applied in AWS (`KAV-50`, Lab 19) |
 | `infra/modules/eks-lab/` | A real Amazon EKS cluster, created briefly to prove the same software runs there, then destroyed | Placeholder, Phase 8 |
-| `infra/envs/prod/` | The production environment. Today it contains only the budget module; the compute modules are written in but commented out | Working (budget only) |
+| `infra/envs/prod/` | The production environment: the budget module (Phase 0) plus, since `KAV-50`, the real network/ECR/IAM/node landing. Flux, the Cloudflare Tunnel and the database server are still separate follow-on stories | Working |
 | `infra/envs/prod/main.tf`, `variables.tf`, `outputs.tf` | What to create, its settings, and what it reports back | Working |
 | `infra/envs/prod/terraform.tfvars.example` | Template for your real values (`terraform.tfvars` itself is not in Git) | Working |
 | `infra/envs/prod/.terraform.lock.hcl` | Pins exact provider versions, so every run uses the same ones | Working |

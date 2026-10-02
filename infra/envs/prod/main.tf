@@ -1,7 +1,8 @@
 # Kaval — production environment.
 #
-# Phase 0 provisions ONLY the budget guardrails. The node, network, ECR and IAM
-# modules arrive in Phase 4 and are deliberately commented out until then.
+# Phase 0 provisioned the budget guardrails. Phase 4 (KAV-50) adds the network, ECR,
+# IAM and the node itself — still just the landing: Flux GitOps, the Cloudflare Tunnel
+# and the database server (KAV-32) are each their own follow-on story.
 #
 # Order matters: the thing that stops the bill exists before the thing that
 # creates one.
@@ -44,10 +45,11 @@ module "budget" {
   alert_2_usd       = var.alert_2_usd
   hard_stop_usd     = var.hard_stop_usd
 
-  # No compute exists yet, so there is nothing to scale down. The Lambda is
-  # still deployed and still fires -- proving the path works before it matters.
-  asg_name          = ""
-  hard_stop_dry_run = true
+  # KAV-50: the ASG now exists, so the hard-stop Lambda has something real to scale to
+  # zero. Armed (not dry-run) from the moment compute exists -- the whole point of
+  # building the guardrail in Phase 0 was to have it live before anything could overrun.
+  asg_name          = module.node.asg_name
+  hard_stop_dry_run = false
 
   # Armed 2026-09-26 (KAV-30): at the hard-stop threshold ($38 since ADR-0008) the Lambda stops every running Project=kaval
   # instance outside an ASG -- today, the dev server (ADR-0007); from Phase 4 also the
@@ -56,30 +58,33 @@ module "budget" {
 }
 
 # ─────────────────────────────────────────────────────────────
-# Phase 4 — compute. Do not uncomment before the guardrails have fired
-# once in a real test. See docs/labs/lab-01-aws-guardrails.md.
+# Phase 4 — compute (KAV-50). The node, not yet what runs on it: Flux GitOps, the
+# Cloudflare Tunnel and the database server (KAV-32, ADR-0008) are follow-on stories.
 # ─────────────────────────────────────────────────────────────
 
-# module "network" {
-#   source = "../../modules/network"
-#   region = var.region
-#   # No NAT Gateway. Public subnet + security groups. See docs/cost/budget-plan.md.
-# }
-#
-# module "ecr" {
-#   source = "../../modules/ecr"
-# }
-#
-# module "iam" {
-#   source = "../../modules/iam"
-#   # agent  -> read-only
-#   # executor -> scoped write
-#   # This split is the architecture. See docs/architecture/overview.md.
-# }
-#
-# module "node" {
-#   source        = "../../modules/node"
-#   subnet_id     = module.network.public_subnet_id
-#   instance_type = "t4g.medium"   # Graviton — images MUST be linux/arm64
-#   use_spot      = true
-# }
+module "network" {
+  source = "../../modules/network"
+}
+
+module "ecr" {
+  source = "../../modules/ecr"
+}
+
+module "iam" {
+  source = "../../modules/iam"
+
+  # The agent/executor read-only vs scoped-write split is already enforced at the
+  # Kubernetes RBAC layer (ADR-0021, KAV-47). This is the node's own AWS identity --
+  # SSM management and ECR pulls -- not a per-service AWS role. See infra/modules/iam.
+  ecr_repository_arns = module.ecr.repository_arns
+}
+
+module "node" {
+  source = "../../modules/node"
+
+  vpc_id                = module.network.vpc_id
+  subnet_id             = module.network.public_subnet_id
+  instance_profile_name = module.iam.instance_profile_name
+  ssh_public_key        = var.ssh_public_key
+  # instance_type, disk_gb, k3s_version, k3s_sha256_arm64 keep their module defaults.
+}

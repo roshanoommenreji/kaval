@@ -9,3 +9,6 @@ monthly_limit_usd = 40
 alert_1_usd       = 30
 alert_2_usd       = 35
 hard_stop_usd     = 38
+
+# KAV-50. Generate with: ssh-keygen -t ed25519 -f ~/.ssh/kaval-prod -C kaval-prod
+ssh_public_key = "ssh-ed25519 AAAA...replace-me kaval-prod"
