@@ -161,6 +161,18 @@ time. Fixed with Helm's own standard convention, `{{ .Chart.Version | replace "+
 (ADR-0025, Decision 6) — verified by temporarily setting `Chart.yaml` to `0.1.0+1` and
 confirming `helm template` renders the sanitised label, not just reading the fix and trusting it.
 
+**A fourth finding, right after the third's fix merged:** `HelmRelease` kept failing with the
+*identical* `+1` label error even though `GitRepository` had already picked up the new commit.
+`HelmChart`'s default `reconcileStrategy` (`ChartVersion`) only repackages when `Chart.yaml`'s
+`version:` field itself changes — not merely because the underlying templates did
+(source-controller's own documented warning). Setting `reconcileStrategy: Revision` on the
+`HelmRelease`'s `chart.spec` fixes the chart tracking, but exposed a deeper gap: nothing was
+actually *watching* `deploy/gitops/prod/` for changes between boots — cloud-init's bootstrap
+script only `kubectl apply`s those files once (and every 6h as a side effect of the credential
+refresh). A proper Flux `Kustomization` (`sync.yaml`, reconciling the whole directory on its
+own 1-minute interval) closes that, and is what "reconciles itself from Git" actually requires
+(ADR-0025, Decision 7).
+
 ## Done when
 
 - [ ] `helm template --set global.imageRegistry=...` shows every service's image correctly

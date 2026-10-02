@@ -1,0 +1,22 @@
+# The piece that actually makes `deploy/gitops/prod/` self-healing from Git (KAV-51,
+# ADR-0025 Decision 7, found live): without this, cloud-init's one-time `kubectl apply` of
+# namespace.yaml/source.yaml/helmrelease.yaml was the *only* thing keeping those objects in
+# sync — a later commit to any of them (like this story's own reconcileStrategy fix) would
+# sit un-applied on a running node until its next boot. kustomize-controller's own
+# Kustomization closes that: it watches this directory, via the same GitRepository, on its
+# own interval, and reconciles continuously — the property "self-healing from Git" actually
+# needs. It does NOT manage kaval-registry/ecr-cred: those are deliberately never committed
+# (an ECR registry hostname embeds the AWS account ID, and the Secret holds a live
+# credential), so they stay the bootstrap script's job, refreshed every 6h.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kaval-prod
+  namespace: flux-system
+spec:
+  interval: 1m
+  path: ./deploy/gitops/prod
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: kaval
