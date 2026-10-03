@@ -11,6 +11,8 @@ Ollama up.
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Literal
 
 import httpx
@@ -19,20 +21,31 @@ from kaval_shared.db import get_engine
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from kaval_gateway import __version__
+from kaval_gateway import __version__, slack_chatops
 from kaval_gateway.api import router
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # No-op unless SLACK_BOT_TOKEN/SLACK_APP_TOKEN/SLACK_CHANNEL_ID are all set — true for
+    # every environment so far, including every CI run (kaval_gateway.slack_chatops).
+    slack_chatops.start()
+    yield
+
 
 app = FastAPI(
     title="Kaval gateway",
+    lifespan=_lifespan,
     version=__version__,  # the gateway component's version, not the product's (ADR-0013)
-    summary="The mobile-facing API of an ops agent that acts only with human approval.",
+    summary="The operator-facing API of an ops agent that acts only with human approval.",
     description=(
         "Signals as collected, incidents with their full timeline (proposals, actions, "
         "decisions, executions, outcomes), and one write: approve or deny a proposed "
-        "action (KAV-47). No authentication yet: the server binds to 127.0.0.1 and is "
-        "reached through an SSH tunnel. Slack ChatOps (KAV-55, Phase 4) is the planned "
-        "approval surface; until it lands, `scripts/ops/approve.py` is the approval flow. "
-        "Cognito JWTs would arrive only if the deferred mobile app (Phase 9) is ever built."
+        "action (KAV-47). No inbound exposure: the server binds to 127.0.0.1 and is "
+        "reached through an SSH tunnel for everything except approvals. Slack ChatOps "
+        "(KAV-55, ADR-0026) connects outbound instead — no inbound endpoint is ever opened "
+        "for it either; `scripts/ops/approve.py` remains the fallback. Cognito JWTs would "
+        "arrive only if the deferred mobile app (Phase 9) is ever built."
     ),
     openapi_tags=[
         {"name": "health", "description": "Is the stack wired: database migrated, model pulled"},

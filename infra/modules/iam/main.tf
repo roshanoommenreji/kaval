@@ -3,8 +3,8 @@
 # that split already exists and is enforced today, at the Kubernetes RBAC layer (ADR-0021,
 # KAV-47) — ServiceAccounts and Roles scoped per-pod inside the cluster. A per-service AWS
 # IAM identity for workloads (IRSA or equivalent) only becomes meaningful once the executor
-# calls AWS write APIs directly, which is Phase 7's FinOps work (the "aws-apis" node in
-# architecture.toml, phase 7, IRSA on EKS in Phase 8). Until then there is exactly one AWS
+# calls AWS write APIs directly, which is Phase 6's FinOps work (the "aws-apis" node in
+# architecture.toml, phase 6, IRSA on EKS in Phase 7). Until then there is exactly one AWS
 # identity in play: the instance itself, and it needs only two things — to be managed via
 # SSM, and to pull the images CI pushed.
 

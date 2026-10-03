@@ -18,6 +18,10 @@ gateway = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.53.0",
     "httpx>=0.27",
+    # Slack ChatOps (KAV-55, ADR-0026): the outbound Socket Mode connection and chat.postMessage.
+    # Pure stdlib-plus-websocket-client under the hood — no aiohttp needed, since this gateway
+    # is sync SQLAlchemy throughout and the builtin Socket Mode client runs its own threads.
+    "slack_sdk>=3.33",
 ]
 agent = [
     # Calls Ollama for embeddings (KAV-40) and chat (KAV-41). Not installed in the agent's

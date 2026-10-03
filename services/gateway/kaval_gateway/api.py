@@ -17,15 +17,16 @@ import base64
 import binascii
 import uuid
 from collections.abc import Generator
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated, Literal, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from kaval_shared.db import get_engine
-from kaval_shared.models import Action, Decision, Incident, PolicyClass, Proposal, Signal, Verdict
+from kaval_shared.models import Action, Incident, Proposal, Signal, Verdict
 from sqlalchemy import Select, literal, select, text, tuple_
 from sqlalchemy.orm import InstrumentedAttribute, Session, selectinload
 
+from kaval_gateway.decisions import DecisionOutcome, record_decision
 from kaval_gateway.schemas import (
     DecisionIn,
     DecisionOut,
@@ -194,39 +195,23 @@ def get_incident(incident_id: uuid.UUID, db: DB) -> IncidentDetail:
     },
 )
 def decide(action_id: uuid.UUID, body: DecisionIn, db: WriteDB) -> DecisionOut:
-    """Record a human's approve or deny on one proposed action (KAV-47). There is no
-    corresponding GET-then-act race to worry about: `action.decision`'s `UniqueConstraint`
-    means a second decision on the same action fails at the database regardless of what
-    this function checks first — the checks below exist to fail with a clear 409 instead of
-    an unhandled `IntegrityError`, not to be the only thing preventing a double-decision.
-
-    `policy_class == never` is refused here too, before the database even gets asked,
-    because ADR-0006's rule 1 means "never" regardless of what a human says, not just
-    regardless of what the model's confidence says. This is a convenience rejection, not
-    the enforcement boundary: even if this check were removed, or this whole endpoint were
-    compromised and wrote an `approved` decision directly, the executor's own independent
-    policy re-check (`kaval_executor.executor`) evaluates the identical `never` rule again,
-    from the action's real fields, immediately before it would act — and refuses it there
-    too. Two independent refusals, not one checked twice.
+    """Record a human's approve or deny on one proposed action (KAV-47). `record_decision`
+    (`kaval_gateway.decisions`) is the one write path this and Slack ChatOps (`KAV-55`) both
+    go through — see its own docstring for why `never` and a second decision are refused
+    before the database is even asked, and why neither refusal is the real enforcement
+    boundary (the executor re-checks policy independently either way).
     """
-    action = db.get(Action, action_id)
-    if action is None:
+    outcome, decision = record_decision(
+        db, action_id, Verdict(body.verdict), body.actor, body.reason
+    )
+    if outcome is DecisionOutcome.not_found:
         raise HTTPException(status_code=404, detail="action not found")
-    if action.policy_class == PolicyClass.never:
+    if outcome is DecisionOutcome.never_class:
         raise HTTPException(
             status_code=409,
             detail="action is policy class 'never' — it cannot be approved or denied",
         )
-    if action.decision is not None:
+    if outcome is DecisionOutcome.already_decided:
         raise HTTPException(status_code=409, detail="action already has a decision")
-    decision = Decision(
-        action_id=action.id,
-        verdict=Verdict(body.verdict),
-        actor=body.actor,
-        reason=body.reason,
-        decided_at=datetime.now(UTC),
-    )
-    db.add(decision)
-    db.commit()
-    db.refresh(decision)
+    assert decision is not None  # DecisionOutcome.recorded always carries one
     return DecisionOut.model_validate(decision)
