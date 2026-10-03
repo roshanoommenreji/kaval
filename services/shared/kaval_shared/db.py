@@ -20,7 +20,10 @@ def database_url() -> str:
     host = os.environ["POSTGRES_HOST"]
     port = os.environ["POSTGRES_PORT"]
     db = os.environ["POSTGRES_DB"]
-    return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
+    # Unset locally/in dev (no TLS there). The standalone database server (ADR-0008, KAV-32)
+    # sets this to "require" from its own out-of-band Secret.
+    sslmode = os.environ.get("POSTGRES_SSLMODE", "prefer")
+    return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}?sslmode={sslmode}"
 
 
 @lru_cache

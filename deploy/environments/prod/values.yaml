@@ -5,10 +5,27 @@
 # global.imageRegistry comment and ADR-0025. See docs/adr/0023-promotion-rehearsal-on-k3d.md
 # for the k3d rehearsal this superseded.
 #
-# Still a plain dev password (SSM Parameter Store, ADR-0008, is Phase 4's DB-server story,
-# KAV-32 — not yet built).
+# The database server (ADR-0008, KAV-32): Postgres no longer runs in this cluster at all.
+# Every service reads its own Secret, created out of band the same way ecr-cred and
+# kaval-slack are — never a password committed here. Each Secret's POSTGRES_PASSWORD comes
+# from the SSM Parameter Store value infra/modules/database generated
+# (`terraform output database_ssm_parameter_paths`), read by Roshan, never pasted to an
+# assistant (same discipline as the Slack tokens, ADR-0026):
+#   kubectl create secret generic kaval-postgres-gateway -n kaval-prod \
+#     --from-literal=POSTGRES_HOST=<terraform output database_private_ip> \
+#     --from-literal=POSTGRES_PORT=5432 --from-literal=POSTGRES_DB=kaval \
+#     --from-literal=POSTGRES_USER=kaval_gateway --from-literal=POSTGRES_PASSWORD=<from SSM> \
+#     --from-literal=POSTGRES_SSLMODE=require
+# ...repeated for -agent/kaval_agent, -executor/kaval_executor, -collector/kaval_collector,
+# and -admin/kaval (the admin role, used by migrate-job and the deferred db-roles-job).
 postgres:
-  password: kaval-prod-dev
+  enabled: false
+  secretNames:
+    gateway: kaval-postgres-gateway
+    agent: kaval-postgres-agent
+    executor: kaval-postgres-executor
+    collector: kaval-postgres-collector
+    migrate: kaval-postgres-admin
 
 global:
   # The registry itself (the AWS account ID) is injected by Flux's HelmRelease, never
@@ -22,6 +39,13 @@ gateway:
   # values" true but untested — this is the value that actually needs two running pods to
   # roll out without a gap, which is what a rollout (and a rollback) actually exercises.
   replicas: 2
+  # Carried over from the 2026-10-03 Slack ChatOps lab (KAV-55): left unset there deliberately,
+  # because without a matching Secret in kaval-prod Flux's next reconcile would just fail the
+  # gateway with CreateContainerConfigError. Now that prod is being brought back up for KAV-32,
+  # create `kaval-slack` in this namespace too (same keys as deploy/environments/local/
+  # values.yaml's comment: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_CHANNEL_ID) before this
+  # reconciles, or the gateway won't start.
+  slackSecretName: kaval-slack
   image:
     # Build once, promote the artifact (ADR-0004): the digest tagged `sha-ffb436b` is the
     # one commit this story manually built and pushed to ECR (KAV-51, ADR-0025) — a

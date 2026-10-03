@@ -218,7 +218,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [gateway, collector, agent, executor]
+        service: [gateway, collector, agent, executor, backup]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -242,11 +242,17 @@ jobs:
           push: false
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
-      - name: image is arm64, runs as the unprivileged user, and its code imports
+      - name: image is arm64 and runs as the unprivileged user
         run: |
           image=kaval/${{ matrix.service }}:ci
           test "$(docker image inspect -f '{{.Architecture}}' "$image")" = arm64
           test "$(docker run --rm --entrypoint id "$image" -u)" = 10001
+      - name: its code imports
+        # backup (KAV-32) is a utility image -- scripts/ops/*.sh + psql/awscli, not a Kaval
+        # Python service, so there's no kaval_shared/kaval_backup/alembic to import.
+        if: matrix.service != 'backup'
+        run: |
+          image=kaval/${{ matrix.service }}:ci
           docker run --rm --entrypoint python "$image" \
             -c "import kaval_shared.models, kaval_${{ matrix.service }}, alembic; print('imports ok')"
       - name: agent and executor images carry a working opa and the real policy bundle

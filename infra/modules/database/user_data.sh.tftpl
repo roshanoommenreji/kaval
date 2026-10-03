@@ -1,0 +1,111 @@
+#!/bin/bash
+# First-boot setup for the Kaval database server. Runs once, as root, via cloud-init.
+# Log: /var/log/cloud-init-output.log
+#
+# `ignore_changes = [ami, user_data]` on the instance (main.tf) means editing this file has
+# no effect on an already-running server — it only applies the next time the instance is
+# genuinely recreated, which should be rare (the data volume is separate precisely so a
+# recreation doesn't lose anything, per ADR-0008).
+set -euxo pipefail
+
+dnf install -y docker jq
+systemctl enable --now docker
+command -v aws >/dev/null || dnf install -y aws-cli
+
+# ── SSH, reachable only through the SSM tunnel (no inbound port is open) ──
+install -d -m 700 -o ec2-user -g ec2-user /home/ec2-user/.ssh
+echo "${ssh_public_key}" >> /home/ec2-user/.ssh/authorized_keys
+chown ec2-user:ec2-user /home/ec2-user/.ssh/authorized_keys
+chmod 600 /home/ec2-user/.ssh/authorized_keys
+
+# ── find and mount the data volume ──────────────────────────────────────────
+# AWS attaches EBS volumes on Nitro instances (t4g is Nitro-based) as NVMe devices, not
+# under the requested device_name (/dev/sdf in main.tf). The /dev/disk/by-id symlink AWS
+# creates from the volume ID is the documented, stable way to find it regardless of attach
+# order. See https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify-nvme-ebs-device.html
+VOL_SUFFIX=$(echo "${data_volume_id}" | tr -d '-')
+DEV="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_$${VOL_SUFFIX}"
+for _ in $(seq 1 30); do
+  [ -e "$DEV" ] && break
+  sleep 2
+done
+[ -e "$DEV" ]
+
+if [ -z "$(blkid -o value -s TYPE "$DEV" 2>/dev/null || true)" ]; then
+  echo "data volume has no filesystem yet — formatting (first boot only)"
+  mkfs.ext4 "$DEV"
+fi
+
+mkdir -p /data
+mount "$DEV" /data
+# by-id path is stable across reboots and re-attachment, unlike /dev/nvme1n1 (attach order
+# isn't guaranteed to stay the same).
+grep -q "$DEV" /etc/fstab || echo "$DEV /data ext4 defaults,nofail 0 2" >> /etc/fstab
+
+mkdir -p /data/pgdata /data/tls
+
+# ── self-signed TLS cert (ADR-0008 amendment: encrypts the wire, doesn't authenticate the
+# server's identity — a real CA is out of scope for a single-operator project). Generated
+# once; lives on the data volume so it survives a stop/start or instance replacement. ──
+if [ ! -f /data/tls/server.crt ]; then
+  openssl req -x509 -newkey rsa:2048 -days 3650 -nodes \
+    -keyout /data/tls/server.key -out /data/tls/server.crt \
+    -subj "/CN=kaval-database"
+fi
+# uid 999 is the postgres user inside the official/pgvector image (Debian-based). The key
+# must be owned by that uid and not group/world-readable, or Postgres refuses to start.
+chown 999:999 /data/tls/server.key /data/tls/server.crt
+chmod 600 /data/tls/server.key
+chmod 644 /data/tls/server.crt
+
+# ── pg_hba.conf — TLS is enforced, not just available. The real network boundary is the
+# security group (5432 only from the app node's SG, ADR-0008); this is the second layer. ──
+cat > /data/pg_hba.conf <<'HBA'
+local   all   all                     trust
+host    all   all   127.0.0.1/32      trust
+hostssl all   all   0.0.0.0/0         scram-sha-256
+hostnossl all all   0.0.0.0/0         reject
+HBA
+
+# ── the admin password, fetched once from SSM Parameter Store, written to a root-only file
+# the systemd unit below mounts read-only into the container. Never re-typed, never logged. ──
+TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+REGION=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
+aws ssm get-parameter --region "$REGION" --name "${admin_param_name}" --with-decryption \
+  --query Parameter.Value --output text > /etc/kaval-db-password
+chmod 600 /etc/kaval-db-password
+chown root:root /etc/kaval-db-password
+
+# ── Postgres, managed by systemd so EC2 stop → systemd stop → `docker stop -t 60` → a clean
+# checkpoint, not a kill (ADR-0008's graceful-shutdown requirement). ──
+cat > /etc/systemd/system/kaval-postgres.service <<UNIT
+[Unit]
+Description=Kaval production Postgres
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/bin/docker rm -f postgres
+ExecStart=/usr/bin/docker run --rm --name postgres \\
+  -e POSTGRES_DB=${db_name} \\
+  -e POSTGRES_USER=kaval \\
+  -e POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password \\
+  -v /data/pgdata:/var/lib/postgresql/data \\
+  -v /data/tls:/tls:ro \\
+  -v /data/pg_hba.conf:/data/pg_hba.conf:ro \\
+  -v /etc/kaval-db-password:/run/secrets/postgres_password:ro \\
+  -p 5432:5432 \\
+  pgvector/pgvector:pg16 \\
+  -c ssl=on -c ssl_cert_file=/tls/server.crt -c ssl_key_file=/tls/server.key -c hba_file=/data/pg_hba.conf
+ExecStop=/usr/bin/docker stop -t 60 postgres
+TimeoutStopSec=90
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now kaval-postgres.service

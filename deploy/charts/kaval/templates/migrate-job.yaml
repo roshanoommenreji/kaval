@@ -32,11 +32,14 @@ spec:
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.postgres.image }}
+          envFrom:
+            - secretRef:
+                name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "migrate") }}
           command:
             - sh
             - -c
             - |
-              until pg_isready -h {{ include "kaval.fullname" . }}-postgres -p 5432; do
+              until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT"; do
                 echo "waiting for postgres..."; sleep 2
               done
       containers:
@@ -46,9 +49,4 @@ spec:
           command: ["alembic", "upgrade", "head"]
           envFrom:
             - secretRef:
-                name: {{ include "kaval.fullname" . }}-postgres
-          env:
-            - name: POSTGRES_HOST
-              value: {{ include "kaval.fullname" . }}-postgres
-            - name: POSTGRES_PORT
-              value: "5432"
+                name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "migrate") }}

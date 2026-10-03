@@ -122,3 +122,45 @@ service. Continuous service is the Phase 7–9 always-on posture.
   and no Multi-AZ failover. Both are written down, not hidden.
 - **Revisit** if the data outgrows 20 GB, if RPO under 24 h becomes a requirement (add wal-g
   first, then consider RDS), or if the account's credit runs out before v1.
+
+## Amendment, 2026-10-04 — implementation (`KAV-32`)
+
+Building the module surfaced decisions this ADR's original table didn't specify. Recorded
+here rather than a new ADR, since none of them change the decision above, only how it's built.
+
+- **Scope, chosen when asked.** This slice covers the server, its security group and data
+  volume, TLS, per-service Postgres roles, and the two backup mechanisms (DLM snapshots, S3
+  dump). Deferred to a follow-up story: pre-stop snapshots wired into `make down`/the nightly
+  paused-posture auto-stop/the hard-stop Lambda, the nightly auto-stop schedule itself, the
+  automatic boot-time health-check-and-restore (the runbook's manual `make db-restore-snapshot`
+  path covers this for now), SSM Patch Manager, connection/failed-auth logging, and the staging
+  database (blocked on `infra/envs/staging` — the second node — not existing yet).
+- **TLS is a self-signed certificate, `sslmode=require` from services, not `verify-full`.**
+  Encrypts the wire; doesn't authenticate the server's identity. A real CA is out of scope for
+  a single-operator project. `pg_hba.conf` enforces it (`hostssl ... scram-sha-256` +
+  `hostnossl ... reject`), so it's required, not merely available — the real network boundary
+  underneath it is still the security group, per the table above.
+- **The database's AZ is pinned to the network module's first subnet**, not derived from
+  wherever the app node's spot capacity happens to land. The app node's AZ moves on
+  reclamation; the database's must not. Accepted trade-off: a spot replacement into a
+  different AZ costs one small cross-AZ data-transfer charge between app and database, not an
+  outage.
+- **Per-service Postgres roles are real, not just documented.** Each of `kaval_gateway`,
+  `kaval_agent`, `kaval_executor`, `kaval_collector` is its own login role with its own
+  Terraform-generated password (SSM Parameter Store SecureString) and its own `GRANT`s
+  (`scripts/ops/db-roles.sql`), matching the read-only/scoped-write split `CLAUDE.md`
+  constraint 3 already enforces at the Kubernetes RBAC layer (ADR-0021). Each service's own
+  Kubernetes Secret carries its own role's credentials — one Secret per service, not one
+  shared Secret, so a compromised `kaval_collector` credential can't read a `decision` row.
+- **The chart's own in-cluster Postgres (`postgres.yaml`) gets a `postgres.enabled` switch**
+  rather than being deleted outright — local/dev/CI keep using it unchanged; only an
+  environment with its own database server (prod now, staging later) sets it `false`.
+- **Known gap, found while building this, not yet closed:** the two pieces that actually
+  materialize a live AWS credential into the cluster — a host-level refresh of temporary
+  credentials into an `aws-creds` Secret (so the nightly backup CronJob can call `aws s3 cp`
+  without pods reaching instance metadata directly, which the default IMDS hop limit blocks
+  anyway) and the Helm hook Job that runs `db-roles.sql` (which has to combine five different
+  Secrets' passwords into one `psql` invocation) — were both blocked by this environment's own
+  safety classifier rather than written. The design for both is recorded here and in
+  `docs/labs/lab-22-production-database.md`; Roshan builds or approves those two pieces
+  directly rather than an assistant writing them unsupervised.

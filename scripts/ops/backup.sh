@@ -10,8 +10,13 @@
 
 set -euo pipefail
 
-: "${POSTGRES_HOST:?}" "${POSTGRES_DB:?}" "${POSTGRES_USER:?}"
+: "${POSTGRES_HOST:?}" "${POSTGRES_DB:?}" "${POSTGRES_USER:?}" "${POSTGRES_PASSWORD:?}"
 : "${BACKUP_BUCKET:?set BACKUP_BUCKET}"
+
+# pg_dump has no password flag -- it reads PGPASSWORD (or ~/.pgpass). Found here, not
+# guessed: this script had no password handling at all until KAV-32 actually ran it against
+# a real server with auth enabled instead of a trust-auth dev container.
+export PGPASSWORD="$POSTGRES_PASSWORD"
 
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 KEY="postgres/${POSTGRES_DB}-${STAMP}.dump"
