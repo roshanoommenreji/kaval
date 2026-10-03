@@ -9,6 +9,10 @@ postgres:
 
 gateway:
   replicas: 1
+  # Only ever a Secret *name*, never a token (KAV-55, ADR-0026) — created out of band via
+  # `kubectl create secret generic kaval-slack --from-literal=SLACK_BOT_TOKEN=... --from-literal=
+  # SLACK_APP_TOKEN=... --from-literal=SLACK_CHANNEL_ID=...`, same posture as `ecr-cred`.
+  slackSecretName: kaval-slack
 
 agent:
   correlateEverySeconds: 30

@@ -10,9 +10,10 @@ that stopgap with a real approval surface that still never opens an inbound port
 **Socket Mode**. The design and the reasoning for deferring mobile instead are in
 [ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md).
 
-This lab has two parts. **Part 1** is done and verified in this repo already — the code,
-migration, and tests. **Part 2** is yours to do: nothing here can create a Slack App on your
-behalf, so the live, end-to-end verification waits on that.
+This lab has two parts, both done. **Part 1** — the code, migration, and tests — was built and
+unit-tested first. **Part 2** — a real Slack App (nothing in this repo can create one on your
+behalf) and the live, end-to-end verification — is below, including the one real mistake made
+along the way and how it was corrected.
 
 ---
 
@@ -113,16 +114,35 @@ Nothing in this repo can do this part; it needs your own Slack account.
 
 ## Verification, once Part 2 is done
 
-- `kubectl logs` on the gateway pod shows `slack_chatops: connected, notifying #<channel> every
-  30.0s`.
-- Trigger a real `ask`-class proposal (any synthetic incident with default policy works) and
-  confirm the message appears in the Slack channel within one poll interval, with working
-  Approve/Deny buttons.
-- Click Approve. Confirm a reply appears in-thread, `GET /v1/incidents/{id}` shows the decision
-  with `actor` starting `slack:`, and the executor acts on it exactly as it would for a
-  CLI-approved action.
-- Kill the gateway pod mid-session and confirm it reconnects on restart without any manual step.
+- [x] `kubectl logs` on the gateway pod shows `slack_chatops: connected, notifying #<channel>
+  every 30.0s`. Needed one real fix first: nothing configured Python's root logger, so this
+  and every other app-level log line was silently dropped — `logging.basicConfig()` added to
+  `main.py`, reading the chart's existing (previously unused) `LOG_LEVEL`.
+- [x] Trigger a real `ask`-class proposal and confirm the message appears with working
+  Approve/Deny buttons. Two real synthetic incidents (`oom-crashloop`, and a genuinely crashing
+  pod triggering a real `crashloop:k8s:...` event) both diagnosed to **zero actions** — correct,
+  conservative model behaviour, not a bug: the only runbook that exists yet
+  (`restore-from-backup.md`) doesn't match either failure, and this model won't invent a fix
+  without one (same documented behaviour as `KAV-41`/`KAV-43`). Crash-specific runbooks are
+  Phase 5 scope. Isolated the Slack-specific mechanics with one manually-inserted `ask`-class
+  `Action` row instead, flagged `{"manual_test": true}` in `params` — same table, same code
+  path, deliberately not claimed as a model-generated proposal.
+- [x] Click Approve. `GET /v1/incidents/{id}` confirmed the decision: `verdict: approved`,
+  `actor: slack:roshanoommenreji`. The executor acted within one second —
+  `execution.status: "success"`, `stdout: "deleted pod kaval-demo/crashy ..."`.
+- [ ] Kill the gateway pod mid-session and confirm it reconnects without a manual step — not
+  yet exercised; the Socket Mode client's own reconnect behaviour is documented upstream but
+  wasn't forced and observed here.
 
-**Not yet done, honestly:** this live verification. The code, migration, and chart wiring are
-complete and tested; a real Slack App, and the end-to-end click-to-execution proof, wait on
-Part 2 — Roshan's own setup step, same pattern as KAV-44's AWS Marketplace blocker (ADR-0019).
+**One real incident along the way, not hidden:** debugging the Slack App setup in Slack's own
+UI, the actual token values briefly appeared in a terminal command's output by mistake (a shell
+quoting bug in a presence-check). Both the bot token and the app-level token were rotated in
+Slack before continuing — the channel ID isn't a credential, so it didn't need rotating. Worth
+remembering: a presence-only check must use `[ -n "$VAR" ]`, never `${VAR:-placeholder}` (which
+expands to the real value when set).
+
+**Environment used:** the local k3d cluster on the dev server (`kaval-devbox`), not prod —
+consistent with how `KAV-47`/`KAV-48` were proven before prod existed as a target. Prod's own
+`values.yaml` gets the same `gateway.slackSecretName` wiring, and its own `kaval-slack` Secret,
+whenever prod is next brought up for other Phase 4 work — adding it now, with no Secret to back
+it, would just make the next Flux reconcile fail to start the gateway.

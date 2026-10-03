@@ -10,6 +10,7 @@ Ollama up.
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -23,6 +24,13 @@ from sqlalchemy import text
 
 from kaval_gateway import __version__, slack_chatops
 from kaval_gateway.api import router
+
+# Without this, every app-level logger (slack_chatops included) is silently dropped: Python's
+# root logger defaults to WARNING with no handler, and uvicorn's own logging config only sets
+# up its own loggers (uvicorn/uvicorn.access/uvicorn.error), not this package's. Found live,
+# verifying KAV-55: `kubectl logs` showed uvicorn's own startup lines but never
+# slack_chatops.start()'s "connected" message, because it genuinely never reached any handler.
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 
 
 @asynccontextmanager
