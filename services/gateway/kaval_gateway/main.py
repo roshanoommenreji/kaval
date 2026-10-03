@@ -30,8 +30,9 @@ app = FastAPI(
         "Signals as collected, incidents with their full timeline (proposals, actions, "
         "decisions, executions, outcomes), and one write: approve or deny a proposed "
         "action (KAV-47). No authentication yet: the server binds to 127.0.0.1 and is "
-        "reached through an SSH tunnel. Cognito JWTs arrive with the mobile app (Phase 5) "
-        "— until then, `scripts/ops/approve.py` is the approval flow."
+        "reached through an SSH tunnel. Slack ChatOps (KAV-55, Phase 4) is the planned "
+        "approval surface; until it lands, `scripts/ops/approve.py` is the approval flow. "
+        "Cognito JWTs would arrive only if the deferred mobile app (Phase 9) is ever built."
     ),
     openapi_tags=[
         {"name": "health", "description": "Is the stack wired: database migrated, model pulled"},

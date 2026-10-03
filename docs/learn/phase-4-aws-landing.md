@@ -8,17 +8,19 @@
 
 Phases 1–3 built a system that works on a single development server that sleeps when nobody is
 using it ([ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md)). This phase puts it
-somewhere always reachable, rebuilt from Git, that can be woken by a phone at 2am.
+somewhere always reachable and rebuilt from Git, and gives it a real approval surface — Slack,
+not a phone (mobile is deferred to Phase 9, [ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md)).
 
-It unlocks: everything that requires the system to exist independently of you — push notifications,
-overnight cost data, and the ability to hand someone your phone.
+It unlocks: everything that requires the system to exist independently of you — a real human
+approving a real action from Slack, overnight cost data, and the ability to hand someone your
+Slack workspace instead of your laptop.
 
 ## What we're doing
 
 - Terraform: VPC and subnet, security group, ECR, IAM roles, spot node
 - **k3s bootstrapped by cloud-init** — the node builds itself
 - **Flux** reconciling the cluster from Git
-- **Cloudflare Tunnel** for ingress — no load balancer
+- **Slack ChatOps** for approvals (`KAV-55`) — an outbound Socket Mode connection, no ingress at all
 - **Postgres on its own database server** (`t4g.small`, on-demand) with a separate EBS data volume, daily snapshots and a nightly dump to S3 ([ADR-0008](../adr/0008-production-database-on-its-own-server.md))
 - `linux/arm64` images
 - `make up` / `make down`
@@ -161,25 +163,32 @@ This project builds arm64 from Phase 1 precisely so this is never discovered lat
 lesson: **an image is architecture-specific, and the failure surfaces at runtime on a different
 machine, which is the worst possible time.**
 
-### Cloudflare Tunnel instead of a load balancer
+### Slack ChatOps instead of a load balancer — or a tunnel
 
 An Application Load Balancer costs about $18/month plus per-request charges. For one small
-service, that is most of the budget.
+service, that is most of the budget. A Cloudflare Tunnel avoids that cost, but it still means
+something on the internet can reach into the cluster — and most companies are deliberately
+unwilling to accept that for an internal operations tool, tunnel or not.
 
-A **Cloudflare Tunnel** runs a lightweight daemon in the cluster that establishes an *outbound*
-connection to Cloudflare. Traffic arrives at Cloudflare and is delivered down that existing
-connection.
+**Slack's Socket Mode** avoids the question entirely: the gateway opens an *outbound* WebSocket
+connection to Slack at startup, the same direction every other outbound call in this project
+already uses. Slack delivers button-click events down that existing connection. Nothing ever
+connects *in*.
 
 The properties this gives you:
 
-- **No inbound ports open.** The security group needs no ingress rule at all.
-- HTTPS terminated by Cloudflare, certificate managed
-- A stable hostname regardless of the node's IP — which matters when spot replaces the instance
+- **No inbound ports open, and no public hostname at all.** The security group needs no ingress
+  rule — the same posture the node already has for everything else.
+- Authentication is Slack's own signed connection, not a certificate or a JWT you have to verify
+- Survives node replacement the same way the rest of the cluster does: the connection just
+  reopens, because it was never addressed *to* this instance
 - Free at this scale
 
-The trade is a dependency on Cloudflare and a small latency addition. For a personal project with
-a mobile client, that is a clearly good trade, and being able to explain *why* it is good here and
-would not be for a high-throughput API is the useful part.
+The trade is a dependency on Slack and on someone being in the workspace to click the button. For
+an internal approval surface, that is a clearly good trade — and it is the actual industry pattern
+(PagerDuty, Opsgenie, and plenty of home-grown ChatOps bots work exactly this way), which a
+bespoke mobile app, deferred to Phase 9, is not. See
+[ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md).
 
 ### Persistence on an ephemeral node
 
@@ -216,7 +225,7 @@ there is nothing to restore. Three things keep that true:
   away good data.
 
 That gives no data loss and a clean resume. It does **not** give uninterrupted service while
-paused, because the app is stopped too. Continuous service is the always-on posture from Phase 7.
+paused, because the app is stopped too. Continuous service is the always-on posture from Phase 6.
 
 **Backups are not verified until you have restored one.** In this project that restore is not a
 lab exercise — `make staging-up` performs it on every release, so the backup is verified several
@@ -292,7 +301,7 @@ Knowing which of your mechanisms covers which failure — and being able to say 
 | **buildx** | Docker's multi-architecture builder |
 | **Graviton** | AWS ARM processors; the `t4g` family |
 | **`exec format error`** | The kernel refusing a binary built for another architecture |
-| **Cloudflare Tunnel** | Outbound-only connection exposing a service without open inbound ports |
+| **Socket Mode** | Slack's outbound-only WebSocket; the app connects to Slack, never the reverse |
 | **EBS** | Network-attached block storage, zone-locked |
 | **RPO** | Recovery point objective — how much data you can afford to lose |
 | **RTO** | Recovery time objective — how long recovery takes, once measured |
@@ -338,4 +347,4 @@ Naming the exit gate is what makes this credible — it is a tested property, no
 - cloud-init documentation — modules and user-data formats
 - Flux documentation — the GitOps Toolkit controllers
 - Docker documentation — *Multi-platform images* and buildx
-- Cloudflare documentation — Zero Trust tunnels
+- Slack API documentation — Socket Mode and Block Kit interactivity

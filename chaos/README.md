@@ -8,7 +8,7 @@ experiments are.
 make chaos-run EXPERIMENT=oom-kill
 ```
 
-## Planned (Phase 6)
+## Planned (Phase 5)
 
 | Experiment | Injects | Should produce |
 |---|---|---|

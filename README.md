@@ -97,7 +97,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | [services/](services/) | Application code — one directory per container; `shared/` holds the data model |
 | [migrations/](migrations/) | Database schema migrations (Alembic), generated from `services/shared` |
 | [inference/](inference/) | Gemma serving configuration |
-| [mobile/](mobile/) | Expo / React Native operator console |
+| [mobile/](mobile/) | Expo / React Native operator console — deferred to Phase 9; Slack ChatOps is the real approval surface (`KAV-55`) |
 | [deploy/](deploy/) | Helm charts, per-environment values, Flux GitOps |
 | [infra/](infra/) | Terraform modules and environments (`dev`, `staging`, `prod`, `lab-eks`) |
 | [policy/](policy/) | Rego action policies — what the agent may and may not do |

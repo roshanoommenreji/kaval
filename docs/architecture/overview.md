@@ -34,7 +34,7 @@
 | `collector` | Python | Scrape Prometheus, K8s events, Alertmanager webhooks, Cost Explorer. Normalise into `signals`. | read-only |
 | `agent` | Python | Correlate signals into incidents. Build context. Call the LLM. Emit a validated `Proposal`. | **read-only** |
 | `executor` | Python | The only component that mutates anything. Consumes approved proposals. Records before/after state. | scoped write |
-| `gateway` | Python / FastAPI | Mobile-facing REST + WebSocket. Auth. Push dispatch. Today: read-only `/v1` signals and incidents, cursor-paged, OpenAPI at `/docs` ([ADR-0009](../adr/0009-gateway-api-conventions.md)) | own DB only; READ ONLY transactions until approvals exist |
+| `gateway` | Python / FastAPI | Operator-facing REST + WebSocket. Today: read-only `/v1` signals and incidents, cursor-paged, OpenAPI at `/docs`, plus the one approve/deny write ([ADR-0009](../adr/0009-gateway-api-conventions.md)). Slack ChatOps (`KAV-55`) is the planned approval surface; mobile is deferred ([ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md)) | own DB only; no inbound public auth — outbound Slack connection only |
 | `inference` | Ollama | Serves Gemma 3 1B (q4) over an OpenAI-compatible API. | none |
 | `chaos` | K8s CronJob | Injects controlled failures into a labelled namespace. | scoped write |
 
@@ -121,7 +121,7 @@ Postgres + pgvector (~250 MB) is **not** on this node. Since
 
 | Server | Size | Runs | Reached by |
 |---|---|---|---|
-| App node | `t4g.medium` spot, 4 GB | k3s, the services, the local model, Prometheus, Flux | Cloudflare Tunnel (no inbound ports) |
+| App node | `t4g.medium` spot, 4 GB | k3s, the services, the local model, Prometheus, Flux | Slack ChatOps, outbound only — no inbound ports, no tunnel (`KAV-55`) |
 | Database server | `t4g.small` on-demand, 2 GB | Postgres 16 + pgvector (`pgvector/pgvector:pg16`), 20 GB data volume | Port 5432 from the app node's security group only, TLS; admin via SSM |
 
 Staging gets the same pair from the same modules. In Phases 1–3, Postgres is a container on the
