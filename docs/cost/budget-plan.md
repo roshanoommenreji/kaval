@@ -41,10 +41,10 @@ Always-on is not needed for the whole project. Paying for it from day one wastes
 | 0 | 1–2 | **Laptop only** | Nothing on AWS but a budget alarm |
 | 1–3 | 3–12 | **Dev server, stops when idle** | Changed 2026-09-26 by [ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md): the stack runs on a `t4g.medium` in AWS instead of the laptop, for real arm64 measurements. It stops itself after 1 idle hour |
 | 4 — AWS landing | 13–15 | **Paused** | You are at the keyboard anyway |
-| 5 — Mobile | 16–19 | **Paused** | Push alerts demo fine within a session |
-| 6 — Chaos | 20–21 | **Paused** | Chaos runs are deliberate, not ambient |
-| 7 — FinOps | 22–24 | **Always-on** | Cost Explorer is daily-granularity with ~24 h lag; an idle account has no waste to find |
-| 8–9 — EKS, publish | 25–28 | **Always-on** | "Running continuously since February" is the credibility claim |
+| 5 — Chaos | 16–17 | **Paused** | Chaos runs are deliberate, not ambient |
+| 6 — FinOps | 18–20 | **Always-on** | Cost Explorer is daily-granularity with ~24 h lag; an idle account has no waste to find |
+| 7–8 — EKS, publish | 21–24 | **Always-on** | "Running continuously since February" is the credibility claim |
+| 9 — Mobile | 25–28 | **Deferred** | Not yet scheduled ([ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md)) — Slack ChatOps (Phase 4) already provides approval |
 
 ```bash
 make up      # ~5 min — Flux reconciles everything from Git
@@ -173,7 +173,7 @@ fraction of it.
 | Avoided | Would cost | Used instead |
 |---|---|---|
 | NAT Gateway | $32/mo | Public subnet + security groups |
-| Application Load Balancer | $18/mo | Cloudflare Tunnel (free, HTTPS, no inbound ports) |
+| Application Load Balancer | $18/mo | Slack ChatOps over an outbound Socket Mode connection (`KAV-55`) — no inbound endpoint at all. A Cloudflare Tunnel was the original plan but is deferred with mobile (ADR-0026); it would avoid the same $18/mo if ever needed |
 | EKS control plane, persistent | $73/mo | k3s; EKS only as an ephemeral chapter |
 | RDS | ~$18/mo Single-AZ, ~$36/mo Multi-AZ | Self-managed Postgres on its own `t4g.small` EC2 server (~$14/mo), snapshots + nightly dump to S3 ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)). Until 2026-09-26 the plan was Postgres inside the app node |
 | GPU instance | $0.30+/hr | CPU inference; Bedrock for anything heavy |
@@ -191,11 +191,11 @@ its own server (~$14 before ADR-0008).
 | Jira Cloud (free tier, ≤10 users) | $0 |
 | GitHub private repo | $0 |
 | GitHub Actions CI (`KAV-24`) — Free plan's 2,000 min/month for private repos; a run bills 6 (68 s, each job rounded up to a minute), ~12 per PR | $0 — if the minutes ran out, runs stop; nothing is billed without a payment method and a spending limit above $0 |
-| Cloudflare Tunnel | $0 |
-| Expo local builds | $0 |
+| Slack (ChatOps, free tier) | $0 |
+| Expo local builds | $0 — **not yet needed**, mobile deferred (ADR-0026) |
 | Gemma weights | $0 |
 | TypeSafe Jev API — waitlist, no free tier, billed on input only | ~$0.50/mo from Phase 2 — **outside the AWS credit and outside the Lambda hard stop**; set a spend cap in the TypeSafe console |
-| Domain for a stable tunnel hostname | ~$12/yr — **optional** |
+| Cloudflare Tunnel + domain for a stable hostname | ~$12/yr — **not currently needed**; Slack ChatOps uses no public endpoint. Revisit only if mobile is built (Phase 9) |
 | Google Play publishing | $25 one-time — **not needed**, sideload the APK |
 | Apple Developer | $99/yr — **not applicable**, Android only |
 
@@ -258,7 +258,7 @@ server's idle stop) the only brake.
 
 Re-check this figure periodically — a credit-based plan can behave differently from classic free
 tier at the edges, and the number should be verified against the console rather than assumed to
-still read $100 by the time Phase 7 goes always-on.
+still read $100 by the time Phase 6 goes always-on.
 
 ---
 

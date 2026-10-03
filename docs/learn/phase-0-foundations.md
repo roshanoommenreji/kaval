@@ -91,7 +91,7 @@ But applying it to your own development identity on day one means you will spend
 months hitting `AccessDenied`, guessing which action was missing, adding it, and repeating. That
 is not learning security; it is learning frustration.
 
-The honest approach is a broad policy now, a **documented commitment** to narrow it in Phase 9,
+The honest approach is a broad policy now, a **documented commitment** to narrow it in Phase 8,
 and no pretence in between. What makes this legitimate rather than lazy is that it is written
 down, scheduled, and scoped to a personal account with a $40 ceiling.
 
@@ -113,7 +113,7 @@ It answers "is something unusual happening?" It would catch a bill going from $1
 no threshold at $18 would flag as urgent, but which represents a 35% jump.
 
 This project uses Budgets because the constraint is a hard ceiling, not a pattern. Anomaly
-detection becomes relevant in Phase 7, when the FinOps agent needs to spot waste that is well
+detection becomes relevant in Phase 6, when the FinOps agent needs to spot waste that is well
 inside budget but still waste.
 
 Budgets also distinguishes **ACTUAL** from **FORECASTED** notifications. Actual fires when you

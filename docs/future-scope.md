@@ -23,7 +23,7 @@ Roughly 70% of the hard-skills bar for both roles:
 | Written artifacts left behind | ADR / lab / journal discipline as a merge gate |
 
 This is a credible portfolio piece and interview narrative on its own. Stopping after
-Phase 6 still yields that.
+Phase 5 still yields that.
 
 ---
 
@@ -65,7 +65,7 @@ Exit: agent acts on data from a system whose API shape we had to reverse-enginee
 ### FS-2 — Demo craft
 
 A 5-minute "here is the problem, here is the thing working" walkthrough, recorded and
-iterated. FDEs live or die on this. Overlaps with the Phase 9 demo video but is a distinct
+iterated. FDEs live or die on this. Overlaps with the Phase 8 demo video but is a distinct
 skill — practice it as its own thing, against a stopwatch, more than once.
 
 ### FS-3 — Stack breadth spike

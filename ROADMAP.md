@@ -105,7 +105,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [x] Terraform: network, spot node, ECR, IAM — live, `kubectl get nodes` reports `Ready` over the real SSM-tunnelled SSH path ([ADR-0024](docs/adr/0024-prod-landing-network-ecr-iam-node.md), `KAV-50`, Lab 19)
 - [x] k3s bootstrap via cloud-init — checksum-verified binary, not the unauthenticated `curl | sh` installer (`KAV-50`, Lab 19)
 - [x] Flux GitOps reconciliation — installed via checksum-verified binary in cloud-init, bootstrapped against this repo's own `main`; a replacement node (spot reclamation) now reconciles itself, which is the Phase 4 exit gate (`KAV-51`, [ADR-0025](docs/adr/0025-flux-gitops-and-ecr-bootstrap.md), Lab 20)
-- [ ] Cloudflare Tunnel — no ALB, no NAT Gateway
+- [ ] **Slack ChatOps approval** — gateway opens an outbound Socket Mode connection to Slack and receives Approve/Deny button clicks over it; no inbound port, no Cloudflare Tunnel, no domain (`KAV-55`, replaces `scripts/ops/approve.py` as the primary approval surface)
 - [ ] **Database server** — `infra/modules/database` ([ADR-0008](docs/adr/0008-production-database-on-its-own-server.md), `KAV-32`): `t4g.small` on-demand, separate encrypted 20 GB data volume (`prevent_destroy`), security group allowing 5432 only from the app node, SSM only (no SSH), termination protection, Postgres TLS, passwords in SSM Parameter Store, per-service roles, graceful shutdown (`stop_grace_period: 60s`)
 - [ ] DB backups — DLM daily EBS snapshots (keep 7) + nightly dump to S3 (`scripts/ops/backup.sh`, RPO 24 h)
 - [ ] **Pre-stop snapshot** in every stop path — `make down`, the nightly auto-stop and the hard-stop Lambda (`ec2:CreateSnapshot` scoped to `Project=kaval`)
@@ -126,22 +126,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 
 ---
 
-## Phase 5 — Mobile app · weeks 16–19 · `[ ]`
-
-**Posture: paused between sessions.**
-
-- [ ] Expo app scaffold, TypeScript, navigation
-- [ ] Cognito auth
-- [ ] Screens: Pulse · Inbox · Detail · Timeline · Ask · Settings
-- [ ] Push notifications via Expo
-- [ ] Approve / deny round trip
-- [ ] `docs/learn/phase-5-mobile-app.md` — flip **Written from** to `experience`
-
-**Exit gate:** phone buzzes for a real incident and you approve it from bed.
-
----
-
-## Phase 6 — Chaos + proof · weeks 20–21 · `[ ]`
+## Phase 5 — Chaos + proof · weeks 16–17 · `[ ]`
 
 **Posture: paused between sessions.**
 
@@ -150,13 +135,13 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] MTTR measurement and dashboard
 - [ ] Database server monitoring — `postgres_exporter` + `node_exporter` → Prometheus, disk-space alert; SSM Patch Manager schedule; connection and failed-auth logging reviewed (ADR-0008)
 - [ ] Runbooks written for each failure class *(also the agent's RAG corpus)*
-- [ ] `docs/learn/phase-6-chaos-and-proof.md` — flip **Written from** to `experience`
+- [ ] `docs/learn/phase-5-chaos-and-proof.md` — flip **Written from** to `experience`
 
 **Exit gate:** five chaos types handled end-to-end, MTTR charted.
 
 ---
 
-## Phase 7 — FinOps domain · weeks 22–24 · `[ ]`
+## Phase 6 — FinOps domain · weeks 18–20 · `[ ]`
 
 **Posture: always-on from here.** Cost Explorer needs real days of data.
 
@@ -165,13 +150,13 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Waste detection: idle nodes, orphaned volumes, unused snapshots
 - [ ] Cost proposals through the same approve/execute path
 - [ ] Hard-stop Lambda wired to the live ASG
-- [ ] `docs/learn/phase-7-finops.md` — flip **Written from** to `experience`
+- [ ] `docs/learn/phase-6-finops.md` — flip **Written from** to `experience`
 
 **Exit gate:** the agent finds real waste in your own account and you approve the fix.
 
 ---
 
-## Phase 8 — EKS chapter · week 25 · `[ ]`
+## Phase 7 — EKS chapter · week 21 · `[ ]`
 
 - [ ] `infra/envs/lab-eks` — real EKS via Terraform
 - [ ] IRSA for the executor — no static keys
@@ -179,13 +164,13 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Deploy the **identical** Helm chart, unmodified
 - [ ] Screenshot and record everything
 - [ ] `terraform destroy`, verified clean 24 h later
-- [ ] `docs/learn/phase-8-eks-chapter.md` — flip **Written from** to `experience`
+- [ ] `docs/learn/phase-7-eks-chapter.md` — flip **Written from** to `experience`
 
 **Exit gate:** same chart runs on EKS with zero edits; teardown leaves zero billable resources.
 
 ---
 
-## Phase 9 — Harden & publish · weeks 26–28 · `[ ]`
+## Phase 8 — Harden & publish · weeks 22–24 · `[ ]`
 
 - [ ] Security pass — Trivy, image signing, RBAC audit
 - [ ] gitleaks scan over full history
@@ -198,9 +183,32 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Switch the promotion gate to GitHub Environments with required reviewers *(needs a public repo)*
 - [ ] Protect `main`: require the CI checks to pass before a pull request merges *(free once public; a written rule until then, see docs/contributing.md)*
 - [ ] `docs/learn/release-engineering.md` — flip **Written from** to `experience`
-- [ ] `docs/learn/phase-9-harden-and-publish.md` — flip **Written from** to `experience`
+- [ ] `docs/learn/phase-8-harden-and-publish.md` — flip **Written from** to `experience`
 
 **Exit gate:** repo public, video recorded, bullets written.
+
+---
+
+## Phase 9 — Mobile app · weeks 25–28 · `[ ]`
+
+**Deferred, deliberately (2026-10-03).** Pushed to last because a custom mobile client is
+unusual outside this kind of portfolio project — real companies approve incidents through
+PagerDuty/Opsgenie or ChatOps, not a bespoke app. Phase 4 already ships Slack ChatOps
+(`KAV-55`) as the real approval surface, so no later phase is blocked on this one existing.
+Whether to build mobile at all, and how it would reach the gateway (the Cloudflare Tunnel +
+domain this phase originally planned, or something else), is an open decision, revisited only
+if this phase is actually picked up. See
+[ADR-0026](docs/adr/0026-slack-chatops-and-deferred-mobile.md).
+
+- [ ] Decide: build mobile at all, and if so, how it reaches the gateway
+- [ ] Expo app scaffold, TypeScript, navigation
+- [ ] Cognito auth
+- [ ] Screens: Pulse · Inbox · Detail · Timeline · Ask · Settings
+- [ ] Push notifications via Expo
+- [ ] Approve / deny round trip
+- [ ] `docs/learn/phase-9-mobile-app.md` — flip **Written from** to `experience`
+
+**Exit gate:** phone buzzes for a real incident and you approve it from bed.
 
 ---
 

@@ -27,7 +27,7 @@ The fix. Mark each action reversible or not, and name its blast radius.
 Actions that look right and make it worse.
 ```
 
-## Planned (Phase 6)
+## Planned (Phase 5)
 
 - `pod-crashloop.md`
 - `pod-oomkilled.md`

@@ -1,16 +1,27 @@
-# Phase 5 — Mobile app
+# Phase 9 — Mobile app
 
 > **Written from:** theory
 > **Lab:** to be written
 > **Cost:** $0 additional — Expo local builds, Cognito free at this scale
+> **Status:** deferred (2026-10-03, [ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md)) —
+> approval already works without this phase, see below
 
 ## Where this sits
 
-Phase 4 put the system somewhere it can run unattended. This phase gives you the only interface
-through which anything is ever approved.
+This phase used to be the only way to approve anything — which meant the human-in-the-loop claim
+depended on building an entire mobile app before it could be demonstrated at all. It no longer
+does: Phase 4 ships **Slack ChatOps** (`KAV-55`), so a real human can approve or deny a real
+action — over an outbound-only connection, no public endpoint — well before this phase is ever
+reached. That is also more realistic: most companies approve incidents through PagerDuty,
+Opsgenie, or ChatOps, not a bespoke mobile app.
 
-It unlocks: the human-in-the-loop is no longer a diagram. Without this, every "approval" is you
-running a `curl` command, which is not the claim the project makes.
+So this phase is pushed to last, and whether to build it at all is an open question, revisited
+only if it's picked up. The content below is kept because it's genuinely useful *if* that happens
+— OAuth/PKCE, Cognito, and push notifications are real concepts worth knowing regardless of which
+phase teaches them — but nothing elsewhere in the project is blocked on it.
+
+It would unlock, if built: a second, phone-native approval surface alongside Slack — useful for
+push notifications and a visual incident timeline, neither of which ChatOps buttons give you.
 
 ## What we're doing
 

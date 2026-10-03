@@ -1,4 +1,4 @@
-# Phase 9 — Harden and publish
+# Phase 8 — Harden and publish
 
 > **Written from:** theory
 > **Lab:** to be written
@@ -6,7 +6,7 @@
 
 ## Where this sits
 
-Phases 0–8 built and proved the system. This phase makes it safe to show people, and turns seven
+Phases 0–7 built and proved the system. This phase makes it safe to show people, and turns seven
 months of work into something a stranger can evaluate in ten minutes.
 
 It unlocks: the repository goes public, and the resume bullets become writable — because now they

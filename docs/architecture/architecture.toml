@@ -56,7 +56,7 @@ note = "The push half of the signal path. Prometheus is polled; Alertmanager pus
 id = "cost-explorer"
 label = "AWS Cost Explorer"
 kind = "source"
-phase = 7
+phase = 6
 col = 3
 row = 0
 credentials = "read-only IAM · ce:GetCostAndUsage"
@@ -190,35 +190,35 @@ kind = "service"
 phase = 1
 col = 1.5
 row = 5
-credentials = "own database role · Cognito JWT verification"
-inputs = ["Signals, incidents and pending proposals from the database", "Approve/deny from the mobile app"]
-outputs = ["REST + WebSocket to the app (today: read-only /v1 signals and incidents, plus one write — POST /v1/actions/{id}/decisions, KAV-47)", "Push dispatch", "decision rows"]
+credentials = "own database role · no public auth yet — outbound Slack Socket Mode connection planned (KAV-55)"
+inputs = ["Signals, incidents and pending proposals from the database", "Approve/deny from Slack ChatOps (KAV-55, planned) or scripts/ops/approve.py today"]
+outputs = ["REST + WebSocket to the app (today: read-only /v1 signals and incidents, plus one write — POST /v1/actions/{id}/decisions, KAV-47)", "Slack notification (planned)", "decision rows"]
 tables = ["proposal", "decision"]
-note = "Verifies the JWT signature against Cognito's public keys — decoding a token and trusting its claims is the classic vulnerability. Still no auth until Phase 5: binds to 127.0.0.1, reached through an SSH tunnel. Every request runs in a READ ONLY transaction (ADR-0009, KAV-23) except the one approve/deny write (KAV-47, ADR-0021), on its own session — not the security boundary itself, since the executor re-checks policy independently regardless of what this endpoint wrote. scripts/ops/approve.py is the Phase-3 stand-in for the mobile app's approval screen."
+note = "No inbound exposure, by design: binds to 127.0.0.1, reached through an SSH tunnel. Every request runs in a READ ONLY transaction (ADR-0009, KAV-23) except the one approve/deny write (KAV-47, ADR-0021), on its own session — not the security boundary itself, since the executor re-checks policy independently regardless of what this endpoint wrote. scripts/ops/approve.py is today's stand-in; Slack ChatOps (KAV-55, Phase 4) replaces it without ever opening an inbound port — the gateway connects outbound to Slack (Socket Mode), the same direction every other integration here already uses. Cognito JWT verification would only be needed if the deferred mobile app (Phase 9, ADR-0026) is ever built."
 
 [[system.node]]
 id = "tunnel"
-label = "Cloudflare Tunnel"
+label = "Cloudflare Tunnel (deferred)"
 kind = "platform"
-phase = 4
+phase = 9
 col = 3
 row = 5
 credentials = "tunnel token"
 inputs = ["Outbound connection from inside the cluster"]
 outputs = ["Public HTTPS hostname, stable across node replacement"]
-note = "Replaces an $18/month Application Load Balancer. No inbound port is open — the security group needs no ingress rule at all."
+note = "Deferred with mobile (ADR-0026, 2026-10-03). Would replace an $18/month Application Load Balancer if ever built, but nothing currently needs it: Slack ChatOps (KAV-55, Phase 4) reaches the gateway over an outbound Socket Mode connection instead, with no public hostname at all. Revisit only if mobile (Phase 9) is picked up."
 
 [[system.node]]
 id = "mobile"
-label = "Expo app"
+label = "Expo app (deferred)"
 kind = "external"
-phase = 5
+phase = 9
 col = 4.2
 row = 5
 credentials = "Cognito tokens · refresh token in the device keystore"
 inputs = ["Push notification carrying only an incident ID", "REST responses"]
 outputs = ["Approve or deny, with an optional reason"]
-note = "The push payload carries an ID and nothing else — delivery is best-effort and the path is not trusted with incident detail. The approval screen must state what happens if you decline, not only if you approve."
+note = "Deferred (ADR-0026, 2026-10-03): Slack ChatOps (KAV-55, Phase 4) already provides real human approval, so this phase isn't blocking anything. Whether to build it at all is an open decision. If built: the push payload would carry an ID and nothing else — delivery is best-effort and the path is not trusted with incident detail — and the approval screen must state what happens if you decline, not only if you approve."
 
 # ── row 6: action ──────────────────────────────────────────────────────
 
@@ -239,7 +239,7 @@ note = "The only component that changes anything, and it never calls an LLM. Bui
 id = "chaos"
 label = "chaos CronJobs"
 kind = "service"
-phase = 6
+phase = 5
 col = 3.6
 row = 6
 credentials = "scoped write · labelled namespace only"
@@ -259,7 +259,7 @@ row = 7
 credentials = "acted on by executor only"
 inputs = ["patch, delete, scale, cordon — from the executor"]
 outputs = ["New state, which becomes new events"]
-note = "k3s on one spot instance in production; EKS during the Phase 8 chapter. The same Helm chart deploys to both, differing only by values file. Locally: k3d on the dev server (KAV-46, ADR-0020) — Postgres, gateway and the correlate loop running continuously, verified live. The executor now also runs here (KAV-47, ADR-0021), scoped-RBAC-bound to the separate kaval-demo namespace, proven live with kubectl auth can-i — not the kaval namespace postgres/gateway/agent run in. The build-once-promote-the-artifact and rollback mechanics (KAV-49, ADR-0023) were rehearsed as kaval-staging/kaval-prod, two more Helm releases in this same k3d cluster — torn down after, not the real second AWS cluster ADR-0004 still schedules for Phase 4."
+note = "k3s on one spot instance in production; EKS during the Phase 7 chapter. The same Helm chart deploys to both, differing only by values file. Locally: k3d on the dev server (KAV-46, ADR-0020) — Postgres, gateway and the correlate loop running continuously, verified live. The executor now also runs here (KAV-47, ADR-0021), scoped-RBAC-bound to the separate kaval-demo namespace, proven live with kubectl auth can-i — not the kaval namespace postgres/gateway/agent run in. The build-once-promote-the-artifact and rollback mechanics (KAV-49, ADR-0023) were rehearsed as kaval-staging/kaval-prod, two more Helm releases in this same k3d cluster — torn down after, not the real second AWS cluster ADR-0004 still schedules for Phase 4."
 
 [[system.node]]
 id = "flux"
@@ -277,7 +277,7 @@ note = "Installed via a checksum-verified binary in cloud-init — `flux install
 id = "aws-apis"
 label = "AWS APIs"
 kind = "target"
-phase = 7
+phase = 6
 col = 2.5
 row = 7
 credentials = "scoped IAM via IRSA — no static keys"
@@ -534,7 +534,7 @@ kind = "platform"
 id = "fault"
 label = "Fault occurs"
 kind = "source"
-phase = 6
+phase = 5
 col = 1
 row = 0
 note = "Real, or injected by a chaos CronJob. Chaos experiments carry a falsifiable hypothesis — 'the agent detects this within 30 seconds' — which is what separates an experiment from an outage you caused."
@@ -624,16 +624,16 @@ note = "never ignores confidence entirely. Delete a PVC or namespace, mutate IAM
 id = "j-ask"
 label = "Human decides"
 kind = "decision"
-phase = 5
+phase = 4
 col = 1.1
 row = 8
-note = "Push to phone within 60 seconds. This stage is unbounded and usually dominates wall-clock MTTR — which is the architecture working as designed, not a defect, but it means MTTR is honestly two numbers."
+note = "Posted to Slack within 60 seconds (KAV-55) — push to a phone only if mobile (Phase 9, deferred) is ever built. This stage is unbounded and usually dominates wall-clock MTTR — which is the architecture working as designed, not a defect, but it means MTTR is honestly two numbers."
 
 [[journey.node]]
 id = "j-auto"
 label = "Auto-approved"
 kind = "service"
-phase = 6
+phase = 5
 col = 2.4
 row = 8
 note = "blast_radius=pod AND reversible AND confidence>0.9 AND outcome evidence exists. Nothing is born auto."
@@ -642,7 +642,7 @@ note = "blast_radius=pod AND reversible AND confidence>0.9 AND outcome evidence 
 id = "j-deny"
 label = "Denied + logged"
 kind = "terminal"
-phase = 5
+phase = 4
 col = 0.4
 row = 9
 note = "A denial is data. It is recorded with its reason and becomes evidence against promoting that action class to auto."
@@ -651,7 +651,7 @@ note = "A denial is data. It is recorded with its reason and becomes evidence ag
 id = "j-approve"
 label = "Approved"
 kind = "service"
-phase = 5
+phase = 4
 col = 1.7
 row = 9
 note = "Recorded with actor and timestamp in the decision table, append-only."
@@ -696,7 +696,7 @@ note = "Execution failure is itself a signal. It re-enters the loop rather than 
 id = "j-outcome"
 label = "Outcome measured at +5 min"
 kind = "store"
-phase = 6
+phase = 5
 col = 1.7
 row = 13
 note = "resolved true or false, mttr_sec, regression. Measured, not assumed — an action that ran successfully but did not fix the incident is a different outcome from one that did."
@@ -870,7 +870,7 @@ kind = "decision"
 phase = 1
 col = 2
 row = 3
-note = "A mechanical criterion: every check green, or no merge. No human judgement is involved or wanted here. Until the repo goes public (Phase 9) GitHub Free cannot enforce it on a private repo, so it is a written rule (docs/contributing.md); after that, a required status check on main."
+note = "A mechanical criterion: every check green, or no merge. No human judgement is involved or wanted here. Until the repo goes public (Phase 8) GitHub Free cannot enforce it on a private repo, so it is a written rule (docs/contributing.md); after that, a required status check on main."
 
 [[delivery.node]]
 id = "d-blocked"
@@ -904,7 +904,7 @@ note = "BUILD ONCE. A rebuild from the same commit can differ — base images mo
 id = "d-sign"
 label = "SBOM + cosign sign"
 kind = "service"
-phase = 9
+phase = 8
 col = 2
 row = 6
 note = "syft generates the bill of materials, cosign signs keylessly against the CI identity. Together they answer 'are we affected?' in minutes when the next widely-publicised CVE lands."

@@ -50,7 +50,8 @@ class DecisionIn(BaseModel):
     (KAV-47). No `auto_approved` here: that verdict is written only by the policy engine
     itself, at proposal time, never by a human-facing endpoint — see `Verdict` in
     `kaval_shared.models`. `actor` is free text for now (a name, or `cli` from the Phase-3
-    approve script); Cognito identity replaces it when the mobile app (Phase 5) exists."""
+    approve script); Slack identity will replace it once ChatOps lands (`KAV-55`), and Cognito
+    identity would replace it again if the deferred mobile app (Phase 9) is ever built."""
 
     model_config = ConfigDict(extra="forbid")
 

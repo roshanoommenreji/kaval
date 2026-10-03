@@ -232,7 +232,7 @@ The rollback field is the one most often hand-waved. "We would roll back" is not
 
 ### Rollback is a property you test, not a plan you write
 
-Same principle as Phase 0's budget alarm and Phase 6's chaos experiments: **an untested recovery
+Same principle as Phase 0's budget alarm and Phase 5's chaos experiments: **an untested recovery
 path does not work.**
 
 So rollback is drilled, not documented. `make rollback` performs a real `helm rollback` and
@@ -260,7 +260,7 @@ four simultaneously.
 | **Deployment frequency** | How often you reach production | Count of records in `docs/releases/` |
 | **Lead time for changes** | Commit → running in production | First commit timestamp → promote timestamp |
 | **Change failure rate** | Proportion of deploys causing degradation | Releases followed by a rollback or incident |
-| **Time to restore** | How long to recover | Measured by `make rollback`, and by MTTR from Phase 6 |
+| **Time to restore** | How long to recover | Measured by `make rollback`, and by MTTR from Phase 5 |
 
 The pairing is the point: frequency and lead time measure **speed**, failure rate and restore time
 measure **stability**. Reporting only the first pair is how teams justify shipping recklessly;

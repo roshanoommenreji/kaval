@@ -1,4 +1,4 @@
-# Phase 6 — Chaos and proof
+# Phase 5 — Chaos and proof
 
 > **Written from:** theory
 > **Lab:** to be written
@@ -6,8 +6,9 @@
 
 ## Where this sits
 
-Phases 1–5 built a system that *should* detect, diagnose, propose and remediate. This phase finds
-out whether it does.
+Phases 1–4 built a system that *should* detect, diagnose, propose and remediate — approval now
+goes through Slack ChatOps (`KAV-55`, Phase 4) rather than the deferred mobile app. This phase
+finds out whether it does.
 
 It unlocks: every claim the project makes becomes a measurement. Without this the resume line is
 "built an autonomous remediation agent." With it, it is "sub-five-minute MTTR across five injected

@@ -93,7 +93,7 @@ think.**
 | `services/shared/kaval_shared/models.py` | The seven database tables that record each incident from start to finish: `signal → incident → proposal → action → decision → execution → outcome`. Rows are added, never edited, so the tables are the audit trail | Working |
 | `services/shared/kaval_shared/db.py` | Opens the database connection from the `POSTGRES_*` settings in `.env` | Working |
 | `services/shared/tests/` | Tests for the tables: one checks their shape, one writes a full incident through all seven | Working |
-| `services/collector/` | Gathers raw observations (Kubernetes events, Prometheus metrics, AWS cost data) and saves them as `signal` rows. Read-only | Fake signals (`KAV-23`) and real Kubernetes events (`KAV-48`) working; Prometheus deferred (ADR-0022), cost data in Phase 7 |
+| `services/collector/` | Gathers raw observations (Kubernetes events, Prometheus metrics, AWS cost data) and saves them as `signal` rows. Read-only | Fake signals (`KAV-23`) and real Kubernetes events (`KAV-48`) working; Prometheus deferred (ADR-0022), cost data in Phase 6 |
 | `services/collector/kaval_collector/synthetic.py` | Writes fake incidents: the burst of signals one real failure produces (memory kill, wrong-CPU image, cost spike, forgotten disk), in the real payload shapes, always flagged `synthetic: true`. `make signals SCENARIO=oom-crashloop` | Working (`KAV-23`) |
 | `services/collector/kaval_collector/k8s_events.py` | Polls real Kubernetes events in one namespace, de-duplicated by the event's own `count`, writes the identical row shape `synthetic.py` uses. `make watch-events`, or deployed continuously via the Helm chart | Working, scoped RBAC — Phase 3, `KAV-48` |
 | `services/collector/Dockerfile` | The collector image: arm64, non-root, core deps plus its own `collector` extra (the Kubernetes client, `KAV-48`). One-shot via `signals`/`watch-events` in `compose.yaml`; the Helm chart overrides its entrypoint for the deployed watcher | Working (`KAV-23`, `KAV-48`) |
@@ -133,7 +133,7 @@ Run `make migrate` to bring a database up to date.
 |---|---|---|
 | `inference/` | Model-serving files, e.g. an Ollama `Modelfile` with a built-in system prompt. Not needed yet: the model's settings are in `compose.yaml` (context length, one model loaded at a time) and in each request (temperature 0, fixed seed), and keeping them in one place stops them drifting apart | Placeholder, Phase 2 if the agent needs a baked prompt |
 | `policy/` | The rules for every proposed action: `auto` (do it), `ask` (a human decides) or `never` (refused), in Rego, tested with `opa test policy/ -v`. `promotions.json` is the empty-by-default list that has to be explicitly populated (with an ADR citing evidence) before anything can reach `auto`. `README.md` explains the design; the agent side is built, the executor's second check is Phase 3 | Agent-side working (`KAV-42`, [ADR-0017](adr/0017-opa-policy-engine-and-earned-autonomy.md)) |
-| `mobile/` | The Android phone app (Expo / React Native): see incidents, read the AI's explanation, tap Approve or Deny | Placeholder, Phase 5 |
+| `mobile/` | The Android phone app (Expo / React Native): see incidents, read the AI's explanation, tap Approve or Deny | Placeholder, Phase 9 — deferred (ADR-0026); Slack ChatOps (`KAV-55`, Phase 4) is the real approval surface until/unless this is built |
 
 ---
 
@@ -152,14 +152,14 @@ Run `make migrate` to bring a database up to date.
 | `infra/modules/node/` | The single cheap `t4g.medium` spot server that runs k3s, in a size-1 Auto Scaling Group so a reclaimed spot instance gets replaced automatically | Working, applied in AWS (`KAV-50`/`KAV-51`, Lab 19/20) — `k3s` is live, `Ready`, and Flux reconciles it from Git on every boot |
 | `infra/modules/ecr/` | Where container images are stored in AWS — one repo per service, immutable tags | Working, applied in AWS (`KAV-50`, Lab 19) |
 | `infra/modules/iam/` | The node's own AWS identity — SSM management and scoped ECR pulls. **Not** a per-service agent/executor AWS role: that split already exists at the Kubernetes RBAC layer (`KAV-47`); see [ADR-0024](adr/0024-prod-landing-network-ecr-iam-node.md) | Working, applied in AWS (`KAV-50`, Lab 19) |
-| `infra/modules/eks-lab/` | A real Amazon EKS cluster, created briefly to prove the same software runs there, then destroyed | Placeholder, Phase 8 |
-| `infra/envs/prod/` | The production environment: the budget module (Phase 0) plus, since `KAV-50`, the real network/ECR/IAM/node landing. Flux, the Cloudflare Tunnel and the database server are still separate follow-on stories | Working |
+| `infra/modules/eks-lab/` | A real Amazon EKS cluster, created briefly to prove the same software runs there, then destroyed | Placeholder, Phase 7 |
+| `infra/envs/prod/` | The production environment: the budget module (Phase 0) plus, since `KAV-50`, the real network/ECR/IAM/node landing. Flux, Slack ChatOps (`KAV-55`) and the database server are still separate follow-on stories; the Cloudflare Tunnel is deferred with mobile (ADR-0026) | Working |
 | `infra/envs/prod/main.tf`, `variables.tf`, `outputs.tf` | What to create, its settings, and what it reports back | Working |
 | `infra/envs/prod/terraform.tfvars.example` | Template for your real values (`terraform.tfvars` itself is not in Git) | Working |
 | `infra/envs/prod/.terraform.lock.hcl` | Pins exact provider versions, so every run uses the same ones | Working |
 | `infra/envs/dev/` | Uses the `devbox` module. The Phase 1–3 stack runs here instead of on the laptop ([ADR-0007](adr/0007-develop-on-an-aws-dev-server.md)). About $5/month. `make devbox-up`, `devbox-down`, `devbox-ssh` | Working, applied in AWS (Lab 03) |
 | `infra/envs/staging/` | A second, temporary copy of production for testing each release. Created on demand for about $1/month | Placeholder, Phase 4 |
-| `infra/envs/lab-eks/` | Uses the `eks-lab` module | Placeholder, Phase 8 |
+| `infra/envs/lab-eks/` | Uses the `eks-lab` module | Placeholder, Phase 7 |
 
 ### `deploy/`: getting the software onto Kubernetes
 
@@ -176,7 +176,7 @@ Run `make migrate` to bring a database up to date.
 | Path | What it will do | Status |
 |---|---|---|
 | `evals/` | `golden.py`: 20 known incidents (routine, adversarial, sparse, recurrence), built independently so they can't collide on one fingerprint. `run.py` runs each through correlate → context → diagnose → policy and scores it (`scoring.py`); action safety and schema validity are hard gates. `make evals [ONLY=name]` ([ADR-0018](adr/0018-eval-harness-and-golden-incidents.md)) | Working (`KAV-43`) |
-| `chaos/` | Scheduled experiments that break things on purpose (kill a pod, fill a disk) inside a fenced-off area, to prove Kaval heals them. Measures time to recovery | Design in `README.md`; built in Phase 6 |
+| `chaos/` | Scheduled experiments that break things on purpose (kill a pod, fill a disk) inside a fenced-off area, to prove Kaval heals them. Measures time to recovery | Design in `README.md`; built in Phase 5 |
 
 ---
 
@@ -197,13 +197,13 @@ Run `make migrate` to bring a database up to date.
 | `docs/architecture/overview.md` | How the system fits together, in words and sketches | Working |
 | `docs/architecture/model-shortlist.md` | The local AI models measured on the prod-sized server: memory, speed, output-format results, and which three go to the Phase 2 evals (`make bench` reproduces it) | Working (`KAV-22`) |
 | `docs/architecture/architecture.toml` | The system's architecture written as data: every component and connection, and which phase it arrives in. The dashboard draws the three diagrams from this. Update it whenever a component is added, removed or rewired (Definition of Done item 6) | Working |
-| `docs/architecture/diagrams/` | Exported diagram images. The live diagrams come from `docs/architecture/architecture.toml` and appear on the dashboard | Placeholder, Phase 9 |
-| `docs/runbooks/` | **Troubleshooting guides**, one per failure type. Written for humans, **and** the AI agent reads them when diagnosing incidents | Working (1 runbook); more in Phase 6 |
+| `docs/architecture/diagrams/` | Exported diagram images. The live diagrams come from `docs/architecture/architecture.toml` and appear on the dashboard | Placeholder, Phase 8 |
+| `docs/runbooks/` | **Troubleshooting guides**, one per failure type. Written for humans, **and** the AI agent reads them when diagnosing incidents | Working (1 runbook); more in Phase 5 |
 | `docs/cost/budget-plan.md` | Every expected cost, the $40/month ceiling, and how it's enforced | Working |
 | `docs/cost/actuals/` | The real bill, one file per month | Placeholder. Starts with the first real spend, in Phase 4 |
 | `docs/releases/` | A change record for every production release, generated automatically: what changed, who approved it, how to roll back | Format in `README.md`; the first record comes in Phase 4 |
 | `docs/course/outline.md` | The plan for turning the labs into a course or video series | Working |
-| `docs/course/episode-scripts/` | Scripts for each episode | Placeholder, Phase 9 |
+| `docs/course/episode-scripts/` | Scripts for each episode | Placeholder, Phase 8 |
 | `docs/dashboard.html` | The generated dashboard page. Not in Git; the published copy is the real one | Generated |
 
 ### `scripts/`: helper programs, grouped by what they touch

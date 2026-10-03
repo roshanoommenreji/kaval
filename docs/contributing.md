@@ -42,7 +42,7 @@ If a change adds or bumps a Python dependency, run `make lock` and commit `uv.lo
 `pyproject.toml`. CI refuses a lock that doesn't match.
 
 The remote is [github.com/roshanoommenreji/kaval](https://github.com/roshanoommenreji/kaval). It
-stays **private until v1**, then goes public in Phase 9. Push after every merge; an unpushed
+stays **private until v1**, then goes public in Phase 8. Push after every merge; an unpushed
 commit exists only on one laptop.
 
 ### From `KAV-24` on: pull requests, green checks, then merge (a rule, not yet enforced)
@@ -55,8 +55,8 @@ The industry-standard version *enforces* this with a required status check. GitH
 offer branch protection or rulesets on private repositories
 ([GitHub docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)),
 and GitHub Pro (~$4/month) was declined on 2026-09-27. So until v1 it's a written rule, followed
-every time. When the repo goes public in Phase 9, protection becomes free, and turning on "require
-status checks to pass" on `main` is a Phase 9 task.
+every time. When the repo goes public in Phase 8, protection becomes free, and turning on "require
+status checks to pass" on `main` is a Phase 8 task.
 
 ### What there is deliberately no branch for
 

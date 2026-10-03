@@ -1,4 +1,4 @@
-# Phase 8 — EKS chapter
+# Phase 7 — EKS chapter
 
 > **Written from:** theory
 > **Lab:** to be written
@@ -6,7 +6,7 @@
 
 ## Where this sits
 
-Phases 3–7 built and proved the system on k3s. This phase stands up real EKS for a few hours,
+Phases 3–6 built and proved the system on k3s. This phase stands up real EKS for a few hours,
 deploys the *identical* Helm chart, exercises the AWS-specific parts k3s cannot teach, records it,
 and destroys it.
 

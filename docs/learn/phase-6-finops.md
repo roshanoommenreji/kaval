@@ -1,4 +1,4 @@
-# Phase 7 — FinOps
+# Phase 6 — FinOps
 
 > **Written from:** theory
 > **Lab:** to be written
@@ -6,7 +6,7 @@
 
 ## Where this sits
 
-Phase 6 proved the reliability half works. This phase adds the second signal domain through the
+Phase 5 proved the reliability half works. This phase adds the second signal domain through the
 same machine: instead of "something broke," the input is "something is wasting money."
 
 It unlocks: the resume claim stops being about Kubernetes and starts being about the thing every
