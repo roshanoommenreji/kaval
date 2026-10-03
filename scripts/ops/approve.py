@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Approve or deny one proposed action, by calling the gateway's `POST /v1/actions/{id}/
-decisions` (KAV-47). The stand-in approval surface until Slack ChatOps (`KAV-55`) lands — a
-human still decides, it's just a terminal instead of Slack or a phone (mobile is deferred to
-Phase 9). Nothing here talks to the database directly: it goes through the same API every
-other approval surface will, so the approval flow is exercised for real, not bypassed.
+decisions` (KAV-47). The fallback approval surface now that Slack ChatOps (`KAV-55`) exists —
+a human still decides, it's just a terminal instead of Slack (mobile is deferred to Phase 9).
+Nothing here talks to the database directly: it goes through the same API Slack's buttons do
+(`kaval_gateway.decisions.record_decision`), so the approval flow is exercised for real.
 
     make dev-tunnel                                  # in its own terminal
     make approve ACTION=<uuid> VERDICT=approved

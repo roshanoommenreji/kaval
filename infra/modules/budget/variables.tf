@@ -73,7 +73,7 @@ variable "stop_tag_value" {
 }
 
 variable "tags" {
-  description = "Applied to every resource. Tagging is not optional here — the FinOps agent in Phase 7 reasons over these."
+  description = "Applied to every resource. Tagging is not optional here — the FinOps agent in Phase 6 reasons over these."
   type        = map(string)
   default = {
     Project   = "kaval"

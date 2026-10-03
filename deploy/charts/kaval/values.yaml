@@ -14,7 +14,7 @@ global:
   # pull with. Empty for local/k3d (above). Prod's Flux HelmRelease sets it to "ecr-cred" —
   # a Secret the node's cloud-init keeps refreshed from the node's own IAM role, since ECR
   # login tokens expire every 12h and this node has no EKS-style credential provider
-  # (KAV-51; that lands with IRSA in Phase 7/8, per ADR-0024's IAM scoping decision).
+  # (KAV-51; that lands with IRSA in Phase 6/7, per ADR-0024's IAM scoping decision).
   imagePullSecretName: ""
 
 postgres:
@@ -46,6 +46,13 @@ gateway:
   ollamaBaseUrl: ""
   localModel: ""
   logLevel: INFO
+  # Slack ChatOps (KAV-55, ADR-0026). Empty by default: the gateway behaves exactly as it
+  # does today (no Slack connection, scripts/ops/approve.py is the approval flow) unless an
+  # environment sets this. Only the Secret's *name* lives here — never a token — and that
+  # Secret is created out of band (same posture as global.imagePullSecretName/ecr-cred, not
+  # something this chart generates), with SLACK_BOT_TOKEN, SLACK_APP_TOKEN and
+  # SLACK_CHANNEL_ID as its keys.
+  slackSecretName: ""
   resources:
     requests: { cpu: 50m, memory: 64Mi }
     limits: { cpu: 250m, memory: 256Mi }
@@ -74,7 +81,7 @@ executor:
   # templates/executor.yaml's header comment for why that split is the point). This is
   # where a demo workload for the executor to act on lives, e.g. `kubectl create deployment
   # checkout --image=nginx:alpine -n kaval-demo` — the chart creates the namespace, not a
-  # workload in it; chaos (Phase 6) is what will later populate it on purpose.
+  # workload in it; chaos (Phase 5) is what will later populate it on purpose.
   demoNamespace: kaval-demo
   resources:
     requests: { cpu: 25m, memory: 32Mi }

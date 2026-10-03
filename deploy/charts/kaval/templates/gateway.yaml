@@ -24,6 +24,12 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ include "kaval.fullname" . }}-postgres
+            {{- if .Values.gateway.slackSecretName }}
+            - secretRef:
+                # Created out of band — see values.yaml's gateway.slackSecretName comment.
+                # Keys: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_CHANNEL_ID (KAV-55, ADR-0026).
+                name: {{ .Values.gateway.slackSecretName }}
+            {{- end }}
           env:
             - name: POSTGRES_HOST
               value: {{ include "kaval.fullname" . }}-postgres

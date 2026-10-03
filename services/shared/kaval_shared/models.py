@@ -197,6 +197,12 @@ class Action(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    # Set once a Slack ChatOps notification has actually been posted for this action
+    # (KAV-55). Lets the notifier poller ask "which ask-class actions have I not yet told
+    # anyone about" directly in SQL, instead of re-deriving it from the decision table (an
+    # action can be undecided and already notified, which decision.is_(None) alone can't
+    # distinguish).
+    slack_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     proposal: Mapped[Proposal] = relationship(back_populates="actions")
     decision: Mapped[Decision | None] = relationship(back_populates="action")
