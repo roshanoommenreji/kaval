@@ -18,19 +18,48 @@ global:
   imagePullSecretName: ""
 
 postgres:
+  # true = this chart runs its own in-cluster Postgres (today's local/dev/CI behaviour).
+  # An environment with its own database server (ADR-0008, KAV-32) sets this false and
+  # fills in secretNames below instead — postgres.yaml renders nothing at all in that case.
+  enabled: true
   image: pgvector/pgvector:pg16
   storage: 2Gi
   storageClassName: ""   # "" = the cluster's default StorageClass
   database: kaval
   username: kaval
   # No default password. Every environment's own values.yaml sets postgres.password
-  # explicitly (local: a plain dev value, matching .env.example; staging/prod: from a
-  # real secret store, Phase 4 — never a value committed here, same reasoning as
-  # docs/adr/0008's SSM Parameter Store decision for the standalone DB server).
+  # explicitly (local: a plain dev value, matching .env.example) when postgres.enabled
+  # is true. Ignored when it's false.
   password: ""
+  # Per-service Secret names (KAV-32, ADR-0008). Empty string (the default, every key) means
+  # "use this chart's own postgres.yaml Secret" — local/dev/CI, unaffected by any of this. An
+  # environment with its own database server sets every key to a real Secret created out of
+  # band (same posture as global.imagePullSecretName/ecr-cred and gateway.slackSecretName —
+  # never a password committed here), each carrying its own Postgres role's credentials.
+  secretNames:
+    gateway: ""
+    agent: ""
+    executor: ""
+    collector: ""
+    migrate: ""
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { cpu: 500m, memory: 512Mi }
+
+backup:
+  # Nightly pg_dump -> S3 (scripts/ops/backup.sh, ADR-0005/ADR-0008). Off by default: local/
+  # dev/CI have no S3 bucket to dump into. Also runs the one-time per-service Postgres role
+  # grants (scripts/ops/db-roles.sql) as a post-install/post-upgrade hook when enabled.
+  enabled: false
+  image:
+    repository: kaval/backup
+    tag: dev
+    pullPolicy: IfNotPresent
+  bucketName: ""
+  schedule: "0 0 * * *" # 00:00 UTC — before the DLM snapshot at 03:00 UTC (infra/modules/database)
+  resources:
+    requests: { cpu: 25m, memory: 32Mi }
+    limits: { cpu: 100m, memory: 128Mi }
 
 gateway:
   image:

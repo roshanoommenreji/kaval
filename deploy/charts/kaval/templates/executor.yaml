@@ -101,11 +101,6 @@ spec:
           args: ["--every", {{ .Values.executor.executeEverySeconds | quote }}]
           envFrom:
             - secretRef:
-                name: {{ include "kaval.fullname" . }}-postgres
-          env:
-            - name: POSTGRES_HOST
-              value: {{ include "kaval.fullname" . }}-postgres
-            - name: POSTGRES_PORT
-              value: "5432"
+                name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "executor") }}
           resources:
             {{- toYaml .Values.executor.resources | nindent 12 }}

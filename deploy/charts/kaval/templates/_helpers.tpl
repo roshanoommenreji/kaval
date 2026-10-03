@@ -61,3 +61,23 @@ imagePullSecrets:
   - name: {{ .Values.global.imagePullSecretName }}
 {{- end -}}
 {{- end -}}
+
+{{/*
+The Secret a service reads its POSTGRES_* env from (KAV-32). Local/dev/CI leave
+postgres.secretNames.<service> empty, which resolves to the chart's own postgres.yaml
+Secret (today's behaviour, unchanged) — the in-cluster Postgres everyone shares. An
+environment with its own database server (ADR-0008) sets each service's name to a real
+out-of-band Secret, created the same way as global.imagePullSecretName/ecr-cred and
+gateway.slackSecretName — never a password committed here. Each Secret, chart-managed or
+out-of-band, always carries POSTGRES_HOST/PORT/DB/USER/PASSWORD[/SSLMODE] itself, so a
+plain envFrom is enough and no template needs its own hardcoded POSTGRES_HOST line.
+Call as: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "gateway") }}
+*/}}
+{{- define "kaval.postgresSecretName" -}}
+{{- $name := index .root.Values.postgres.secretNames .service -}}
+{{- if $name -}}
+{{- $name -}}
+{{- else -}}
+{{- include "kaval.fullname" .root }}-postgres
+{{- end -}}
+{{- end -}}
