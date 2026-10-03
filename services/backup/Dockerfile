@@ -16,6 +16,11 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends postgresql-client awscli \
  && rm -rf /var/lib/apt/lists/*
 
+# Same CVE the gateway image hit first (CVE-2026-23949, HIGH): the base image's bundled
+# setuptools vendors an old jaraco.context. Nothing in this image ever installs a package
+# after this point, so there's no installer to lose.
+RUN pip uninstall -y setuptools wheel pip
+
 WORKDIR /app
 COPY scripts/ops/backup.sh scripts/ops/restore.sh scripts/ops/db-roles.sql scripts/ops/anonymise.sql scripts/ops/
 RUN chmod +x scripts/ops/backup.sh scripts/ops/restore.sh
