@@ -82,6 +82,29 @@ resource "aws_iam_role_policy" "backup_bucket" {
   })
 }
 
+resource "aws_iam_role_policy" "read_app_secrets" {
+  name = "read-app-secrets"
+  role = aws_iam_role.node.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "ReadAppSecretParams"
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter", "ssm:GetParameters"]
+        Resource = var.secret_parameter_arns
+      },
+      {
+        Sid      = "DecryptAppSecretParams"
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
+        Resource = "arn:aws:kms:*:*:alias/aws/ssm"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "node" {
   name = "kaval-prod-node"
   role = aws_iam_role.node.name

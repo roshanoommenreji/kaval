@@ -78,6 +78,17 @@ module "iam" {
   # SSM management and ECR pulls -- not a per-service AWS role. See infra/modules/iam.
   ecr_repository_arns = module.ecr.repository_arns
   backup_bucket_arn   = module.backups.bucket_arn
+
+  # KAV-56: the node's bootstrap script reads these to recreate kaval-postgres-* and
+  # kaval-slack on every boot -- see the "automatic Secret recreation" section below.
+  secret_parameter_arns = concat(
+    module.database.ssm_parameter_arns,
+    [
+      aws_ssm_parameter.slack_bot_token.arn,
+      aws_ssm_parameter.slack_app_token.arn,
+      aws_ssm_parameter.slack_channel_id.arn,
+    ]
+  )
 }
 
 module "node" {
@@ -88,6 +99,10 @@ module "node" {
   instance_profile_name = module.iam.instance_profile_name
   ssh_public_key        = var.ssh_public_key
   # instance_type, disk_gb, k3s_version, k3s_sha256_arm64 keep their module defaults.
+  # database_private_ip is NOT wired here: module.database already takes this node's own
+  # security group ID as an input, so a Terraform-time dependency the other way round would
+  # cycle. The bootstrap script looks the database instance up by its Role=database tag at
+  # boot instead (KAV-56) -- also more robust if the DB server is ever replaced.
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -114,4 +129,51 @@ module "database" {
   subnet_id                  = module.network.public_subnet_ids[0] # pinned AZ -- see ADR-0008's amendment
   app_node_security_group_id = module.node.security_group_id
   ssh_public_key             = var.ssh_public_key
+}
+
+# ─────────────────────────────────────────────────────────────
+# Phase 4 — automatic Secret recreation (KAV-56). A node replacement (spot reclamation,
+# seen live 2026-10-04) wipes every Secret the cluster was holding, because k3s's own
+# state lives only on that one node. The node's own bootstrap script (same pattern as its
+# existing ecr-cred refresh, infra/modules/node/user_data.sh.tftpl) now also recreates the
+# five kaval-postgres-* Secrets and kaval-slack from here on every boot and every 6h after
+# -- no one has to run `kubectl create secret` by hand again.
+#
+# These three hold placeholder values on purpose: Terraform can generate a database
+# password itself (random_password, see infra/modules/database), but a Slack bot/app
+# token comes from Slack's own app configuration -- there's nothing for Terraform to
+# generate. Roshan sets the real values once, directly, with
+# `aws ssm put-parameter --overwrite` -- never pasted to an assistant, same discipline as
+# every other credential here. `ignore_changes` keeps Terraform from fighting that real
+# value on every future plan.
+# ─────────────────────────────────────────────────────────────
+
+resource "aws_ssm_parameter" "slack_bot_token" {
+  name  = "/kaval/kaval-prod/slack/bot-token"
+  type  = "SecureString"
+  value = "REPLACE_ME"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+resource "aws_ssm_parameter" "slack_app_token" {
+  name  = "/kaval/kaval-prod/slack/app-token"
+  type  = "SecureString"
+  value = "REPLACE_ME"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+resource "aws_ssm_parameter" "slack_channel_id" {
+  name  = "/kaval/kaval-prod/slack/channel-id"
+  type  = "String" # not sensitive, kept alongside the other two so one script reads all three as a unit
+  value = "REPLACE_ME"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
 }

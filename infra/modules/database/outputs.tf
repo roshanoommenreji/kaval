@@ -21,3 +21,8 @@ output "ssm_parameter_paths" {
     for role, param in aws_ssm_parameter.db_password : role => param.name
   }
 }
+
+output "ssm_parameter_arns" {
+  description = "Consumed by module.iam (KAV-56) to scope the node role's read access to exactly these parameters, not a wildcard."
+  value       = [for p in aws_ssm_parameter.db_password : p.arn]
+}
