@@ -59,6 +59,29 @@ resource "aws_iam_role_policy" "ecr_pull" {
   })
 }
 
+resource "aws_iam_role_policy" "backup_bucket" {
+  name = "backup-bucket"
+  role = aws_iam_role.node.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "BackupBucketObjects"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+        Resource = "${var.backup_bucket_arn}/*"
+      },
+      {
+        Sid      = "BackupBucketList"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = var.backup_bucket_arn
+      }
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "node" {
   name = "kaval-prod-node"
   role = aws_iam_role.node.name

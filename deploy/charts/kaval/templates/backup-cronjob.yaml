@@ -1,0 +1,38 @@
+{{- if .Values.backup.enabled }}
+# Nightly pg_dump -> S3 (scripts/ops/backup.sh, ADR-0005/ADR-0008). Runs from the app node,
+# the only compute that can reach the database server's security group on 5432 -- there is
+# no compute on the database server itself for this (KAV-32).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "kaval.fullname" . }}-backup
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "kaval.selectorLabels" (dict "Release" .Release "component" "backup") | nindent 12 }}
+        spec:
+          {{- include "kaval.imagePullSecrets" . | nindent 10 }}
+          restartPolicy: Never
+          containers:
+            - name: backup
+              image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.backup.image.repository "tag" .Values.backup.image.tag) }}"
+              imagePullPolicy: {{ .Values.backup.image.pullPolicy }}
+              command: ["scripts/ops/backup.sh"]
+              envFrom:
+                # The admin/migrate role: pg_dump needs to read every table, which only the
+                # schema-owning role is guaranteed to be able to do.
+                - secretRef:
+                    name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "migrate") }}
+              env:
+                - name: BACKUP_BUCKET
+                  value: {{ required "backup.bucketName must be set when backup.enabled is true" .Values.backup.bucketName | quote }}
+              resources:
+                {{- toYaml .Values.backup.resources | nindent 16 }}
+{{- end }}

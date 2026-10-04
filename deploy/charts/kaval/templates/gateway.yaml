@@ -23,7 +23,7 @@ spec:
           imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
           envFrom:
             - secretRef:
-                name: {{ include "kaval.fullname" . }}-postgres
+                name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "gateway") }}
             {{- if .Values.gateway.slackSecretName }}
             - secretRef:
                 # Created out of band — see values.yaml's gateway.slackSecretName comment.
@@ -31,10 +31,6 @@ spec:
                 name: {{ .Values.gateway.slackSecretName }}
             {{- end }}
           env:
-            - name: POSTGRES_HOST
-              value: {{ include "kaval.fullname" . }}-postgres
-            - name: POSTGRES_PORT
-              value: "5432"
             - name: OLLAMA_BASE_URL
               value: {{ .Values.gateway.ollamaBaseUrl | quote }}
             - name: LOCAL_MODEL

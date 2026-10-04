@@ -1,8 +1,8 @@
 # Kaval — production environment.
 #
-# Phase 0 provisioned the budget guardrails. Phase 4 (KAV-50) adds the network, ECR,
-# IAM and the node itself — still just the landing: Flux GitOps, the Cloudflare Tunnel
-# and the database server (KAV-32) are each their own follow-on story.
+# Phase 0 provisioned the budget guardrails. Phase 4 (KAV-50) added the network, ECR, IAM
+# and the node itself. KAV-51 added Flux GitOps. KAV-32 adds the database server and its
+# S3 backup target — Postgres moves off the app node for good (ADR-0008).
 #
 # Order matters: the thing that stops the bill exists before the thing that
 # creates one.
@@ -77,6 +77,7 @@ module "iam" {
   # Kubernetes RBAC layer (ADR-0021, KAV-47). This is the node's own AWS identity --
   # SSM management and ECR pulls -- not a per-service AWS role. See infra/modules/iam.
   ecr_repository_arns = module.ecr.repository_arns
+  backup_bucket_arn   = module.backups.bucket_arn
 }
 
 module "node" {
@@ -87,4 +88,30 @@ module "node" {
   instance_profile_name = module.iam.instance_profile_name
   ssh_public_key        = var.ssh_public_key
   # instance_type, disk_gb, k3s_version, k3s_sha256_arm64 keep their module defaults.
+}
+
+# ─────────────────────────────────────────────────────────────
+# Phase 4 — the database server (KAV-32, ADR-0008). Its own on-demand t4g.small, its own
+# security group, its own data volume -- not a pod on the node above. See
+# infra/modules/database for why, and docs/adr/0008's amendment for the implementation
+# decisions (TLS, per-service roles, the AZ pinned here rather than following the node's
+# spot capacity).
+# ─────────────────────────────────────────────────────────────
+
+module "backups" {
+  source = "../../modules/backups"
+
+  name_prefix     = "kaval-prod"
+  vpc_id          = module.network.vpc_id
+  route_table_ids = [module.network.public_route_table_id]
+}
+
+module "database" {
+  source = "../../modules/database"
+
+  name_prefix                = "kaval-prod"
+  vpc_id                     = module.network.vpc_id
+  subnet_id                  = module.network.public_subnet_ids[0] # pinned AZ -- see ADR-0008's amendment
+  app_node_security_group_id = module.node.security_group_id
+  ssh_public_key             = var.ssh_public_key
 }

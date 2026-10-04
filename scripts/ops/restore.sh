@@ -26,9 +26,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 : "${BACKUP_BUCKET:?set BACKUP_BUCKET}"
 
 case "$TARGET" in
-  staging) HOST="${STAGING_POSTGRES_HOST:?}"; DB="${STAGING_POSTGRES_DB:-kaval}"; USER="${STAGING_POSTGRES_USER:-kaval}" ;;
+  staging)
+    HOST="${STAGING_POSTGRES_HOST:?}"; DB="${STAGING_POSTGRES_DB:-kaval}"; USER="${STAGING_POSTGRES_USER:-kaval}"
+    PASSWORD="${STAGING_POSTGRES_PASSWORD:?}"
+    ;;
   prod)
     HOST="${POSTGRES_HOST:?}"; DB="${POSTGRES_DB:-kaval}"; USER="${POSTGRES_USER:-kaval}"
+    PASSWORD="${POSTGRES_PASSWORD:?}"
     echo ""
     echo "  Restoring into PRODUCTION. This replaces the live database."
     echo "  Up to 24 hours of data since the last dump will be lost (ADR-0005)."
@@ -38,6 +42,9 @@ case "$TARGET" in
     ;;
   *) echo "target must be staging or prod"; exit 1 ;;
 esac
+
+# pg_restore/psql have no password flag -- they read PGPASSWORD (or ~/.pgpass).
+export PGPASSWORD="$PASSWORD"
 
 START=$(date +%s)
 

@@ -44,12 +44,22 @@ spec:
       reconcileStrategy: Revision
   # Hand-kept copy of deploy/environments/prod/values.yaml — see the KNOWN GAP note above.
   values:
+    # Database server (ADR-0008, KAV-32) — hand-kept copy of deploy/environments/prod/
+    # values.yaml's own comment block; see that file for the out-of-band Secret creation
+    # commands. Known-gap note above still applies: keep these two in sync by hand.
     postgres:
-      password: kaval-prod-dev
+      enabled: false
+      secretNames:
+        gateway: kaval-postgres-gateway
+        agent: kaval-postgres-agent
+        executor: kaval-postgres-executor
+        collector: kaval-postgres-collector
+        migrate: kaval-postgres-admin
     global:
       imagePullSecretName: ecr-cred
     gateway:
       replicas: 2
+      slackSecretName: kaval-slack
       image:
         tag: sha-ffb436b
     agent:

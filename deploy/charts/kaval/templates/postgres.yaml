@@ -1,3 +1,4 @@
+{{- if .Values.postgres.enabled }}
 {{- $component := "postgres" -}}
 apiVersion: v1
 kind: Secret
@@ -7,6 +8,12 @@ metadata:
     {{- include "kaval.labels" . | nindent 4 }}
 type: Opaque
 stringData:
+  # HOST/PORT point at this same chart's own Service below — the in-cluster Postgres every
+  # local/dev/CI environment shares. An environment with its own database server (ADR-0008,
+  # KAV-32) never renders this Secret at all; see postgres.enabled and _helpers.tpl's
+  # kaval.postgresSecretName.
+  POSTGRES_HOST: {{ printf "%s-postgres" (include "kaval.fullname" .) | quote }}
+  POSTGRES_PORT: "5432"
   POSTGRES_DB: {{ .Values.postgres.database | quote }}
   POSTGRES_USER: {{ .Values.postgres.username | quote }}
   POSTGRES_PASSWORD: {{ required "postgres.password must be set in this environment's own values.yaml" .Values.postgres.password | quote }}
@@ -88,3 +95,4 @@ spec:
   ports:
     - port: 5432
       targetPort: 5432
+{{- end }}

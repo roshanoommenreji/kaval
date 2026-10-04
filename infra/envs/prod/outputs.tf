@@ -21,3 +21,17 @@ output "log_group" {
   description = "Where to read what the hard stop did: aws logs tail <this> --profile kaval --since 5m"
   value       = module.budget.log_group
 }
+
+output "database_private_ip" {
+  description = "POSTGRES_HOST for every service. Read this, not a hardcoded IP, when building the out-of-band Kubernetes Secrets (KAV-32)."
+  value       = module.database.private_ip
+}
+
+output "database_ssm_parameter_paths" {
+  description = "Read each with `aws ssm get-parameter --with-decryption --name <path>` yourself -- never paste the decrypted value into chat (same discipline as the Slack tokens, ADR-0026)."
+  value       = module.database.ssm_parameter_paths
+}
+
+output "backup_bucket_name" {
+  value = module.backups.bucket_name
+}
