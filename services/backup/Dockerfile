@@ -12,7 +12,10 @@
 
 FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637cecc392d97f980d4fec56b
 
+# --only-upgrade libpcre2-8-0: Debian shipped a fix for CVE-2026-103111 (HIGH) after this
+# digest was pinned; folded into this same apt-get since it's the only one in this image.
 RUN apt-get update \
+ && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 \
  && apt-get install -y --no-install-recommends postgresql-client awscli \
  && rm -rf /var/lib/apt/lists/*
 

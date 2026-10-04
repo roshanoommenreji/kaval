@@ -34,7 +34,7 @@ data "aws_subnet" "selected" {
 
 resource "aws_security_group" "database" {
   name        = "${var.name_prefix}-database"
-  description = "Inbound 5432 only from the app node's security group. No SSH — SSM Session Manager only."
+  description = "Inbound 5432 only from the app node security group. No SSH, SSM Session Manager only."
   vpc_id      = var.vpc_id
 
   ingress {

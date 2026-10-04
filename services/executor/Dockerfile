@@ -39,6 +39,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 # ── Stage 2: the runtime image ──────────────────────────────────────────────
 FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637cecc392d97f980d4fec56b
 
+# OS-level patch, independent of uv.lock: Debian shipped a fix for CVE-2026-103111
+# (libpcre2-8-0, HIGH) after this digest was pinned. Trivy flags the base image's own
+# package, so the fix has to land here rather than in the Python dependency lock.
+RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 \
+ && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
