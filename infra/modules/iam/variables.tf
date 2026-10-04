@@ -7,3 +7,8 @@ variable "backup_bucket_arn" {
   description = "The node's own role needs this (KAV-32): the backup CronJob runs on the app node and reaches the database server over 5432, there being no other compute in the cluster to run it from."
   type        = string
 }
+
+variable "secret_parameter_arns" {
+  description = "The DB passwords' and Slack tokens' SSM Parameter Store ARNs (KAV-56). The node's bootstrap script reads these to recreate kaval-postgres-* and kaval-slack on every boot, the same way it already refreshes ecr-cred -- this runs on the trusted host itself, never inside a pod, so it needs no change to IMDS hop limits or pod-level AWS access."
+  type        = list(string)
+}

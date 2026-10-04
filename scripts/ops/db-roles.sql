@@ -12,39 +12,51 @@
 
 \set ON_ERROR_STOP on
 
+-- psql's `:'var'` substitution does not reach inside a DO $$ ... $$ body -- the dollar
+-- quoting hides it from psql's own pre-scan, so the literal text ":'gateway_password'"
+-- was being sent straight to the server (found live, KAV-56: a real syntax error on the
+-- first real run of this file, the db-roles-job Helm hook that would have run it earlier
+-- having been blocked before it was ever built). set_config() runs substitution normally
+-- (it's plain top-level SQL, not inside $$ $$), then the DO block reads it back with
+-- current_setting() and applies it via format(..., %L) for safe, injection-proof quoting.
+SELECT set_config('kaval.gateway_password', :'gateway_password', false);
+SELECT set_config('kaval.agent_password', :'agent_password', false);
+SELECT set_config('kaval.executor_password', :'executor_password', false);
+SELECT set_config('kaval.collector_password', :'collector_password', false);
+
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'kaval_gateway') THEN
-    CREATE ROLE kaval_gateway LOGIN PASSWORD :'gateway_password';
+    EXECUTE format('CREATE ROLE kaval_gateway LOGIN PASSWORD %L', current_setting('kaval.gateway_password'));
   ELSE
-    ALTER ROLE kaval_gateway PASSWORD :'gateway_password';
+    EXECUTE format('ALTER ROLE kaval_gateway PASSWORD %L', current_setting('kaval.gateway_password'));
   END IF;
 END $$;
 
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'kaval_agent') THEN
-    CREATE ROLE kaval_agent LOGIN PASSWORD :'agent_password';
+    EXECUTE format('CREATE ROLE kaval_agent LOGIN PASSWORD %L', current_setting('kaval.agent_password'));
   ELSE
-    ALTER ROLE kaval_agent PASSWORD :'agent_password';
+    EXECUTE format('ALTER ROLE kaval_agent PASSWORD %L', current_setting('kaval.agent_password'));
   END IF;
 END $$;
 
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'kaval_executor') THEN
-    CREATE ROLE kaval_executor LOGIN PASSWORD :'executor_password';
+    EXECUTE format('CREATE ROLE kaval_executor LOGIN PASSWORD %L', current_setting('kaval.executor_password'));
   ELSE
-    ALTER ROLE kaval_executor PASSWORD :'executor_password';
+    EXECUTE format('ALTER ROLE kaval_executor PASSWORD %L', current_setting('kaval.executor_password'));
   END IF;
 END $$;
 
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'kaval_collector') THEN
-    CREATE ROLE kaval_collector LOGIN PASSWORD :'collector_password';
+    EXECUTE format('CREATE ROLE kaval_collector LOGIN PASSWORD %L', current_setting('kaval.collector_password'));
   ELSE
-    ALTER ROLE kaval_collector PASSWORD :'collector_password';
+    EXECUTE format('ALTER ROLE kaval_collector PASSWORD %L', current_setting('kaval.collector_password'));
   END IF;
 END $$;
 

@@ -16,6 +16,11 @@ rm /tmp/k3s
 modprobe br_netfilter || true
 modprobe overlay || true
 
+# psql client, for the bootstrap script's db-roles.sql step below (KAV-56). Installed once
+# here at first boot, not inside the repeating bootstrap script -- it only needs to exist,
+# not be reinstalled every 6h.
+dnf install -y postgresql15
+
 # Systemd unit hand-written from k3s's own install.sh template (SYSTEMD_TYPE=notify for a
 # server), so the checksum-verified binary above gets the same supervision the official
 # installer would have given it, without running that installer's own unverified script.
@@ -169,6 +174,70 @@ data:
   .dockerconfigjson: $DOCKERCONFIGJSON_B64
 MANIFEST
 unset ECR_PASSWORD AUTH_B64 DOCKERCONFIGJSON_B64
+
+# Database + Slack secrets (KAV-56): same refresh pattern as ecr-cred above -- read from
+# SSM, build the Secret entirely via stdin (never a kubectl argument, so nothing sits in
+# `ps aux`), apply it. Runs on every boot and on this same script's 6h timer, so a node
+# replacement (spot reclamation) never again needs a human to type kubectl create secret.
+declare -A DB_ROLE_USERS=( [admin]=kaval [gateway]=kaval_gateway [agent]=kaval_agent [executor]=kaval_executor [collector]=kaval_collector )
+DB_HOST=$(aws ec2 describe-instances --region "$REGION" \
+  --filters "Name=tag:Role,Values=database" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].PrivateIpAddress" --output text)
+
+for role in "$${!DB_ROLE_USERS[@]}"; do
+  DB_PASSWORD=$(aws ssm get-parameter --region "$REGION" \
+    --name "/kaval/kaval-prod/db/$${role}-password" --with-decryption \
+    --query Parameter.Value --output text)
+  kubectl create secret generic "kaval-postgres-$${role}" -n kaval-prod \
+    --from-literal=POSTGRES_HOST="$DB_HOST" \
+    --from-literal=POSTGRES_PORT=5432 \
+    --from-literal=POSTGRES_DB=kaval \
+    --from-literal=POSTGRES_USER="$${DB_ROLE_USERS[$role]}" \
+    --from-literal=POSTGRES_PASSWORD="$DB_PASSWORD" \
+    --from-literal=POSTGRES_SSLMODE=require \
+    --dry-run=client -o yaml | kubectl apply -f -
+  unset DB_PASSWORD
+done
+
+SLACK_BOT_TOKEN=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/slack/bot-token" --query Parameter.Value --output text)
+SLACK_APP_TOKEN=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/slack/app-token" --query Parameter.Value --output text)
+SLACK_CHANNEL_ID=$(aws ssm get-parameter --region "$REGION" \
+  --name "/kaval/kaval-prod/slack/channel-id" --query Parameter.Value --output text)
+kubectl create secret generic kaval-slack -n kaval-prod \
+  --from-literal=SLACK_BOT_TOKEN="$SLACK_BOT_TOKEN" \
+  --from-literal=SLACK_APP_TOKEN="$SLACK_APP_TOKEN" \
+  --from-literal=SLACK_CHANNEL_ID="$SLACK_CHANNEL_ID" \
+  --dry-run=client -o yaml | kubectl apply -f -
+unset SLACK_BOT_TOKEN SLACK_APP_TOKEN SLACK_CHANNEL_ID
+
+# Per-service Postgres roles (KAV-56, scripts/ops/db-roles.sql): idempotent, safe to rerun
+# every 6h alongside the Secrets above. migrate-job (a Helm hook) must have already created
+# the schema at least once for the GRANTs here to succeed -- on a fresh database that first
+# run can lose this race, in which case the next 6h retry picks it up once migrate-job has
+# caught up.
+curl -fsSL -o /tmp/db-roles.sql "https://raw.githubusercontent.com/roshanoommenreji/kaval/main/scripts/ops/db-roles.sql"
+ADMIN_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/db/admin-password" --query Parameter.Value --output text)
+GATEWAY_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/db/gateway-password" --query Parameter.Value --output text)
+AGENT_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/db/agent-password" --query Parameter.Value --output text)
+EXECUTOR_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/db/executor-password" --query Parameter.Value --output text)
+COLLECTOR_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/db/collector-password" --query Parameter.Value --output text)
+PGPASSWORD="$ADMIN_PW" psql "host=$DB_HOST port=5432 dbname=kaval user=kaval sslmode=require" \
+  -v ON_ERROR_STOP=1 \
+  -v gateway_password="$GATEWAY_PW" \
+  -v agent_password="$AGENT_PW" \
+  -v executor_password="$EXECUTOR_PW" \
+  -v collector_password="$COLLECTOR_PW" \
+  -f /tmp/db-roles.sql || echo "db-roles.sql failed this run -- will retry on the next 6h timer"
+unset ADMIN_PW GATEWAY_PW AGENT_PW EXECUTOR_PW COLLECTOR_PW
+rm -f /tmp/db-roles.sql
+
 
 curl -fsSL "$RAW/source.yaml" | kubectl apply -f -
 curl -fsSL "$RAW/helmrelease.yaml" | kubectl apply -f -
