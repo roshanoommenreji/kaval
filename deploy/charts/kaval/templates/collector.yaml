@@ -73,11 +73,14 @@ spec:
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.postgres.image }}
+          envFrom:
+            - secretRef:
+                name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "collector") }}
           command:
             - sh
             - -c
             - |
-              until pg_isready -h {{ include "kaval.fullname" . }}-postgres -p 5432; do
+              until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT"; do
                 echo "waiting for postgres..."; sleep 2
               done
       containers:
