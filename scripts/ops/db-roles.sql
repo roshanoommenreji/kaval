@@ -69,6 +69,14 @@ GRANT SELECT, INSERT ON signal TO kaval_collector;
 -- execution -- those are the human-oversight and executor boundaries.
 GRANT SELECT ON signal, incident TO kaval_agent;
 GRANT SELECT, INSERT, UPDATE ON incident, proposal, action TO kaval_agent;
+-- incident_signal: the many-to-many correlate.py writes while grouping signals into an
+-- incident (insert-only per its own model docstring -- never updated or deleted).
+-- Missing here caused a real, live failure (KAV-56): the deployed agent could log in fine
+-- but every correlation pass failed with "permission denied for table incident_signal".
+GRANT SELECT, INSERT ON incident_signal TO kaval_agent;
+-- runbook_chunk: kaval_agent.index_runbooks' own table (its docstring: "creating, updating
+-- or deleting rows"), not yet part of the deployed --every loop but owned by this role.
+GRANT SELECT, INSERT, UPDATE, DELETE ON runbook_chunk TO kaval_agent;
 
 -- executor: the only component that acts, and only on what's already been decided.
 GRANT SELECT ON action, decision TO kaval_executor;
