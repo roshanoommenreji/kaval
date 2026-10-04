@@ -100,6 +100,18 @@ resource "aws_iam_role_policy" "read_app_secrets" {
         Effect   = "Allow"
         Action   = ["kms:Decrypt"]
         Resource = "arn:aws:kms:*:*:alias/aws/ssm"
+      },
+      {
+        # The bootstrap script looks the database server up by its Role=database tag
+        # (KAV-56) rather than a hardcoded IP. DescribeInstances has no resource-level
+        # permissions in IAM -- AWS requires "*", same limitation as EcrAuth above. Found
+        # live: the first real node replacement after this script shipped failed here
+        # with UnauthorizedOperation, aborting the whole bootstrap before it reached
+        # Flux's own source.yaml/helmrelease.yaml/sync.yaml apply.
+        Sid      = "DescribeDatabaseInstance"
+        Effect   = "Allow"
+        Action   = ["ec2:DescribeInstances"]
+        Resource = "*"
       }
     ]
   })

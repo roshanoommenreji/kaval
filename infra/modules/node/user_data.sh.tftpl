@@ -16,6 +16,11 @@ rm /tmp/k3s
 modprobe br_netfilter || true
 modprobe overlay || true
 
+# psql client, for the bootstrap script's db-roles.sql step below (KAV-56). Installed once
+# here at first boot, not inside the repeating bootstrap script -- it only needs to exist,
+# not be reinstalled every 6h.
+dnf install -y postgresql15
+
 # Systemd unit hand-written from k3s's own install.sh template (SYSTEMD_TYPE=notify for a
 # server), so the checksum-verified binary above gets the same supervision the official
 # installer would have given it, without running that installer's own unverified script.
@@ -206,6 +211,32 @@ kubectl create secret generic kaval-slack -n kaval-prod \
   --from-literal=SLACK_CHANNEL_ID="$SLACK_CHANNEL_ID" \
   --dry-run=client -o yaml | kubectl apply -f -
 unset SLACK_BOT_TOKEN SLACK_APP_TOKEN SLACK_CHANNEL_ID
+
+# Per-service Postgres roles (KAV-56, scripts/ops/db-roles.sql): idempotent, safe to rerun
+# every 6h alongside the Secrets above. migrate-job (a Helm hook) must have already created
+# the schema at least once for the GRANTs here to succeed -- on a fresh database that first
+# run can lose this race, in which case the next 6h retry picks it up once migrate-job has
+# caught up.
+curl -fsSL -o /tmp/db-roles.sql "https://raw.githubusercontent.com/roshanoommenreji/kaval/main/scripts/ops/db-roles.sql"
+ADMIN_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/db/admin-password" --query Parameter.Value --output text)
+GATEWAY_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/db/gateway-password" --query Parameter.Value --output text)
+AGENT_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/db/agent-password" --query Parameter.Value --output text)
+EXECUTOR_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/db/executor-password" --query Parameter.Value --output text)
+COLLECTOR_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+  --name "/kaval/kaval-prod/db/collector-password" --query Parameter.Value --output text)
+PGPASSWORD="$ADMIN_PW" psql "host=$DB_HOST port=5432 dbname=kaval user=kaval sslmode=require" \
+  -v ON_ERROR_STOP=1 \
+  -v gateway_password="$GATEWAY_PW" \
+  -v agent_password="$AGENT_PW" \
+  -v executor_password="$EXECUTOR_PW" \
+  -v collector_password="$COLLECTOR_PW" \
+  -f /tmp/db-roles.sql || echo "db-roles.sql failed this run -- will retry on the next 6h timer"
+unset ADMIN_PW GATEWAY_PW AGENT_PW EXECUTOR_PW COLLECTOR_PW
+rm -f /tmp/db-roles.sql
 
 
 curl -fsSL "$RAW/source.yaml" | kubectl apply -f -
