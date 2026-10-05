@@ -55,6 +55,12 @@ module "budget" {
   # instance outside an ASG -- today, the dev server (ADR-0007); from Phase 4 also the
   # database server (ADR-0008). Stop, not terminate.
   stop_tagged_instances = true
+
+  # KAV-32, 2026-10-05: the third stop path ADR-0008 names, alongside `make down` and the hard
+  # stop above -- a 02:00 IST EventBridge Scheduler rule that invokes this same Lambda as a brake
+  # for a forgotten `make down`. True for the paused posture (Phases 4-6); flip to false when
+  # Phase 7 makes the system always-on.
+  nightly_auto_stop_enabled = true
 }
 
 # ─────────────────────────────────────────────────────────────

@@ -252,3 +252,68 @@ resource "aws_cloudwatch_log_group" "hard_stop" {
   retention_in_days = 14
   tags              = var.tags
 }
+
+# ─────────────────────────────────────────────────────────────
+# Nightly auto-stop (ADR-0008) — the third stop path, alongside `make down` and the $38
+# hard stop. Invokes the SAME Lambda rather than duplicating its scale-to-zero/snapshot/stop
+# logic: at 02:00 IST it is exactly "stop Project=kaval servers outside an ASG, and scale the
+# ASG to zero" — identical to what the hard stop already does, just on a clock instead of a
+# spend threshold. A forgotten `make down` is the only case where this actually changes
+# anything; everything else is a no-op.
+# ─────────────────────────────────────────────────────────────
+
+resource "aws_iam_role" "nightly_auto_stop_scheduler" {
+  name = "${var.name_prefix}-budget-nightly-auto-stop"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "scheduler.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+  tags = var.tags
+}
+
+# Deliberately narrow: this role can invoke exactly one Lambda, and nothing else.
+data "aws_iam_policy_document" "nightly_auto_stop_scheduler" {
+  statement {
+    effect    = "Allow"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.hard_stop.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "nightly_auto_stop_scheduler" {
+  name   = "invoke-hard-stop"
+  role   = aws_iam_role.nightly_auto_stop_scheduler.id
+  policy = data.aws_iam_policy_document.nightly_auto_stop_scheduler.json
+}
+
+resource "aws_scheduler_schedule" "nightly_auto_stop" {
+  name       = "${var.name_prefix}-nightly-auto-stop"
+  group_name = "default"
+  state      = var.nightly_auto_stop_enabled ? "ENABLED" : "DISABLED"
+
+  # EventBridge Scheduler accepts an IANA timezone directly, so "02:00" means 02:00 IST without
+  # a manual UTC offset conversion to get wrong.
+  schedule_expression          = "cron(0 2 * * ? *)"
+  schedule_expression_timezone = "Asia/Kolkata"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_function.hard_stop.arn
+    role_arn = aws_iam_role.nightly_auto_stop_scheduler.arn
+  }
+}
+
+resource "aws_lambda_permission" "scheduler" {
+  statement_id  = "AllowExecutionFromScheduler"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.hard_stop.function_name
+  principal     = "scheduler.amazonaws.com"
+  source_arn    = aws_scheduler_schedule.nightly_auto_stop.arn
+}
