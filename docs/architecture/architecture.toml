@@ -1201,3 +1201,335 @@ label = ""
 from = "d-jira"
 to = "d-dora"
 label = ""
+
+# ═══════════════════════════════════════════════════════════════════════
+# AWS-TOUR VIEW — every AWS service actually switched on, plain language
+# ═══════════════════════════════════════════════════════════════════════
+
+[[aws-tour.node]]
+id = "guardrail"
+label = "Budget guardrail"
+kind = "platform"
+phase = 0
+col = 0
+row = 0
+credentials = "autoscaling:UpdateAutoScalingGroup + ec2:StopInstances, scoped by project tag"
+inputs = ["AWS Budgets threshold breach, over SNS"]
+outputs = ["App node scaled to 0 at $38", "Dev server + database server stopped at $38, snapshot first"]
+note = "The very first thing built, before any other AWS resource existed — proven by firing it by hand while there was nothing yet to break."
+
+[[aws-tour.node]]
+id = "vpc"
+label = "VPC · subnets"
+kind = "platform"
+phase = 4
+col = 1
+row = 0
+outputs = ["A private, fenced-off network only Kaval's own computers live inside"]
+note = "One VPC, one public subnet per availability zone, no NAT Gateway (that alone would cost $32/month). Computers reach the internet directly but have no doors anyone outside can knock on."
+
+[[aws-tour.node]]
+id = "ecr"
+label = "ECR"
+kind = "platform"
+phase = 4
+col = 2
+row = 0
+credentials = "IAM-authenticated pull"
+inputs = ["arm64 images, built once and tagged by commit SHA"]
+outputs = ["Images pulled by the app node"]
+note = "A locked photo album, one page per service, with tags that can never be swapped for a different photo once used — that's what makes 'the digest that passed staging is the digest in prod' a guarantee rather than a promise."
+
+[[aws-tour.node]]
+id = "node"
+label = "App node · spot EC2"
+kind = "platform"
+phase = 4
+col = 0
+row = 1
+credentials = "instance role — SSM management + ECR pull only"
+inputs = ["cloud-init boot script", "Container images from ECR"]
+outputs = ["A running k3s cluster with the 5 Kaval pods — see Inside the cluster"]
+note = "Rented at AWS's cheaper 'spot' rate, which can be reclaimed with 2 minutes' notice. An Auto Scaling Group keeps exactly one running and rebuilds it from the same recipe within minutes if that happens."
+
+[[aws-tour.node]]
+id = "dbserver"
+label = "Database server"
+kind = "platform"
+phase = 4
+col = 1
+row = 1
+credentials = "instance role (SSM only) · no SSH"
+inputs = ["Postgres connections on 5432, only from the app node", "Admin sessions via SSM Session Manager"]
+outputs = ["Postgres 16 + pgvector over TLS — see Inside the cluster"]
+note = "Its own separate computer, on-demand and never spot — a filing cabinet that might vanish with two minutes' notice isn't one you can trust. ~$14.40/month all-in (ADR-0008)."
+
+[[aws-tour.node]]
+id = "devserver"
+label = "Dev server"
+kind = "platform"
+phase = 1
+col = 2
+row = 1
+credentials = "instance role (SSM only) · no SSH"
+inputs = ["Used only while actually building and testing"]
+note = "A third, separate computer used only while building — it puts itself to sleep automatically after an hour of nobody using it (ADR-0007), so it's nearly free most of the time. Lives in AWS's default VPC, not this one, since it's disposable."
+
+[[aws-tour.node]]
+id = "iamssm"
+label = "IAM + SSM"
+kind = "platform"
+phase = 4
+col = 0
+row = 2
+outputs = ["ID badges for every computer and script", "Remote-control terminal access with no open door", "A locked safe for database passwords"]
+note = "No computer here has an SSH door open to the internet. Getting a terminal means the computer calls out to AWS itself and AWS vouches for you — never the other way around."
+
+[[aws-tour.node]]
+id = "ebs"
+label = "EBS data volume"
+kind = "platform"
+phase = 4
+col = 1
+row = 2
+credentials = "attached volume · prevent_destroy"
+inputs = ["Postgres's actual data directory"]
+outputs = ["Durable storage that survives the database computer being replaced"]
+note = "20 GB, encrypted, kept completely separate from the database server's own small operating-system disk — rebuilding the computer never touches this drive."
+
+[[aws-tour.node]]
+id = "s3"
+label = "S3 backups"
+kind = "platform"
+phase = 4
+col = 2
+row = 2
+credentials = "scoped write · reached over a free private network route, never the public internet"
+inputs = ["A nightly export of the database's actual contents — the job that fills this isn't wired up yet"]
+outputs = ["A second, independent backup — protects against corrupted data, not just a broken drive"]
+note = "The bucket itself is built, locked to the public, and encrypted. The nightly job that actually fills it is still blocked on a separate script (see the board's blockers) — an honest gap, not a hidden one."
+
+[[aws-tour.node]]
+id = "dlm"
+label = "Daily snapshot"
+kind = "platform"
+phase = 4
+col = 1
+row = 3
+inputs = ["The data volume, once every 24 hours"]
+outputs = ["7 rolling photos of the data volume, oldest deleted automatically"]
+note = "Fixed 2026-10-05 (Lab 24): this automatic camera had actually been broken — stuck in an error state — since the day it was first set up, a month earlier, because of a Terraform tagging bug nobody had noticed. It's been taking real daily photos since."
+
+[[aws-tour.edge]]
+from = "guardrail"
+to = "node"
+label = "scale to 0 at $38"
+
+[[aws-tour.edge]]
+from = "guardrail"
+to = "dbserver"
+label = "snapshot + stop at $38"
+
+[[aws-tour.edge]]
+from = "guardrail"
+to = "devserver"
+label = "stop at $38"
+
+[[aws-tour.edge]]
+from = "vpc"
+to = "node"
+label = "lives inside"
+
+[[aws-tour.edge]]
+from = "vpc"
+to = "dbserver"
+label = "lives inside"
+
+[[aws-tour.edge]]
+from = "ecr"
+to = "node"
+label = "arm64 images, pulled"
+
+[[aws-tour.edge]]
+from = "node"
+to = "dbserver"
+label = "5432 · TLS · node's SG only"
+kind = "call"
+
+[[aws-tour.edge]]
+from = "iamssm"
+to = "node"
+label = "badge + remote control"
+
+[[aws-tour.edge]]
+from = "iamssm"
+to = "dbserver"
+label = "password safe"
+
+[[aws-tour.edge]]
+from = "dbserver"
+to = "ebs"
+label = "data lives on"
+
+[[aws-tour.edge]]
+from = "ebs"
+to = "dlm"
+label = "photographed daily · keep 7"
+
+[[aws-tour.edge]]
+from = "dbserver"
+to = "s3"
+label = "nightly export — not yet wired"
+
+# ═══════════════════════════════════════════════════════════════════════
+# PODS-POSTGRES VIEW — what's running in the cluster, and the database they share
+# ═══════════════════════════════════════════════════════════════════════
+
+[[pods-postgres.node]]
+id = "migrate"
+label = "migrate-job"
+kind = "service"
+phase = 1
+col = 0
+row = 0
+credentials = "admin database role"
+inputs = ["This repo's own Alembic migration files"]
+outputs = ["The database schema — all 9 tables, empty"]
+note = "A Helm hook Job that runs once per release, before anything else, then exits. It never shows up in a 'running pods' list because by the time anyone looks, it has already finished."
+
+[[pods-postgres.node]]
+id = "dbroles"
+label = "db-roles-job"
+kind = "service"
+phase = 4
+col = 1
+row = 0
+credentials = "admin database role"
+inputs = ["scripts/ops/db-roles.sql, with passwords from SSM Parameter Store"]
+outputs = ["The 4 per-service keycards, and exactly what each can open"]
+note = "Runs once per release, right after migrate-job, then exits. Idempotent — safe to run again on every release even though the roles already exist."
+
+[[pods-postgres.node]]
+id = "collector"
+label = "collector"
+kind = "service"
+phase = 1
+col = 0
+row = 1
+credentials = "kaval_collector · write (and read) signal only"
+inputs = ["Kubernetes' own events — a pod crashing, a container failing to start"]
+outputs = ["One row per observation, untouched"]
+tables = ["signal"]
+note = "The scout. Zero opinions — it only writes down exactly what it saw."
+
+[[pods-postgres.node]]
+id = "db"
+label = "Postgres (9 tables)"
+kind = "store"
+phase = 1
+col = 1
+row = 1
+credentials = "TLS in transit · 4 scoped roles + 1 admin role"
+inputs = ["Writes from all four always-on pods"]
+outputs = ["Everything any pod ever reads"]
+tables = ["signal", "incident_signal", "incident", "proposal", "action", "decision", "execution", "outcome", "runbook_chunk"]
+note = "One shared filing cabinet, on its own dedicated computer (see AWS, plain and simple), reached over an encrypted connection. See the Keycards table on this page for exactly who can open which drawer."
+
+[[pods-postgres.node]]
+id = "agent"
+label = "agent"
+kind = "service"
+phase = 2
+col = 2
+row = 1
+credentials = "kaval_agent · reads signal/incident, read+write incident/proposal/action, write-only incident_signal"
+inputs = ["Raw signals and the written runbooks"]
+outputs = ["One grouped incident, one AI-written proposal, one or more concrete actions"]
+tables = ["signal", "incident_signal", "incident", "proposal", "action", "runbook_chunk"]
+note = "The detective. Asks a small AI model (Gemma 3 1B) running on the same computer a strict, checkable question, and never has the hands to act on its own answer."
+
+[[pods-postgres.node]]
+id = "gateway"
+label = "gateway (×2)"
+kind = "service"
+phase = 1
+col = 0
+row = 2
+credentials = "kaval_gateway · reads broadly, read+write decision only"
+inputs = ["Everything needed to show a human what's happening"]
+outputs = ["The actual yes/no a human gave", "Slack buttons and messages"]
+tables = ["incident", "proposal", "action", "execution", "outcome", "decision"]
+note = "The front desk — the only pod that talks to actual people. Runs twice because it's the single piece a human is waiting on, so there's always a second copy if one is busy."
+
+[[pods-postgres.node]]
+id = "executor"
+label = "executor"
+kind = "service"
+phase = 3
+col = 2
+row = 2
+credentials = "kaval_executor · read action/decision, read+write execution/outcome"
+inputs = ["Only actions that already have a yes from a human or a pre-approved rule"]
+outputs = ["What it actually did, and the before/after state"]
+tables = ["action", "decision", "execution", "outcome"]
+note = "The only hands. It never decides whether to act, only carries out what's already been approved."
+
+[[pods-postgres.node]]
+id = "slack"
+label = "Slack approval"
+kind = "external"
+phase = 4
+col = 0
+row = 3
+credentials = "outbound Socket Mode connection — no inbound port, no public address"
+inputs = ["Approve / Deny buttons posted by the gateway"]
+outputs = ["Which button a human actually clicked"]
+note = "The gateway calls out to Slack; Slack never calls in. That's why there's no public web address for Kaval at all."
+
+[[pods-postgres.edge]]
+from = "migrate"
+to = "db"
+label = "creates the 9 tables"
+
+[[pods-postgres.edge]]
+from = "dbroles"
+to = "db"
+label = "creates 4 keycards + grants"
+
+[[pods-postgres.edge]]
+from = "collector"
+to = "db"
+label = "INSERT signal"
+
+[[pods-postgres.edge]]
+from = "db"
+to = "agent"
+label = "signals in → proposals out"
+
+[[pods-postgres.edge]]
+from = "db"
+to = "executor"
+label = "actions in → executions out"
+
+[[pods-postgres.edge]]
+from = "db"
+to = "gateway"
+label = "everything in → decisions out"
+
+[[pods-postgres.edge]]
+from = "gateway"
+to = "executor"
+label = "approved → act"
+kind = "call"
+
+[[pods-postgres.edge]]
+from = "gateway"
+to = "slack"
+label = "posts buttons"
+kind = "call"
+
+[[pods-postgres.edge]]
+from = "slack"
+to = "gateway"
+label = "click"
+kind = "call"
