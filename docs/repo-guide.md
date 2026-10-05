@@ -220,7 +220,8 @@ Run `make migrate` to bring a database up to date.
 | `scripts/ops/backup.sh` | Nightly database dump to S3, run as a Helm `CronJob` (`KAV-32`) | Written and fixed (had no `PGPASSWORD` handling at all until now); not yet run — needs `terraform apply` and the blocked `aws-creds` Secret |
 | `scripts/ops/restore.sh` | Restores a backup into staging (made anonymous first) or, in an emergency, into production | Written and fixed (same `PGPASSWORD` gap as `backup.sh`); not yet run — needs the staging environment or a real restore drill |
 | `scripts/ops/anonymise.sql` | Strips personal and secret data from a copy before staging gets it | Written, not yet run — needs the staging environment |
-| `scripts/ops/db-roles.sql` | Creates the four per-service Postgres roles and their `GRANT`s, idempotently (`KAV-32`, ADR-0008) | Written; the Helm hook Job meant to run it automatically is blocked (see `infra/modules/database/` above), so it's run by hand for now |
+| `scripts/ops/db-roles.sql` | Creates the four per-service Postgres roles and their `GRANT`s, idempotently (`KAV-32`, ADR-0008) | Working, live, automatic — the original Helm hook Job was blocked and is superseded: the node's own boot/6h bootstrap script runs this instead (`KAV-56`, ADR-0027, Lab 23) |
+| `scripts/ops/pause-database.sh` / `resume-database.sh` | Stop/start the database instance (never terminate), snapshotting the data volume first on pause. Wired into `make down`/`make up` (`KAV-32`, ADR-0008, Lab 24) | Working, live since 2026-10-05 |
 | **`scripts/tracking/`** | **Jira, Confluence and the dashboard** | |
 | `scripts/tracking/dashboard.py` | Builds the progress dashboard from the repo (`make dashboard`) | Working |
 | `scripts/tracking/dashboard.toml` | Things the dashboard can't work out by itself: links, cost figures and budget thresholds, per-phase Jira/Confluence links | Working |

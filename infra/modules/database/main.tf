@@ -247,10 +247,10 @@ resource "aws_dlm_lifecycle_policy" "database" {
         count = 7
       }
 
-      tags_to_add = {
-        Name = "${var.name_prefix}-database-data-dlm"
-      }
-
+      # No tags_to_add: copy_tags already carries Name/Role/Project from the source volume,
+      # and a tags_to_add Name here collided with the copied one -- "Duplicate tag key 'Name'
+      # specified", which put this policy in ERROR from the day it was created. Found live
+      # while building the pre-stop snapshot story, not during planning.
       copy_tags = true
     }
   }

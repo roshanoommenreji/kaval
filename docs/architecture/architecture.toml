@@ -309,7 +309,7 @@ row = 8
 credentials = "instance role (SSM only) · no SSH"
 inputs = ["Postgres connections on 5432, only from the app node's security group", "Admin sessions via SSM Session Manager"]
 outputs = ["Postgres 16 + pgvector over TLS", "Daily EBS snapshots and a snapshot before every stop"]
-note = "ADR-0008. On-demand, never spot: a database must not be reclaimable at two minutes' notice. ~$14.40/month always-on. Termination protection on; passwords in SSM Parameter Store. No idle stop, because its user is the app: it stops only with make down, the paused-posture nightly auto-stop, or the $38 hard stop, each taking a snapshot first. Staging gets its own from the same module."
+note = "ADR-0008. On-demand, never spot: a database must not be reclaimable at two minutes' notice. ~$14.40/month always-on. Termination protection on; passwords in SSM Parameter Store. No idle stop, because its user is the app: it stops only with make down (scripts/ops/pause-database.sh, live since 2026-10-05 -- previously make down didn't touch the database at all, a real gap closed in Lab 24) or the $38 hard stop, each taking a snapshot first. The third stop path, a paused-posture nightly auto-stop, is still a ROADMAP.md line, not built. Staging gets its own from the same module."
 
 [[system.node]]
 id = "ebs"
@@ -357,7 +357,7 @@ row = 8
 credentials = "autoscaling:UpdateAutoScalingGroup only"
 inputs = ["AWS Budgets threshold breach via SNS"]
 outputs = ["ASG desired capacity set to zero at $38", "Project=kaval servers outside an ASG stopped at $38 (dev server; DB server from Phase 4)"]
-note = "The first thing built, before any compute existed. Ships with DRY_RUN=true and no target, so the first invocation is a safe no-op that still proves the whole path — budget, SNS, subscription, function, log. Applied and proven 2026-09-15 — 10 resources, full console-location + purpose table in Lab 01. Armed 2026-09-26 (KAV-30) to stop running Project=kaval servers outside an ASG, e.g. the dev server; fired for real and proven. Thresholds moved to $30/$35/$38 with the $40 ceiling on 2026-09-26 (ADR-0008)."
+note = "The first thing built, before any compute existed. Ships with DRY_RUN=true and no target, so the first invocation is a safe no-op that still proves the whole path — budget, SNS, subscription, function, log. Applied and proven 2026-09-15 — 10 resources, full console-location + purpose table in Lab 01. Armed 2026-09-26 (KAV-30) to stop running Project=kaval servers outside an ASG, e.g. the dev server; fired for real and proven. Thresholds moved to $30/$35/$38 with the $40 ceiling on 2026-09-26 (ADR-0008). Since 2026-10-05 (Lab 24) it snapshots each instance's data volume (if it has one, tagged Role=database-data) before stopping it, never blocking the stop on a snapshot failure — credentials gained ec2:DescribeVolumes/CreateSnapshot/CreateTags, scoped to Project=kaval volumes."
 
 # ── system edges ───────────────────────────────────────────────────────
 

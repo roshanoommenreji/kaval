@@ -107,17 +107,19 @@ plan: ## Show what would change in prod (never applies)
 	cd $(TF_PROD) && terraform plan
 
 .PHONY: up
-up: ## Provision the spot node and reconcile from Git (~5 min, STARTS BILLING)
-	@echo "This starts billing at roughly \$$0.0126/hr plus storage."
+up: ## Resume the database, provision the spot node and reconcile from Git (~5 min, STARTS BILLING)
+	@echo "This starts billing at roughly \$$0.0126/hr (app node) plus the database server (~\$$14.40/mo while running)."
 	@read -p "Continue? [y/N] " ok && [ "$$ok" = "y" ]
+	@bash scripts/ops/resume-database.sh
 	cd $(TF_PROD) && terraform apply
 	@echo "Waiting for Flux to reconcile..."
 	@echo "Check with: kubectl get pods -A"
 
 .PHONY: down
-down: ## Destroy the node, keep EBS/ECR/S3 state (~\$2/mo parked)
+down: ## Destroy the node, pause the database (snapshot first), keep EBS/ECR/S3 state (~\$2/mo parked)
 	cd $(TF_PROD) && terraform destroy -target=module.node
-	@echo "Node destroyed. State preserved. 'make up' restores in ~5 min."
+	@bash scripts/ops/pause-database.sh
+	@echo "Node destroyed, database paused. 'make up' restores both in a few minutes."
 
 .PHONY: nuke
 nuke: ## Destroy EVERYTHING in prod including state. Irreversible.
