@@ -14,8 +14,10 @@ FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637
 
 # --only-upgrade libpcre2-8-0: Debian shipped a fix for CVE-2026-103111 (HIGH) after this
 # digest was pinned; folded into this same apt-get since it's the only one in this image.
+# perl-base/libperl5.36: same pattern, for CVE-2026-13221 (CRITICAL) plus several
+# perl-Archive-Tar/IO-Compress/Storable CVEs Debian fixed in the same 5.36.0-7+deb12u4 update.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 \
+ && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 perl-base libperl5.36 \
  && apt-get install -y --no-install-recommends postgresql-client awscli \
  && rm -rf /var/lib/apt/lists/*
 

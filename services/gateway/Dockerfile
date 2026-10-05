@@ -29,6 +29,13 @@ FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637
 RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 \
  && rm -rf /var/lib/apt/lists/*
 
+# Same pattern, separate CVE: Debian shipped 5.36.0-7+deb12u4 for a CRITICAL perl regex
+# flaw (CVE-2026-13221) plus several perl-Archive-Tar/IO-Compress/Storable CVEs fixed in the
+# same update. perl-base and libperl5.36 are listed because Trivy flags whichever of the two
+# is actually present per image; --only-upgrade skips either one cleanly if it isn't installed.
+RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade perl-base libperl5.36 \
+ && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
