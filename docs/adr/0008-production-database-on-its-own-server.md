@@ -164,3 +164,45 @@ here rather than a new ADR, since none of them change the decision above, only h
   safety classifier rather than written. The design for both is recorded here and in
   `docs/labs/lab-22-production-database.md`; Roshan builds or approves those two pieces
   directly rather than an assistant writing them unsupervised.
+
+## Amendment, 2026-10-05 — pre-stop snapshot, and `make down` actually pausing the database (`KAV-32`)
+
+The table above always said `make down` / `make up` pause the app node and the database
+**together**. In practice `make down` only ever ran `terraform destroy -target=module.node` —
+the database kept running, un-paused, billing the full ~$14.40/mo regardless of whether anyone
+was using the system, ever since the 2026-10-04 apply. Closed now, alongside the pre-stop
+snapshot this story was actually scoped to build:
+
+- **`scripts/ops/pause-database.sh` / `resume-database.sh`**, called from `make down` / `make up`.
+  Stop and start the database instance (never terminate — `disable_api_termination` and
+  `prevent_destroy` still apply), idempotent either way. `pause-database.sh` snapshots the data
+  volume first, tagged `Reason=pre-stop` plus `Project=kaval`/`Role=database-data` so it's
+  findable by the exact query `docs/runbooks/restore-from-backup.md` already used.
+- **The hard-stop Lambda** (`infra/modules/budget/lambda/hard_stop.py`) does the same
+  snapshot-then-stop for every instance it stops, not just ones started by the scripts above —
+  it already covered the database at the `$38` threshold (`stop_tagged_instances`, KAV-30); it
+  just never snapshotted first. New IAM statements, necessarily broad the same way
+  `ec2:DescribeInstances` was in ADR-0027: `ec2:DescribeVolumes` (no resource-level scoping
+  exists), `ec2:CreateSnapshot` scoped to `Project=kaval`-tagged volumes, `ec2:CreateTags`
+  scoped to `ec2:CreateAction=CreateSnapshot` (the snapshot doesn't exist to tag-scope against
+  until the same call creates it). A snapshot failure is logged and swallowed, never blocks the
+  actual stop — stopping the bill is this function's one job.
+- **The third stop path, the nightly auto-stop schedule itself, doesn't exist yet** — it's the
+  next unchecked `ROADMAP.md` line. The snapshot step above is written as a reusable script
+  rather than inlined into `make down`, specifically so wiring it into that schedule later is
+  one call, not a rewrite.
+- **Found live, not guessed:** the DLM daily-snapshot policy (`aws_dlm_lifecycle_policy.database`)
+  had been in AWS's `ERROR` state since the very first apply — a `terraform plan` run for this
+  story was the first time anyone looked at its actual state in AWS rather than its Terraform
+  config. Cause: `copy_tags = true` already copies the source volume's `Name` tag onto every
+  snapshot; `tags_to_add` also set a `Name` tag; DLM rejects the resulting duplicate key outright
+  and never retries on its own. No daily snapshot had ever been taken in the month this server
+  has existed — the pre-stop snapshot this story adds was, until today, the *only* EBS-level
+  backup this database actually had. Fixed by dropping `tags_to_add` (`copy_tags` alone already
+  gives every snapshot `Name`/`Role`/`Project` from the volume); `terraform plan` confirmed
+  `ERROR` → `ENABLED` as the only change to that resource.
+- **Cost:** $0 change. EBS snapshots bill only for changed blocks since the last one, already
+  priced into ADR-0008's "small incremental snapshots" line — the actual change here is that
+  the daily ones are finally happening, not that anything new costs money. The database pausing
+  with `make down` going forward is itself a cost *saving* against the gap just closed, not a
+  new cost.

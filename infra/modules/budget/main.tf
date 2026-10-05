@@ -160,6 +160,43 @@ data "aws_iam_policy_document" "hard_stop" {
     }
   }
 
+  # Pre-stop snapshot (ADR-0008): a snapshot of the data volume right before it's stopped,
+  # so a damaged resume always has something fresher than the last daily DLM snapshot.
+  # Finding volumes can't be scoped to a tag in IAM either, same reasoning as FindInstances.
+  statement {
+    sid       = "FindVolumes"
+    effect    = "Allow"
+    actions   = ["ec2:DescribeVolumes"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "SnapshotProjectVolumes"
+    effect    = "Allow"
+    actions   = ["ec2:CreateSnapshot"]
+    resources = ["arn:aws:ec2:*:*:volume/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/${var.stop_tag_key}"
+      values   = [var.stop_tag_value]
+    }
+  }
+
+  # Tagging the new snapshot needs its own grant — it doesn't exist yet when CreateSnapshot
+  # is evaluated, so it can't be scoped by a resource tag. Scoped instead to "a snapshot this
+  # same call just created", via the ec2:CreateAction condition key.
+  statement {
+    sid       = "TagNewSnapshots"
+    effect    = "Allow"
+    actions   = ["ec2:CreateTags"]
+    resources = ["arn:aws:ec2:*:*:snapshot/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:CreateAction"
+      values   = ["CreateSnapshot"]
+    }
+  }
+
   statement {
     sid       = "Logs"
     effect    = "Allow"
