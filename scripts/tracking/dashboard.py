@@ -993,6 +993,8 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
         ("system", "System topology", "What exists and what talks to what — every credential and data flow, labelled."),
         ("journey", "Incident journey", "One incident, every branch: policy never/ask/auto, escalation, human decision, outcome."),
         ("delivery", "Delivery pipeline", "PR → CI → staging → gate → prod → verify, with the rollback path."),
+        ("aws-tour", "AWS, plain and simple", "Every AWS service actually switched on, and what it's for — written for someone who has never touched AWS before."),
+        ("pods-postgres", "Inside the cluster", "The 5 workers running right now, and the one filing cabinet (Postgres) they all share."),
     ]
     cards_html = []
     for view, title, desc in arch_cards:
@@ -1337,6 +1339,65 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
   <div class="ndetail" id="det-{view}">
     <p class="hint">Select a component above to see every input, output and credential it holds.</p>
   </div>
+</div>""")
+
+    # ── plain-language tour pages — prose with an embedded diagram, not part of the
+    # system/journey/delivery tab-switcher above; cross-linked to each other instead ──
+    HYBRID = (
+        ("aws-tour", "aws-tour.md"),
+        ("pods-postgres", "pods-postgres.md"),
+    )
+    HYBRID_TITLES = {"aws-tour": "AWS, plain and simple", "pods-postgres": "Inside the cluster"}
+    for idx, (view, filename) in enumerate(HYBRID):
+        block = arch.get(view, {})
+        nodes, edges = block.get("node", []), block.get("edge", [])
+        if not nodes:
+            continue
+        svg, det = render_diagram(view, nodes, edges, phases)
+        details[view] = det
+
+        md_path = ROOT / "docs" / "architecture" / filename
+        before_md, _, after_md = md_path.read_text(encoding="utf-8").partition("<!-- diagram -->")
+        before_html = markdown_to_html(before_md)
+        after_html = markdown_to_html(after_md)
+
+        prev_view = HYBRID[idx - 1][0] if idx > 0 else None
+        next_view = HYBRID[idx + 1][0] if idx + 1 < len(HYBRID) else None
+        prev_title = HYBRID_TITLES.get(prev_view, "") if prev_view else ""
+        next_title = HYBRID_TITLES.get(next_view, "") if next_view else ""
+        pv = f'<a href="#{prev_view}">← {e(prev_title)}</a>' if prev_view else '<a class="off">← start</a>'
+        nx = f'<a href="#{next_view}">{e(next_title)} →</a>' if next_view else '<a class="off">End →</a>'
+
+        parts.append(f"""
+<div class="view" id="view-{view}" hidden>
+  <nav class="lnav">
+    <a href="#board">↑ Board</a>
+    <span class="wf experience">plain language, no jargon</span>
+    <span class="spacer"></span>
+    {pv}
+    {nx}
+  </nav>
+  <article class="prose">
+{before_html}
+  </article>
+  <div class="dwrap">
+{svg}
+  </div>
+  <div class="dlegend">
+    <span><b>solid</b> wired and running today</span>
+    <span><b>dashed + P<i>n</i></b> arrives in phase <i>n</i></span>
+    <span>tap any box for what it actually is and what it's connected to</span>
+  </div>
+  <div class="ndetail" id="det-{view}">
+    <p class="hint">Select a box above to see its credentials, what it reads, and what it writes.</p>
+  </div>
+  <article class="prose">
+{after_html}
+  </article>
+  <nav class="lnav" style="border:0;border-top:1px solid var(--rule-strong);
+       padding:14px 0 0;margin:40px 0 0">
+    <a href="#board">↑ Board</a><span class="spacer"></span>{pv}{nx}
+  </nav>
 </div>""")
 
     # "</" is split so the JSON can never terminate the <script> element early.
