@@ -72,6 +72,18 @@ variable "stop_tag_value" {
   default = "kaval"
 }
 
+variable "nightly_auto_stop_enabled" {
+  description = <<-EOT
+    Runs the hard-stop Lambda on a schedule (02:00 IST) as a brake for a forgotten `make down` —
+    not a replacement for it. Harmless when everything is already paused: the same Lambda already
+    no-ops on an ASG that's at desired=0 and skips instances that aren't running. True for the
+    paused posture (Phases 4-6); set false once Phase 7 makes the system always-on, since stopping
+    things nightly would then be wrong, not redundant.
+  EOT
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Applied to every resource. Tagging is not optional here — the FinOps agent in Phase 6 reasons over these."
   type        = map(string)

@@ -16,3 +16,8 @@ output "log_group" {
   description = "Where to read what the hard stop did."
   value       = aws_cloudwatch_log_group.hard_stop.name
 }
+
+output "nightly_auto_stop_schedule_name" {
+  description = "aws scheduler get-schedule --name <this> --group-name default"
+  value       = aws_scheduler_schedule.nightly_auto_stop.name
+}

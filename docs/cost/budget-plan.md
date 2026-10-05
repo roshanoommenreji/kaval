@@ -21,6 +21,7 @@ with `dry_run=True` and the correct "nothing to scale" warning, since no compute
 | MTD ≥ $30 | Email alert |
 | MTD ≥ $35 | Second email alert |
 | MTD ≥ $38 | Lambda scales the ASG to zero (from Phase 4; dry-run until then) **and stops every running `Project=kaval` server outside an ASG**, e.g. the dev server and, from Phase 4, the database server. Armed and fired for real 2026-09-26 (`KAV-30`) |
+| 02:00 IST, nightly | The same Lambda, triggered by an EventBridge Scheduler rule instead of a spend threshold — a brake for a forgotten `make down`, not a second cost. Harmless when nothing was forgotten: both triggers already no-op on an ASG at `desired=0` and skip stopped instances (`KAV-32`, Lab 25). Switches off from Phase 7 (`nightly_auto_stop_enabled`) |
 | Forecast ≥ $40 | Email alert that the month is heading over the ceiling |
 
 Thresholds were $18 / $22 / $24 / $25 until 2026-09-26. They moved to $30 / $35 / $38 / $40 with

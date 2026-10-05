@@ -206,3 +206,29 @@ snapshot this story was actually scoped to build:
   the daily ones are finally happening, not that anything new costs money. The database pausing
   with `make down` going forward is itself a cost *saving* against the gap just closed, not a
   new cost.
+
+## Amendment, 2026-10-05 — nightly auto-stop, the third stop path (`KAV-32`, Lab 25)
+
+Built the stop path the table above already named but that didn't exist yet: an EventBridge
+Scheduler rule, 02:00 IST, as a brake for a forgotten `make down`.
+
+- **Reuses the hard-stop Lambda rather than duplicating it.** At 02:00 IST the desired behaviour
+  is identical to what `infra/modules/budget/lambda/hard_stop.py` already does at the $38
+  threshold — scale the ASG to zero, snapshot-then-stop every `Project=kaval` instance outside an
+  ASG. Rather than writing that logic twice, the new `aws_scheduler_schedule` targets the same
+  Lambda. Both call paths already no-op correctly when there's nothing to do (ASG already at
+  desired=0, instances already stopped), so a nightly firing when `make down` was *not* forgotten
+  is silent and harmless, not a redundant action worth guarding against separately.
+- **New resources, in `infra/modules/budget`:** `aws_scheduler_schedule.nightly_auto_stop`
+  (`cron(0 2 * * ? *)`, `schedule_expression_timezone = "Asia/Kolkata"` — EventBridge Scheduler
+  takes an IANA timezone directly, so "02:00" means 02:00 IST without a manual UTC-offset
+  conversion to get wrong), a narrowly-scoped IAM role for `scheduler.amazonaws.com` that can
+  `lambda:InvokeFunction` on exactly the hard-stop function and nothing else, and the matching
+  `aws_lambda_permission`.
+- **New Terraform variable, `nightly_auto_stop_enabled`** (default `true`), set explicitly `true`
+  in `infra/envs/prod`. This is the variable the original table already promised: flip it to
+  `false` once Phase 7 makes the system always-on, since stopping things nightly would then be
+  wrong, not redundant.
+- **Cost:** $0. EventBridge Scheduler's invocation volume here (one firing a night) is nowhere
+  near its free tier, and the Lambda it calls was already billed for at the $38 threshold path —
+  this just gives it a second trigger, not a second cost.
