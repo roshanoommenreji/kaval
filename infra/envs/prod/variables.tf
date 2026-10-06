@@ -40,3 +40,19 @@ variable "ssh_public_key" {
   description = "For ec2-user on the prod node. SSH only works through the SSM tunnel; no port is open. See infra/modules/node."
   type        = string
 }
+
+variable "app_node_desired_capacity" {
+  description = <<-EOT
+    1 (default) to run the app node, 0 to pause it. `make down` passes -var=app_node_desired_capacity=0;
+    `make up` omits the override, back to the default of 1.
+
+    Found live, KAV-32 Lab 28: `make down` previously ran `terraform destroy -target=module.node`,
+    which cascaded into destroying the database (its security group references the node's security
+    group) and the entire budget module (the hard-stop Lambda's asg_name used to be a module.node
+    output reference). Scaling the ASG to 0 instead costs nothing while paused -- only a *running*
+    instance bills -- with none of that blast radius, and matches how this was actually being
+    paused by hand before this fix existed.
+  EOT
+  type        = number
+  default     = 1
+}

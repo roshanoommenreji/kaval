@@ -49,9 +49,14 @@ resource "aws_launch_template" "node" {
 
   # ASG-managed spot only supports "one-time" requests (confirmed by AWS rejecting
   # "persistent" here at apply time) -- the ASG itself is what re-launches a replacement
-  # on interruption, not a persistent spot request underneath it.
-  instance_market_options {
-    market_type = "spot"
+  # on interruption, not a persistent spot request underneath it. var.spot = false omits
+  # this block entirely, which launches On-Demand -- the escape hatch for when Spot
+  # capacity genuinely isn't available anywhere (found live, KAV-32 Lab 28).
+  dynamic "instance_market_options" {
+    for_each = var.spot ? [1] : []
+    content {
+      market_type = "spot"
+    }
   }
 
   metadata_options {
@@ -90,9 +95,9 @@ resource "aws_launch_template" "node" {
 
 resource "aws_autoscaling_group" "node" {
   name                = "kaval-prod"
-  min_size            = 1
-  max_size            = 1
-  desired_capacity    = 1
+  min_size            = var.desired_capacity # tracks desired_capacity 1:1 -- paused means 0, not "should relaunch"
+  max_size            = 1                    # never autoscales beyond one instance, paused or not
+  desired_capacity    = var.desired_capacity
   vpc_zone_identifier = var.subnet_ids
   health_check_type   = "EC2" # no load balancer target to check against
 

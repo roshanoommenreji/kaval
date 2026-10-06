@@ -48,7 +48,14 @@ module "budget" {
   # KAV-50: the ASG now exists, so the hard-stop Lambda has something real to scale to
   # zero. Armed (not dry-run) from the moment compute exists -- the whole point of
   # building the guardrail in Phase 0 was to have it live before anything could overrun.
-  asg_name          = module.node.asg_name
+  #
+  # The literal "kaval-prod" (matching aws_autoscaling_group.node's own hardcoded name,
+  # infra/modules/node/main.tf), not module.node.asg_name -- found live, KAV-32 Lab 28:
+  # a module output reference here makes module.budget depend on module.node, so
+  # `make down`'s `terraform destroy -target=module.node` cascaded into destroying the
+  # entire hard-stop Lambda, its IAM policy and its log group every single pause, despite
+  # the ASG's name never actually varying. The budget guardrail should outlive the node.
+  asg_name          = "kaval-prod"
   hard_stop_dry_run = false
 
   # Armed 2026-09-26 (KAV-30): at the hard-stop threshold ($38 since ADR-0008) the Lambda stops every running Project=kaval
@@ -104,7 +111,11 @@ module "node" {
   subnet_ids            = module.network.public_subnet_ids
   instance_profile_name = module.iam.instance_profile_name
   ssh_public_key        = var.ssh_public_key
-  # instance_type, disk_gb, k3s_version, k3s_sha256_arm64 keep their module defaults.
+  desired_capacity      = var.app_node_desired_capacity
+  # instance_type, disk_gb, k3s_version, k3s_sha256_arm64, spot all keep their module
+  # defaults (t4g.medium, Spot) -- reverted 2026-10-06 after the make up/down drill (Lab 28)
+  # finished. Was temporarily t4g.large + spot=false (On-Demand) for a few hours that day,
+  # while t4g.medium/t4g.large Spot capacity was unavailable anywhere in ap-south-1.
   # database_private_ip is NOT wired here: module.database already takes this node's own
   # security group ID as an input, so a Terraform-time dependency the other way round would
   # cycle. The bootstrap script looks the database instance up by its Role=database tag at

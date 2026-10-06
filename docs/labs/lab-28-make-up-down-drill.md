@@ -1,13 +1,16 @@
-# Lab 28 — the `make up` / `make down` drill (part 1)
+# Lab 28 — the `make up` / `make down` drill
 
-**Phase:** 4 · **Time:** ~50 min, almost all of it recovering from two more latent bugs
-**Cost:** a few cents of DB-server runtime; the app node never actually launched (see below),
-so no app-node spend happened at all
+**Phase:** 4 · **Time:** most of a day, spread across a multi-hour AWS Spot capacity wait
+**Cost:** a few cents of DB-server runtime, a short stretch of On-Demand app-node billing
+(~$0.0224/hr instead of ~$0.0126/hr Spot, for under an hour) to get the round trip done
 
 `ROADMAP.md`'s last unchecked Phase 4 line is `make up` / `make down` — the targets exist (built
 alongside the rest of Phase 4) but, like the restore script in Lab 26, had only ever been
-reviewed, never actually run end to end against prod. This lab is that run. It didn't finish —
-see "What's still open" — but it already paid for itself: two more real bugs, found the same way
+reviewed, never actually run end to end against prod. This lab is that run, in two parts: the
+first found two bugs and then hit an external wall; the second got past the wall and found a
+third, far more serious bug, plus a near-miss in the very fix for it. All four fixed; the round
+trip now completes for real. It already paid for itself several times over: real bugs, found
+the same way
 Lab 27's were, by actually executing the thing instead of reading it.
 
 ---
@@ -106,7 +109,7 @@ failure mode even if `/etc/fstab` ever goes stale again for some other reason �
 simply won't start until the mount is actually there, instead of silently running against an
 empty directory.
 
-## What's still open
+## Part 1's wall: no Spot capacity, anywhere, for hours
 
 `terraform apply` (the rest of `make up`) then failed for an unrelated, external reason:
 
@@ -118,21 +121,110 @@ Failed: There is no Spot capacity available that matches your request.
 Confirmed not a config problem — the ASG's `vpc_zone_identifier` already spans all three AZs
 (`ap-south-1a/b/c`); AWS's own activity log named `ap-south-1a` specifically as short on
 `t4g.medium` spot capacity and suggested the other two, which the ASG did also try and also
-failed. Polled scaling activity for ~5 minutes (6 retries, all failed) — genuine, if unlucky,
-regional Spot scarcity for this instance type at this moment, not something to fix in code.
+failed. Polled on and off for over three hours — still failing, now cycling all three AZs and
+backing off. Tried bumping to `t4g.large` (double the memory, different spot pool) as a
+same-family alternative: also failed, also across multiple AZs. This wasn't one unlucky AZ, it
+was the whole `t4g` family short on Spot capacity in the region that day.
 
-Decision: leave `desired_capacity=1`. The ASG keeps retrying on AWS's side in the background at
-no cost until an instance actually launches — nothing to babysit. The database was left running
-and healthy rather than paused again, since the drill is paused, not finished.
+## Part 2: On-Demand to get unblocked, then a much bigger bug
 
-**Not yet done, carried to part 2:** the app node coming up, Flux reconciling, pods healthy, then
-the matching `make down` half of the round trip and its own verification. `ROADMAP.md`'s
-`make up` / `make down` line stays unchecked until that actually happens — two real bugs fixed is
-real progress, but it isn't the round trip the checklist line asks for.
+Switched the launch template to On-Demand (`instance_market_options` removed via a new
+`var.spot` toggle, default `true`, in `infra/modules/node`) at full price, temporarily, just to
+exercise the round trip for real. Launched immediately. k3s came up `Ready`, Flux reconciled
+(`kaval-prod` kustomization and helmrelease both `True`), and all four services — agent,
+collector, executor, gateway (×2) — were `Running 1/1` in the `kaval-prod` namespace within about
+two minutes of the instance existing.
+
+Then `make down`'s actual command, read closely before running it for the first time ever:
+
+```
+cd infra/envs/prod && terraform destroy -target=module.node
+```
+
+A plan (never blindly applied) showed this would destroy not just the node, but also the entire
+`module.budget` guardrail (hard-stop Lambda, its log group, the nightly auto-stop scheduler's IAM
+policy) **and the live production database — its instance, its security group, and its volume
+attachment.**
+
+Root causes, two separate ones stacked:
+
+1. `module.budget`'s `asg_name` input was wired as `module.node.asg_name` — a live Terraform
+   output reference — even though the ASG's name is a hardcoded literal (`"kaval-prod"`) that
+   never actually varies. That reference alone was enough to make `module.budget` depend on
+   `module.node` in Terraform's graph, forcing it to be destroyed alongside the node.
+2. The database's security group correctly (this part isn't wrong) allows port 5432 only from
+   the app node's security group, by ID — proper SG-to-SG scoping, not a CIDR. But that makes
+   `module.database` genuinely depend on `module.node` too, and `-target` destroy can't leave a
+   security group alive if something else is about to be destroyed out from under a resource
+   that references it. Terraform's only consistent option was to destroy the database's security
+   group, and then the instance that uses it, right along with the node.
+
+**`make down` had never been safe to run for real, from the moment the database module shipped
+(Lab 22) or the budget module was wired to the node (`KAV-50`) — because nobody had ever actually
+run it and looked at the full plan.** The live, de facto way this project has been "paused"
+between sessions was clearly something else — manually setting the ASG's capacity to 0 by hand —
+which is, by complete coincidence, exactly the right fix.
+
+### The fix: scale to zero, don't destroy
+
+An idle `aws_autoscaling_group`, launch template, and security group cost nothing — only a
+*running* EC2 instance (plus its public IPv4) bills. So `make down` doesn't need to destroy
+anything at all to save money; it only needs zero running instances.
+
+- `infra/modules/node`: new `var.desired_capacity` (default `1`), wired straight into both
+  `desired_capacity` and `min_size` on the ASG (`max_size` stays fixed at `1` — this node never
+  autoscales beyond one instance, paused or not).
+- `infra/envs/prod`: new `var.app_node_desired_capacity` (default `1`), passed through to the
+  module.
+- `module.budget`'s `asg_name` changed to the literal `"kaval-prod"`, breaking the first,
+  unnecessary dependency.
+- `Makefile`'s `down` target: `terraform apply` with the capacity variable set to `0`, instead of
+  `terraform destroy -target=module.node`. `up` goes back to a plain `terraform apply` (the
+  variable's default, `1`, already does the right thing).
+
+Confirmed with a plan before touching anything live: `Plan: 0 to add, 1 to change, 0 to destroy`
+— only the ASG's `desired_capacity`/`min_size`. Applied for real: the node terminated cleanly,
+the database took its pre-stop snapshot and stopped, exactly as `make down` is supposed to work.
+
+### A second near-miss, from the fix's very first use
+
+Reverting the temporary On-Demand/`t4g.large` overrides immediately afterward, `terraform apply`
+was run **without** re-passing the capacity override — and Terraform, quite correctly, used the
+variable's *default* (`1`), and tried to scale the node back up. It got lucky: Spot capacity for
+`t4g.medium` had freed up in `ap-south-1c` by then, so a real instance actually launched, rather
+than failing loudly. Caught immediately, scaled back to `0` right after.
+
+This is exactly the failure mode a one-off CLI `-var` flag invites: it only takes effect on the
+apply that passes it, and nothing stops some *later*, unrelated `terraform apply` — run by anyone,
+for any reason, forgetting this one flag — from silently undoing the pause. Fixed by persisting
+the override in a file instead: `make down` now writes `infra/envs/prod/node.auto.tfvars`
+(`app_node_desired_capacity = 0`), which Terraform auto-loads on every plan or apply in that
+directory with no flag needed; `make up` deletes it. Not committed to Git — `*.tfvars` is already
+gitignored — since it's live operational state, not configuration.
+
+## Outcome
+
+Both halves of the round trip are now proven live: `make up` brings the database and the app node
+back, Flux reconciles, pods go healthy; `make down` scales the node to zero and pauses the
+database, with nothing destroyed and nothing left running. `ROADMAP.md`'s `make up` / `make down`
+line is ticked. Ended the session with the node at `desired_capacity=0` and the database stopped
+— Phase 4's standing paused posture — and the temporary On-Demand/`t4g.large` overrides fully
+reverted back to Spot `t4g.medium`.
+
+## What this doesn't do
+
+- Doesn't prove the round trip is cheap to repeat under genuine Spot scarcity — this run needed a
+  short On-Demand detour to get unblocked at all. A `mixed_instances_policy` (several instance
+  types the ASG can fall back across) would be the durable fix for that; not built here.
+- Doesn't add a confirmation prompt to `make down` the way `make up` and `make nuke` have one —
+  scaling to zero is cheap and reversible, so this wasn't treated as needing one, but it's worth
+  a second look if that judgment ever changes.
 
 ## Related
 
 - [Lab 26](lab-26-startup-health-check.md), [Lab 27](lab-27-restore-drill.md) — the scripts this
-  lab exercised, and the same "a drill finds what a review can't" pattern repeating a third time
-- [ADR-0008](../adr/0008-production-database-on-its-own-server.md) — amended with both findings
-- `ROADMAP.md` Phase 4 — `make up` / `make down` line, still open
+  lab exercised, and the same "a drill finds what a review can't" pattern, now a third and fourth
+  time over
+- [ADR-0008](../adr/0008-production-database-on-its-own-server.md) — amended with all four
+  findings across both parts of this lab
+- `ROADMAP.md` Phase 4 — `make up` / `make down` line, now ticked

@@ -22,6 +22,18 @@ variable "disk_gb" {
   default = 20
 }
 
+variable "desired_capacity" {
+  description = "0 to pause (ASG and its launch template/security group stay, nothing running -- no compute or IPv4 charge), 1 to run. min_size tracks this so the ASG doesn't fight to relaunch while paused; max_size stays fixed at 1 -- this node never autoscales beyond one instance."
+  type        = number
+  default     = 1
+}
+
+variable "spot" {
+  description = "Spot by default for the ~$0.01/hr saving (CLAUDE.md's cost ceiling). Escape hatch for when Spot capacity genuinely isn't available (found live, KAV-32 Lab 28): false launches On-Demand instead, at full price, until capacity frees up and this is reverted."
+  type        = bool
+  default     = true
+}
+
 variable "ssh_public_key" {
   description = "For ec2-user, reachable only through the SSM tunnel — same pattern as the dev server, no inbound SSH port."
   type        = string
