@@ -160,6 +160,7 @@ Run `make migrate` to bring a database up to date.
 | `infra/envs/prod/` | The production environment: the budget module (Phase 0), the network/ECR/IAM/node landing (`KAV-50`), Flux (`KAV-51`), and the database server + backups (`KAV-32`, live). The Cloudflare Tunnel is deferred with mobile (ADR-0026) | Working |
 | `infra/envs/prod/main.tf`, `variables.tf`, `outputs.tf` | What to create, its settings, and what it reports back | Working |
 | `infra/envs/prod/terraform.tfvars.example` | Template for your real values (`terraform.tfvars` itself is not in Git) | Working |
+| `infra/envs/prod/node.auto.tfvars` | Written by `make down`, removed by `make up`. Persists the app node's paused state (`app_node_desired_capacity = 0`) as a file Terraform auto-loads, instead of a one-off `-var` flag an unrelated `terraform apply` could forget to repeat (`KAV-32`, Lab 28). Not in Git — it's live operational state, not configuration. | Working |
 | `infra/envs/prod/.terraform.lock.hcl` | Pins exact provider versions, so every run uses the same ones | Working |
 | `infra/envs/dev/` | Uses the `devbox` module. The Phase 1–3 stack runs here instead of on the laptop ([ADR-0007](adr/0007-develop-on-an-aws-dev-server.md)). About $5/month. `make devbox-up`, `devbox-down`, `devbox-ssh` | Working, applied in AWS (Lab 03) |
 | `infra/envs/staging/` | A second, temporary copy of production for testing each release. Created on demand for about $1/month | Placeholder, Phase 4 |

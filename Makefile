@@ -111,15 +111,21 @@ up: ## Resume the database, provision the spot node and reconcile from Git (~5 m
 	@echo "This starts billing at roughly \$$0.0126/hr (app node) plus the database server (~\$$14.40/mo while running)."
 	@read -p "Continue? [y/N] " ok && [ "$$ok" = "y" ]
 	@bash scripts/ops/resume-database.sh
+	rm -f $(TF_PROD)/node.auto.tfvars
 	cd $(TF_PROD) && terraform apply
 	@echo "Waiting for Flux to reconcile..."
 	@echo "Check with: kubectl get pods -A"
 
 .PHONY: down
-down: ## Destroy the node, pause the database (snapshot first), keep EBS/ECR/S3 state (~\$2/mo parked)
-	cd $(TF_PROD) && terraform destroy -target=module.node
+down: ## Scale the node's ASG to 0, pause the database (snapshot first), keep EBS/ECR/S3 state (~\$2/mo parked)
+	# node.auto.tfvars persists the pause so it isn't silently undone by some *other*,
+	# unrelated `terraform apply` run later that doesn't think to pass this on the command
+	# line (found live, KAV-32 Lab 28: exactly that happened, mid-session, to the person who
+	# wrote this Makefile target).
+	echo 'app_node_desired_capacity = 0' > $(TF_PROD)/node.auto.tfvars
+	cd $(TF_PROD) && terraform apply
 	@bash scripts/ops/pause-database.sh
-	@echo "Node destroyed, database paused. 'make up' restores both in a few minutes."
+	@echo "Node scaled to 0, database paused. 'make up' restores both in a few minutes."
 
 .PHONY: nuke
 nuke: ## Destroy EVERYTHING in prod including state. Irreversible.

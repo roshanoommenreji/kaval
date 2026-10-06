@@ -322,3 +322,34 @@ same pattern as Lab 27's — full writeup in [Lab 28](../labs/lab-28-make-up-dow
 No design change — both are implementation bugs in scripts this ADR already described, not new
 decisions. The `make up`/`down` drill itself didn't finish (blocked on an unrelated AWS Spot
 capacity shortage for `t4g.medium`); Lab 28 covers what's still open.
+
+## Amendment, 2026-10-06 — `make down` would have destroyed the live database (`KAV-32`, Lab 28)
+
+Getting past the Spot capacity shortage (a temporary On-Demand detour) let the drill reach
+`make down` for the first time ever. A plan, read before applying — same habit that already paid
+off twice this session — showed `terraform destroy -target=module.node` would also destroy
+`module.budget` (the hard-stop Lambda and its wiring) **and `module.database`: the live
+production database's instance, security group, and volume attachment.**
+
+Two stacked causes: `module.budget`'s `asg_name` was wired as a live `module.node.asg_name`
+reference even though the ASG's name is a hardcoded literal, creating an unnecessary dependency
+edge; and the database's security group correctly scopes its 5432 ingress to the app node's
+security group by ID, which makes `-target` destroy of the node cascade into destroying anything
+that references it — including, transitively, the database. **This had been true since the
+database module shipped (Lab 22) or the budget module was wired to the node (`KAV-50`); `make
+down` had simply never been run for real before, so it was never caught.**
+
+Fix: `make down` no longer destroys the node. It scales the ASG's `desired_capacity` to `0`
+instead (`infra/modules/node`'s new `var.desired_capacity`, `infra/envs/prod`'s new
+`var.app_node_desired_capacity`) — an idle ASG/launch template/security group cost nothing, only
+a *running* instance bills, so this achieves the same cost savings with none of the destroy
+cascade. `module.budget.asg_name` is now the literal `"kaval-prod"`, removing that dependency too.
+The override persists in `infra/envs/prod/node.auto.tfvars` (gitignored, written by `make down`,
+removed by `make up`) rather than a one-off CLI `-var` flag — found live, within the same session,
+that a flag alone invites exactly this bug's sibling: a later, unrelated `terraform apply` that
+doesn't think to repeat it silently undoes the pause.
+
+No change to this ADR's design — the database still runs on its own server, still SSM-only, still
+termination-protected. This amendment exists because the pause mechanism `make down` was supposed
+to use turned out to be unsafe, and the actual safe mechanism (scale to zero) is now what's
+written down and tested, not just what an operator happened to do by hand.

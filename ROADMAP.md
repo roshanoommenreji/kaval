@@ -115,7 +115,8 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [x] **Restore drill** — live, timed restore against prod from a real DLM snapshot; RTO ~3m51s
   from confirmation to verified-healthy; found and fixed two script bugs the drill surfaced
   (`KAV-32`, Lab 27)
-- [ ] `make up` / `make down`
+- [x] **`make up` / `make down`** — live round trip against prod; found and fixed three more bugs,
+  the worst of which meant `make down` would have destroyed the live database (`KAV-32`, Lab 28)
 - [ ] `infra/envs/staging` — second spot node, own VPC, own k3s, 10 GB EBS, **plus its own database server** from `infra/modules/database`
 - [ ] `make staging-up` / `staging-down`, self-destruct after 4 idle hours
 - [ ] `release.yml` — build once, push by digest, deploy staging, smoke test, release notes; component versions bumped from the commits touching each component and tagged `<svc>-vX.Y.Z`, the product release `vX.Y.Z` named with its components' versions (ADR-0011, ADR-0013)
