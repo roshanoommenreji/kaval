@@ -81,8 +81,9 @@ chown root:root /etc/kaval-db-password
 cat > /etc/systemd/system/kaval-postgres.service <<UNIT
 [Unit]
 Description=Kaval production Postgres
-After=docker.service
+After=docker.service local-fs.target
 Requires=docker.service
+RequiresMountsFor=/data
 
 [Service]
 Type=simple
