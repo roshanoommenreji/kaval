@@ -3,9 +3,9 @@
 Production Postgres runs on **its own server**, a `t4g.small` tagged `Role=database`, with its data
 on a separate EBS volume ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)). It is
 not a pod in the cluster. Admin access is through SSM Session Manager only; the server has no SSH
-port. The diagnosis commands below and `make db-restore-snapshot` (option A) are built and live
-(Lab 22, Lab 26); option A's actual restore path has not yet been exercised against prod — see
-Lab 26's "what this doesn't do."
+port. The diagnosis commands below and `make db-restore-snapshot` (option A) are built, live, and
+have been run for real against prod — a timed restore drill on 2026-10-06 (RTO ~3m51s from
+confirmation to verified-healthy), writeup in [Lab 27](../labs/lab-27-restore-drill.md).
 
 ## Signals
 

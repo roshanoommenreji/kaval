@@ -17,6 +17,10 @@ set -euo pipefail
 export AWS_PROFILE="${AWS_PROFILE:-kaval}"
 export AWS_REGION="${AWS_REGION:-ap-south-1}"
 TF_PROD="${TF_PROD:-infra/envs/prod}"
+# Git Bash on Windows rewrites a bare /dev/... argument into a Windows path before the AWS CLI
+# sees it (MSYS path conversion) -- found live when --device /dev/sdf below got mangled into
+# "C:/Program Files/Git/dev/sdf" and the attach failed. Harmless to set on every other shell.
+export MSYS_NO_PATHCONV=1
 
 INSTANCE_ID=$(aws ec2 describe-instances \
   --filters "Name=tag:Role,Values=database" "Name=instance-state-name,Values=running,stopped" \
@@ -88,7 +92,9 @@ echo "Mounting $NEW_VOLUME_ID and starting Postgres..."
 # Same by-id lookup as user_data.sh.tftpl: Nitro instances attach EBS volumes as NVMe devices,
 # not under the requested /dev/sdf, and the by-id symlink is the stable way to find them.
 VOL_SUFFIX=$(echo "$NEW_VOLUME_ID" | tr -d '-')
-MOUNT_CMD="DEV=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${VOL_SUFFIX}; for i in \$(seq 1 30); do [ -e \"\$DEV\" ] && break; sleep 2; done; mount \"\$DEV\" /data; systemctl start kaval-postgres"
+# No quotes around $DEV: it's a device path with no spaces, and the AWS CLI's --parameters
+# shorthand parser (found live) chokes on a double-quote nested inside the commands=[...] string.
+MOUNT_CMD="DEV=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${VOL_SUFFIX}; for i in \$(seq 1 30); do [ -e \$DEV ] && break; sleep 2; done; mount \$DEV /data; systemctl start kaval-postgres"
 CMD_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name "AWS-RunShellScript" \
   --parameters "commands=[\"$MOUNT_CMD\"]" --query "Command.CommandId" --output text)
 aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID"
