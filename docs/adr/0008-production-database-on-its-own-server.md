@@ -281,3 +281,21 @@ start, restoring from a snapshot only on failure.
 - **Cost:** $0. SSM commands and the extra systemd unit cost nothing; a restore creates one new
   gp3 volume sized the same as the one it replaces, a few cents, and only happens on deliberate
   command.
+
+## Amendment, 2026-10-06 — the restore drill, run for real (`KAV-32`, Lab 27)
+
+The previous amendment deferred the live restore test. This one is that test: a real,
+confirmed, timed run of `make db-restore-snapshot` against prod, from a real DLM snapshot.
+
+- **RTO ~3m51s**, confirmation to verified-healthy. Full writeup, including the two script bugs
+  the drill found (Git Bash's path mangling on `--device /dev/sdf`, and the AWS CLI shorthand
+  parser choking on a nested quote) and fixed on the spot, in [Lab 27](../labs/lab-27-restore-drill.md).
+- **No data was actually at risk** — prod's `signal`/`incident` tables were empty before and
+  after, since the event pipeline hasn't run continuously against prod yet. The drill proved the
+  *mechanism*, not data survival; worth repeating once prod has real incident history.
+- The old, pre-restore volume was reviewed and deleted by hand after the restored one was
+  confirmed healthy and Terraform-tracked — `prevent_destroy` stops Terraform from destroying the
+  module's managed volume, but it never applied to the detached one once it was no longer the
+  resource Terraform was managing.
+- No design change from the previous amendment — ask-before-restore stands. This amendment exists
+  because the restore path is now a verified fact, not an untested script.

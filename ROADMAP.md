@@ -112,7 +112,9 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [x] **Nightly auto-stop** at 02:00 IST while paused — EventBridge Scheduler, switched off by a Terraform variable from Phase 7 (`KAV-32`, [ADR-0008](docs/adr/0008-production-database-on-its-own-server.md) amended, Lab 25)
 - [x] **Start-up health check** — `pg_isready` + sanity query on `make up` (live) and at boot (written, takes effect on the next instance replacement); failure stops and asks rather than auto-restoring (`make db-restore-snapshot`, per the restore runbook) — `KAV-32`, Lab 26
 - [ ] `scripts/ops/restore.sh` + `anonymise.sql` — staging seeded from a sanitised prod snapshot
-- [ ] **Restore drill** — measured RTO recorded, and `restore-from-backup` runbook verified
+- [x] **Restore drill** — live, timed restore against prod from a real DLM snapshot; RTO ~3m51s
+  from confirmation to verified-healthy; found and fixed two script bugs the drill surfaced
+  (`KAV-32`, Lab 27)
 - [ ] `make up` / `make down`
 - [ ] `infra/envs/staging` — second spot node, own VPC, own k3s, 10 GB EBS, **plus its own database server** from `infra/modules/database`
 - [ ] `make staging-up` / `staging-down`, self-destruct after 4 idle hours
