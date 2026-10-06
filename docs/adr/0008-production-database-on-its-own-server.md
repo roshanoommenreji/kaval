@@ -90,7 +90,7 @@ normally nothing to restore. The risks are an unclean stop and a damaged disk:
 |---|---|
 | Graceful shutdown | The container gets `stop_grace_period: 60s`, and the Docker unit stops before the instance halts. EC2 stop → ACPI shutdown → systemd → Docker → SIGTERM → Postgres fast shutdown with a checkpoint. WAL crash recovery covers the worst case |
 | Snapshot before every stop | `make down`, the nightly auto-stop and the hard-stop Lambda snapshot the data volume *before* `StopInstances`, tagged `Reason=pre-stop`. The Lambda gains `ec2:CreateSnapshot` scoped to `Project=kaval` volumes |
-| Health check on start | `make up` and a boot unit run `pg_isready` plus a sanity query. **Only on failure** is the latest pre-stop snapshot restored ([restore runbook](../runbooks/restore-from-backup.md)). Restoring on every start would slow start-up and throw away good data |
+| Health check on start | `make up` and a boot unit run `pg_isready` plus a sanity query. **On failure, neither restores on its own** — both print the diagnosis-then-restore procedure and stop, so a flaky check can't trigger a destructive-ish volume swap unattended ([restore runbook](../runbooks/restore-from-backup.md), amendment below) |
 
 The limit, stated honestly: while paused, the whole system is down, the app and the database
 together. These safeguards guarantee **no data loss and a clean resume**, not uninterrupted
@@ -232,3 +232,52 @@ Scheduler rule, 02:00 IST, as a brake for a forgotten `make down`.
 - **Cost:** $0. EventBridge Scheduler's invocation volume here (one firing a night) is nowhere
   near its free tier, and the Lambda it calls was already billed for at the $38 threshold path —
   this just gives it a second trigger, not a second cost.
+
+## Amendment, 2026-10-06 — the start-up health check (`KAV-32`, Lab 26)
+
+Built the last of the three stopping-table safeguards: `pg_isready` plus a sanity query on
+start, restoring from a snapshot only on failure.
+
+- **Asks before restoring, rather than restoring automatically.** The original table (above)
+  said "only on failure is the latest pre-stop snapshot restored," reading as fully automatic.
+  Asked directly, Roshan chose to have a failed check stop and print the diagnosis-then-restore
+  procedure instead: `make up` is already an attended, interactive command (it has its own
+  billing confirmation prompt), and a destructive-ish volume swap — detach, tag damaged, attach
+  a new one from a snapshot — fits that same attended pattern rather than running unattended off
+  a single SSM round-trip that could itself be the thing that's flaky. Nothing in this story
+  auto-restores; `make db-restore-snapshot` is always a deliberate, separate command.
+- **Two trigger points, both read-only until a human decides to restore:**
+  - `scripts/ops/health-check-database.sh`, run from `resume-database.sh` (so every `make up`
+    gets one) and standalone as `make db-health-check`. Runs over SSM — there's no network path
+    to 5432 from the operator's machine, only the app node's security group can reach it. On
+    failure it exits non-zero, which stops `make up` before `terraform apply` runs, and prints
+    the exact restore command.
+  - A new systemd oneshot unit, `kaval-db-healthcheck.service` (`After=kaval-postgres.service`),
+    added to `user_data.sh.tftpl`. Covers a reboot nobody ran `make up` for — AWS maintenance,
+    a crash, instance retirement. There's no attended operator at boot to ask, so an unattended
+    failure only `logger`s a warning (`journalctl -t kaval-db-healthcheck`) rather than
+    restoring — consistent with the no-auto-restore decision above, just resolved the other way
+    when asking isn't possible at all.
+- **The boot unit is written, not yet live.** The instance resource carries
+  `lifecycle { ignore_changes = [ami, user_data] }` deliberately (so an edited script can't
+  silently replace a running database) — the same reason the TLS cert and `pg_hba.conf` changes
+  in earlier amendments also only take effect on a genuine instance replacement. `terraform
+  plan` after this change confirmed exactly that: no changes to apply. The `make up` health
+  check has no such gap — it's a plain script, live immediately — and was run live against the
+  running production database for this story (`make db-health-check`, read-only, passed).
+- **`make db-restore-snapshot`** (`scripts/ops/restore-snapshot.sh`), the command both failure
+  paths point to: stops Postgres over SSM, detaches the current data volume (tags it
+  `Reason=damaged`, never deletes it — same `prevent_destroy` posture as the original), creates
+  a new volume from a snapshot in the same AZ (the newest `Role=database-data` one if `SNAPSHOT`
+  isn't given), attaches and mounts it, restarts Postgres, then re-runs the health check to
+  confirm. Also reconciles Terraform state (`state rm` + `import` on `aws_ebs_volume.data` and
+  `aws_volume_attachment.data`) so the next `terraform plan` doesn't try to detach the new
+  volume and reattach the damaged one — without this step the module's Terraform state would
+  silently point at a volume that no longer exists in the running configuration. **Not live-
+  tested against prod** — an actual restore stops Postgres and swaps the data volume, which
+  needs its own explicit go-ahead rather than piggybacking on this story's go-ahead for the
+  (non-destructive) health check. Deferred to the next natural pause, same as the pause/resume
+  scripts' own real stop-test in the 2026-10-05 amendment.
+- **Cost:** $0. SSM commands and the extra systemd unit cost nothing; a restore creates one new
+  gp3 volume sized the same as the one it replaces, a few cents, and only happens on deliberate
+  command.

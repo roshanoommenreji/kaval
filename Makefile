@@ -127,6 +127,14 @@ nuke: ## Destroy EVERYTHING in prod including state. Irreversible.
 	@read -p "Type 'nuke' to confirm: " ok && [ "$$ok" = "nuke" ]
 	cd $(TF_PROD) && terraform destroy
 
+.PHONY: db-health-check
+db-health-check: ## Run the database's start-up health check by hand (pg_isready + sanity query)
+	@bash scripts/ops/health-check-database.sh
+
+.PHONY: db-restore-snapshot
+db-restore-snapshot: ## Restore the database's data volume from an EBS snapshot (SNAPSHOT=<id>, else the newest). See docs/runbooks/restore-from-backup.md
+	@SNAPSHOT=$(SNAPSHOT) TF_PROD=$(TF_PROD) bash scripts/ops/restore-snapshot.sh
+
 # ─────────────────────────────────────────────────────────────
 ##@ Dev server  (ADR-0007 — \$0.0224/hr while running, stops itself after 1 h idle)
 

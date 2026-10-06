@@ -178,6 +178,8 @@ make cost-report   # current month-to-date spend
 make devbox-up     # start the AWS dev server (ADR-0007); it stops itself after 1 h idle
 make devbox-down   # stop it now
 make migrate       # apply database migrations
+make db-health-check     # run the database's start-up health check by hand (pg_isready + sanity query)
+make db-restore-snapshot # restore the database's data volume from an EBS snapshot (SNAPSHOT=<id>, else newest)
 make docs-sync     # regenerate dashboard + republish Confluence
 make jira EPIC=KAV-6   # an epic's stories and status
 ```

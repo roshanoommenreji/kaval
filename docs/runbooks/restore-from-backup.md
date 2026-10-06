@@ -3,7 +3,9 @@
 Production Postgres runs on **its own server**, a `t4g.small` tagged `Role=database`, with its data
 on a separate EBS volume ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)). It is
 not a pod in the cluster. Admin access is through SSM Session Manager only; the server has no SSH
-port. *Written ahead of Phase 4 (`KAV-32`); the commands are verified when the server is built.*
+port. The diagnosis commands below and `make db-restore-snapshot` (option A) are built and live
+(Lab 22, Lab 26); option A's actual restore path has not yet been exercised against prod — see
+Lab 26's "what this doesn't do."
 
 ## Signals
 

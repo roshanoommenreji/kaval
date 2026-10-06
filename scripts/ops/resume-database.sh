@@ -4,10 +4,11 @@
 # Paired with pause-database.sh. Called by `make up` before the app node comes back, so the
 # database is already there by the time pods try to connect to it.
 #
-# This only gets the instance itself running and reachable over SSM. The full start-up health
-# check ADR-0008 describes -- pg_isready plus a sanity query, restoring the latest pre-stop
-# snapshot only on failure -- is still a deferred ROADMAP.md line
-# (docs/runbooks/restore-from-backup.md has the manual version for now).
+# Gets the instance running and reachable over SSM, then runs the start-up health check
+# (health-check-database.sh): pg_isready plus a sanity query. On failure this script stops and
+# asks rather than restoring on its own -- a flaky SSM command shouldn't be able to trigger a
+# destructive-ish volume swap unattended (docs/runbooks/restore-from-backup.md has the full
+# diagnosis-then-restore procedure).
 
 set -euo pipefail
 
@@ -42,3 +43,5 @@ until [ "$(aws ssm describe-instance-information \
   sleep 5
 done
 echo "Database online."
+
+"$(dirname "$0")/health-check-database.sh"

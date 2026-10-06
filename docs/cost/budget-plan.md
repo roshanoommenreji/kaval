@@ -82,11 +82,11 @@ The database server ([ADR-0008](../adr/0008-production-database-on-its-own-serve
 **on-demand, never spot**, because a database must not be reclaimable at two minutes' notice.
 Prices are from the AWS Price List API for ap-south-1, 2026-09-26.
 
-**Built 2026-10-04 (`KAV-32`, `infra/modules/database`), not yet applied to AWS** — these
-figures move from projected to actual once `terraform apply` runs. One addition not in the
-table above: an S3 bucket for the nightly `pg_dump` (`infra/modules/backups`), a few cents a
-month at this data volume — negligible next to the figures already here, and the free S3
-gateway VPC endpoint means it never crosses a metered data-transfer path.
+**Built and applied 2026-10-04 (`KAV-32`, `infra/modules/database`)** — these figures are now
+actual, not projected. One addition not in the table above: an S3 bucket for the nightly
+`pg_dump` (`infra/modules/backups`), a few cents a month at this data volume — negligible next
+to the figures already here, and the free S3 gateway VPC endpoint means it never crosses a
+metered data-transfer path.
 
 Paused, the same account costs **~$4.80/month**: storage only, the app node's ~$2.20 plus the
 database server's two disks (~$2.55).
