@@ -160,9 +160,14 @@ resource "aws_instance" "database" {
     data_volume_id   = aws_ebs_volume.data.id
   }))
 
-  # A newer AMI or an edited script must not silently replace a running database.
+  # A newer AMI or an edited script must not silently replace a running database. Nor must
+  # associate_public_ip_address: AWS only reports it back as true while the instance is running
+  # (a stopped instance has no public IP), so whenever a plan runs against the normal paused
+  # posture it reads back false and -- since this attribute forces replacement -- a plain
+  # `terraform apply` while paused would destroy and recreate the real database (found live,
+  # 2026-10-06, pre-drill verification before KAV-32's make up/down drill).
   lifecycle {
-    ignore_changes = [ami, user_data]
+    ignore_changes = [ami, user_data, associate_public_ip_address]
   }
 
   tags = {

@@ -92,9 +92,18 @@ echo "Mounting $NEW_VOLUME_ID and starting Postgres..."
 # Same by-id lookup as user_data.sh.tftpl: Nitro instances attach EBS volumes as NVMe devices,
 # not under the requested /dev/sdf, and the by-id symlink is the stable way to find them.
 VOL_SUFFIX=$(echo "$NEW_VOLUME_ID" | tr -d '-')
-# No quotes around $DEV: it's a device path with no spaces, and the AWS CLI's --parameters
-# shorthand parser (found live) chokes on a double-quote nested inside the commands=[...] string.
-MOUNT_CMD="DEV=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${VOL_SUFFIX}; for i in \$(seq 1 30); do [ -e \$DEV ] && break; sleep 2; done; mount \$DEV /data; systemctl start kaval-postgres"
+DEV_PATH="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${VOL_SUFFIX}"
+# No quotes around $DEV, and the sed expression uses single quotes with $DEV_PATH already
+# interpolated locally (not a remote-side variable): the AWS CLI's --parameters shorthand
+# parser (found live, Lab 27) chokes on any double-quote nested inside the commands=[...]
+# string, so this whole command must contain zero literal double quotes.
+#
+# Also found live (this drill, Lab 28): the mount above only ever applied for the current
+# boot. /etc/fstab still pointed at whichever volume was mounted *before* this restore, so
+# the next stop/start silently (nofail) mounted nothing, and Postgres auto-initialised an
+# empty cluster on the root disk instead of the restored data. The sed call replaces that
+# stale /data line in place, so the next boot resolves the right device too.
+MOUNT_CMD="DEV=${DEV_PATH}; for i in \$(seq 1 30); do [ -e \$DEV ] && break; sleep 2; done; sed -i 's#^.* /data ext4.*#${DEV_PATH} /data ext4 defaults,nofail 0 2#' /etc/fstab; mount \$DEV /data; systemctl start kaval-postgres"
 CMD_ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name "AWS-RunShellScript" \
   --parameters "commands=[\"$MOUNT_CMD\"]" --query "Command.CommandId" --output text)
 aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID"

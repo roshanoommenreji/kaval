@@ -299,3 +299,26 @@ confirmed, timed run of `make db-restore-snapshot` against prod, from a real DLM
   resource Terraform was managing.
 - No design change from the previous amendment — ask-before-restore stands. This amendment exists
   because the restore path is now a verified fact, not an untested script.
+
+## Amendment, 2026-10-06 — the `make up`/`down` drill found two more bugs (`KAV-32`, Lab 28)
+
+Running the `make up` round trip for real (not just reviewing it) surfaced two more latent bugs,
+same pattern as Lab 27's — full writeup in [Lab 28](../labs/lab-28-make-up-down-drill.md):
+
+- **`associate_public_ip_address = true`** on `aws_instance.database` only reads back as `true`
+  from AWS while the instance is running. A plan taken while it's in its normal paused (stopped)
+  posture read it as `false` and planned to destroy and recreate the live database — a plain
+  `terraform apply` would have done this for real. Added to the instance's existing
+  `lifecycle.ignore_changes` list, alongside `ami` and `user_data` — same reasoning: a value
+  that's correct at launch and unreliable to read back later must never force a replace.
+- **`restore-snapshot.sh` never updated `/etc/fstab`.** Lab 27's restore mounted the new volume
+  for that session only; the next stop/start silently (`nofail`) mounted nothing, and Postgres
+  auto-initialised an empty cluster on the root disk instead — the real restored data was never
+  touched, just unreachable. Fixed the script to rewrite the `/data` line in place on every
+  restore, and added `RequiresMountsFor=/data` to `kaval-postgres.service` in
+  `user_data.sh.tftpl` as a second line of defence (takes effect only on the next genuine
+  instance replacement, per that file's own `ignore_changes` note).
+
+No design change — both are implementation bugs in scripts this ADR already described, not new
+decisions. The `make up`/`down` drill itself didn't finish (blocked on an unrelated AWS Spot
+capacity shortage for `t4g.medium`); Lab 28 covers what's still open.
