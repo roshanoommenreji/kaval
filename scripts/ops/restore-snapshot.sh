@@ -22,8 +22,11 @@ TF_PROD="${TF_PROD:-infra/envs/prod}"
 # "C:/Program Files/Git/dev/sdf" and the attach failed. Harmless to set on every other shell.
 export MSYS_NO_PATHCONV=1
 
+# Exact Name, not just Role=database: prod and staging each have a database server in this
+# account (KAV-57), and "first match" would otherwise pick whichever the API lists first.
+DB_NAME_PREFIX="${DB_NAME_PREFIX:-kaval-prod}"
 INSTANCE_ID=$(aws ec2 describe-instances \
-  --filters "Name=tag:Role,Values=database" "Name=instance-state-name,Values=running,stopped" \
+  --filters "Name=tag:Role,Values=database" "Name=tag:Name,Values=${DB_NAME_PREFIX}-database" "Name=instance-state-name,Values=running,stopped" \
   --query "Reservations[0].Instances[0].InstanceId" --output text)
 if [ "$INSTANCE_ID" = "None" ] || [ -z "$INSTANCE_ID" ]; then
   echo "No database instance found."
@@ -42,8 +45,14 @@ if [ "$OLD_VOLUME_ID" = "None" ] || [ -z "$OLD_VOLUME_ID" ]; then
 fi
 
 if [ -z "${SNAPSHOT:-}" ]; then
+  # Only this environment's snapshots: the daily DLM ones (copied Name tag) and the pre-stop
+  # ones. Without this, the newest snapshot account-wide could be the other environment's and
+  # a restore would swap its data into this database. "kaval-database-pre-stop" is the name
+  # pause-database.sh used before names carried the environment; only prod ever produced it.
+  SNAPSHOT_NAMES="${DB_NAME_PREFIX}-database-data,${DB_NAME_PREFIX}-database-pre-stop"
+  [ "$DB_NAME_PREFIX" = "kaval-prod" ] && SNAPSHOT_NAMES="$SNAPSHOT_NAMES,kaval-database-pre-stop"
   SNAPSHOT=$(aws ec2 describe-snapshots --owner-ids self \
-    --filters "Name=tag:Project,Values=kaval" "Name=tag:Role,Values=database-data" \
+    --filters "Name=tag:Project,Values=kaval" "Name=tag:Role,Values=database-data" "Name=tag:Name,Values=${SNAPSHOT_NAMES}" \
     --query "reverse(sort_by(Snapshots,&StartTime))[0].SnapshotId" --output text)
   if [ "$SNAPSHOT" = "None" ] || [ -z "$SNAPSHOT" ]; then
     echo "No database-data snapshot found to restore from."

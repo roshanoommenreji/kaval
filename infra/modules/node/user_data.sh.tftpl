@@ -1,5 +1,5 @@
 #!/bin/bash
-# First-boot setup for the Kaval prod node. Runs once, as root, via cloud-init.
+# First-boot setup for a Kaval node (prod or staging, by name_prefix). Runs once, as root, via cloud-init.
 # Log: /var/log/cloud-init-output.log
 set -euxo pipefail
 
@@ -125,7 +125,7 @@ flux install
 # refreshed from the node's own instance role instead of committed to Git: the registry
 # hostname itself (it embeds the AWS account ID — CLAUDE.md forbids that in any committed
 # file) and an ECR login token (ecr:GetAuthorizationToken tokens expire every 12h). Both
-# are consumed by deploy/gitops/prod/helmrelease.yaml's valuesFrom (the ConfigMap) and the
+# are consumed by deploy/gitops/<env>/helmrelease.yaml's valuesFrom (the ConfigMap) and the
 # chart's imagePullSecrets (the Secret) — see deploy/charts/kaval/values.yaml.
 cat > /usr/local/sbin/kaval-gitops-bootstrap <<'SCRIPT'
 #!/bin/bash
@@ -150,7 +150,7 @@ REGISTRY="$ACCOUNT.dkr.ecr.$REGION.amazonaws.com"
 # over all reconciliation of these same files from here on — this apply only has to run
 # again if the node itself is replaced (spot reclamation), which is the self-healing
 # property the Phase 4 exit gate tests.
-RAW="https://raw.githubusercontent.com/roshanoommenreji/kaval/main/deploy/gitops/prod"
+RAW="https://raw.githubusercontent.com/roshanoommenreji/kaval/main/deploy/gitops/${gitops_env}"
 curl -fsSL "$RAW/namespace.yaml" | kubectl apply -f -
 
 kubectl create configmap kaval-registry --from-literal=registry="$REGISTRY" \
@@ -168,7 +168,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: ecr-cred
-  namespace: kaval-prod
+  namespace: ${name_prefix}
 type: kubernetes.io/dockerconfigjson
 data:
   .dockerconfigjson: $DOCKERCONFIGJSON_B64
@@ -181,14 +181,14 @@ unset ECR_PASSWORD AUTH_B64 DOCKERCONFIGJSON_B64
 # replacement (spot reclamation) never again needs a human to type kubectl create secret.
 declare -A DB_ROLE_USERS=( [admin]=kaval [gateway]=kaval_gateway [agent]=kaval_agent [executor]=kaval_executor [collector]=kaval_collector )
 DB_HOST=$(aws ec2 describe-instances --region "$REGION" \
-  --filters "Name=tag:Role,Values=database" "Name=instance-state-name,Values=running" \
+  --filters "Name=tag:Role,Values=database" "Name=tag:Name,Values=${name_prefix}-database" "Name=instance-state-name,Values=running" \
   --query "Reservations[0].Instances[0].PrivateIpAddress" --output text)
 
 for role in "$${!DB_ROLE_USERS[@]}"; do
   DB_PASSWORD=$(aws ssm get-parameter --region "$REGION" \
-    --name "/kaval/kaval-prod/db/$${role}-password" --with-decryption \
+    --name "/kaval/${name_prefix}/db/$${role}-password" --with-decryption \
     --query Parameter.Value --output text)
-  kubectl create secret generic "kaval-postgres-$${role}" -n kaval-prod \
+  kubectl create secret generic "kaval-postgres-$${role}" -n ${name_prefix} \
     --from-literal=POSTGRES_HOST="$DB_HOST" \
     --from-literal=POSTGRES_PORT=5432 \
     --from-literal=POSTGRES_DB=kaval \
@@ -200,12 +200,12 @@ for role in "$${!DB_ROLE_USERS[@]}"; do
 done
 
 SLACK_BOT_TOKEN=$(aws ssm get-parameter --region "$REGION" --with-decryption \
-  --name "/kaval/kaval-prod/slack/bot-token" --query Parameter.Value --output text)
+  --name "/kaval/${name_prefix}/slack/bot-token" --query Parameter.Value --output text)
 SLACK_APP_TOKEN=$(aws ssm get-parameter --region "$REGION" --with-decryption \
-  --name "/kaval/kaval-prod/slack/app-token" --query Parameter.Value --output text)
+  --name "/kaval/${name_prefix}/slack/app-token" --query Parameter.Value --output text)
 SLACK_CHANNEL_ID=$(aws ssm get-parameter --region "$REGION" \
-  --name "/kaval/kaval-prod/slack/channel-id" --query Parameter.Value --output text)
-kubectl create secret generic kaval-slack -n kaval-prod \
+  --name "/kaval/${name_prefix}/slack/channel-id" --query Parameter.Value --output text)
+kubectl create secret generic kaval-slack -n ${name_prefix} \
   --from-literal=SLACK_BOT_TOKEN="$SLACK_BOT_TOKEN" \
   --from-literal=SLACK_APP_TOKEN="$SLACK_APP_TOKEN" \
   --from-literal=SLACK_CHANNEL_ID="$SLACK_CHANNEL_ID" \
@@ -219,15 +219,15 @@ unset SLACK_BOT_TOKEN SLACK_APP_TOKEN SLACK_CHANNEL_ID
 # caught up.
 curl -fsSL -o /tmp/db-roles.sql "https://raw.githubusercontent.com/roshanoommenreji/kaval/main/scripts/ops/db-roles.sql"
 ADMIN_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
-  --name "/kaval/kaval-prod/db/admin-password" --query Parameter.Value --output text)
+  --name "/kaval/${name_prefix}/db/admin-password" --query Parameter.Value --output text)
 GATEWAY_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
-  --name "/kaval/kaval-prod/db/gateway-password" --query Parameter.Value --output text)
+  --name "/kaval/${name_prefix}/db/gateway-password" --query Parameter.Value --output text)
 AGENT_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
-  --name "/kaval/kaval-prod/db/agent-password" --query Parameter.Value --output text)
+  --name "/kaval/${name_prefix}/db/agent-password" --query Parameter.Value --output text)
 EXECUTOR_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
-  --name "/kaval/kaval-prod/db/executor-password" --query Parameter.Value --output text)
+  --name "/kaval/${name_prefix}/db/executor-password" --query Parameter.Value --output text)
 COLLECTOR_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
-  --name "/kaval/kaval-prod/db/collector-password" --query Parameter.Value --output text)
+  --name "/kaval/${name_prefix}/db/collector-password" --query Parameter.Value --output text)
 PGPASSWORD="$ADMIN_PW" psql "host=$DB_HOST port=5432 dbname=kaval user=kaval sslmode=require" \
   -v ON_ERROR_STOP=1 \
   -v gateway_password="$GATEWAY_PW" \

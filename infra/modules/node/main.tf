@@ -1,4 +1,4 @@
-# The prod node: one spot t4g.medium in an ASG pinned to size 1, running k3s. A launch
+# One environment's node (prod or staging, by var.name_prefix): one spot t4g.medium in an ASG pinned to size 1, running k3s. A launch
 # template + ASG rather than a bare instance (unlike infra/modules/devbox) because spot
 # capacity can be reclaimed with two minutes' notice — the ASG's job is to replace it
 # without anyone paged. See docs/cost/budget-plan.md for the spot math.
@@ -20,7 +20,7 @@ data "aws_ssm_parameter" "al2023_arm64" {
 }
 
 resource "aws_security_group" "node" {
-  name        = "kaval-prod-node"
+  name        = "${var.name_prefix}-node"
   description = "No inbound rules. Access is through SSM Session Manager only."
   vpc_id      = var.vpc_id
 
@@ -33,11 +33,11 @@ resource "aws_security_group" "node" {
     ipv6_cidr_blocks = ["::/0"]
   }
 
-  tags = { Name = "kaval-prod-node" }
+  tags = { Name = "${var.name_prefix}-node" }
 }
 
 resource "aws_launch_template" "node" {
-  name_prefix   = "kaval-prod-"
+  name_prefix   = "${var.name_prefix}-"
   image_id      = data.aws_ssm_parameter.al2023_arm64.insecure_value
   instance_type = var.instance_type
 
@@ -80,11 +80,13 @@ resource "aws_launch_template" "node" {
     k3s_sha256_arm64  = var.k3s_sha256_arm64
     flux_version      = var.flux_version
     flux_sha256_arm64 = var.flux_sha256_arm64
+    name_prefix       = var.name_prefix
+    gitops_env        = trimprefix(var.name_prefix, "kaval-") # "prod" / "staging": the deploy/gitops/<this> directory
   }))
 
   tag_specifications {
     resource_type = "instance"
-    tags          = { Name = "kaval-prod" }
+    tags          = { Name = var.name_prefix }
   }
 
   # A newer AMI or an edited script must not silently replace a running node mid-release.
@@ -94,7 +96,7 @@ resource "aws_launch_template" "node" {
 }
 
 resource "aws_autoscaling_group" "node" {
-  name                = "kaval-prod"
+  name                = var.name_prefix
   min_size            = var.desired_capacity # tracks desired_capacity 1:1 -- paused means 0, not "should relaunch"
   max_size            = 1                    # never autoscales beyond one instance, paused or not
   desired_capacity    = var.desired_capacity
@@ -108,7 +110,7 @@ resource "aws_autoscaling_group" "node" {
 
   tag {
     key                 = "Name"
-    value               = "kaval-prod"
+    value               = var.name_prefix
     propagate_at_launch = true
   }
 

@@ -1,6 +1,11 @@
+variable "name_prefix" {
+  description = "e.g. \"kaval-prod\" or \"kaval-staging\". Names the VPC, internet gateway, subnets and route table. Required, no default, so a new call site can't silently collide with prod (same pattern as infra/modules/database and backups)."
+  type        = string
+}
+
 variable "vpc_cidr" {
   description = <<-EOT
-    A dedicated VPC for prod, distinct from the default VPC the dev server uses. NOT
+    A dedicated VPC per environment (the defaults below are prod's; staging overrides them), distinct from the default VPC the dev server uses. NOT
     10.42.0.0/16 (KAV-51, found live): that's k3s's own default pod-network CIDR, and
     using it for the VPC too meant the VPC's real DNS resolver (base+2, so 10.42.0.2) sat
     inside the range Flannel's overlay claims for pods — traffic to it got captured by the

@@ -1,0 +1,16 @@
+# Makes deploy/gitops/staging/ self-healing from Git (KAV-57), exactly as sync.yaml does for
+# prod (KAV-51, ADR-0025 Decision 7): kustomize-controller watches this directory and keeps
+# the objects in it reconciled. It does NOT manage kaval-registry or ecr-cred, which are never
+# committed and stay the node bootstrap script's job.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kaval-staging
+  namespace: flux-system
+spec:
+  interval: 1m
+  path: ./deploy/gitops/staging
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: kaval
