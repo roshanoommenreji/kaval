@@ -126,7 +126,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Generated change records in `docs/releases/`
 - [ ] `docs/learn/phase-4-aws-landing.md` — flip **Written from** to `experience`
 
-**Exit gate:** terminate the node by hand; it rebuilds itself from Git in under 5 minutes.
+**Exit gate:** terminate the node by hand; it rebuilds itself from Git in under 5 minutes. ✅ **Proven and timed on prod 2026-10-08: 3 min 36 s** from `terminate-instances` to every pod `Running 1/1`, no human step (`KAV-60`, Lab 31). The phase stays `[~]` for the release pipeline lines above.
 
 ---
 
