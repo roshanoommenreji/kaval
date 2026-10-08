@@ -156,5 +156,11 @@ together with it.
   enforced". All corrected in the same change. Two gaps in the protection are recorded rather than
   changed silently: `helm`, `image executor` and `image backup` are not required checks, and
   `enforce_admins` is off.
+- Asked whether a public repo is safe, I checked rather than assumed: no AWS account id, key or ARN in
+  any tracked file or in all history (only `000000000000` test data and AWS's published example key),
+  commits use noreply addresses. It found two open settings, fixed the same day: GitHub secret scanning
+  and push protection were off (now on), and outside contributors' runs needed approval only the first
+  time (now every time). Prod's Flux reads this repo anonymously, so going private would also need a
+  deploy key (ADR-0025).
 - Because the repo is public, GitHub-hosted runners (arm64 included) are free, so the Actions-minutes
   budget in ADR-0010 and the cost plan no longer applies.
