@@ -23,6 +23,12 @@ variable "instance_type" {
   default     = "t4g.small"
 }
 
+variable "termination_protection" {
+  description = "disable_api_termination on the instance (ADR-0008). True for prod. Staging sets false (KAV-57): it is created per release and destroyed after, so `terraform destroy` has to be able to terminate it. The data volume's prevent_destroy stays on everywhere, since its address is wired into scripts/ops/restore-snapshot.sh; tearing staging down removes it as a deliberate, separate step."
+  type        = bool
+  default     = true
+}
+
 variable "root_disk_gb" {
   description = "OS + Docker images only. The actual data lives on its own volume (data_disk_gb)."
   type        = number

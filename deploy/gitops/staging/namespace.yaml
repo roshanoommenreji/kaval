@@ -1,0 +1,6 @@
+# The staging release's own namespace (KAV-57) — separate from flux-system, where the
+# GitRepository and HelmRelease objects live. Same split as deploy/gitops/prod.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kaval-staging

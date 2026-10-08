@@ -1,5 +1,5 @@
-# Prod's own VPC. The dev server deliberately lives in the account's default VPC
-# (infra/modules/devbox) since it's disposable; prod gets a real one.
+# One environment's own VPC (prod or staging, by var.name_prefix). The dev server deliberately
+# lives in the account's default VPC (infra/modules/devbox) since it's disposable.
 #
 # One public subnet per AZ (KAV-51), no NAT Gateway ($32/mo — see docs/cost/budget-plan.md).
 # The node gets a public IP for outbound internet (image pulls, package installs) and is
@@ -18,12 +18,12 @@ resource "aws_vpc" "this" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = { Name = "kaval-prod" }
+  tags = { Name = var.name_prefix }
 }
 
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
-  tags   = { Name = "kaval-prod" }
+  tags   = { Name = var.name_prefix }
 }
 
 resource "aws_subnet" "public" {
@@ -34,7 +34,7 @@ resource "aws_subnet" "public" {
   availability_zone       = each.key
   map_public_ip_on_launch = true
 
-  tags = { Name = "kaval-prod-public-${each.key}" }
+  tags = { Name = "${var.name_prefix}-public-${each.key}" }
 }
 
 # One route table, shared by every AZ's subnet — routing to the internet gateway doesn't
@@ -47,7 +47,7 @@ resource "aws_route_table" "public" {
     gateway_id = aws_internet_gateway.this.id
   }
 
-  tags = { Name = "kaval-prod-public" }
+  tags = { Name = "${var.name_prefix}-public" }
 }
 
 resource "aws_route_table_association" "public" {

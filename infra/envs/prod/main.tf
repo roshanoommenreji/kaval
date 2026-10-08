@@ -77,6 +77,8 @@ module "budget" {
 
 module "network" {
   source = "../../modules/network"
+
+  name_prefix = "kaval-prod"
 }
 
 module "ecr" {
@@ -85,6 +87,8 @@ module "ecr" {
 
 module "iam" {
   source = "../../modules/iam"
+
+  name_prefix = "kaval-prod"
 
   # The agent/executor read-only vs scoped-write split is already enforced at the
   # Kubernetes RBAC layer (ADR-0021, KAV-47). This is the node's own AWS identity --
@@ -107,6 +111,7 @@ module "iam" {
 module "node" {
   source = "../../modules/node"
 
+  name_prefix           = "kaval-prod"
   vpc_id                = module.network.vpc_id
   subnet_ids            = module.network.public_subnet_ids
   instance_profile_name = module.iam.instance_profile_name

@@ -1,7 +1,6 @@
-# The production database server (ADR-0008). Not a pod in the cluster: its own on-demand
-# t4g.small, its own security group, its own EBS data volume. Reused by staging later via the
-# same module with a different name_prefix/subnet (ROADMAP's staging DB line) — nothing here is
-# prod-specific except the values infra/envs/prod passes in.
+# A database server (ADR-0008). Not a pod in the cluster: its own on-demand t4g.small, its own
+# security group, its own EBS data volume. Used by both prod and staging (KAV-57) via a different
+# name_prefix/subnet — nothing here is prod-specific except the values infra/envs/prod passes in.
 #
 # Isolation is by security group, not a private subnet + NAT ($32/mo) — documented here, not
 # hidden (ADR-0008). Admin access is SSM Session Manager only; there is no inbound SSH port.
@@ -138,8 +137,8 @@ resource "aws_instance" "database" {
   vpc_security_group_ids = [aws_security_group.database.id]
   iam_instance_profile   = aws_iam_instance_profile.database.name
 
-  associate_public_ip_address          = true # outbound only: package installs, SSM, image pulls
-  disable_api_termination              = true # accident protection (ADR-0008)
+  associate_public_ip_address          = true                       # outbound only: package installs, SSM, image pulls
+  disable_api_termination              = var.termination_protection # accident protection (ADR-0008); true in prod
   instance_initiated_shutdown_behavior = "stop"
 
   metadata_options {
@@ -235,8 +234,11 @@ resource "aws_dlm_lifecycle_policy" "database" {
   policy_details {
     resource_types = ["VOLUME"]
 
+    # Name as well as Role: with a staging database in the same account (KAV-57), Role alone
+    # made each environment's policy snapshot the other's volume too.
     target_tags = {
       Role = "database-data"
+      Name = "${var.name_prefix}-database-data"
     }
 
     schedule {

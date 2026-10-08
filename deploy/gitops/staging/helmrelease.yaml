@@ -1,0 +1,65 @@
+# The staging release itself (KAV-57, ADR-0004). Same chart, same mechanics as
+# deploy/gitops/prod/helmrelease.yaml — read that file's header for why `values:` is used
+# rather than chart.spec.valuesFiles, why reconcileStrategy is Revision, and how the ECR
+# registry hostname is injected at reconcile time instead of being committed.
+#
+# KNOWN GAP, shared with prod (ADR-0025 Decision 8): `values:` below is a hand-kept copy of
+# deploy/environments/staging/values.yaml. Keep the two in sync by hand until release.yml
+# exists; CI's helm-lint loop renders the environments file directly, so structural drift is
+# caught, just not textual drift against this file.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kaval-staging
+  namespace: flux-system
+spec:
+  interval: 1m
+  releaseName: kaval-staging
+  targetNamespace: kaval-staging
+  chart:
+    spec:
+      chart: ./deploy/charts/kaval
+      sourceRef:
+        kind: GitRepository
+        name: kaval
+      reconcileStrategy: Revision
+  # Hand-kept copy of deploy/environments/staging/values.yaml — see the KNOWN GAP note above.
+  values:
+    postgres:
+      enabled: false
+      secretNames:
+        gateway: kaval-postgres-gateway
+        agent: kaval-postgres-agent
+        executor: kaval-postgres-executor
+        collector: kaval-postgres-collector
+        migrate: kaval-postgres-admin
+    global:
+      imagePullSecretName: ecr-cred
+    gateway:
+      replicas: 1
+      image:
+        tag: sha-ffb436b
+    agent:
+      correlateEverySeconds: 45
+      image:
+        tag: sha-ffb436b
+    executor:
+      demoNamespace: kaval-demo-staging
+      executeEverySeconds: 20
+      image:
+        tag: sha-ffb436b
+    collector:
+      watchEverySeconds: 20
+      image:
+        tag: sha-ffb436b
+  valuesFrom:
+    - kind: ConfigMap
+      name: kaval-registry
+      valuesKey: registry
+      targetPath: global.imageRegistry
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3

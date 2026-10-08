@@ -1,28 +1,50 @@
-# Phase 3 (KAV-49): rehearsed as a second Helm release — `kaval-staging` — in its own
-# namespace, in the SAME k3d cluster `local` already runs in. Not yet the real second
-# cluster ADR-0004 describes; that's a separate `t4g.medium` node, built in Phase 4. See
-# docs/adr/0023-promotion-rehearsal-on-k3d.md for why rehearsing the mechanics now, on
-# shared hardware, is still worth doing before that infrastructure exists.
+# Staging, on its own AWS cluster (KAV-57, ADR-0004). Until then (Phase 3, KAV-49) this was
+# rehearsed as a second Helm release in the local k3d cluster with a plain dev password; that
+# rehearsal is docs/adr/0023-promotion-rehearsal-on-k3d.md. This file now mirrors
+# deploy/environments/prod/values.yaml: its own database server, and Flux reconciling it from
+# deploy/gitops/staging/helmrelease.yaml (whose inline `values:` is a hand-kept copy of this).
 #
-# Plain dev credentials, same posture as local/values.yaml: never a real secret, so this
-# file is committed. Deliberately a different value than local's and prod's, so a stray
-# `kubectl get secret` makes it obvious which environment it came from.
+# The database server (infra/modules/database, name_prefix kaval-staging). Every service reads
+# its own Secret, kaval-postgres-<role> in the kaval-staging namespace. The node's bootstrap
+# script creates them from SSM Parameter Store on every boot (KAV-56), so nothing is created by
+# hand and no password is ever committed.
 postgres:
-  password: kaval-staging-dev
+  enabled: false
+  secretNames:
+    gateway: kaval-postgres-gateway
+    agent: kaval-postgres-agent
+    executor: kaval-postgres-executor
+    collector: kaval-postgres-collector
+    migrate: kaval-postgres-admin
+
+global:
+  # The registry itself (the AWS account ID) is injected by Flux's HelmRelease, never committed.
+  imagePullSecretName: ecr-cred
 
 gateway:
+  # One replica, unlike prod's two: staging proves the artifact, prod's second replica is what
+  # lets a rollout proceed without a gap. No slackSecretName: staging has no Slack app of its
+  # own, and two environments sharing one Socket Mode app would split events between them.
   replicas: 1
+  image:
+    # Build once, promote the artifact (ADR-0004): the same sha-ffb436b digest prod runs, pushed
+    # to the shared ECR by KAV-51's one-time bootstrap push. Never rebuilt for staging.
+    tag: sha-ffb436b
 
 agent:
-  # Wider than local's 30s — staging isn't optimised for a live demo watching the terminal.
+  # Wider than local's 30s, narrower than prod's 60s: staging should surface a stuck loop fast.
   correlateEverySeconds: 45
+  image:
+    tag: sha-ffb436b
 
 executor:
-  # A namespace of its own, not local's `kaval-demo` and not prod's `kaval-demo-prod` — so
-  # staging's own demo workloads, and the rollback drill run against prod, can't see each
-  # other even though both releases share one physical cluster.
+  # A namespace of its own, not local's `kaval-demo` and not prod's `kaval-demo-prod`.
   demoNamespace: kaval-demo-staging
   executeEverySeconds: 20
+  image:
+    tag: sha-ffb436b
 
 collector:
   watchEverySeconds: 20
+  image:
+    tag: sha-ffb436b

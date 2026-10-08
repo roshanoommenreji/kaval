@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+# Reuse the key from infra/envs/prod/terraform.tfvars: both environments are reached the same way.
+
+region  = "ap-south-1"
+profile = "kaval"
+
+ssh_public_key = "ssh-ed25519 AAAA...replace-me kaval-staging"

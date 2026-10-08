@@ -1,3 +1,8 @@
+variable "name_prefix" {
+  description = "e.g. \"kaval-prod\" or \"kaval-staging\". Names the role and instance profile (\"<prefix>-node\"). IAM names are account-global, so two environments can't share one. Required, no default."
+  type        = string
+}
+
 variable "ecr_repository_arns" {
   description = "Scopes pull access to exactly Kaval's own repos, not every ECR repo in the account."
   type        = list(string)

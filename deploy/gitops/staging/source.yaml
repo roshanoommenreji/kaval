@@ -1,0 +1,13 @@
+# Flux's source for this repository on the staging node (KAV-57). Identical in shape to
+# deploy/gitops/prod/source.yaml: the staging cluster is a separate k3s with its own Flux, so it
+# needs its own copy of this object. Anonymous HTTPS clone of the public repo, `main` branch.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: kaval
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/roshanoommenreji/kaval
+  ref:
+    branch: main

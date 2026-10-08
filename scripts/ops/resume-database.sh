@@ -15,8 +15,11 @@ set -euo pipefail
 export AWS_PROFILE="${AWS_PROFILE:-kaval}"
 export AWS_REGION="${AWS_REGION:-ap-south-1}"
 
+# Exact Name, not just Role=database: prod and staging each have a database server in this
+# account (KAV-57), and "first match" would otherwise pick whichever the API lists first.
+DB_NAME_PREFIX="${DB_NAME_PREFIX:-kaval-prod}"
 INSTANCE_ID=$(aws ec2 describe-instances \
-  --filters "Name=tag:Role,Values=database" "Name=instance-state-name,Values=running,stopping,stopped,pending" \
+  --filters "Name=tag:Role,Values=database" "Name=tag:Name,Values=${DB_NAME_PREFIX}-database" "Name=instance-state-name,Values=running,stopping,stopped,pending" \
   --query "Reservations[0].Instances[0].InstanceId" --output text)
 
 if [ "$INSTANCE_ID" = "None" ] || [ -z "$INSTANCE_ID" ]; then

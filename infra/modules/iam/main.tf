@@ -15,7 +15,7 @@ terraform {
 }
 
 resource "aws_iam_role" "node" {
-  name = "kaval-prod-node"
+  name = "${var.name_prefix}-node"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -118,6 +118,6 @@ resource "aws_iam_role_policy" "read_app_secrets" {
 }
 
 resource "aws_iam_instance_profile" "node" {
-  name = "kaval-prod-node"
+  name = "${var.name_prefix}-node"
   role = aws_iam_role.node.name
 }

@@ -1,0 +1,9 @@
+# The set of staging's Flux objects as one lintable unit; sync.yaml points its Kustomization at
+# this directory. Same shape as deploy/gitops/prod/kustomization.yaml (KAV-57).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - source.yaml
+  - helmrelease.yaml
+  - sync.yaml

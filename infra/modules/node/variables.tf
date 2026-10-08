@@ -1,3 +1,13 @@
+variable "name_prefix" {
+  description = "\"kaval-prod\" or \"kaval-staging\". Names the ASG, launch template, security group and instance, and sets the Kubernetes namespace and SSM parameter path the bootstrap script uses. Must start with \"kaval-\": the rest picks the deploy/gitops/<env> directory Flux is pointed at. Required, no default."
+  type        = string
+
+  validation {
+    condition     = startswith(var.name_prefix, "kaval-")
+    error_message = "name_prefix must start with \"kaval-\" (e.g. kaval-prod, kaval-staging): the remainder selects deploy/gitops/<env>."
+  }
+}
+
 variable "vpc_id" {
   type = string
 }
