@@ -353,3 +353,40 @@ No change to this ADR's design — the database still runs on its own server, st
 termination-protected. This amendment exists because the pause mechanism `make down` was supposed
 to use turned out to be unsafe, and the actual safe mechanism (scale to zero) is now what's
 written down and tested, not just what an operator happened to do by hand.
+
+## Amendment, 2026-10-08 — a second database server makes `Role=database` ambiguous (`KAV-57`, Lab 29)
+
+ADR-0004 and this ADR both say staging gets its own database server from this module. Building
+`infra/envs/staging` is the first time that is true, and it exposed a defect that cannot exist
+with only one server: **everything that located "the database" did so by `Role=database` alone
+and took the first match.** With prod and staging servers in one account, that is a coin flip:
+
+| Finder | Wrong answer it could give |
+|---|---|
+| `make down` / `pause-database.sh` | pauses (and snapshots) staging's database instead of prod's |
+| `make up` / `resume-database.sh`, `make db-health-check` | resumes or health-checks the wrong server |
+| `restore-snapshot.sh` | swaps the wrong instance's volume; its default "newest snapshot" was newest *account-wide* |
+| the node bootstrap script (KAV-56) | **staging's node could write prod's database host into its Secrets**, which would connect staging's services to the production database |
+| the DLM policy (`target_tags = { Role = "database-data" }`) | each environment's policy snapshots both environments' volumes |
+
+None of this showed up in a plan or a review, because with one database every one of those lookups
+was correct. It is the same shape as Lab 28's finding: a thing that works in the only
+configuration anyone has ever run.
+
+**Fix.** Every finder now matches the environment's exact `Name` tag (`<name_prefix>-database`,
+`<name_prefix>-database-data`) as well as `Role`. The ops scripts take `DB_NAME_PREFIX`,
+defaulting to `kaval-prod`, so prod's behaviour is unchanged and staging can point them at
+itself. Pre-stop snapshots are now named `<name_prefix>-database-pre-stop`; the restore script
+still recognises the old `kaval-database-pre-stop` name, but only for prod, the only environment
+that ever produced it.
+
+**Also changed.** The module gains `termination_protection` (default `true`, so prod's plan is
+unchanged) because staging is created per release and destroyed after, and an instance with
+`disable_api_termination` cannot be destroyed. The data volume's `prevent_destroy` deliberately
+stays: its address is hard-wired into `restore-snapshot.sh`'s `state rm`/`import`, so making it
+conditional (`count` plus a `moved` block) would have broken the restore path to make staging
+tidier. Tearing staging down releases that volume from Terraform state and deletes it by hand,
+which is what the comment on the resource has always said removing the protection would be: "a
+deliberate, separate step."
+
+No change to the design: prod's database still runs on its own server, SSM-only, protected.

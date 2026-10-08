@@ -134,3 +134,24 @@ asked for.
   whether it occurs; an on-demand instance can still be replaced (AZ failure, a bad apply, a
   manual Terraform change), and it costs more every month for a problem this story already
   solves more completely. Not pursued.
+
+## Amendment, 2026-10-08 — the roles step ran before the schema existed, and was missing grants (`KAV-57`, Lab 29)
+
+Bringing up the first fresh staging cluster (a new, empty database) found two defects in the
+roles half of this story that a long-lived prod database had hidden:
+
+1. **Ordering, deterministic rather than a race.** The bootstrap script applied `db-roles.sql`
+   *before* seeding Flux, and the schema is created by migrate-job, a Helm hook that only runs
+   once Flux has been seeded. On a fresh database the GRANTs therefore always failed (`relation
+   "signal" does not exist`), and the services stayed locked out until the 6-hour timer ran
+   again. The comment above the call said a fresh database "can lose this race"; it could not
+   win it. Fixed by running the roles step last and waiting (up to ~10 minutes, non-fatal) for
+   the schema, so a fresh cluster is usable in minutes. On an existing database the wait is
+   instant.
+2. **Missing grants for the gateway.** `kaval_gateway` could not read `alembic_version` (so
+   `/healthz` reported a Postgres `ProgrammingError`), `signal` or `incident_signal`. Invisible
+   on prod because `/healthz` also returns 503 there for want of a served model.
+
+Neither changes the decision. The "Switching the app node off spot" rejection above stands for
+the question it answered: it would not remove the need to recreate Secrets. Prod's node
+purchase option is now a separate, cost-driven decision, recorded in its own ADR.

@@ -117,7 +117,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
   (`KAV-32`, Lab 27)
 - [x] **`make up` / `make down`** — live round trip against prod; found and fixed three more bugs,
   the worst of which meant `make down` would have destroyed the live database (`KAV-32`, Lab 28)
-- [ ] `infra/envs/staging` — second spot node, own VPC, own k3s, 10 GB EBS, **plus its own database server** from `infra/modules/database`
+- [x] `infra/envs/staging` — second node (On-Demand by default), own VPC, own k3s, 10 GB EBS, **plus its own database server** from `infra/modules/database`; applied, verified and destroyed live; found and fixed a cross-environment database-lookup hazard and two latent roles bugs (`KAV-57`, Lab 29)
 - [ ] `make staging-up` / `staging-down`, self-destruct after 4 idle hours
 - [ ] `release.yml` — build once, push by digest, deploy staging, smoke test, release notes; component versions bumped from the commits touching each component and tagged `<svc>-vX.Y.Z`, the product release `vX.Y.Z` named with its components' versions (ADR-0011, ADR-0013)
 - [ ] `promote.yml` — the gate. **Refuses a digest that did not pass staging**, and a release with a `uat` story not yet signed off (ADR-0012)

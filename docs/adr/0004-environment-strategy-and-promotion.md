@@ -95,3 +95,34 @@ is more useful to a reader than a decision that appears to have been right first
 material friction, or if a data-shaped bug reaches production that a long-lived staging
 environment would have caught. Either would justify a scheduled always-on staging node at roughly
 $5–11/month.
+
+## Amendment, 2026-10-08 — `infra/envs/staging` built and proven live (`KAV-57`, Lab 29)
+
+The decision above stands. This records what building it settled.
+
+- **Same modules, different `name_prefix`.** `network`, `node` and `iam` had `"kaval-prod"`
+  hard-coded and now take a required `name_prefix`. Prod's rendered names are unchanged. The
+  node's Kubernetes namespace, SSM parameter path and the `deploy/gitops/<env>` directory Flux
+  follows all derive from it, so there is no second set of variables to keep in step.
+- **Shared ECR, not duplicated.** Images live in one set of repositories, created by prod's
+  Terraform. Staging computes the four repository ARNs from the caller identity and only gets
+  permission to pull; it does not instantiate the ECR module (it would try to create
+  repositories that already exist).
+- **Own VPC (`10.61.0.0/16`), node, database server and backups bucket.** No budget module of its
+  own: the account-wide guardrail's hard stop already stops every running `Project=kaval`
+  instance, staging's included. No Slack: two environments sharing one Socket Mode app would
+  split events between them.
+- **On-Demand node by default.** Staging exists for hours, so the ~$0.012/hr premium is pennies,
+  and Spot `t4g.medium` capacity was unavailable in all three AZs on 2026-10-06 and 2026-10-08
+  while On-Demand launched at once. Staging is the environment that must come up when asked.
+- **Destroyable on purpose.** The database module gained `termination_protection` (staging sets
+  it false). The data volume keeps `prevent_destroy`; teardown releases it from state and deletes
+  it by hand, a deliberate, separate step (see the ADR-0008 amendment of this date for why).
+- **Measured, not estimated:** 48 resources applied in 71 seconds; node `Ready`, Flux
+  reconciling from `main`, and four services running within a few minutes of that. The
+  "about five minutes" in the Decision above holds.
+
+**Not built, still separate `ROADMAP.md` lines:** `make staging-up`/`staging-down` and the
+four-idle-hour self-destruct (until then staging is destroyed by hand), seeding from a sanitised
+prod snapshot (`restore.sh`, `anonymise.sql`; staging comes up with an empty database), and
+`release.yml`/`promote.yml`/`rollback.yml`.

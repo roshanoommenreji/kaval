@@ -212,11 +212,20 @@ kubectl create secret generic kaval-slack -n ${name_prefix} \
   --dry-run=client -o yaml | kubectl apply -f -
 unset SLACK_BOT_TOKEN SLACK_APP_TOKEN SLACK_CHANNEL_ID
 
+curl -fsSL "$RAW/source.yaml" | kubectl apply -f -
+curl -fsSL "$RAW/helmrelease.yaml" | kubectl apply -f -
+# From here, kustomize-controller's own Kustomization (sync.yaml) takes over watching this
+# whole directory from Git on its own interval — this script only has to seed it once.
+curl -fsSL "$RAW/sync.yaml" | kubectl apply -f -
+
 # Per-service Postgres roles (KAV-56, scripts/ops/db-roles.sql): idempotent, safe to rerun
-# every 6h alongside the Secrets above. migrate-job (a Helm hook) must have already created
-# the schema at least once for the GRANTs here to succeed -- on a fresh database that first
-# run can lose this race, in which case the next 6h retry picks it up once migrate-job has
-# caught up.
+# every 6h alongside the Secrets above. Its GRANTs need the schema, which migrate-job (a Helm
+# hook) creates -- and migrate-job only runs once Flux has been seeded, just above. This block
+# used to sit BEFORE that, so on a fresh database it failed every time ("relation signal does
+# not exist") and the services stayed locked out until the next 6h timer. Found live, KAV-57:
+# a staging cluster is meant to be usable in minutes, not hours. So it now runs last, and waits
+# (up to ~10 min, non-fatal) for the schema to exist. On an existing database the schema is
+# already there and the wait is instant.
 curl -fsSL -o /tmp/db-roles.sql "https://raw.githubusercontent.com/roshanoommenreji/kaval/main/scripts/ops/db-roles.sql"
 ADMIN_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
   --name "/kaval/${name_prefix}/db/admin-password" --query Parameter.Value --output text)
@@ -228,22 +237,28 @@ EXECUTOR_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
   --name "/kaval/${name_prefix}/db/executor-password" --query Parameter.Value --output text)
 COLLECTOR_PW=$(aws ssm get-parameter --region "$REGION" --with-decryption \
   --name "/kaval/${name_prefix}/db/collector-password" --query Parameter.Value --output text)
-PGPASSWORD="$ADMIN_PW" psql "host=$DB_HOST port=5432 dbname=kaval user=kaval sslmode=require" \
-  -v ON_ERROR_STOP=1 \
-  -v gateway_password="$GATEWAY_PW" \
-  -v agent_password="$AGENT_PW" \
-  -v executor_password="$EXECUTOR_PW" \
-  -v collector_password="$COLLECTOR_PW" \
-  -f /tmp/db-roles.sql || echo "db-roles.sql failed this run -- will retry on the next 6h timer"
+SCHEMA_READY=""
+for attempt in $(seq 1 40); do
+  if PGPASSWORD="$ADMIN_PW" psql "host=$DB_HOST port=5432 dbname=kaval user=kaval sslmode=require" \
+       -tAc "select to_regclass('public.signal')" 2>/dev/null | grep -q signal; then
+    SCHEMA_READY=1
+    break
+  fi
+  sleep 15
+done
+if [ -n "$SCHEMA_READY" ]; then
+  PGPASSWORD="$ADMIN_PW" psql "host=$DB_HOST port=5432 dbname=kaval user=kaval sslmode=require" \
+    -v ON_ERROR_STOP=1 \
+    -v gateway_password="$GATEWAY_PW" \
+    -v agent_password="$AGENT_PW" \
+    -v executor_password="$EXECUTOR_PW" \
+    -v collector_password="$COLLECTOR_PW" \
+    -f /tmp/db-roles.sql || echo "db-roles.sql failed this run -- will retry on the next 6h timer"
+else
+  echo "schema still missing after ~10 min -- db-roles.sql skipped, will retry on the next 6h timer"
+fi
 unset ADMIN_PW GATEWAY_PW AGENT_PW EXECUTOR_PW COLLECTOR_PW
 rm -f /tmp/db-roles.sql
-
-
-curl -fsSL "$RAW/source.yaml" | kubectl apply -f -
-curl -fsSL "$RAW/helmrelease.yaml" | kubectl apply -f -
-# From here, kustomize-controller's own Kustomization (sync.yaml) takes over watching this
-# whole directory from Git on its own interval — this script only has to seed it once.
-curl -fsSL "$RAW/sync.yaml" | kubectl apply -f -
 SCRIPT
 chmod +x /usr/local/sbin/kaval-gitops-bootstrap
 /usr/local/sbin/kaval-gitops-bootstrap
