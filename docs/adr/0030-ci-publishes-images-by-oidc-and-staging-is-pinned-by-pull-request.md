@@ -35,10 +35,15 @@ real choice is the *size* of the door, which is what the table below compares.
 **1. GitHub reaches AWS through OIDC, into a role that can only push images.**
 `infra/modules/ci-publish` creates `kaval-ci-publish`:
 
-- **Who may assume it:** a GitHub job from `roshanoommenreji/kaval` running on `refs/heads/main`.
-  The condition is `StringEquals` on the token's `sub`, with no wildcard, so a pull request
+- **Who may assume it:** a GitHub job from this repository running on `refs/heads/main`. The
+  condition is `StringEquals` on the token's `sub`, with no wildcard, so a pull request
   (`...:pull_request`), a fork, a tag or any other branch is refused. The audience must be
-  `sts.amazonaws.com`. Checked on the live role after the apply.
+  `sts.amazonaws.com`. The repository is written in GitHub's **immutable** form, with its numeric
+  owner and repository ids (`repo:roshanoommenreji@37763145/kaval@1388844431:ref:refs/heads/main`),
+  which this repository's tokens use. The ids cannot be inherited by someone who later registers
+  the same name, so it is stricter than `owner/name`. My first version used the name-only form and
+  the first release run was refused; the real subject was read from CloudTrail and the role
+  corrected (Lab 32).
 - **What it can do once assumed:** log in to the registry, upload layers, put images and describe
   images, on the five Kaval repositories only (`modules/ecr` ARNs). Not delete, not read secrets, not
   start servers, nothing outside ECR. ECR tags are immutable, so it cannot overwrite an existing
@@ -60,16 +65,20 @@ opens a pull request. Nothing pushes to `main`. The same branch protection and r
 as to any change. Prod is untouched: only `promote.yml` (not built yet) will ever write to
 `deploy/gitops/prod/`.
 
-**4. CI on the bot's pull request.** GitHub does not start workflows for events made with the
-built-in token (to prevent self-triggering loops), so the pin pull request would sit without checks.
-`workflow_dispatch` is the documented exception, so `propose` dispatches `ci.yml` on the new branch.
-The run reports the same check names on the same commit, which is what the required checks look for.
-This needs the repository setting "Allow GitHub Actions to create and approve pull requests", enabled
-on 2026-10-08 (repo-wide; with zero required reviews it adds no ability to merge that the checks do
-not still gate).
+**4. CI on the bot's pull request, and who starts it.** Opening the pull request needs the repository
+setting "Allow GitHub Actions to create and approve pull requests", enabled on 2026-10-08 (repo-wide;
+with zero required reviews it adds no ability to merge that the checks do not still gate). GitHub
+creates the CI run for that pull request but **holds it as `action_required`** until a person approves
+it (the Actions tab, "Approve and run", or `gh api -X POST .../actions/runs/<id>/approve`). That is
+kept as the deliberate human step before staging moves. I first expected the opposite (that CI would
+not run at all for events made with the built-in token) and added a `workflow_dispatch` of `ci.yml` as
+a workaround; the live run showed the dispatched checks did not satisfy the pull request (it stayed
+`BLOCKED` with none listed until the held run was approved), so the workaround was removed, along
+with the `actions: write` permission it needed.
 
 **5. What starts a release.** A push to `main` that changes an image's inputs (`services/`,
-`migrations/`, `policy/`, the lock files, the backup scripts, this workflow), or a manual run. The pin
+`migrations/`, `policy/`, the lock files, the backup scripts), or a manual run. Editing the workflow
+itself does not release, because it changes no image. The pin
 pull request only touches `deploy/`, which is not on the list, so merging it cannot start another
 release.
 
@@ -96,7 +105,7 @@ somewhere to go. It costs nothing until an image is stored in it.
 | **A long-lived access key in GitHub secrets** | The old way. It never expires, and a leaked CI secret is a common route into an account. OIDC removes the key altogether. |
 | **One bigger role that also wakes staging and runs the smoke test** | The right shape for a fully automatic pipeline, but it can start servers and run commands on them. Deferred until the narrow role is proven; it would be a *second* role so this one stays push-only. |
 | **Commit straight to `main` from the workflow** | Skips the pull request and the required checks. ADR-0025 rejected `flux bootstrap` for the same reason. |
-| **A GitHub App or personal token to open the pull request** | Makes CI run on the bot's pull request without the dispatch trick, but adds a secret to create, store and rotate. The dispatch needs none. Revisit if the dispatch proves unreliable. |
+| **A GitHub App or personal token to open the pull request** | Would make CI start without the approval click, but adds a secret to create, store and rotate. The click is acceptable at this release rate. Revisit if it becomes a chore. |
 | **Create a new GitHub OIDC provider in this module** | The account already has one (created on 2026-09-26 by the `stock-trader` project's Terraform). There is one per account, so creating it would fail, and adopting it would let this repo's `destroy` remove another project's login. It is looked up read-only instead. |
 | **Pin `@sha256` in the chart now** | See Decision 7. |
 
@@ -128,16 +137,16 @@ publishing job has no more reach than its job needs.
   it, publishing here stops until it is restored. The data lookup fails loudly rather than silently.
 - A pin pull request waits for a human to merge it. That is the point (the rehearsal for prod is
   reviewed), but a forgotten pull request means staging does not move.
-- `ci.yml` gained a `workflow_dispatch` use that must keep producing the required check names. If a
-  required check is renamed, the dispatched run and the required name drift apart.
+- The required checks are matched by name. If a job in `ci.yml` is renamed, protection and the
+  workflow drift apart and pull requests (including the bot's) block until protection is updated.
 
 **Not done here, and why.** The smoke test, the record that a digest passed staging, component
 version bumps and tags (ADR-0013) and the generated change record are the next stage of `release.yml`.
 They need staging to be up, and the pass record is what `promote.yml` will check, so they are designed
 together with it.
 
-**Revisit if** releases become frequent enough that merging the pin by hand is a chore (add the second
-role and automate the wake and smoke test), or if the pin pull request's dispatch trick stops working.
+**Revisit if** releases become frequent enough that approving and merging the pin by hand is a chore
+(add the second role and automate the wake and smoke test, or a GitHub App for the pull request).
 
 ## Found while writing this
 

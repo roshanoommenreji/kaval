@@ -48,11 +48,12 @@ data "aws_iam_policy_document" "trust" {
     }
 
     # StringEquals, not StringLike: no wildcard, so no other branch, tag or pull request
-    # (whose sub is repo:...:pull_request) can ever match.
+    # (whose sub is repo:...:pull_request) can ever match. The repository part is the immutable
+    # form with numeric ids (found when the first release run was refused: KAV-61, Lab 32).
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:ref:refs/heads/${var.branch}"]
+      values   = ["repo:${var.github_repo_claim}:ref:refs/heads/${var.branch}"]
     }
   }
 }

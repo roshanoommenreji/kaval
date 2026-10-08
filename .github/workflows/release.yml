@@ -18,7 +18,8 @@
 #     A pull request, a fork or another branch is refused, so nobody can use this role by
 #     editing the workflow on a branch.
 #   - Nothing here pushes to `main`. Branch protection stays in charge: the pin goes through a
-#     pull request and the same required checks as any other change.
+#     pull request and the same required checks as any other change. CI's first run on that
+#     pull request waits for a person to approve it, which is deliberate.
 #   - Every third-party action is pinned to a full commit SHA, as in ci.yml.
 
 name: release
@@ -38,7 +39,6 @@ on:
       - "scripts/ops/restore.sh"
       - "scripts/ops/db-roles.sql"
       - "scripts/ops/anonymise.sql"
-      - ".github/workflows/release.yml"
   workflow_dispatch:
 
 # No job gets any permission it does not ask for.
@@ -160,7 +160,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      actions: write # to start CI on the branch, see the last step
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -202,7 +201,7 @@ jobs:
             echo "|---|---|"
             sort digests/*.txt | while read -r svc digest; do echo "| \`kaval/$svc:$TAG\` | \`$digest\` |"; done
             echo
-            echo "Built once by \`release.yml\` and scanned before the push; ECR tags are immutable, so the tag can never point at a different image. Merge when every check is green; staging's Flux pulls it the next time staging is up (\`make staging-up\`)."
+            echo "Built once by \`release.yml\` and scanned before the push; ECR tags are immutable, so the tag can never point at a different image. CI's first run on this pull request waits for a person to approve it (Actions tab, \`Approve and run\`). Merge when every check is green; staging's Flux pulls it the next time staging is up (\`make staging-up\`)."
             echo
             echo "Prod does not move. \`promote.yml\` (not built yet) is the only way a digest reaches \`deploy/gitops/prod/\`."
           } > body.md
@@ -214,8 +213,8 @@ jobs:
           git push origin "$branch"
           gh pr create --base main --head "$branch" \
             --title "chore(release): point staging at $TAG" --body-file body.md
-          # GitHub deliberately does not start CI for events made with the workflow token (so a
-          # workflow cannot trigger itself in a loop). workflow_dispatch is the exception. A
-          # dispatched run on the branch reports the same check names on the same commit, which
-          # is what the required checks look for.
-          gh workflow run ci.yml --ref "$branch"
+          # CI starts on this pull request, but GitHub holds the first run of a bot's pull request
+          # as "action_required" until a person approves it (Actions tab, "Approve and run", or
+          # gh api -X POST repos/<owner>/<repo>/actions/runs/<id>/approve). That approval is the
+          # human step before staging moves. A workflow_dispatch of ci.yml was tried instead and
+          # did not satisfy the pull request's checks (Lab 32).

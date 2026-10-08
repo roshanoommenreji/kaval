@@ -90,8 +90,10 @@ module "ecr" {
 module "ci_publish" {
   source = "../../modules/ci-publish"
 
-  name_prefix         = "kaval"
-  github_repo         = "roshanoommenreji/kaval"
+  name_prefix = "kaval"
+  github_repo = "roshanoommenreji/kaval"
+  # Numeric owner and repo ids, as in the token's sub claim (immutable subjects). Public ids.
+  github_repo_claim   = "roshanoommenreji@37763145/kaval@1388844431"
   ecr_repository_arns = module.ecr.repository_arns
 }
 
