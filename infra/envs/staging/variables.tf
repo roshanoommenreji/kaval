@@ -22,7 +22,7 @@ variable "node_desired_capacity" {
 }
 
 variable "node_spot" {
-  description = "Spot by default. false launches On-Demand, the escape hatch found in KAV-32 Lab 28 for when Spot capacity isn't available."
+  description = "On-Demand by default for staging (KAV-57): it exists for hours per release, so the ~$0.012/hr difference is pennies, while a Spot capacity shortage (seen on 2026-10-06 and 2026-10-08) stalls a release. Prod stays on Spot for the cost ceiling. true switches staging to Spot."
   type        = bool
-  default     = true
+  default     = false
 }

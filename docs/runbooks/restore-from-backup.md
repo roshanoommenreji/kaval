@@ -1,6 +1,6 @@
 # Database lost or corrupted
 
-Production Postgres runs on **its own server**, a `t4g.small` tagged `Role=database`, with its data
+Production Postgres runs on **its own server**, a `t4g.small` tagged `Role=database` and `Name=kaval-prod-database` (staging has its own server with the same `Role` and a different `Name`, so always filter on both), with its data
 on a separate EBS volume ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)). It is
 not a pod in the cluster. Admin access is through SSM Session Manager only; the server has no SSH
 port. The diagnosis commands below and `make db-restore-snapshot` (option A) are built, live, and
@@ -33,12 +33,12 @@ only one needs a restore.
 
 ```bash
 DB=$(aws ec2 describe-instances --profile kaval \
-  --filters Name=tag:Project,Values=kaval Name=tag:Role,Values=database \
+  --filters Name=tag:Name,Values=kaval-prod-database Name=tag:Role,Values=database \
   --query 'Reservations[].Instances[].[InstanceId,State.Name]' --output text)
 echo "$DB"                                             # running? stopped?
 
 aws ec2 describe-volumes --profile kaval \
-  --filters Name=tag:Project,Values=kaval Name=tag:Role,Values=database-data \
+  --filters Name=tag:Name,Values=kaval-prod-database-data Name=tag:Role,Values=database-data \
   --query 'Volumes[0].[VolumeId,State,AvailabilityZone,Attachments[0].InstanceId]'
 ```
 
@@ -75,6 +75,7 @@ Two recovery sources exist, and their recovery points differ:
 # EBS snapshots of the data volume: daily (DLM, keep 7) and one before every stop
 aws ec2 describe-snapshots --owner-ids self --profile kaval \
   --filters Name=tag:Project,Values=kaval Name=tag:Role,Values=database-data \
+            Name=tag:Name,Values=kaval-prod-database-data,kaval-prod-database-pre-stop,kaval-database-pre-stop \
   --query 'reverse(sort_by(Snapshots,&StartTime))[:5].[SnapshotId,StartTime,Tags[?Key==`Reason`]|[0].Value]' \
   --output table
 

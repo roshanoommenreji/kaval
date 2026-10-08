@@ -85,6 +85,12 @@ GRANT SELECT, INSERT, UPDATE ON execution, outcome TO kaval_executor;
 -- gateway: the human-facing API. Reads broadly across the pipeline, writes decisions.
 GRANT SELECT ON incident, proposal, action, execution, outcome TO kaval_gateway;
 GRANT SELECT, INSERT, UPDATE ON decision TO kaval_gateway;
+-- signal and incident_signal: /v1/signals and /v1/incidents read them. alembic_version: /healthz
+-- runs `SELECT version_num FROM alembic_version`. All three were missing, so on the deployed
+-- gateway /healthz failed with a permissions error (reported as ProgrammingError) and the
+-- signals endpoint would have too. Found live on the first fresh staging cluster, KAV-57; it was
+-- invisible on prod because /healthz also 503s there for want of a model (nothing on AWS serves one yet).
+GRANT SELECT ON signal, incident_signal, alembic_version TO kaval_gateway;
 
 -- A GRANT on a table's INSERT doesn't cover its identity/serial sequence.
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public
