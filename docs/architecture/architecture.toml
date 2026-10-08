@@ -359,6 +359,18 @@ inputs = ["AWS Budgets threshold breach via SNS", "02:00 IST EventBridge Schedul
 outputs = ["ASG desired capacity set to zero at $48 or nightly at 02:00 IST", "Project=kaval servers outside an ASG stopped at $48 or nightly (dev server; DB server from Phase 4)"]
 note = "The first thing built, before any compute existed. Ships with DRY_RUN=true and no target, so the first invocation is a safe no-op that still proves the whole path — budget, SNS, subscription, function, log. Applied and proven 2026-09-15 — 10 resources, full console-location + purpose table in Lab 01. Armed 2026-09-26 (KAV-30) to stop running Project=kaval servers outside an ASG, e.g. the dev server; fired for real and proven. Thresholds moved to $30/$35/$38 with the $40 ceiling on 2026-09-26 (ADR-0008), and to $42/$46/$48 with the $50 ceiling on 2026-10-08 (ADR-0028). Since 2026-10-05 (Lab 24) it snapshots each instance's data volume (if it has one, tagged Role=database-data) before stopping it, never blocking the stop on a snapshot failure — credentials gained ec2:DescribeVolumes/CreateSnapshot/CreateTags, scoped to Project=kaval volumes. Since 2026-10-05 (KAV-32, Lab 25) the same function is also the target of a 02:00 IST EventBridge Scheduler rule — a brake for a forgotten `make down`, not a new code path; the function already no-ops when there's nothing to stop. Toggled off from Phase 7 by `nightly_auto_stop_enabled`."
 
+[[system.node]]
+id = "staging-idle"
+label = "staging idle-stop"
+kind = "platform"
+phase = 4
+col = 4.2
+row = 9
+credentials = "scale ONE auto scaling group to zero · stop and snapshot Env=staging servers only"
+inputs = ["15-minute EventBridge Scheduler rule", "Session Manager sessions and Run Commands on staging's servers (read-only)"]
+outputs = ["Staging node scaled to zero and staging database stopped after 4 idle hours"]
+note = "ADR-0029. Staging's own Lambda (infra/modules/idle-stop), part of staging's Terraform state so it exists only while staging does. It parks staging rather than destroying it: Terraform cannot run from inside AWS without a very broad role, so the real destroy stays `make staging-down`. Idleness is read from outside the machines (a session or a command in the last four hours, floored by launch time), so the node gets no new permission. Free-tier Lambda and Scheduler. A parked staging keeps its disks, about $1.6/month."
+
 # ── system edges ───────────────────────────────────────────────────────
 
 [[system.edge]]
@@ -529,6 +541,18 @@ kind = "platform"
 # ═══════════════════════════════════════════════════════════════════════
 # JOURNEY VIEW — one incident, every branch
 # ═══════════════════════════════════════════════════════════════════════
+
+[[system.edge]]
+from = "staging-idle"
+to = "node"
+label = "staging: scale to 0 after 4 idle h"
+kind = "platform"
+
+[[system.edge]]
+from = "staging-idle"
+to = "db-host"
+label = "staging: snapshot + stop"
+kind = "platform"
 
 [[journey.node]]
 id = "fault"

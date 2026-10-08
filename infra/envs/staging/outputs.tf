@@ -24,3 +24,8 @@ output "backup_bucket_name" {
 output "node_asg_name" {
   value = module.node.asg_name
 }
+
+output "idle_stop_function_name" {
+  description = "Invoke by hand to see its verdict: aws lambda invoke --function-name <this> out.json"
+  value       = module.idle_stop.function_name
+}

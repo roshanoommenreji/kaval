@@ -10,8 +10,12 @@
 #     repositories that already exist. Staging only needs permission to pull them.
 #   - module "budget": the account-wide guardrail already lives in prod's state, and its hard
 #     stop stops every running Project=kaval instance, staging's included.
-#   - the nightly auto-stop and idle self-destruct: separate ROADMAP lines. Until they exist
-#     staging is destroyed by hand (docs/labs/lab-29-staging-environment.md).
+#   - the nightly 02:00 auto-stop: prod's budget module covers that for staging's database too
+#     (it stops every running Project=kaval server outside an ASG).
+#
+# It does carry its own idle self-stop (module "idle_stop", ADR-0029): after four hours with
+# nobody on the servers it scales the node to zero and stops the database. `make staging-up`
+# resumes, `make staging-down` destroys (scripts/ops/staging.sh).
 
 terraform {
   required_version = ">= 1.5"
@@ -124,4 +128,16 @@ module "database" {
   # terminate it. The data volume keeps its prevent_destroy: see the database module.
   termination_protection = false
   data_disk_gb           = 10 # ROADMAP: staging's 10 GB EBS
+}
+
+# Parks staging (stop, never destroy) after idle_hours with no Session Manager session or Run
+# Command on either server. ADR-0004 said "self-destructs after four idle hours"; ADR-0029 is
+# why it parks instead.
+module "idle_stop" {
+  source = "../../modules/idle-stop"
+
+  name_prefix   = local.name_prefix
+  asg_name      = module.node.asg_name
+  database_name = "${local.name_prefix}-database"
+  idle_hours    = var.idle_hours
 }

@@ -34,8 +34,8 @@ cost      = "~$5/mo"
 
 [[environments]]
 name      = "staging"
-where     = "2nd t4g.medium spot node · own k3s, etcd, DB, VPC"
-lifetime  = "per release, self-destructs after 4 idle hrs"
+where     = "2nd t4g.medium on-demand node · own k3s, etcd, DB, VPC"
+lifetime  = "per release, parks itself after 4 idle hrs"
 promotion = true
 cost      = "~$1/mo"
 

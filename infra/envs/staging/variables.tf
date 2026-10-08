@@ -26,3 +26,9 @@ variable "node_spot" {
   type        = bool
   default     = false
 }
+
+variable "idle_hours" {
+  description = "Hours with nobody on the staging servers before they are parked (ADR-0004 says four, ADR-0029). Fractions work for drills; the module refuses anything under 0.1."
+  type        = number
+  default     = 4
+}
