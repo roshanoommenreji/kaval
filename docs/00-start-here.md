@@ -99,5 +99,5 @@ Toolchain setup: [labs/lab-00-toolchain.md](labs/lab-00-toolchain.md)
 1. **The agent never gets write access.** Reasoning is read-only; mutation goes through the executor.
 2. **Guardrails before compute.** Nothing that can bill gets created before the thing that stops it billing works.
 3. **Images are `linux/arm64`.** The node is Graviton. An amd64 image builds fine and then fails on the cluster.
-4. **No secrets in git, ever — including history.** This repo goes public at v1.
+4. **No secrets in git, ever — including history.** This repo has been public since 2026-09-30.
 5. **A change is not done until it is documented.** See the Definition of Done in [../CLAUDE.md](../CLAUDE.md).

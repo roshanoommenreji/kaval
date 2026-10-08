@@ -42,21 +42,21 @@ If a change adds or bumps a Python dependency, run `make lock` and commit `uv.lo
 `pyproject.toml`. CI refuses a lock that doesn't match.
 
 The remote is [github.com/roshanoommenreji/kaval](https://github.com/roshanoommenreji/kaval). It
-stays **private until v1**, then goes public in Phase 8. Push after every merge; an unpushed
-commit exists only on one laptop.
+has been **public since 2026-09-30** (pulled forward from Phase 9 on purpose; see that day's
+journal). Push after every merge; an unpushed commit exists only on one laptop.
 
-### From `KAV-24` on: pull requests, green checks, then merge (a rule, not yet enforced)
+### Pull requests, green checks, then merge (enforced since the repo went public)
 
 CI exists from `KAV-24` (`.github/workflows/ci.yml`), so the local merge is gone. The branch is
 pushed and opened as a pull request (`gh pr create`). It merges into `main` (keeping a merge commit, as `--no-ff` does) **only
 after every CI check on it is green**. A red check is fixed on the branch, never merged over.
 
-The industry-standard version *enforces* this with a required status check. GitHub Free doesn't
-offer branch protection or rulesets on private repositories
-([GitHub docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)),
-and GitHub Pro (~$4/month) was declined on 2026-09-27. So until v1 it's a written rule, followed
-every time. When the repo goes public in Phase 8, protection becomes free, and turning on "require
-status checks to pass" on `main` is a Phase 8 task.
+Until 2026-09-30 this was a written rule only, because GitHub Free offers no branch protection on
+private repositories. Going public made it free, and `main` now has branch protection with
+required status checks (lint, test, secrets, terraform, the gateway/agent/collector image builds)
+and "branch must be up to date". Two honest limits: administrators can still bypass it
+(`enforce_admins` is off), and `helm`, `image executor` and `image backup` are not yet required
+checks. `release.yml`'s staging-pin pull request goes through the same protection like any other.
 
 ### What there is deliberately no branch for
 

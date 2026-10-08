@@ -76,7 +76,7 @@ See [ADR-0004](docs/adr/0004-environment-strategy-and-promotion.md).
 
 ### 5. Secrets never enter git
 
-The repo goes public at v1, so **history** must be clean, not just the current tree. No real
+The repo has been public since 2026-09-30, so **history** must be clean, not just the current tree. No real
 account IDs, ARNs, endpoints, or keys in any committed file. `.env.example` carries placeholders
 only. gitleaks runs pre-commit.
 
@@ -101,8 +101,8 @@ with the Jira key where there is one; `scripts/dev/check_commits.py` enforces it
 and in CI. No smart-commit commands (`#done`, `#comment`): commits use the GitHub noreply email, so Jira
 would ignore them; status moves with `jira-sync.py` ([ADR-0011](docs/adr/0011-commit-convention-and-jira-link.md)). Work happens on a short-lived `type/KAV-<n>-slug` branch
 and merges to `main` with `--no-ff` once green. **From `KAV-24` on, it merges through a pull request, and
-only after every CI check is green.** That's a written rule, because GitHub Free can't enforce it on a private repo
-(decided 2026-09-27; enforcement arrives with the public repo in Phase 8). No environment branches and no per-tool
+only after every CI check is green.** Since the repo went public (2026-09-30) it is also enforced: `main` has branch protection with
+required status checks (admins can still bypass; `enforce_admins` is off). No environment branches and no per-tool
 branches. See [docs/contributing.md](docs/contributing.md).
 
 **Where things go** — the README's repository map is authoritative. Scripts are split by what

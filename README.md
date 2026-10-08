@@ -30,7 +30,7 @@ signals ──▶ correlate ──▶ context ──▶ LLM ──▶ proposal �
 | **Started** | 2026-08-22 |
 | **Target v1** | ~March 2027 |
 | **Running cost** | Budget guardrails, plus a dev server that runs only during sessions: $0.13 of usage in September, covered by credits |
-| **Visibility** | Private until v1 |
+| **Visibility** | Public since 2026-09-30 (pulled forward from v1 on purpose) |
 
 Live progress: [ROADMAP.md](ROADMAP.md) · **[Dashboard](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c)** · [System](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#system) · [Journey](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#journey) · [Delivery](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#delivery)
 
@@ -105,6 +105,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | [evals/](evals/) | LLM eval harness and golden incident set |
 | [scripts/ops/](scripts/ops/) | Operating AWS and the database — backup, restore, anonymise, cost report |
 | [scripts/tracking/](scripts/tracking/) | Keeping Jira, Confluence and the dashboard in step with the repo |
+| [scripts/release/](scripts/release/) | Moving a build between environments — the staging image pin that `release.yml` uses |
 | [scripts/dev/](scripts/dev/) | Local setup — Git hooks, new-lab scaffolding |
 | [.github/workflows/](.github/workflows/) | CI and release pipelines |
 | [CLAUDE.md](CLAUDE.md), [.claude/](.claude/) | How Claude Code works in this repo |

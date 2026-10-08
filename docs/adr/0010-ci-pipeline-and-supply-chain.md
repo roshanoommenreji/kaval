@@ -26,7 +26,7 @@ referenced the action by tag ran it.
 |---|---|---|
 | lint | `make lint`: ruff and mypy in strict mode | The same target as the laptop, so the two can't drift apart |
 | test | `alembic upgrade head` → `alembic check` → `downgrade base` → `upgrade head`, then pytest | The tests run against a **real `pgvector/pgvector:pg16` service container**, the image compose runs, not SQLite or mocks. `KAVAL_REQUIRE_DB=1` turns the fixtures' "skip if there's no database" into a failure, so 12 database tests can't quietly vanish from a green run |
-| secrets | gitleaks over the **full history** | The repo goes public at v1, so its history has to be clean too, not just the latest commit |
+| secrets | gitleaks over the **full history** | The repo is public (from 2026-09-30; planned for v1 when this was written), so its history has to be clean too, not just the latest commit |
 | terraform | `fmt -check`, and `init -backend=false` + `validate` for every environment | Offline, with no AWS credentials. Planning against the real account needs OIDC and belongs with the Phase 4 deploy work |
 | images | Both images built on **`ubuntu-24.04-arm`**, checked for arm64 and uid 10001, then scanned by Trivy | Built natively on the architecture that runs them (CLAUDE.md constraint 2), with no QEMU emulation. Trivy fails on HIGH or CRITICAL findings **that have a fix**; unfixed ones are reported, since there's nothing to act on until the base image is patched |
 
@@ -76,7 +76,7 @@ Only a merged commit should produce an artifact.
   each image would each have resolved whatever was newest on the day they ran.
 - The pre-commit account-ID check was matching digit runs inside sha256 hashes, so it would have
   blocked every lockfile. It now ignores digit runs that are part of a hex string.
-- Cost: $0. GitHub Free includes 2,000 Actions minutes a month for private repos. A run bills 6
+- Cost: $0. When written, the repo was private and GitHub Free included 2,000 Actions minutes a month for private repos (since 2026-09-30 the repo is public and the minutes are not capped). A run billed 6
   (68 s wall-clock, each job rounded up to a minute), about 12 a PR counting the run on `main`
   (measured in Lab 06).
 - `opa test` joins the test job in Phase 2, once `policy/` holds policies.

@@ -250,3 +250,11 @@ untimed; this one is on the node prod actually runs now. What the number leaves 
   and deferred per Decision 2.
 - AWS's own `terraform apply` error messages (quoted verbatim in Lab 20) for the AZ-capacity
   findings.
+
+## Update, 2026-10-08 (KAV-61)
+
+The one-off manual push described above has a successor: `release.yml` now publishes every image
+from CI ([ADR-0030](0030-ci-publishes-images-by-oidc-and-staging-is-pinned-by-pull-request.md)) and
+pins staging's tag by pull request, which also removes the hand-kept duplicate in staging's
+`helmrelease.yaml` from the manual steps (`pin_staging.py` rewrites both copies together). Prod's two
+copies are still kept by hand until `promote.yml`.

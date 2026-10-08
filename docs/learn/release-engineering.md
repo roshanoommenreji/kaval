@@ -139,8 +139,9 @@ Which is exactly the same reasoning as the product's approval screen, where the 
 usually *what happens if you decline*.
 
 The mechanism here: `promote.yml` as a manual `workflow_dispatch`, moving to GitHub Environments
-with required reviewers when the repo goes public. **Verify the plan terms** — deployment
-protection rules on private repositories are a paid feature, and GitHub changes what is included.
+with required reviewers, which the repo can now use because it is public (2026-09-30).
+**Verify the plan terms** — deployment protection rules on private repositories are a paid
+feature, and GitHub changes what is included.
 
 ### Verification is not validation: UAT
 
@@ -339,7 +340,7 @@ something checks it: here a `commit-msg` hook and CI run the same checker.
 | **Verification vs validation** | Built right (tests) vs the right thing (users) |
 | **UAT scenario** | A Given / When / Then check the user runs; written before the work |
 | **Sign-off** | The recorded verdict: who accepted it, where, when, and what they checked |
-| **`workflow_dispatch`** | A GitHub Actions workflow run manually — the gate on a free private repo |
+| **`workflow_dispatch`** | A GitHub Actions workflow run manually — the gate before the repo was public |
 
 ## Check yourself
 
