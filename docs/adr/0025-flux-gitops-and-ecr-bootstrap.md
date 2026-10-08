@@ -232,6 +232,15 @@ the fix part of what a replacement node actually boots with.
   real deployment from what Lab 18's rehearsal and CI's helm-lint loop both render. Flagged in
   both files; `release.yml`'s eventual env-values pipeline is the real fix.
 
+## Measured on 2026-10-08 (KAV-60)
+
+The exit gate was re-run on the current code, against prod, with a timer: the On-Demand node
+(ADR-0028) terminated by hand, nothing typed afterwards. The Auto Scaling Group launched a
+replacement in 96 s, and **all five pods were `Running 1/1` at 216 s (3 min 36 s)**, `/healthz`
+reporting Postgres ok and migrated. The earlier proof in this ADR was on a Spot node and
+untimed; this one is on the node prod actually runs now. What the number leaves out is in
+[Lab 31](../labs/lab-31-phase-4-exit-gate.md).
+
 ## Sources
 
 - Flux `GitRepository`/`HelmChart`/`HelmRelease` v2 API docs (fluxcd.io: source-controller,

@@ -339,7 +339,7 @@ Knowing which of your mechanisms covers which failure — and being able to say 
 > that: the database on its own on-demand server, all state on EBS and in S3, all configuration in Git, an ASG that
 > replaces the instance, cloud-init that installs k3s, and Flux that reconciles the workloads.
 > The exit gate for the phase was terminating the node by hand and watching it come back in under
-> five minutes. (Then the discount stopped being available: twice AWS had no spot capacity at all,
+> five minutes (timed on prod, 3 min 36 s, Lab 31). (Then the discount stopped being available: twice AWS had no spot capacity at all,
 > and I moved the node to on-demand and raised the ceiling to pay for it, with the arithmetic in an ADR.)
 > The result was that AWS chaos-tested my recovery path continuously and for free —
 > which is the same argument the product makes about deliberate failure injection. It also cost
