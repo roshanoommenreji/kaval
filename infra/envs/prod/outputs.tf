@@ -35,3 +35,8 @@ output "database_ssm_parameter_paths" {
 output "backup_bucket_name" {
   value = module.backups.bucket_name
 }
+
+output "ci_publish_role_arn" {
+  description = "For the repository variable AWS_PUBLISH_ROLE_ARN (gh variable set). Contains the account id, so it lives in GitHub, never in a file."
+  value       = module.ci_publish.role_arn
+}

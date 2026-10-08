@@ -125,7 +125,7 @@ jobs:
         # opa is always installed above, so a skip would hide a real regression instead.
         env:
           KAVAL_REQUIRE_OPA: "1"
-        run: uv run pytest services/ scripts/dev/ scripts/tracking/ evals/ infra/modules/idle-stop/lambda/ -ra
+        run: uv run pytest services/ scripts/dev/ scripts/tracking/ scripts/release/ evals/ infra/modules/idle-stop/lambda/ -ra
 
   secrets:
     name: secrets (gitleaks, full history)

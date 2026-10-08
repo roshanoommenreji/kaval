@@ -44,10 +44,10 @@ data "aws_caller_identity" "current" {}
 locals {
   name_prefix = "kaval-staging"
 
-  # The same four repositories infra/modules/ecr creates for prod (its repository_names
+  # The same repositories infra/modules/ecr creates for prod (its repository_names
   # default). ARNs are deterministic, so there is no need to read prod's state.
   ecr_repository_arns = [
-    for name in ["gateway", "agent", "executor", "collector"] :
+    for name in ["gateway", "agent", "executor", "collector", "backup"] :
     "arn:aws:ecr:${var.region}:${data.aws_caller_identity.current.account_id}:repository/kaval/${name}"
   ]
 }
