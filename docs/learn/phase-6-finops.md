@@ -49,7 +49,7 @@ polling loop.
 Parquet, updated a few times a day. Every line item, every resource, every discount applied. It is
 the authoritative source and it is large — millions of rows for a modest account.
 
-For this project Cost Explorer is right: the account has a handful of resources and a $40 ceiling.
+For this project Cost Explorer is right: the account has a handful of resources and a $50 ceiling.
 The CUR is the correct answer at organisational scale, usually queried through Athena. Knowing
 which is which — and that CUR exists at all — is the differentiator in a FinOps conversation.
 
@@ -131,7 +131,7 @@ Not used by this project — the spend is far too small — but you will be aske
 
 - **Savings Plans** commit you to a dollar-per-hour spend for one or three years, in exchange for a discount. *Compute* Savings Plans are flexible across instance family, size and region; *EC2 Instance* Savings Plans are cheaper but narrower.
 - **Reserved Instances** are the older mechanism, committing to specific instance attributes. Largely superseded by Savings Plans for compute.
-- **Spot** is not a commitment at all — it is a discount for accepting interruption, which is what this project uses.
+- **Spot** is not a commitment at all — it is a discount for accepting interruption. This project used it for the app node until 2026-10-08, when Spot capacity ran out twice and the node went On-Demand ([ADR-0028](../adr/0028-prod-app-node-on-demand-and-ceiling-50.md))—a live example of the reliability the discount pays for.
 
 The mental model: **commit to what you are certain you will use, spot the interruptible parts,
 on-demand the unpredictable remainder.** Over-committing is worse than not committing, because you

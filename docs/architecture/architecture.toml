@@ -259,7 +259,7 @@ row = 7
 credentials = "acted on by executor only"
 inputs = ["patch, delete, scale, cordon — from the executor"]
 outputs = ["New state, which becomes new events"]
-note = "k3s on one spot instance in production; EKS during the Phase 7 chapter. The same Helm chart deploys to both, differing only by values file. Locally: k3d on the dev server (KAV-46, ADR-0020) — Postgres, gateway and the correlate loop running continuously, verified live. The executor now also runs here (KAV-47, ADR-0021), scoped-RBAC-bound to the separate kaval-demo namespace, proven live with kubectl auth can-i — not the kaval namespace postgres/gateway/agent run in. The build-once-promote-the-artifact and rollback mechanics (KAV-49, ADR-0023) were rehearsed as kaval-staging/kaval-prod, two more Helm releases in this same k3d cluster — torn down after, not the real second AWS cluster ADR-0004 still schedules for Phase 4."
+note = "k3s on one instance in production (On-Demand since 2026-10-08, ADR-0028; Spot before); EKS during the Phase 7 chapter. The same Helm chart deploys to both, differing only by values file. Locally: k3d on the dev server (KAV-46, ADR-0020) — Postgres, gateway and the correlate loop running continuously, verified live. The executor now also runs here (KAV-47, ADR-0021), scoped-RBAC-bound to the separate kaval-demo namespace, proven live with kubectl auth can-i — not the kaval namespace postgres/gateway/agent run in. The build-once-promote-the-artifact and rollback mechanics (KAV-49, ADR-0023) were rehearsed as kaval-staging/kaval-prod, two more Helm releases in this same k3d cluster — torn down after, not the real second AWS cluster ADR-0004 still schedules for Phase 4."
 
 [[system.node]]
 id = "flux"
@@ -289,7 +289,7 @@ note = "IRSA gives the executor a per-ServiceAccount role through OIDC federatio
 
 [[system.node]]
 id = "node"
-label = "t4g.medium spot"
+label = "t4g.medium"
 kind = "platform"
 phase = 4
 col = 0
@@ -297,7 +297,7 @@ row = 8
 credentials = "instance role"
 inputs = ["cloud-init user data", "Container images from ECR"]
 outputs = ["A k3s cluster, rebuilt from Git in under 5 minutes"]
-note = "ARM/Graviton — every image must be linux/arm64 or it fails at runtime with exec format error. ~$8/month on spot (verified live) against ~$24 on-demand. AWS may reclaim it with two minutes' notice, which chaos-tests the rebuild path continuously and for free — the ASG spans all three ap-south-1 AZs (KAV-51), since two different AZs each ran out of t4g.medium spot capacity within one day. Live since KAV-50 (ADR-0024): ASG-managed, k3s, verified Ready over SSH through an SSM tunnel. Flux now closes the loop (KAV-51, ADR-0025): cloud-init bootstraps it against this repo's own main, so a reclamation really does rebuild and redeploy itself — a self-heal, not a manual redeploy. KAV-56 (ADR-0027) closed the one gap that self-heal didn't cover: the five kaval-postgres-* Secrets, kaval-slack, and the Postgres roles themselves now recreate automatically too, via this node's own instance role, on every boot — a real reclamation mid-KAV-32 wiped them once, verified by terminating the node three times live. The Cloudflare Tunnel is still a separate follow-on story."
+note = "ARM/Graviton — every image must be linux/arm64 or it fails at runtime with exec format error. On-Demand since 2026-10-08 (ADR-0028): ~$16/month always-on, against ~$8 on spot (verified live earlier). It moved off spot after Spot capacity ran out in every AZ on 2026-10-06 and 2026-10-08. The rebuild path (ASG, cloud-init, Flux) is unchanged and still what makes a replaced node painless; the ASG spans all three ap-south-1 AZs (KAV-51). Live since KAV-50 (ADR-0024): ASG-managed, k3s, verified Ready over SSH through an SSM tunnel. Flux now closes the loop (KAV-51, ADR-0025): cloud-init bootstraps it against this repo's own main, so a reclamation really does rebuild and redeploy itself — a self-heal, not a manual redeploy. KAV-56 (ADR-0027) closed the one gap that self-heal didn't cover: the five kaval-postgres-* Secrets, kaval-slack, and the Postgres roles themselves now recreate automatically too, via this node's own instance role, on every boot — a real reclamation mid-KAV-32 wiped them once, verified by terminating the node three times live. The Cloudflare Tunnel is still a separate follow-on story."
 
 [[system.node]]
 id = "db-host"
@@ -309,7 +309,7 @@ row = 8
 credentials = "instance role (SSM only) · no SSH"
 inputs = ["Postgres connections on 5432, only from the app node's security group", "Admin sessions via SSM Session Manager"]
 outputs = ["Postgres 16 + pgvector over TLS", "Daily EBS snapshots and a snapshot before every stop"]
-note = "ADR-0008. On-demand, never spot: a database must not be reclaimable at two minutes' notice. ~$14.40/month always-on. Termination protection on; passwords in SSM Parameter Store. No idle stop, because its user is the app: it stops only with make down (scripts/ops/pause-database.sh, live since 2026-10-05 -- previously make down didn't touch the database at all, a real gap closed in Lab 24) or the $38 hard stop, each taking a snapshot first. The third stop path, a paused-posture nightly auto-stop, is still a ROADMAP.md line, not built. Staging gets its own from the same module."
+note = "ADR-0008. On-demand, never spot: a database must not be reclaimable at two minutes' notice. ~$14.40/month always-on. Termination protection on; passwords in SSM Parameter Store. No idle stop, because its user is the app: it stops only with make down (scripts/ops/pause-database.sh, live since 2026-10-05 -- previously make down didn't touch the database at all, a real gap closed in Lab 24) or the $48 hard stop, each taking a snapshot first. The third stop path, a paused-posture nightly auto-stop, is still a ROADMAP.md line, not built. Staging gets its own from the same module."
 
 [[system.node]]
 id = "ebs"
@@ -356,8 +356,8 @@ col = 4.2
 row = 8
 credentials = "autoscaling:UpdateAutoScalingGroup only"
 inputs = ["AWS Budgets threshold breach via SNS", "02:00 IST EventBridge Scheduler rule (Lab 25)"]
-outputs = ["ASG desired capacity set to zero at $38 or nightly at 02:00 IST", "Project=kaval servers outside an ASG stopped at $38 or nightly (dev server; DB server from Phase 4)"]
-note = "The first thing built, before any compute existed. Ships with DRY_RUN=true and no target, so the first invocation is a safe no-op that still proves the whole path — budget, SNS, subscription, function, log. Applied and proven 2026-09-15 — 10 resources, full console-location + purpose table in Lab 01. Armed 2026-09-26 (KAV-30) to stop running Project=kaval servers outside an ASG, e.g. the dev server; fired for real and proven. Thresholds moved to $30/$35/$38 with the $40 ceiling on 2026-09-26 (ADR-0008). Since 2026-10-05 (Lab 24) it snapshots each instance's data volume (if it has one, tagged Role=database-data) before stopping it, never blocking the stop on a snapshot failure — credentials gained ec2:DescribeVolumes/CreateSnapshot/CreateTags, scoped to Project=kaval volumes. Since 2026-10-05 (KAV-32, Lab 25) the same function is also the target of a 02:00 IST EventBridge Scheduler rule — a brake for a forgotten `make down`, not a new code path; the function already no-ops when there's nothing to stop. Toggled off from Phase 7 by `nightly_auto_stop_enabled`."
+outputs = ["ASG desired capacity set to zero at $48 or nightly at 02:00 IST", "Project=kaval servers outside an ASG stopped at $48 or nightly (dev server; DB server from Phase 4)"]
+note = "The first thing built, before any compute existed. Ships with DRY_RUN=true and no target, so the first invocation is a safe no-op that still proves the whole path — budget, SNS, subscription, function, log. Applied and proven 2026-09-15 — 10 resources, full console-location + purpose table in Lab 01. Armed 2026-09-26 (KAV-30) to stop running Project=kaval servers outside an ASG, e.g. the dev server; fired for real and proven. Thresholds moved to $30/$35/$38 with the $40 ceiling on 2026-09-26 (ADR-0008), and to $42/$46/$48 with the $50 ceiling on 2026-10-08 (ADR-0028). Since 2026-10-05 (Lab 24) it snapshots each instance's data volume (if it has one, tagged Role=database-data) before stopping it, never blocking the stop on a snapshot failure — credentials gained ec2:DescribeVolumes/CreateSnapshot/CreateTags, scoped to Project=kaval volumes. Since 2026-10-05 (KAV-32, Lab 25) the same function is also the target of a 02:00 IST EventBridge Scheduler rule — a brake for a forgotten `make down`, not a new code path; the function already no-ops when there's nothing to stop. Toggled off from Phase 7 by `nightly_auto_stop_enabled`."
 
 # ── system edges ───────────────────────────────────────────────────────
 
@@ -510,7 +510,7 @@ kind = "platform"
 [[system.edge]]
 from = "guardrail"
 to = "node"
-label = "scale to 0 at $38"
+label = "scale to 0 at $48"
 kind = "platform"
 
 [[system.edge]]
@@ -522,7 +522,7 @@ kind = "platform"
 [[system.edge]]
 from = "guardrail"
 to = "db-host"
-label = "snapshot + stop at $38"
+label = "snapshot + stop at $48"
 kind = "platform"
 
 
@@ -916,7 +916,7 @@ kind = "platform"
 phase = 4
 col = 2
 row = 7
-note = "Terraform creates a second t4g.medium spot node with its own k3s, etcd, database and VPC, then restores the latest production snapshot through scripts/ops/anonymise.sql. Staging gets real data shape and volume, and the backup gets restore-tested on every release. About five minutes."
+note = "Terraform creates a second t4g.medium node (On-Demand) with its own k3s, etcd, database and VPC, then restores the latest production snapshot through scripts/ops/anonymise.sql. Staging gets real data shape and volume, and the backup gets restore-tested on every release. About five minutes."
 
 [[delivery.node]]
 id = "d-stg"
@@ -1215,7 +1215,7 @@ col = 0
 row = 0
 credentials = "autoscaling:UpdateAutoScalingGroup + ec2:StopInstances, scoped by project tag"
 inputs = ["AWS Budgets threshold breach, over SNS"]
-outputs = ["App node scaled to 0 at $38", "Dev server + database server stopped at $38, snapshot first"]
+outputs = ["App node scaled to 0 at $48", "Dev server + database server stopped at $48, snapshot first"]
 note = "The very first thing built, before any other AWS resource existed — proven by firing it by hand while there was nothing yet to break."
 
 [[aws-tour.node]]
@@ -1242,7 +1242,7 @@ note = "A locked photo album, one page per service, with tags that can never be 
 
 [[aws-tour.node]]
 id = "node"
-label = "App node · spot EC2"
+label = "App node · EC2"
 kind = "platform"
 phase = 4
 col = 0
@@ -1250,7 +1250,7 @@ row = 1
 credentials = "instance role — SSM management + ECR pull only"
 inputs = ["cloud-init boot script", "Container images from ECR"]
 outputs = ["A running k3s cluster with the 5 Kaval pods — see Inside the cluster"]
-note = "Rented at AWS's cheaper 'spot' rate, which can be reclaimed with 2 minutes' notice. An Auto Scaling Group keeps exactly one running and rebuilds it from the same recipe within minutes if that happens."
+note = "Rented at the normal on-demand rate since 2026-10-08 (it was the cheaper 'spot' rate, which AWS twice had no capacity for). An Auto Scaling Group keeps exactly one running and rebuilds it from the same recipe within minutes if it is ever replaced."
 
 [[aws-tour.node]]
 id = "dbserver"
@@ -1323,17 +1323,17 @@ note = "Fixed 2026-10-05 (Lab 24): this automatic camera had actually been broke
 [[aws-tour.edge]]
 from = "guardrail"
 to = "node"
-label = "scale to 0 at $38"
+label = "scale to 0 at $48"
 
 [[aws-tour.edge]]
 from = "guardrail"
 to = "dbserver"
-label = "snapshot + stop at $38"
+label = "snapshot + stop at $48"
 
 [[aws-tour.edge]]
 from = "guardrail"
 to = "devserver"
-label = "stop at $38"
+label = "stop at $48"
 
 [[aws-tour.edge]]
 from = "vpc"

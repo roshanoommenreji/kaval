@@ -22,7 +22,7 @@ variable "node_desired_capacity" {
 }
 
 variable "node_spot" {
-  description = "On-Demand by default for staging (KAV-57): it exists for hours per release, so the ~$0.012/hr difference is pennies, while a Spot capacity shortage (seen on 2026-10-06 and 2026-10-08) stalls a release. Prod stays on Spot for the cost ceiling. true switches staging to Spot."
+  description = "On-Demand, same as prod (ADR-0028): a Spot capacity shortage (seen on 2026-10-06 and 2026-10-08) stalls a release, and staging exists for hours so the premium is pennies. true switches staging to Spot."
   type        = bool
   default     = false
 }

@@ -148,12 +148,12 @@ Run `make migrate` to bring a database up to date.
 
 | Path | What it is | Status |
 |---|---|---|
-| `infra/modules/budget/` | Budget alarms at $30 and $35, and a Lambda function that shuts compute down at $38 (raised from $18 / $22 / $24 with the $40 ceiling, ADR-0008). Built **before** anything that can cost money. `lambda/hard_stop.py` is that function. It **stops the dev server** (and any other `Project=kaval` server outside a server group) and, since `KAV-50`, scales the real prod Auto Scaling Group to zero — armed (not dry-run) and proven live with a manual test invocation | Working, applied and fired for real |
+| `infra/modules/budget/` | Budget alarms at $42 and $46, and a Lambda function that shuts compute down at $48 (raised from $18 / $22 / $24 with the $40 ceiling, ADR-0008, then from $30 / $35 / $38 with the $50 ceiling, ADR-0028). Built **before** anything that can cost money. `lambda/hard_stop.py` is that function. It **stops the dev server** (and any other `Project=kaval` server outside a server group) and, since `KAV-50`, scales the real prod Auto Scaling Group to zero — armed (not dry-run) and proven live with a manual test invocation | Working, applied and fired for real |
 | `infra/modules/devbox/` | The development server: a `t4g.medium` with **no open ports** (reached only through AWS Session Manager) that stops itself after an idle hour. `user_data.sh.tftpl` is its first-boot setup: Docker, `k3d`/`kubectl`/`helm` (checksum-verified, `KAV-46`), your SSH key, the idle-stop timer | Working, applied in AWS (Lab 03) |
 | `infra/modules/database/` | The production **database server**: its own `t4g.small`, a separate encrypted data volume, a firewall that only lets the app server in, TLS, per-service Postgres roles, daily DLM snapshots ([ADR-0008](adr/0008-production-database-on-its-own-server.md)). Staging gets one from the same module | Built and live (`KAV-32`) |
 | `infra/modules/backups/` | The S3 bucket the nightly `pg_dump` lands in, plus the free S3 gateway VPC endpoint so it never crosses a metered path | Built and live (`KAV-32`) |
-| `infra/modules/network/` | The VPC, subnets and firewall rules. No NAT Gateway, which alone would cost $32/month | Working, applied in AWS (`KAV-50`/`KAV-51`, Lab 19/20) — one subnet per AZ, so the ASG can launch wherever spot capacity exists |
-| `infra/modules/node/` | The single cheap `t4g.medium` spot server that runs k3s, in a size-1 Auto Scaling Group so a reclaimed spot instance gets replaced automatically | Working, applied in AWS (`KAV-50`/`KAV-51`, Lab 19/20) — `k3s` is live, `Ready`, and Flux reconciles it from Git on every boot |
+| `infra/modules/network/` | The VPC, subnets and firewall rules. No NAT Gateway, which alone would cost $32/month | Working, applied in AWS (`KAV-50`/`KAV-51`, Lab 19/20) — one subnet per AZ, so the ASG can launch wherever capacity exists |
+| `infra/modules/node/` | The single `t4g.medium` server that runs k3s, in a size-1 Auto Scaling Group so a replaced instance comes back automatically. On-Demand by default since 2026-10-08 ([ADR-0028](adr/0028-prod-app-node-on-demand-and-ceiling-50.md)); `spot = true` restores the ~$8.55/month saving | Working, applied in AWS (`KAV-50`/`KAV-51`, Lab 19/20) — `k3s` is live, `Ready`, and Flux reconciles it from Git on every boot |
 | `infra/modules/ecr/` | Where container images are stored in AWS — one repo per service, immutable tags | Working, applied in AWS (`KAV-50`, Lab 19) |
 | `infra/modules/iam/` | The node's own AWS identity — SSM management, scoped ECR pulls, and (since `KAV-32`) scoped S3 access to the backup bucket. **Not** a per-service agent/executor AWS role: that split already exists at the Kubernetes RBAC layer (`KAV-47`); see [ADR-0024](adr/0024-prod-landing-network-ecr-iam-node.md) | Working, applied in AWS (`KAV-50`, Lab 19) |
 | `infra/modules/eks-lab/` | A real Amazon EKS cluster, created briefly to prove the same software runs there, then destroyed | Placeholder, Phase 7 |
@@ -205,7 +205,7 @@ Run `make migrate` to bring a database up to date.
 | `docs/architecture/architecture.toml` | The system's architecture written as data: every component and connection, and which phase it arrives in. The dashboard draws the three diagrams from this. Update it whenever a component is added, removed or rewired (Definition of Done item 6) | Working |
 | `docs/architecture/diagrams/` | Exported diagram images. The live diagrams come from `docs/architecture/architecture.toml` and appear on the dashboard | Placeholder, Phase 8 |
 | `docs/runbooks/` | **Troubleshooting guides**, one per failure type. Written for humans, **and** the AI agent reads them when diagnosing incidents | Working (1 runbook); more in Phase 5 |
-| `docs/cost/budget-plan.md` | Every expected cost, the $40/month ceiling, and how it's enforced | Working |
+| `docs/cost/budget-plan.md` | Every expected cost, the $50/month ceiling, and how it's enforced | Working |
 | `docs/cost/actuals/` | The real bill, one file per month | Placeholder. Starts with the first real spend, in Phase 4 |
 | `docs/releases/` | A change record for every production release, generated automatically: what changed, who approved it, how to roll back | Format in `README.md`; the first record comes in Phase 4 |
 | `docs/course/outline.md` | The plan for turning the labs into a course or video series | Working |
@@ -217,7 +217,7 @@ Run `make migrate` to bring a database up to date.
 | Path | What it does | Status |
 |---|---|---|
 | **`scripts/ops/`** | **AWS and the database** | |
-| `scripts/ops/cost-report.sh` | Month-to-date AWS spend against the $40 ceiling (`make cost-report`) | Working |
+| `scripts/ops/cost-report.sh` | Month-to-date AWS spend against the $50 ceiling (`make cost-report`) | Working |
 | `scripts/ops/approve.py` | Approve or deny one proposed action through the gateway's decision endpoint (`make approve`) — the Phase-3 stand-in for the mobile app's swipe-to-approve screen | Working (`KAV-47`) |
 | `scripts/ops/backup.sh` | Nightly database dump to S3, run as a Helm `CronJob` (`KAV-32`) | Written and fixed (had no `PGPASSWORD` handling at all until now); not yet run — needs the still-blocked `aws-creds` Secret |
 | `scripts/ops/restore.sh` | Restores a backup into staging (made anonymous first) or, in an emergency, into production | Written and fixed (same `PGPASSWORD` gap as `backup.sh`); not yet run — needs the staging environment or a real restore drill |

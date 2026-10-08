@@ -12,25 +12,25 @@ variable "alert_email" {
 variable "monthly_limit_usd" {
   description = "The ceiling. Everything else is a fraction of this."
   type        = number
-  default     = 25
+  default     = 50
 }
 
 variable "alert_1_usd" {
   description = "First warning threshold."
   type        = number
-  default     = 18
+  default     = 42
 }
 
 variable "alert_2_usd" {
   description = "Second warning threshold."
   type        = number
-  default     = 22
+  default     = 46
 }
 
 variable "hard_stop_usd" {
   description = "At this figure the Lambda scales the ASG to zero and stops tagged standalone instances."
   type        = number
-  default     = 24
+  default     = 48
 }
 
 variable "asg_name" {

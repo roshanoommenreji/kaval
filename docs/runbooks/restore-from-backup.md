@@ -21,7 +21,7 @@ Ordered by how often they actually happen, not by how interesting they are.
 
 1. **Someone ran something destructive**: a `DROP`, a migration in the wrong direction, a `--clean` restore aimed at the wrong host
 2. **A migration failed part-way**, leaving the schema between two states
-3. **The database server is stopped**, by `make down`, the nightly paused-posture stop, or the $38 hard stop. That's not data loss
+3. **The database server is stopped**, by `make down`, the nightly paused-posture stop, or the $48 hard stop. That's not data loss
 4. **The data volume isn't attached or mounted**, or the security group no longer lets the app node reach 5432
 5. **Filesystem or WAL damage** after an unclean stop
 6. **Volume genuinely lost**: rare

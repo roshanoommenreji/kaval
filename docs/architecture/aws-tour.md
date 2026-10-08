@@ -20,9 +20,9 @@ Everything below is one of those pieces. None of it is pretend or "coming later"
 
 Before anything else was built, a guard was hired to watch the spending, because the easiest way to ruin a hobby project is an AWS bill nobody noticed growing.
 
-- **AWS Budgets** — a simple rule that says "tell someone the moment real spending this month crosses $30, then $35". It checks the real bill, not a guess.
+- **AWS Budgets** — a simple rule that says "tell someone the moment real spending this month crosses $42, then $46". It checks the real bill, not a guess.
 - **SNS (Simple Notification Service)** — the messenger. When Budgets wants to shout "we crossed a line!", it doesn't know who's listening — it just shouts into a megaphone (a "topic"), and anyone who signed up to that megaphone (an email address, or a small program) hears it.
-- **Lambda** — a tiny program that only exists for the seconds it's needed and costs nothing while asleep. Ours wakes up when spending crosses **$38** and does exactly one thing: turns off every Kaval computer it can find — never deletes anything, just switches it off, the way you'd turn off a light rather than smash the switch.
+- **Lambda** — a tiny program that only exists for the seconds it's needed and costs nothing while asleep. Ours wakes up when spending crosses **$48** and does exactly one thing: turns off every Kaval computer it can find — never deletes anything, just switches it off, the way you'd turn off a light rather than smash the switch.
 - **CloudWatch Logs** — the diary. Every time that Lambda wakes up, it writes down what it did, so there's a paper trail instead of a mystery.
 
 This whole guard was built and tested — including actually pressing the alarm by hand to watch it fire — *before* a single other AWS resource existed. The guard was hired before there was anything to steal.
@@ -42,7 +42,7 @@ One thing we deliberately did *not* rent: a **NAT Gateway**. It's AWS's "private
 
 We rent three separate computers, each doing one job, never mixed together:
 
-- **The app node** — a small ARM computer (`t4g.medium`) that runs the actual Kaval program: the detective, the scout, the hands, and the receptionist (see [Inside the cluster](#pods-postgres)). It's rented as **"spot"** — a much cheaper rate AWS offers for computers it's allowed to take back with two minutes' warning if it needs the capacity elsewhere. We accept that risk because we built something that notices and rebuilds itself within minutes (an Auto Scaling Group, below) — turning an outage into a short blip instead of a 2am phone call.
+- **The app node** — a small ARM computer (`t4g.medium`) that runs the actual Kaval program: the detective, the scout, the hands, and the receptionist (see [Inside the cluster](#pods-postgres)). It was rented as **"spot"** — a much cheaper rate AWS offers for computers it's allowed to take back with two minutes' warning — until AWS twice had none to give, so it is now rented at the normal ("on-demand") rate; the rebuild-itself design below is still what makes replacement painless. We accept that risk because we built something that notices and rebuilds itself within minutes (an Auto Scaling Group, below) — turning an outage into a short blip instead of a 2am phone call.
 - **The database server** — its own separate computer (`t4g.small`) whose only job is running the filing cabinet (Postgres, see [Inside the cluster](#pods-postgres)). It's rented normally, not spot, because a filing cabinet that might vanish with two minutes' notice is not a filing cabinet you can trust.
 - **The dev server** — a third computer, used only while actually building and testing, that puts itself to sleep automatically after an hour of nobody using it, so it's nearly free most of the time.
 
@@ -86,9 +86,9 @@ Getting data into that bucket doesn't even leave AWS's own network — a free **
 
 | Service | In one sentence | What it costs us |
 |---|---|---|
-| **AWS Budgets + SNS + Lambda** | Watches spending and turns everything off at $38 | Free — a Lambda that almost never runs costs pennies |
+| **AWS Budgets + SNS + Lambda** | Watches spending and turns everything off at $48 | Free — a Lambda that almost never runs costs pennies |
 | **VPC, subnets, internet gateway** | Our own private, fenced-off street inside AWS | Free |
-| **App node (EC2, spot, Auto Scaling Group)** | Runs the actual Kaval program | A few dollars a month, spot-priced |
+| **App node (EC2, Auto Scaling Group)** | Runs the actual Kaval program | About $16 a month if left on around the clock; On-Demand since 2026-10-08 because the cheaper spot rate kept having no capacity |
 | **Database server (EC2)** | Its own computer, just for Postgres | ~$14.40/mo all-in (ADR-0008) |
 | **Security groups** | Firewalls — who's allowed to knock | Free |
 | **SSM Session Manager + Parameter Store** | Remote control with no open doors, plus a password safe | Free |

@@ -274,7 +274,7 @@ def main() -> None:
           "only after human approval from a phone."),
         h(2, "Non-negotiable constraints"),
         bullets([
-            "Cost ceiling: $40/month (ADR-0008), enforced by the system itself, not by discipline",
+            "Cost ceiling: $50/month (ADR-0028), enforced by the system itself, not by discipline",
             "The reasoning component (agent) holds read-only credentials only; a separate scoped executor performs all mutations",
             "Nothing reaches prod without passing a real staging environment first",
             "Secrets never enter git history -- the repo goes public at v1",

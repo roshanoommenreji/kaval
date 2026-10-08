@@ -16,24 +16,24 @@ variable "alert_email" {
 }
 
 variable "monthly_limit_usd" {
-  description = "Raised from 25 to 40 on 2026-09-26 by ADR-0008 (database on its own server)."
+  description = "Raised from 25 to 40 on 2026-09-26 by ADR-0008 (database on its own server), then to 50 on 2026-10-08 by ADR-0028 (app node On-Demand)."
   type        = number
-  default     = 40
+  default     = 50
 }
 
 variable "alert_1_usd" {
   type    = number
-  default = 30
+  default = 42
 }
 
 variable "alert_2_usd" {
   type    = number
-  default = 35
+  default = 46
 }
 
 variable "hard_stop_usd" {
   type    = number
-  default = 38
+  default = 48
 }
 
 variable "ssh_public_key" {

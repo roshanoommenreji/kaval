@@ -39,9 +39,9 @@ variable "desired_capacity" {
 }
 
 variable "spot" {
-  description = "Spot by default for the ~$0.01/hr saving (CLAUDE.md's cost ceiling). Escape hatch for when Spot capacity genuinely isn't available (found live, KAV-32 Lab 28): false launches On-Demand instead, at full price, until capacity frees up and this is reverted."
+  description = "On-Demand by default (ADR-0028): ~$0.0224/hr, no reclamation, and it launches when asked. Spot (true) is ~$0.0105/hr but had no t4g.medium capacity in any AZ on 2026-10-06 and 2026-10-08 (KAV-32 Lab 28, KAV-57 Lab 29). Set true to trade that reliability for ~$8.55/month always-on."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "ssh_public_key" {

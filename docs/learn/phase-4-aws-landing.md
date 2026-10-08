@@ -84,6 +84,13 @@ drain a node and finish in-flight work, if you have built for it.
 `t4g.medium` is roughly $0.0336/hour on-demand and around $0.0126/hour on spot — about $24/month
 versus about $9.
 
+> **Update, 2026-10-08.** Spot ran out of `t4g.medium` capacity in every AZ on 2026-10-06 and again
+> on 2026-10-08, while an On-Demand request for the same type launched at once. The app node is now
+> On-Demand by default (about $16/month always-on) and the cost ceiling rose to $50
+> ([ADR-0028](../adr/0028-prod-app-node-on-demand-and-ceiling-50.md)). The design below is unchanged
+> and still what makes replacement boring; what changed is that nothing now depends on AWS having
+> spare capacity at the moment you ask.
+
 The design response is not to avoid interruption but to make it boring:
 
 - All state in EBS and S3, not on the instance's root volume
@@ -211,7 +218,7 @@ The dev server stops itself after an hour with nobody connected, because its use
 database's user is the application, all the time. An idle stop would either never fire or pull the
 database out from under a running app. So the database stops only **deliberately** (`make down`),
 through the **paused-posture nightly stop** (02:00 IST, for a forgotten `make down`), or through
-the **$38 hard stop**. Each path snapshots the data volume first.
+the **$48 hard stop**. Each path snapshots the data volume first.
 
 Stopping an EC2 instance keeps its EBS volumes, so a normal start resumes from the same disk and
 there is nothing to restore. Three things keep that true:
@@ -332,7 +339,9 @@ Knowing which of your mechanisms covers which failure — and being able to say 
 > that: the database on its own on-demand server, all state on EBS and in S3, all configuration in Git, an ASG that
 > replaces the instance, cloud-init that installs k3s, and Flux that reconciles the workloads.
 > The exit gate for the phase was terminating the node by hand and watching it come back in under
-> five minutes. The result is that AWS chaos-tests my recovery path continuously and for free —
+> five minutes. (Then the discount stopped being available: twice AWS had no spot capacity at all,
+> and I moved the node to on-demand and raised the ceiling to pay for it, with the arithmetic in an ADR.)
+> The result was that AWS chaos-tested my recovery path continuously and for free —
 > which is the same argument the product makes about deliberate failure injection. It also cost
 > $9 a month instead of $24. I'd make a different call for something with a real uptime SLA, but
 > then I'd also be paying for multi-AZ, and the honest version of that trade-off is the interesting
