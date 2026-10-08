@@ -104,4 +104,4 @@ module = ["kubernetes.*", "boto3.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["services", "scripts/dev", "scripts/tracking", "evals", "infra/modules/idle-stop/lambda"]
+testpaths = ["services", "scripts/dev", "scripts/tracking", "scripts/release", "evals", "infra/modules/idle-stop/lambda"]

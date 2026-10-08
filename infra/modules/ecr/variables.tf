@@ -1,7 +1,7 @@
 variable "repository_names" {
   description = "One ECR repo per service image."
   type        = list(string)
-  default     = ["gateway", "agent", "executor", "collector"]
+  default     = ["gateway", "agent", "executor", "collector", "backup"]
 }
 
 variable "untagged_expire_days" {

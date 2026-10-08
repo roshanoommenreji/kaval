@@ -218,8 +218,8 @@ items and, since ADR-0028, $8.55 of On-Demand). Most months are paused and cost 
 | Item | Cost |
 |---|---|
 | Jira Cloud (free tier, ≤10 users) | $0 |
-| GitHub private repo | $0 |
-| GitHub Actions CI (`KAV-24`) — Free plan's 2,000 min/month for private repos; a run bills 6 (68 s, each job rounded up to a minute), ~12 per PR | $0 — if the minutes ran out, runs stop; nothing is billed without a payment method and a spending limit above $0 |
+| GitHub repo (public since 2026-09-30) | $0 |
+| GitHub Actions CI (`KAV-24`) and `release.yml` (`KAV-61`) — GitHub-hosted runners, including the arm64 ones, are free for a public repo. It was measured when the repo was private (a run billed 6 minutes of a 2,000 minute allowance); that cap no longer applies, and the figure is kept as a record of the cost of a run | $0 |
 | Slack (ChatOps, free tier) | $0 |
 | Expo local builds | $0 — **not yet needed**, mobile deferred (ADR-0026) |
 | Gemma weights | $0 |

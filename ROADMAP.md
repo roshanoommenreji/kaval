@@ -184,8 +184,8 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] **Repo public**
 - [ ] Resume bullets written from what actually shipped
 - [ ] Jira retrospective; course outline from `docs/labs/`
-- [ ] Switch the promotion gate to GitHub Environments with required reviewers *(needs a public repo)*
-- [ ] Protect `main`: require the CI checks to pass before a pull request merges *(free once public; a written rule until then, see docs/contributing.md)*
+- [ ] Switch the promotion gate to GitHub Environments with required reviewers *(possible now: the repo is public)*
+- [x] Protect `main`: require the CI checks to pass before a pull request merges — done 2026-09-30 when the repo went public early; found enforced and the docs still saying otherwise on 2026-10-08. Gaps left: `helm`, `image executor` and `image backup` are not yet required checks, and `enforce_admins` is off
 - [ ] `docs/learn/release-engineering.md` — flip **Written from** to `experience`
 - [ ] `docs/learn/phase-8-harden-and-publish.md` — flip **Written from** to `experience`
 

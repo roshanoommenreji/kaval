@@ -1,0 +1,221 @@
+# Release, stage one: build the images once, publish them, and ask for staging to run them
+# (KAV-61, ADR-0030, building on ADR-0004 "build once, promote the artifact").
+#
+#   merged change to a service  ->  build 5 images (arm64, scanned)  ->  push to ECR as sha-<short>
+#     ->  open a pull request that points staging at that tag  ->  CI runs on it  ->  you merge
+#     ->  staging's Flux pulls the new tag the next time staging is up.
+#
+# Staging deploys the same way prod does: a tag committed to Git, pulled by Flux. CI never gets
+# credentials to a cluster. What is NOT here yet, and is the next stage of release.yml: the
+# smoke test, the "this digest passed staging" record, component version bumps and tags
+# (ADR-0013) and the generated change record. promote.yml and rollback.yml build on those.
+#
+# What this workflow is allowed to do, and why that is the whole security story:
+#   - The two jobs have different powers. `publish` can reach AWS (OIDC, push-only to ECR) but
+#     cannot write to the repository. `propose` can write a branch and open a pull request but
+#     has no AWS access at all. No job has both.
+#   - AWS accepts only a job from this repository running on `main` (infra/modules/ci-publish).
+#     A pull request, a fork or another branch is refused, so nobody can use this role by
+#     editing the workflow on a branch.
+#   - Nothing here pushes to `main`. Branch protection stays in charge: the pin goes through a
+#     pull request and the same required checks as any other change.
+#   - Every third-party action is pinned to a full commit SHA, as in ci.yml.
+
+name: release
+
+on:
+  push:
+    branches: [main]
+    # Only changes that alter an image. The pin pull request touches deploy/ only, which is
+    # not listed, so merging it can never start another release (no loop).
+    paths:
+      - "services/**"
+      - "migrations/**"
+      - "policy/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "scripts/ops/backup.sh"
+      - "scripts/ops/restore.sh"
+      - "scripts/ops/db-roles.sql"
+      - "scripts/ops/anonymise.sql"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+# No job gets any permission it does not ask for.
+permissions: {}
+
+# Two releases at once would race to publish and to open the same branch. Queue, don't cancel:
+# a half-finished publish is worse than a late one.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+  TRIVY_VERSION: "0.74.0"
+  TRIVY_SHA256: "b94ce1976bbf3c15b514b605ee88be7c6d94a29be2302847ff01cb794d47aad5" # Linux-ARM64
+
+jobs:
+  publish:
+    name: publish ${{ matrix.service }} (arm64 build, Trivy, push)
+    # Native Graviton-class runner: built on the architecture it runs on (CLAUDE.md constraint 2).
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    permissions:
+      id-token: write # to ask GitHub for the OIDC token AWS checks
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [gateway, collector, agent, executor, backup]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: tag and component version
+        id: meta
+        run: |
+          echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          v=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "services/${{ matrix.service }}/kaval_${{ matrix.service }}/__init__.py")
+          test -n "$v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          build-args: VERSION=${{ steps.meta.outputs.version }}
+          platforms: linux/arm64
+          tags: kaval/${{ matrix.service }}:release
+          load: true # into the runner's Docker, so what is scanned is exactly what is pushed
+          push: false
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      - name: image is arm64 and runs as the unprivileged user
+        run: |
+          image=kaval/${{ matrix.service }}:release
+          test "$(docker image inspect -f '{{.Architecture}}' "$image")" = arm64
+          test "$(docker run --rm --entrypoint id "$image" -u)" = 10001
+
+      - name: install Trivy (checksum-verified)
+        run: |
+          curl -fsSLo trivy.tgz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-ARM64.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tgz" | sha256sum --check --strict
+          tar -xzf trivy.tgz trivy && rm trivy.tgz
+      # A vulnerability found now, after merge, stops the publish: an image is only worth
+      # promoting if it was clean when it was built.
+      - name: Trivy scan
+        run: |
+          ./trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+            --exit-code 1 --no-progress kaval/${{ matrix.service }}:release
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          # A repository variable, not a secret and not a file in git: the ARN holds the
+          # account id. It is only an address; the trust policy is what decides who may use it.
+          role-to-assume: ${{ vars.AWS_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: release-${{ matrix.service }}-${{ github.run_id }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      # ECR tags are immutable, so a second push of the same tag is an error rather than an
+      # overwrite. A re-run for the same commit finds the image already there and reuses it.
+      - name: push (or find) the image, and read its digest back from ECR
+        id: push
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          repo="kaval/${{ matrix.service }}"
+          if aws ecr describe-images --repository-name "$repo" --image-ids "imageTag=$TAG" >/dev/null 2>&1; then
+            echo "$repo:$TAG is already published; reusing it"
+          else
+            docker tag "kaval/${{ matrix.service }}:release" "$REGISTRY/$repo:$TAG"
+            docker push "$REGISTRY/$repo:$TAG"
+          fi
+          digest=$(aws ecr describe-images --repository-name "$repo" --image-ids "imageTag=$TAG" \
+            --query 'imageDetails[0].imageDigest' --output text)
+          echo "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          mkdir -p digests
+          echo "${{ matrix.service }} $digest" > "digests/${{ matrix.service }}.txt"
+          echo "- \`${{ matrix.service }}\` \`$TAG\` \`$digest\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digest-${{ matrix.service }}
+          path: digests/${{ matrix.service }}.txt
+          if-no-files-found: error
+
+  propose:
+    name: propose the staging pin (pull request)
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Writes a branch and a pull request. No id-token, so it cannot reach AWS.
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write # to start CI on the branch, see the last step
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true # the push below uses the workflow token
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: digest-*
+          merge-multiple: true
+          path: digests
+
+      - name: point staging at the new tag
+        id: pin
+        run: |
+          tag="sha-${GITHUB_SHA::7}"
+          python3 scripts/release/pin_staging.py --tag "$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if git diff --quiet; then
+            echo "Staging already runs $tag; nothing to propose."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: open the pull request
+        if: steps.pin.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.pin.outputs.tag }}
+        run: |
+          branch="release/staging-${TAG#sha-}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "$branch already exists; leaving it for a person to look at."
+            exit 0
+          fi
+          {
+            echo "Publishes \`$TAG\` (commit ${GITHUB_SHA}) and points staging at it."
+            echo
+            echo "| image | digest in ECR |"
+            echo "|---|---|"
+            sort digests/*.txt | while read -r svc digest; do echo "| \`kaval/$svc:$TAG\` | \`$digest\` |"; done
+            echo
+            echo "Built once by \`release.yml\` and scanned before the push; ECR tags are immutable, so the tag can never point at a different image. Merge when every check is green; staging's Flux pulls it the next time staging is up (\`make staging-up\`)."
+            echo
+            echo "Prod does not move. \`promote.yml\` (not built yet) is the only way a digest reaches \`deploy/gitops/prod/\`."
+          } > body.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add deploy/gitops/staging/helmrelease.yaml deploy/environments/staging/values.yaml
+          git commit -m "chore(release): point staging at $TAG"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "chore(release): point staging at $TAG" --body-file body.md
+          # GitHub deliberately does not start CI for events made with the workflow token (so a
+          # workflow cannot trigger itself in a loop). workflow_dispatch is the exception. A
+          # dispatched run on the branch reports the same check names on the same commit, which
+          # is what the required checks look for.
+          gh workflow run ci.yml --ref "$branch"

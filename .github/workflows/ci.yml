@@ -125,7 +125,7 @@ jobs:
         # opa is always installed above, so a skip would hide a real regression instead.
         env:
           KAVAL_REQUIRE_OPA: "1"
-        run: uv run pytest services/ scripts/dev/ scripts/tracking/ evals/ infra/modules/idle-stop/lambda/ -ra
+        run: uv run pytest services/ scripts/dev/ scripts/tracking/ scripts/release/ evals/ infra/modules/idle-stop/lambda/ -ra
 
   secrets:
     name: secrets (gitleaks, full history)
@@ -134,7 +134,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0 # the whole history: the repo goes public at v1, so history must be clean
+          fetch-depth: 0 # the whole history: the repo is public, so history must be clean
           persist-credentials: false
       - name: install gitleaks (checksum-verified)
         run: |

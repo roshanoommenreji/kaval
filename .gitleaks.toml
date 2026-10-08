@@ -1,6 +1,6 @@
 # gitleaks configuration.
 #
-# This repository goes public at v1, so the HISTORY must be clean, not just the
+# This repository is public (since 2026-09-30), so the HISTORY must be clean, not just the
 # working tree. Rewriting history later is painful and easy to get wrong; the
 # cheap moment to be strict is now, at commit one.
 #

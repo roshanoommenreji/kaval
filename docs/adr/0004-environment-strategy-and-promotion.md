@@ -140,3 +140,15 @@ after each release.
 `make staging-status` shows the database state and the pods; `make staging-down` destroys everything
 and counts what is left. Still not built: seeding from a sanitised prod snapshot, and the release
 workflows.
+
+## Amendment, 2026-10-08: how the artifact is published and reaches staging (KAV-61)
+
+"Build once, promote the artifact" now has a first working half. `release.yml` builds the five
+images in CI on a merged change, scans them, and pushes them to ECR as `sha-<short>` through a
+push-only OIDC role; it then opens a pull request that points **staging** at that tag, so staging is
+deployed the way prod is (a tag in Git, pulled by Flux). Prod is not touched by it. The decision and
+its alternatives are in [ADR-0030](0030-ci-publishes-images-by-oidc-and-staging-is-pinned-by-pull-request.md).
+
+Because ECR tags are immutable, a tag and its digest are equivalent today; the digest is recorded
+beside the tag. Still not built: the smoke test, the "passed staging" record `promote.yml` will
+refuse to proceed without, `promote.yml` and `rollback.yml`.

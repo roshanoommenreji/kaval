@@ -894,7 +894,7 @@ kind = "decision"
 phase = 1
 col = 2
 row = 3
-note = "A mechanical criterion: every check green, or no merge. No human judgement is involved or wanted here. Until the repo goes public (Phase 8) GitHub Free cannot enforce it on a private repo, so it is a written rule (docs/contributing.md); after that, a required status check on main."
+note = "A mechanical criterion: every check green, or no merge. No human judgement is involved or wanted here. Enforced by branch protection on main (required status checks) since the repo went public on 2026-09-30 (docs/contributing.md); admins can bypass, enforce_admins is off."
 
 [[delivery.node]]
 id = "d-blocked"
@@ -985,7 +985,7 @@ kind = "decision"
 phase = 4
 col = 2
 row = 12
-note = "workflow_dispatch today — a deliberate manual run is the gate. Becomes GitHub Environments with required reviewers once the repo is public, since deployment protection rules are a paid feature on private repos."
+note = "workflow_dispatch today — a deliberate manual run is the gate. Can become GitHub Environments with required reviewers now that the repo is public (that feature is paid on private repos)."
 
 [[delivery.node]]
 id = "d-held"

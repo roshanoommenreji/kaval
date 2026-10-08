@@ -85,6 +85,16 @@ module "ecr" {
   source = "../../modules/ecr"
 }
 
+# What release.yml borrows to push images (KAV-61, ADR-0030): OIDC, this repo's main branch,
+# push-only on the ECR repositories above.
+module "ci_publish" {
+  source = "../../modules/ci-publish"
+
+  name_prefix         = "kaval"
+  github_repo         = "roshanoommenreji/kaval"
+  ecr_repository_arns = module.ecr.repository_arns
+}
+
 module "iam" {
   source = "../../modules/iam"
 

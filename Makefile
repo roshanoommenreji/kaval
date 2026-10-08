@@ -66,13 +66,13 @@ bench: ## Measure the local model shortlist on the dev server (KAV-22, ~20 min)
 
 .PHONY: test
 test: ## Unit tests + policy tests
-	pytest services/ scripts/dev/ scripts/tracking/ evals/ infra/modules/idle-stop/lambda/ -q
+	pytest services/ scripts/dev/ scripts/tracking/ scripts/release/ evals/ infra/modules/idle-stop/lambda/ -q
 	@command -v opa >/dev/null 2>&1 && opa test policy/ -v || echo "opa not installed — skipping policy tests"
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check infra/modules/idle-stop/lambda services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
-	mypy infra/modules/idle-stop/lambda/idle_stop.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
+	ruff check infra/modules/idle-stop/lambda scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
+	mypy infra/modules/idle-stop/lambda/idle_stop.py scripts/release/pin_staging.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
 
 .PHONY: lock
 lock: ## Re-resolve uv.lock after editing pyproject.toml's dependencies (then commit both)
