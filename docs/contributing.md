@@ -58,6 +58,14 @@ and "branch must be up to date". Two honest limits: administrators can still byp
 (`enforce_admins` is off), and `helm`, `image executor` and `image backup` are not yet required
 checks. `release.yml`'s staging-pin pull request goes through the same protection like any other.
 
+Because the repository is public, three more settings matter (set 2026-10-08, `KAV-61`):
+**secret scanning** and **push protection** are on (GitHub refuses a push that contains a
+recognisable credential, before it can reach history, which is permanent); and workflow runs from
+**every outside contributor** need a person's approval first (`all_external_contributors`, not just
+first-time ones). They sit on top of the local pre-commit scan and CI's full-history gitleaks job. Not
+done: restricting which third-party actions workflows may use (they are already pinned to commit SHAs),
+and `enforce_admins`, so the owner's account stays the weak point: keep GitHub 2FA on.
+
 ### What there is deliberately no branch for
 
 - **No `staging` or `prod` branch.** [ADR-0004](adr/0004-environment-strategy-and-promotion.md)
