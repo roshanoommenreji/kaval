@@ -66,7 +66,7 @@ indefinitely and resumes without loss.
 | `t4g.medium` **On-Demand**, 730 hrs at $0.0224/hr ([ADR-0028](../adr/0028-prod-app-node-on-demand-and-ceiling-50.md), 2026-10-08). Was Spot at $0.0103–0.0109/hr (~$7.80/mo, verified live 2026-10-02, `KAV-50`) until Spot capacity ran out in every AZ on 2026-10-06 and 2026-10-08; `spot = true` brings the saving back | 16.35 |
 | EBS gp3, 20 GB | 1.82 |
 | Public IPv4 ($0.005/hr) | 3.65 |
-| ECR storage, four repos (`KAV-50`) | 0.20 |
+| ECR storage, five repos (`KAV-50`, `KAV-61`). Measured 2026-10-08: 878 MB across two image sets, about $0.09 at $0.10/GB. **It grows:** each release adds roughly 0.45 GB (about $0.045/month) and the lifecycle rule keeps tagged `sha-*` images forever (they are the audit trail), so 30 releases is about +$1.35/month. A retention rule (keep the newest N plus whatever staging and prod run) is an open item before releases get frequent | 0.20 |
 | S3 backups | 0.05 |
 | CloudWatch logs (trimmed) | 0.50 |
 | Bedrock escalations (light use) — Claude Haiku 4.5, cross-region tier, verified 2026-09-30 against the AWS Price List API at $1.00 / $5.00 per 1M input/output tokens ([ADR-0019](../adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md)); occasional escalations at that rate land well under this figure | 1.50 |

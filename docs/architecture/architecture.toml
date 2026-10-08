@@ -330,10 +330,10 @@ kind = "platform"
 phase = 4
 col = 2
 row = 8
-credentials = "IAM-authenticated pull"
-inputs = ["arm64 images, built once and tagged by commit SHA"]
+credentials = "IAM-authenticated pull by the node; push only by the kaval-ci-publish role, which GitHub Actions assumes by OIDC (this repo, main branch only)"
+inputs = ["arm64 images, built once and tagged by commit SHA, pushed by release.yml (KAV-61, ADR-0030)"]
 outputs = ["Images pulled by the node"]
-note = "First 500 MB free. Four repos live since KAV-50: kaval/gateway, kaval/agent, kaval/executor, kaval/collector, immutable tags. First real images pushed KAV-51 — a one-time manual bootstrap (release.yml, still unbuilt, automates this later); the node pulls them using a registry/credential pair its own cloud-init refreshes from its IAM role, never committed (ADR-0025)."
+note = "First 500 MB free. Five repos: kaval/gateway, kaval/agent, kaval/executor, kaval/collector (live since KAV-50) and kaval/backup (added KAV-61), immutable tags. The first images were pushed by hand in KAV-51; since KAV-61 release.yml publishes every image from CI through a push-only OIDC role (no stored key; the trust condition is the repo's immutable subject on main). The node pulls them using a registry/credential pair its own cloud-init refreshes from its IAM role, never committed (ADR-0025)."
 
 [[system.node]]
 id = "s3"
@@ -921,8 +921,8 @@ kind = "service"
 phase = 4
 col = 2
 row = 5
-outputs = ["One arm64 image, tagged sha-<short>, referenced by digest"]
-note = "BUILD ONCE. A rebuild from the same commit can differ — base images move, dependencies resolve differently — so a rebuild is a different artifact, and staging then tested something else."
+outputs = ["Five arm64 images, tagged sha-<short>; the digest is read back from ECR and recorded beside the tag"]
+note = "Built in release.yml (KAV-61, ADR-0030): scanned, then pushed through a push-only OIDC role; the publishing job has no repo write access and the proposing job has no AWS access. BUILD ONCE. A rebuild from the same commit can differ — base images move, dependencies resolve differently — so a rebuild is a different artifact, and staging then tested something else."
 
 [[delivery.node]]
 id = "d-sign"
@@ -949,7 +949,7 @@ kind = "target"
 phase = 4
 col = 2
 row = 8
-note = "Exact parity with prod: same instance type, same 4 GB, same local model. That matters because memory pressure is this project's binding constraint, and a smaller staging node would miss precisely that."
+note = "Staging deploys the way prod does: release.yml opens a pull request that changes the image tag under deploy/gitops/staging/ and Flux pulls it (built, KAV-61). Exact parity with prod: same instance type, same 4 GB, same local model. That matters because memory pressure is this project's binding constraint, and a smaller staging node would miss precisely that."
 
 [[delivery.node]]
 id = "d-smoke"
