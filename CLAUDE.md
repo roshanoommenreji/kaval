@@ -184,6 +184,7 @@ make db-health-check     # run the database's start-up health check by hand (pg_
 make db-restore-snapshot # restore the database's data volume from an EBS snapshot (SNAPSHOT=<id>, else newest)
 make staging-up      # build or resume staging, wait for its pods (~5 min, ~$0.045/hr); it parks itself after 4 idle hours
 make staging-status  # database state and pods, read over Session Manager
+make staging-smoke   # smoke-test the tag staging runs (digest vs ECR, pods, database, API); a pass is recorded in deploy/promotion/passed-staging.json
 make staging-down    # destroy staging completely, data volume included
 make docs-sync     # regenerate dashboard + republish Confluence
 make jira EPIC=KAV-6   # an epic's stories and status

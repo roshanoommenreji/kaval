@@ -178,6 +178,9 @@ four idle hours (a Lambda scales the node to zero and stops the database server;
 Measured 2026-10-08 (`KAV-57`, Lab 29): about $0.045/hour while up, and 48 resources apply in 71
 seconds. Staging is On-Demand because the Spot shortage that stalled Lab 28 hit it too.
 
+First real use (`KAV-62`, Lab 33, 2026-10-08): one build, the smoke test and a deliberate-fail run, then
+`make staging-down`, under an hour, so about $0.05 at that rate.
+
 **Parked is not free.** After the idle stop the node is gone, but the database server keeps its 8 GB
 root disk and 10 GB data volume: 18 GB × $0.0912/GB-month (gp3, Mumbai, Price List API, 2026-10-08) =
 **~$1.64/month**, plus a few cents of pre-stop snapshot. That is the cost of parking over destroying

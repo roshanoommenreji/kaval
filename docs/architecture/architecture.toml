@@ -958,7 +958,7 @@ kind = "decision"
 phase = 4
 col = 2
 row = 9
-note = "Does the loop actually work on a real cluster, and does OPA still refuse every never-class action?"
+note = "Does the loop actually work on a real cluster, and does OPA still refuse every never-class action? Built in part (KAV-62, ADR-0031): make staging-smoke checks pods, no crash loop, the running digest against ECR, the gateway database and migration revision, and the REST reads, then records the pass in deploy/promotion/passed-staging.json. Not yet covered: the model and agent diagnosis (no model is deployed anywhere), and OPA never-class refusal on a real cluster."
 
 [[delivery.node]]
 id = "d-stgfail"

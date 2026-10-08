@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "passes": [
+    {
+      "tag": "sha-2459417",
+      "commit": "24594177dfc5a3cb8ccde837bf1b9b01c5d04a1b",
+      "passed_at": "2026-10-08T17:27:51Z",
+      "images": {
+        "agent": "sha256:022d990451084ce160c43105b4acb475cca0410ef58a205f35c261c788a3d0d5",
+        "collector": "sha256:fa98daeb58124532967feb06be9bcb11734abc2079e7b2c2aa4308ccb7301a98",
+        "executor": "sha256:c98df63911ec86c283c36aee75335cc8bed112bd79a52e8a7dd89c3c33eab924",
+        "gateway": "sha256:e0daaa1574cee26da17090166cbfde5fc5414bc14b8ee4049dcbc114035a4820"
+      },
+      "published_not_exercised": {
+        "backup": "sha256:80e82f26e99ac8763eb8076d0838e2ebedbbf11cace825c62f0202e68a51ceb7"
+      },
+      "checks": [
+        {
+          "name": "pods running and ready",
+          "detail": "4 running"
+        },
+        {
+          "name": "no crash loop",
+          "detail": "kaval-staging-agent-57bd79469f-z92xn restarted 1x (within the first-boot tolerance of 2)"
+        },
+        {
+          "name": "every service runs sha-2459417",
+          "detail": "ok"
+        },
+        {
+          "name": "running digest equals the ECR digest",
+          "detail": "all four match"
+        },
+        {
+          "name": "gateway reaches the database, migrated",
+          "detail": "migrated to a1c4f9b0e3d2"
+        },
+        {
+          "name": "GET /v1/incidents?limit=1",
+          "detail": "HTTP 200"
+        },
+        {
+          "name": "GET /v1/signals?limit=1",
+          "detail": "HTTP 200"
+        }
+      ],
+      "not_covered": [
+        "Ollama and the model: no environment deploys one yet, so /healthz's ollama check is expected to fail and is not gated on",
+        "agent diagnosis and proposals: they need the model",
+        "the backup image: published, not deployed to staging",
+        "Slack approval: staging has no Slack app of its own"
+      ]
+    }
+  ]
+}

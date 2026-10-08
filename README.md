@@ -105,7 +105,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | [evals/](evals/) | LLM eval harness and golden incident set |
 | [scripts/ops/](scripts/ops/) | Operating AWS and the database — backup, restore, anonymise, cost report |
 | [scripts/tracking/](scripts/tracking/) | Keeping Jira, Confluence and the dashboard in step with the repo |
-| [scripts/release/](scripts/release/) | Moving a build between environments — the staging image pin that `release.yml` uses |
+| [scripts/release/](scripts/release/) | Moving a build between environments — the staging image pin that `release.yml` uses, and the staging smoke test that records a pass |
 | [scripts/dev/](scripts/dev/) | Local setup — Git hooks, new-lab scaffolding |
 | [.github/workflows/](.github/workflows/) | CI and release pipelines |
 | [CLAUDE.md](CLAUDE.md), [.claude/](.claude/) | How Claude Code works in this repo |
