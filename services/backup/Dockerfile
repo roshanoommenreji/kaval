@@ -16,9 +16,14 @@ FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637
 # digest was pinned; folded into this same apt-get since it's the only one in this image.
 # perl-base/libperl5.36: same pattern, for CVE-2026-13221 (CRITICAL) plus several
 # perl-Archive-Tar/IO-Compress/Storable CVEs Debian fixed in the same 5.36.0-7+deb12u4 update.
+# python3.11 and its three library packages come in with awscli. Debian fixed five HIGH CVEs in
+# 3.11.2-6+deb12u9 on 2026-10-08 while CI's layer cache still held an apt result with deb12u8.
+# Naming them on the install line changes this instruction, which forces a fresh apt-get, and
+# says out loud which packages matter if this happens again.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 perl-base libperl5.36 \
  && apt-get install -y --no-install-recommends postgresql-client awscli \
+      python3.11 python3.11-minimal libpython3.11-minimal libpython3.11-stdlib \
  && rm -rf /var/lib/apt/lists/*
 
 # Same CVE the gateway image hit first (CVE-2026-23949, HIGH): the base image's bundled
