@@ -18,7 +18,7 @@ Four things, in this order:
 
 1. A repository with a documentation structure that makes writing docs a merge gate rather than an act of willpower
 2. A dedicated AWS identity with MFA and a named CLI profile
-3. Budget guardrails in Terraform — alarms at $18 and $22, an automatic shutdown at $24 (raised to $30, $35 and $38 with the $40 ceiling in [ADR-0008](../adr/0008-production-database-on-its-own-server.md))
+3. Budget guardrails in Terraform — alarms at $18 and $22, an automatic shutdown at $24 (raised to $30, $35 and $38 with the $40 ceiling in [ADR-0008](../adr/0008-production-database-on-its-own-server.md), then to $42, $46 and $48 with the $50 ceiling in [ADR-0028](../adr/0028-prod-app-node-on-demand-and-ceiling-50.md))
 4. Proof that the shutdown actually fires
 
 The ordering is the interesting part, and it is the subject of most of this page.
@@ -93,7 +93,7 @@ is not learning security; it is learning frustration.
 
 The honest approach is a broad policy now, a **documented commitment** to narrow it in Phase 8,
 and no pretence in between. What makes this legitimate rather than lazy is that it is written
-down, scheduled, and scoped to a personal account with a $40 ceiling.
+down, scheduled, and scoped to a personal account with a $50 ceiling.
 
 What would *not* be legitimate is granting `AdministratorAccess` to the `executor` service. That
 component runs unattended and acts on model output. It gets exactly the permissions it needs and
@@ -104,7 +104,7 @@ identity used autonomously — and it is worth being able to articulate that dif
 
 Two different services solving two different problems.
 
-**AWS Budgets** compares spend against a number you chose. It answers "am I over $40?" It is
+**AWS Budgets** compares spend against a number you chose. It answers "am I over $50?" It is
 threshold-based, predictable, and free for the first two budgets. It is what you want for a hard
 ceiling.
 
@@ -143,7 +143,7 @@ through it.** Not until it is configured. Not until it applied cleanly. Until a 
 Lambda runs a function in response to an event and bills per invocation and per
 gigabyte-second. There is no server to keep alive, so an idle Lambda costs nothing.
 
-That property is what makes the hard stop viable inside a $40 budget. A polling process checking
+That property is what makes the hard stop viable inside a $50 budget. A polling process checking
 spend every five minutes would need somewhere to run. A Lambda subscribed to an SNS topic costs
 nothing until the day it is needed, then costs a fraction of a cent.
 

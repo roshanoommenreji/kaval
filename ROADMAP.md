@@ -20,7 +20,7 @@ Guardrails before anything that can cost money.
 - [x] ADR-0001 record decisions · ADR-0002 k3s + EKS · ADR-0003 region
 - [x] `.gitignore`, `.gitattributes`, `.env.example`, gitleaks pre-commit hook
 - [x] `git init` + first commit
-- [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24, applied 2026-09-15 (now $30/$35/$38 with the $40 ceiling, ADR-0008)
+- [x] `infra/modules/budget` — alerts at $18/$22, hard-stop Lambda at $24, applied 2026-09-15 (now $42/$46/$48 with the $50 ceiling, ADR-0008 then ADR-0028)
 - [x] Progress dashboard — `scripts/tracking/dashboard.py`, derived from this file
 - [x] Learning layer — a concept page per phase in `docs/learn/`
 - [x] Architecture diagrams — `docs/architecture/architecture.toml`, system + journey + delivery views

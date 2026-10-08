@@ -215,7 +215,7 @@ nothing." **A portfolio project that quietly bills forever is an anti-credential
 **"You mention both k3s and EKS. Why both?"**
 
 > "The system's permanent home is k3s on a single spot instance, because an always-on EKS control
-> plane is $73 a month before nodes and my ceiling for the whole project was $40 a month. EKS is an
+> plane is $73 a month before nodes and my ceiling for the whole project was $50 a month. EKS is an
 > ephemeral chapter — Terraform up, deploy the identical Helm chart with only a different values
 > file, exercise the things k3s genuinely can't teach, then destroy it the same day. The
 > interesting one is IRSA: the executor needs AWS write permissions, and static keys in a Secret

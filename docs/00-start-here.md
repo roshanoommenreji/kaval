@@ -48,8 +48,8 @@ evidence it took before I let it."*
 
 ### 3. Cost is a first-class constraint
 
-The ceiling is **$40/month** (raised from $25 when the database got its own server,
-[ADR-0008](adr/0008-production-database-on-its-own-server.md)), and the guardrails that enforce it were the first thing built —
+The ceiling is **$50/month** (raised from $25 to $40 when the database got its own server,
+[ADR-0008](adr/0008-production-database-on-its-own-server.md), then to $50 when the app node went On-Demand, [ADR-0028](adr/0028-prod-app-node-on-demand-and-ceiling-50.md)), and the guardrails that enforce it were the first thing built —
 before any compute existed. The architecture avoids NAT Gateway ($32/mo), Application Load
 Balancer ($18/mo), and a persistent EKS control plane ($73/mo) deliberately, not accidentally.
 

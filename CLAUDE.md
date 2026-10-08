@@ -22,10 +22,12 @@ The full plan lives outside this repo, in Roshan's local Claude Code plan files.
 
 ## Non-negotiable constraints
 
-### 1. Cost ceiling is $40/month
+### 1. Cost ceiling is $50/month
 
-Raised from $25 on 2026-09-26 by [ADR-0008](docs/adr/0008-production-database-on-its-own-server.md)
-(the production database moved to its own server). Alerts at $30 / $35, hard stop at $38.
+Raised from $25 to $40 on 2026-09-26 by [ADR-0008](docs/adr/0008-production-database-on-its-own-server.md)
+(the production database moved to its own server), then to $50 on 2026-10-08 by
+[ADR-0028](docs/adr/0028-prod-app-node-on-demand-and-ceiling-50.md) (the app node went On-Demand
+after Spot capacity ran out twice). Alerts at $42 / $46, hard stop at $48.
 
 Before proposing *any* AWS resource, state its monthly cost. If a change adds recurring spend,
 say so explicitly and update `docs/cost/budget-plan.md`.

@@ -58,7 +58,7 @@ module "budget" {
   asg_name          = "kaval-prod"
   hard_stop_dry_run = false
 
-  # Armed 2026-09-26 (KAV-30): at the hard-stop threshold ($38 since ADR-0008) the Lambda stops every running Project=kaval
+  # Armed 2026-09-26 (KAV-30): at the hard-stop threshold ($48 since ADR-0028) the Lambda stops every running Project=kaval
   # instance outside an ASG -- today, the dev server (ADR-0007); from Phase 4 also the
   # database server (ADR-0008). Stop, not terminate.
   stop_tagged_instances = true
@@ -117,10 +117,10 @@ module "node" {
   instance_profile_name = module.iam.instance_profile_name
   ssh_public_key        = var.ssh_public_key
   desired_capacity      = var.app_node_desired_capacity
-  # instance_type, disk_gb, k3s_version, k3s_sha256_arm64, spot all keep their module
-  # defaults (t4g.medium, Spot) -- reverted 2026-10-06 after the make up/down drill (Lab 28)
-  # finished. Was temporarily t4g.large + spot=false (On-Demand) for a few hours that day,
-  # while t4g.medium/t4g.large Spot capacity was unavailable anywhere in ap-south-1.
+  # instance_type, disk_gb, k3s_version, k3s_sha256_arm64 and spot keep their module defaults
+  # (t4g.medium, On-Demand). On-Demand became the default on 2026-10-08 (ADR-0028): Spot
+  # t4g.medium/large had no capacity anywhere in ap-south-1 on 2026-10-06 and 2026-10-08, and
+  # the ~$8.55/month always-on premium was accepted along with a raised cost ceiling.
   # database_private_ip is NOT wired here: module.database already takes this node's own
   # security group ID as an input, so a Terraform-time dependency the other way round would
   # cycle. The bootstrap script looks the database instance up by its Role=database tag at

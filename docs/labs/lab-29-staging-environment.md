@@ -97,6 +97,11 @@ Even then `/healthz` returned `{"postgres":{"ok":false,"detail":"ProgrammingErro
 `scripts/ops/db-roles.sql` now grants all three, read-only. This is a latent bug on prod too,
 hidden because `/healthz` also returns 503 there for want of a served model.
 
+Verified live after the fix merged (the node fetches `db-roles.sql` from `main`; running its bootstrap
+service is what its 6-hour timer does): `/healthz` now reports `"postgres":{"ok":true,"detail":"migrated to 8f3b1c6a2d94"}`
+and `/v1/signals` returns 200. The overall status stays `degraded` (503) because the `ollama`
+check fails: nothing on AWS serves a model yet.
+
 ## 7. Verify (read-only, over SSM)
 
 ```
