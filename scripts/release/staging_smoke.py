@@ -47,6 +47,12 @@ NAMESPACE = "kaval-staging"
 SERVICES = ("gateway", "agent", "executor", "collector")
 NOT_EXERCISED = ("backup",)
 
+# A fresh staging has an empty database. The migration job creates the schema first and only then
+# does the node set each service's role password (KAV-56), so a service that connects before that
+# is refused and restarts. That is the designed first-boot sequence, not a fault, so a couple of
+# restarts are tolerated and recorded. A real crash loop keeps counting past this.
+MAX_RESTARTS = 2
+
 # What a green smoke test still says nothing about. Written into every record so nobody reads
 # "passed staging" as more than it is.
 NOT_COVERED = (
@@ -70,7 +76,7 @@ K=/usr/local/bin/kubectl
 NS=%(ns)s
 echo '##pods'
 $K get pods -n $NS -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\t"}{range .status.containerStatuses[*]}{.image}{"\t"}{.imageID}{"\t"}{.ready}{"\t"}{.restartCount}{"\t"}{end}{"\n"}{end}'
-gw=$($K get svc -n $NS -l app.kubernetes.io/component=gateway -o jsonpath='{.items[0].spec.clusterIP}:{.items[0].spec.ports[0].port}')
+gw=$($K get svc -n $NS -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.clusterIP}:{.spec.ports[0].port}{"\n"}{end}' | awk '$1 ~ /-gateway$/ {print $2; exit}')
 echo '##healthz'
 curl -s -m 10 -w '\n%%{http_code}\n' "http://$gw/healthz"
 for p in '/v1/incidents?limit=1' '/v1/signals?limit=1'; do
@@ -146,6 +152,10 @@ def alembic_head(revisions: dict[str, str | None]) -> str | None:
     return heads[0] if len(heads) == 1 else None
 
 
+def _restart_counts(pods: list[dict[str, Any]]) -> list[int]:
+    return [c["restarts"] for p in pods for c in p["containers"] if c["restarts"] != 0]
+
+
 def evaluate(
     observed: dict[str, Any], tag: str, digests: dict[str, str], expected_head: str | None
 ) -> list[Check]:
@@ -175,7 +185,11 @@ def evaluate(
         for c in p["containers"]
         if c["restarts"] != 0
     ]
-    checks.append(Check("no restarts", not restarts, "; ".join(restarts) or "0 restarts"))
+    too_many = [r for r, c in zip(restarts, _restart_counts(pods), strict=True) if c > MAX_RESTARTS]
+    note = "; ".join(restarts) or "0 restarts"
+    if restarts and not too_many:
+        note += f" (within the first-boot tolerance of {MAX_RESTARTS})"
+    checks.append(Check("no crash loop", not too_many, note))
 
     # 2 + 3. which tag, and which bytes
     seen_tag: dict[str, set[str]] = {s: set() for s in SERVICES}
@@ -367,7 +381,12 @@ def main(argv: list[str] | None = None) -> int:
         if not TAG_RE.match(tag):
             raise RuntimeError(f"not a release tag: {tag!r}")
         digests = {s: ecr_digest(s, tag) for s in SERVICES}
-        other = {s: ecr_digest(s, tag) for s in NOT_EXERCISED}
+        other = {}
+        for svc in NOT_EXERCISED:
+            try:
+                other[svc] = ecr_digest(svc, tag)
+            except RuntimeError:
+                print(f"note: kaval/{svc}:{tag} is not in ECR (a build from before it existed)")
         commit = git("rev-parse", "--verify", f"{tag[4:]}^{{commit}}").strip() or None
         head = commit_head(commit) if commit else None
         print(

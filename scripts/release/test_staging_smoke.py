@@ -90,10 +90,25 @@ def test_a_missing_service_fails() -> None:
     assert "running digest equals the ECR digest" in bad
 
 
-def test_not_ready_and_restarts_fail() -> None:
+def test_not_ready_fails() -> None:
     pods = good_pods()
-    pods[2] = pod_line("kaval-staging-executor-abc", "executor", ready="false", restarts=2)
-    assert failed(run(output(pods))) == ["pods running and ready", "no restarts"]
+    pods[2] = pod_line("kaval-staging-executor-abc", "executor", ready="false")
+    assert failed(run(output(pods))) == ["pods running and ready"]
+
+
+def test_one_first_boot_restart_passes_but_is_written_down() -> None:
+    pods = good_pods()
+    pods[1] = pod_line("kaval-staging-agent-abc", "agent", restarts=1)
+    checks = run(output(pods))
+    assert failed(checks) == []
+    detail = next(c.detail for c in checks if c.name == "no crash loop")
+    assert "agent-abc restarted 1x" in detail
+
+
+def test_a_crash_loop_fails() -> None:
+    pods = good_pods()
+    pods[1] = pod_line("kaval-staging-agent-abc", "agent", restarts=s.MAX_RESTARTS + 1)
+    assert failed(run(output(pods))) == ["no crash loop"]
 
 
 def test_database_unreachable_fails() -> None:
@@ -149,3 +164,10 @@ def test_has_passed_needs_every_digest_to_match() -> None:
     assert s.has_passed(text, D)
     assert not s.has_passed(text, {**D, "agent": "sha256:" + "f" * 64})
     assert not s.has_passed(text, {})
+
+
+def test_the_remote_script_has_no_stray_newline_inside_a_jsonpath() -> None:
+    # A literal newline inside a quoted jsonpath splits the shell line and the lookup silently
+    # returns nothing (found live: the gateway address came back empty).
+    for line in (s.REMOTE % {"ns": "kaval-staging"}).splitlines():
+        assert line.count("'") % 2 == 0, line

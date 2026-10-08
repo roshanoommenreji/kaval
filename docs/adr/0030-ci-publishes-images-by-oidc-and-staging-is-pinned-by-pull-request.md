@@ -154,8 +154,8 @@ together with it.
   `main` has had branch protection with required checks since then, but `CLAUDE.md`, `contributing.md`,
   the README, the budget plan and several ADRs still said "private until v1" and "a written rule, not
   enforced". All corrected in the same change. Two gaps in the protection are recorded rather than
-  changed silently: `helm`, `image executor` and `image backup` are not required checks, and
-  `enforce_admins` is off.
+  changed silently: `helm`, `image executor` and `image backup` were not required checks (added on
+  2026-10-08, `KAV-62`; all ten are required now), and `enforce_admins` is off.
 - Asked whether a public repo is safe, I checked rather than assumed: no AWS account id, key or ARN in
   any tracked file or in all history (only `000000000000` test data and AWS's published example key),
   commits use noreply addresses. It found two open settings, fixed the same day: GitHub secret scanning

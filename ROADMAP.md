@@ -122,7 +122,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [x] `make staging-up` / `staging-status` / `staging-down`, and staging **parks itself** after 4 idle hours (an idle-stop Lambda scales the node to zero and stops the database; it parks rather than destroys, so a parked staging costs ~$1.64/month until `staging-down`). Whole cycle proven live: build, idle park, resume in 282 s, destroy in 206 s ([ADR-0029](docs/adr/0029-staging-parks-itself-when-idle.md), `KAV-59`, Lab 30)
 - [~] `release.yml` — build once, push by digest, deploy staging, smoke test, release notes; component versions bumped from the commits touching each component and tagged `<svc>-vX.Y.Z`, the product release `vX.Y.Z` named with its components' versions (ADR-0011, ADR-0013)
   - [x] **Stage one, live:** five arm64 images built once, Trivy-scanned and pushed to ECR as `sha-<short>` through a push-only OIDC role (this repo, `main` only, no stored key); a pull request pins staging to the tag (Flux pulls it, as in prod). 1 min 47 s end to end; the backup image's scan caught 20 new HIGH CVEs before publishing; the first run was refused over GitHub's immutable `sub` claim and fixed from CloudTrail ([ADR-0030](docs/adr/0030-ci-publishes-images-by-oidc-and-staging-is-pinned-by-pull-request.md), `KAV-61`, Lab 32)
-  - [ ] Smoke test on staging and the "this digest passed staging" record (what `promote.yml` will check)
+  - [x] **Stage two, live:** `make staging-smoke` checks a running staging read-only (pods, no crash loop, tag, **running digest equals ECR's**, database + migration revision, REST reads) and records the pass in `deploy/promotion/passed-staging.json`; `sha-2459417` passed, and a wrong expectation failed on three counts ([ADR-0031](docs/adr/0031-staging-smoke-test-and-the-passed-staging-record.md), `KAV-62`, Lab 33). Run by hand, not by CI (that needs a second AWS role). Not covered: the model, and the backup image, which staging does not deploy. **Open for `promote.yml`:** how to treat a digest that could not be tested on staging (backup)
   - [ ] Component version bumps, `<svc>-vX.Y.Z` tags and the product release name
   - [ ] An ECR retention rule (tagged images are kept forever and each release adds ~0.45 GB)
 - [ ] `promote.yml` — the gate. **Refuses a digest that did not pass staging**, and a release with a `uat` story not yet signed off (ADR-0012)
@@ -189,7 +189,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Resume bullets written from what actually shipped
 - [ ] Jira retrospective; course outline from `docs/labs/`
 - [ ] Switch the promotion gate to GitHub Environments with required reviewers *(possible now: the repo is public)*
-- [x] Protect `main`: require the CI checks to pass before a pull request merges — done 2026-09-30 when the repo went public early; found enforced and the docs still saying otherwise on 2026-10-08. Gaps left: `helm`, `image executor` and `image backup` are not yet required checks, and `enforce_admins` is off
+- [x] Protect `main`: require the CI checks to pass before a pull request merges — done 2026-09-30 when the repo went public early; found enforced and the docs still saying otherwise on 2026-10-08. All ten CI checks are required (`helm`, `image executor`, `image backup` added 2026-10-08, `KAV-62`); `enforce_admins` stays off
 - [ ] `docs/learn/release-engineering.md` — flip **Written from** to `experience`
 - [ ] `docs/learn/phase-8-harden-and-publish.md` — flip **Written from** to `experience`
 

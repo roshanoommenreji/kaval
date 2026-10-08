@@ -150,5 +150,13 @@ deployed the way prod is (a tag in Git, pulled by Flux). Prod is not touched by 
 its alternatives are in [ADR-0030](0030-ci-publishes-images-by-oidc-and-staging-is-pinned-by-pull-request.md).
 
 Because ECR tags are immutable, a tag and its digest are equivalent today; the digest is recorded
-beside the tag. Still not built: the smoke test, the "passed staging" record `promote.yml` will
-refuse to proceed without, `promote.yml` and `rollback.yml`.
+beside the tag. Still not built: `promote.yml` and `rollback.yml`.
+
+## Amendment, 2026-10-08: the smoke test and the passed-staging record (KAV-62)
+
+The other half of the gate now exists. `make staging-smoke` checks a running staging read-only (pods, no
+crash loop, the tag, **the running digest against ECR**, the gateway's database and migration revision,
+the REST reads) and, on a pass, appends the digests to `deploy/promotion/passed-staging.json`, committed
+by pull request. `promote.yml` will refuse any digest not in that file. It was proven live, including a
+deliberate failure. Decision, alternatives and limits (the record is review-protected, not signed; the
+model is not covered) are in [ADR-0031](0031-staging-smoke-test-and-the-passed-staging-record.md).
