@@ -1,0 +1,123 @@
+# Promote: the gate between staging and prod (KAV-63, ADR-0032, building on ADR-0004 and ADR-0031).
+#
+#   you run it with a tag  ->  gate: is it on the passed-staging record, do ECR's digests still
+#   match, is it newer than prod, is every `uat` story in it signed off?  ->  propose: a pull
+#   request that points prod's two files at that tag  ->  CI runs on it  ->  you merge.
+#
+# Merging that pull request is the go/no-go. Nothing here touches the cluster: prod is a Flux
+# cluster that pulls what is on `main`, and this workflow has no credentials to reach it.
+#
+# This is the only workflow that writes deploy/gitops/prod/ and deploy/environments/prod/. The
+# `promotion-guard` job in ci.yml is what makes that true of everyone else: a pull request that
+# changes prod's image tags to anything not already on the record fails a required check.
+#
+# The two jobs have different powers, as in release.yml, and no job has both:
+#   - `gate` can reach AWS (read-only calls: it describes four images) and Jira (read-only), and
+#     cannot write to the repository.
+#   - `propose` can write a branch and open a pull request, and has no AWS or Jira access.
+#   - AWS accepts only a job from this repository running on `main` (infra/modules/ci-publish), so
+#     the workflow must be dispatched from `main`; a branch cannot borrow the role.
+#   - Every third-party action is pinned to a full commit SHA, as in ci.yml.
+
+name: promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag that passed staging, e.g. sha-2459417"
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  gate:
+    name: gate (record, ECR digests, direction, uat sign-off)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      id-token: write # to ask GitHub for the OIDC token AWS checks
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history: the stories in a release are the commits between prod's and the tag's.
+          fetch-depth: 0
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          # The same role release.yml publishes with. This job only describes images; the role's
+          # trust policy (this repository, main) is what lets it in.
+          role-to-assume: ${{ vars.AWS_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: promote-${{ github.run_id }}
+      - name: verify
+        shell: bash # pipefail, so a refusal still fails the job after tee
+        env:
+          # A workflow input is user input: it goes through the environment, never into the script.
+          TAG: ${{ inputs.tag }}
+          JIRA_SITE_URL: ${{ secrets.JIRA_SITE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          mkdir -p evidence
+          python3 scripts/release/promote.py verify --tag "$TAG" | tee evidence/verify.txt
+          { echo '```'; cat evidence/verify.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verify
+          path: evidence/verify.txt
+          if-no-files-found: error
+
+  propose:
+    name: propose the prod pin (pull request)
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Writes a branch and a pull request. No id-token, so it cannot reach AWS.
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true # the push below uses the workflow token
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: verify
+          path: evidence
+
+      - name: point prod at the tag
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # `pin` checks the record again on its own, so this job does not trust the one before it.
+          python3 scripts/release/promote.py pin --tag "$TAG"
+          if git diff --quiet; then
+            echo "Prod already runs $TAG; nothing to propose."
+            exit 0
+          fi
+          branch="release/prod-${TAG#sha-}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "$branch already exists; leaving it for a person to look at."
+            exit 0
+          fi
+          python3 scripts/release/promote.py body --tag "$TAG" --evidence evidence/verify.txt > body.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add deploy/gitops/prod/helmrelease.yaml deploy/environments/prod/values.yaml
+          git commit -m "chore(release): promote $TAG to prod"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "chore(release): promote $TAG to prod" --body-file body.md

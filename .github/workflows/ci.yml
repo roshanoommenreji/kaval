@@ -144,6 +144,24 @@ jobs:
           tar -xzf gitleaks.tgz gitleaks && rm gitleaks.tgz
       - run: ./gitleaks git --config .gitleaks.toml --redact --no-banner .
 
+  # Nothing reaches prod without passing staging (ADR-0004, ADR-0032). promote.yml is the way in;
+  # this is what stops a hand edit from being another one. It reads the record as it stands on
+  # the branch the change merges into, so a pull request cannot add its own proof.
+  promotion-guard:
+    name: promotion guard (prod tags move only to a tag that passed staging)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the base commit's copy of the files and the record
+          persist-credentials: false
+      - name: prod image tags
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/release/promote.py guard --base "$BASE_SHA"
+
   terraform:
     name: terraform (fmt + validate)
     runs-on: ubuntu-24.04
