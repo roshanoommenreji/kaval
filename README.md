@@ -118,6 +118,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | Dashboard | `scripts/tracking/dashboard.py` + `scripts/tracking/dashboard.toml` + `docs/architecture/architecture.toml` | `make dashboard` |
 | AWS | `infra/` (Terraform) · `scripts/ops/cost-report.sh` | `make plan` · `make cost-report` |
 | Dev server | `infra/envs/dev` + `infra/modules/devbox` | `make devbox-up` · `devbox-ssh` · `devbox-down` |
+| Staging | `infra/envs/staging` + `infra/modules/idle-stop` + `scripts/ops/staging.sh` | `make staging-up` · `staging-status` · `staging-down` |
 | Database | `services/shared/kaval_shared/models.py` · `migrations/` · `scripts/ops/` | `make migrate` · `make backup` |
 | Secrets scanning | `.gitleaks.toml` · `scripts/dev/install-hooks.sh` | `make secrets-scan` |
 | Commit convention | `scripts/dev/check_commits.py` (the `commit-msg` hook and CI) | `./scripts/dev/install-hooks.sh` once |

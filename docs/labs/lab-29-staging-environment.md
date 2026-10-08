@@ -119,6 +119,8 @@ the instance's own identity, with no account ID in Git.
 
 ## 8. Tear down (by hand until `make staging-down` exists)
 
+> **Since 2026-10-08, `make staging-down` does all of this** ([Lab 30](lab-30-staging-up-down-and-idle-stop.md)). The steps below are what it automates and stay here as the explanation.
+
 The database instance has no termination protection in staging, but its data volume keeps
 `prevent_destroy` (its address is wired into `restore-snapshot.sh`). Releasing it is the
 deliberate, separate step:
@@ -142,8 +144,8 @@ mounted volume from a running instance is the failure mode to avoid.
 
 ## What this does not do
 
-- No `make staging-up`/`staging-down`, and no idle self-destruct. Until they exist staging is
-  destroyed by hand as above, which is why it is not left running.
+- No `make staging-up`/`staging-down`, and no idle stop. Built the same day: see
+  [Lab 30](lab-30-staging-up-down-and-idle-stop.md).
 - Staging comes up with an **empty** database. Seeding from a sanitised prod snapshot
   (`restore.sh`, `anonymise.sql`) is its own line.
 - The gateway's `/healthz` stays 503 on AWS until something serves a model; that is a Phase 6+

@@ -163,8 +163,9 @@ A genuine second cluster — its own `t4g.medium` On-Demand node, its own k3s, o
 own VPC. Exact parity with prod, because memory pressure on 4 GB is this project's binding
 constraint and a smaller staging node would miss precisely that.
 
-It exists **on demand**: `make staging-up` builds it in ~5 minutes, and it self-destructs after
-four idle hours.
+It exists **on demand**: `make staging-up` builds it in ~5 minutes, and it **parks itself** after
+four idle hours (a Lambda scales the node to zero and stops the database server;
+[ADR-0029](../adr/0029-staging-parks-itself-when-idle.md)). `make staging-down` destroys it.
 
 | | |
 |---|---|
@@ -176,6 +177,12 @@ four idle hours.
 
 Measured 2026-10-08 (`KAV-57`, Lab 29): about $0.045/hour while up, and 48 resources apply in 71
 seconds. Staging is On-Demand because the Spot shortage that stalled Lab 28 hit it too.
+
+**Parked is not free.** After the idle stop the node is gone, but the database server keeps its 8 GB
+root disk and 10 GB data volume: 18 GB × $0.0912/GB-month (gp3, Mumbai, Price List API, 2026-10-08) =
+**~$1.64/month**, plus a few cents of pre-stop snapshot. That is the cost of parking over destroying
+(ADR-0029), and `make staging-down` ends it. Lambda and EventBridge Scheduler for the idle check are
+inside the free tier (about 2,900 invocations a month).
 
 Always-on it would be ~$11/month and idle roughly 95% of the time — which would take the project
 total to ~$102 and require raising the ceiling. See

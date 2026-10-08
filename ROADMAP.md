@@ -119,7 +119,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
   the worst of which meant `make down` would have destroyed the live database (`KAV-32`, Lab 28)
 - [x] **Prod app node On-Demand, cost ceiling $50** (alerts $42/$46, hard stop $48) — applied to prod 2026-10-08 after Spot `t4g.medium` had no capacity in any AZ twice; also corrects the budget table, which had left ~$3.75 of its own rows out of its totals ([ADR-0028](docs/adr/0028-prod-app-node-on-demand-and-ceiling-50.md), `KAV-58`)
 - [x] `infra/envs/staging` — second node (On-Demand by default), own VPC, own k3s, 10 GB EBS, **plus its own database server** from `infra/modules/database`; applied, verified and destroyed live; found and fixed a cross-environment database-lookup hazard and two latent roles bugs (`KAV-57`, Lab 29)
-- [ ] `make staging-up` / `staging-down`, self-destruct after 4 idle hours
+- [x] `make staging-up` / `staging-status` / `staging-down`, and staging **parks itself** after 4 idle hours (an idle-stop Lambda scales the node to zero and stops the database; it parks rather than destroys, so a parked staging costs ~$1.64/month until `staging-down`). Whole cycle proven live: build, idle park, resume in 282 s, destroy in 206 s ([ADR-0029](docs/adr/0029-staging-parks-itself-when-idle.md), `KAV-59`, Lab 30)
 - [ ] `release.yml` — build once, push by digest, deploy staging, smoke test, release notes; component versions bumped from the commits touching each component and tagged `<svc>-vX.Y.Z`, the product release `vX.Y.Z` named with its components' versions (ADR-0011, ADR-0013)
 - [ ] `promote.yml` — the gate. **Refuses a digest that did not pass staging**, and a release with a `uat` story not yet signed off (ADR-0012)
 - [ ] `rollback.yml` — measured time-to-restore

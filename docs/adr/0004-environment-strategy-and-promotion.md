@@ -123,6 +123,20 @@ The decision above stands. This records what building it settled.
   "about five minutes" in the Decision above holds.
 
 **Not built, still separate `ROADMAP.md` lines:** `make staging-up`/`staging-down` and the
-four-idle-hour self-destruct (until then staging is destroyed by hand), seeding from a sanitised
-prod snapshot (`restore.sh`, `anonymise.sql`; staging comes up with an empty database), and
-`release.yml`/`promote.yml`/`rollback.yml`.
+four-idle-hour self-destruct (until then staging is destroyed by hand; built the same day, see
+the amendment below), seeding from a sanitised prod snapshot (`restore.sh`, `anonymise.sql`;
+staging comes up with an empty database), and `release.yml`/`promote.yml`/`rollback.yml`.
+
+## Amendment, 2026-10-08 — `make staging-up`/`staging-down` and the idle stop (`KAV-59`, ADR-0029, Lab 30)
+
+The decision stands, with one word changed. Where this ADR says staging "self-destructs after four
+idle hours", it **parks itself**: a Lambda scales the node to zero and stops the database server, and
+`make staging-down` is the destroy. [ADR-0029](0029-staging-parks-itself-when-idle.md) has the
+reasoning (Terraform cannot run from inside AWS without a very broad role). The cost of the change is
+about $1.6/month of disk while staging is parked, against ~$0.50/month when it is destroyed straight
+after each release.
+
+`make staging-up` builds a fresh staging or resumes a parked one and waits until the pods answer;
+`make staging-status` shows the database state and the pods; `make staging-down` destroys everything
+and counts what is left. Still not built: seeding from a sanitised prod snapshot, and the release
+workflows.

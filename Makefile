@@ -66,13 +66,13 @@ bench: ## Measure the local model shortlist on the dev server (KAV-22, ~20 min)
 
 .PHONY: test
 test: ## Unit tests + policy tests
-	pytest services/ scripts/dev/ scripts/tracking/ evals/ -q
+	pytest services/ scripts/dev/ scripts/tracking/ evals/ infra/modules/idle-stop/lambda/ -q
 	@command -v opa >/dev/null 2>&1 && opa test policy/ -v || echo "opa not installed — skipping policy tests"
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
-	mypy services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
+	ruff check infra/modules/idle-stop/lambda services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
+	mypy infra/modules/idle-stop/lambda/idle_stop.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
 
 .PHONY: lock
 lock: ## Re-resolve uv.lock after editing pyproject.toml's dependencies (then commit both)
@@ -140,6 +140,21 @@ db-health-check: ## Run the database's start-up health check by hand (pg_isready
 .PHONY: db-restore-snapshot
 db-restore-snapshot: ## Restore the database's data volume from an EBS snapshot (SNAPSHOT=<id>, else the newest). See docs/runbooks/restore-from-backup.md
 	@SNAPSHOT=$(SNAPSHOT) TF_PROD=$(TF_PROD) bash scripts/ops/restore-snapshot.sh
+
+# ─────────────────────────────────────────────────────────────
+##@ Staging  (ADR-0004, ADR-0029 — ~\$0.045/hr while up, parks itself after 4 idle hours)
+
+.PHONY: staging-up
+staging-up: ## Build or resume staging and wait until its services answer (~5 min, STARTS BILLING)
+	@bash scripts/ops/staging.sh up
+
+.PHONY: staging-status
+staging-status: ## Is staging running? Database state and the pods, read over Session Manager
+	@bash scripts/ops/staging.sh status
+
+.PHONY: staging-down
+staging-down: ## Destroy staging completely, data volume included (it also parks itself when idle)
+	@bash scripts/ops/staging.sh down
 
 # ─────────────────────────────────────────────────────────────
 ##@ Dev server  (ADR-0007 — \$0.0224/hr while running, stops itself after 1 h idle)

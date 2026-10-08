@@ -96,11 +96,12 @@ python_version = "3.11"
 strict = true
 
 [[tool.mypy.overrides]]
-# No published type stubs (KAV-47). boto3/anthropic don't need this override: they're
-# imported only from laptop-run tools (kaval_agent.escalate), never type-checked here
-# the same way; kubernetes is a real runtime dependency of the deployed executor.
-module = "kubernetes.*"
+# No published type stubs (KAV-47). anthropic doesn't need this override: it's imported only
+# from laptop-run tools (kaval_agent.escalate), never type-checked here the same way;
+# kubernetes is a real runtime dependency of the deployed executor. boto3 joined on KAV-59:
+# the staging idle-stop Lambda imports it, and that file is type-checked.
+module = ["kubernetes.*", "boto3.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["services", "scripts/dev", "scripts/tracking", "evals"]
+testpaths = ["services", "scripts/dev", "scripts/tracking", "evals", "infra/modules/idle-stop/lambda"]
