@@ -156,11 +156,18 @@ def pr_body(entry: dict[str, Any], prod_tag: str, evidence: str) -> str:
 
 
 def guard(
-    base: dict[str, str | None], head: dict[str, str | None], base_record: str | None
+    base: dict[str, str | None],
+    head: dict[str, str | None],
+    base_record: str | None,
+    history: frozenset[str] = frozenset(),
 ) -> list[Check]:
     """A pull request may change prod's image tags only to a tag that was already on the record
     on the branch it merges into. Reading the record from the base, not from the pull request,
-    means a change cannot add its own proof: the record entry has to be merged first."""
+    means a change cannot add its own proof: the record entry has to be merged first.
+
+    `history` is every tag prod's files pinned at an earlier commit on the base branch. Those
+    tags were merged through review and prod has run them, so going back to one is allowed even
+    if it predates the record (rollback.yml, ADR-0034). It is read from the base too."""
     base_tags = {t for f in PROD_FILES for t in prod_tags(base.get(f) or "")}
     head_tags = {t for f in PROD_FILES for t in prod_tags(head.get(f) or "")}
     if base_tags == head_tags:
@@ -180,12 +187,18 @@ def guard(
     (tag,) = head_tags
     checks.append(Check("prod runs one release", True, tag))
     found = check_record(base_record, tag)
-    if not found[0].ok:
+    if not found[0].ok and tag in history:
+        found[0] = Check(
+            found[0].name,
+            True,
+            f"{tag} is not on the record, but prod has run it before (a rollback, ADR-0034)",
+        )
+    elif not found[0].ok:
         found[0] = Check(
             found[0].name,
             False,
-            f"prod's tags changed to {tag}, which is not on the record on the base branch: "
-            "run promote.yml (or merge the record entry first)",
+            f"prod's tags changed to {tag}, which is not on the record on the base branch and "
+            "prod has never run it: run promote.yml (or merge the record entry first)",
         )
     return checks + found
 
@@ -263,6 +276,14 @@ def jira_issue(key: str) -> dict[str, Any] | None:
     return {"labels": fields.get("labels", []), "status": fields["status"]["name"]}
 
 
+def prod_history_tags(rev: str, root: Path = ROOT) -> frozenset[str]:
+    """Every tag prod's two files pinned at any commit up to `rev`: what prod has run before."""
+    commits = (git("log", "--format=%H", rev, "--", *PROD_FILES, root=root) or "").split()
+    return frozenset(
+        t for c in commits for f in PROD_FILES for t in prod_tags(git_show(c, f, root) or "")
+    )
+
+
 def commit_of(tag: str) -> str | None:
     out = git("rev-parse", "--verify", f"{tag[4:]}^{{commit}}")
     return out.strip() if out else None
@@ -334,25 +355,32 @@ def cmd_pin(args: argparse.Namespace) -> int:
     checks = check_record(record, args.tag)
     if not _report(checks):
         return 1
+    return rewrite_prod(args.root, args.tag)
+
+
+def rewrite_prod(root: Path, tag: str) -> int:
+    """Point both of prod's files at `tag`, or write nothing: a half-pinned prod is worse than a
+    refused pin. Shared with rollback.py, which decides *whether* before calling this."""
     rewritten: dict[Path, str] = {}
     for name in PROD_FILES:
-        new, count = pin((args.root / name).read_text(encoding="utf-8"), args.tag)
+        new, count = pin((root / name).read_text(encoding="utf-8"), tag)
         if count != EXPECTED_PER_FILE:
             print(
                 f"{name}: found {count} image tags, expected {EXPECTED_PER_FILE}", file=sys.stderr
             )
             return 1
-        rewritten[args.root / name] = new
+        rewritten[root / name] = new
     for path, new in rewritten.items():
         path.write_text(new, encoding="utf-8", newline="")
-        print(f"pinned {path.relative_to(args.root).as_posix()} to {args.tag}")
+        print(f"pinned {path.relative_to(root).as_posix()} to {tag}")
     return 0
 
 
 def cmd_guard(args: argparse.Namespace) -> int:
     head = {f: (args.root / f).read_text(encoding="utf-8") for f in PROD_FILES}
     base = {f: git_show(args.base, f, args.root) for f in PROD_FILES}
-    checks = guard(base, head, git_show(args.base, RECORD, args.root))
+    history = prod_history_tags(args.base, args.root)
+    checks = guard(base, head, git_show(args.base, RECORD, args.root), history)
     ok = _report(checks)
     return 0 if ok else 1
 
