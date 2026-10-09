@@ -11,7 +11,7 @@ proved that tag *runs*. This does, read-only, against a staging that is up:
   5. the gateway's REST API answers reads.
 
 On a pass it appends a record to deploy/promotion/passed-staging.json: the digests that passed,
-the checks, and what the pass does NOT prove. `promote.yml` (not built yet) will refuse any digest
+the checks, and what the pass does NOT prove. `promote.yml` refuses any digest
 that is not in that file. The record is committed through a pull request like any other change.
 
     python scripts/release/staging_smoke.py            # the tag in staging's HelmRelease

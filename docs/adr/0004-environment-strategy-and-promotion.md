@@ -150,7 +150,13 @@ deployed the way prod is (a tag in Git, pulled by Flux). Prod is not touched by 
 its alternatives are in [ADR-0030](0030-ci-publishes-images-by-oidc-and-staging-is-pinned-by-pull-request.md).
 
 Because ECR tags are immutable, a tag and its digest are equivalent today; the digest is recorded
-beside the tag. Still not built: `promote.yml` and `rollback.yml`.
+beside the tag.
+
+**Amended 2026-10-09 (KAV-63, [ADR-0032](0032-promote-workflow-and-the-promotion-guard.md)).** `promote.yml`
+now exists: it refuses a tag that is not on the passed-staging record, whose digests ECR no longer
+holds, that is not ahead of prod, or whose release has a `uat` story not signed off, and otherwise opens
+the pull request that pins prod. A CI check, `promotion-guard`, makes it the only way in. Still not
+built: `rollback.yml`.
 
 ## Amendment, 2026-10-08: the smoke test and the passed-staging record (KAV-62)
 

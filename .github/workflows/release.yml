@@ -204,7 +204,7 @@ jobs:
             echo
             echo "Built once by \`release.yml\` and scanned before the push; ECR tags are immutable, so the tag can never point at a different image. CI's first run on this pull request waits for a person to approve it (Actions tab, \`Approve and run\`). Merge when every check is green; staging's Flux pulls it the next time staging is up (\`make staging-up\`)."
             echo
-            echo "Prod does not move. \`promote.yml\` (not built yet) is the only way a digest reaches \`deploy/gitops/prod/\`."
+            echo "Prod does not move. \`promote.yml\` (run by hand, ADR-0032) is the only way a digest reaches \`deploy/gitops/prod/\`."
           } > body.md
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

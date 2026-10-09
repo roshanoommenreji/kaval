@@ -71,7 +71,8 @@ the whole bundle. UAT accepts each **story** in it.
      - in the current sprint.
 
      Then it moves the story back to In Progress.
-6. **The gate (Phase 4):** `promote.yml` refuses a release that contains a `uat` story not yet
+6. **The gate (Phase 4, built 2026-10-09, [ADR-0032](0032-promote-workflow-and-the-promotion-guard.md)):**
+   `promote.yml` refuses a release that contains a `uat` story not yet
    signed off, and the change record lists each sign-off: story, environment, who, when.
 
 ## Alternatives considered

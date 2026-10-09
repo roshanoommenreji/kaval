@@ -10,7 +10,7 @@
 # deploy/environments/prod/values.yaml, not a reference to it — a configMapGenerator
 # reading that file was tried first, but Kustomize refuses to read outside its own
 # directory ("file '...' is not in or below"). The two must be kept in sync by hand until
-# release.yml (still unbuilt) gives this project a real env-values pipeline; CI's helm-lint
+# a real env-values pipeline replaces them (promote.yml edits both files together); CI's helm-lint
 # loop still renders deploy/environments/prod/values.yaml directly, so a drift there is
 # caught structurally, just not textually against this file.
 #
