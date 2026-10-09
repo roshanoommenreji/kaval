@@ -72,7 +72,7 @@ test: ## Unit tests + policy tests
 .PHONY: lint
 lint: ## Lint and type-check
 	ruff check infra/modules/idle-stop/lambda scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
-	mypy infra/modules/idle-stop/lambda/idle_stop.py scripts/release/pin_staging.py scripts/release/staging_smoke.py scripts/release/promote.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
+	mypy infra/modules/idle-stop/lambda/idle_stop.py scripts/release/pin_staging.py scripts/release/staging_smoke.py scripts/release/promote.py scripts/release/rollback.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
 
 .PHONY: lock
 lock: ## Re-resolve uv.lock after editing pyproject.toml's dependencies (then commit both)
