@@ -61,20 +61,20 @@ spec:
       replicas: 2
       slackSecretName: kaval-slack
       image:
-        tag: sha-ffb436b
+        tag: sha-2459417
     agent:
       correlateEverySeconds: 60
       image:
-        tag: sha-ffb436b
+        tag: sha-2459417
     executor:
       demoNamespace: kaval-demo-prod
       executeEverySeconds: 30
       image:
-        tag: sha-ffb436b
+        tag: sha-2459417
     collector:
       watchEverySeconds: 30
       image:
-        tag: sha-ffb436b
+        tag: sha-2459417
   valuesFrom:
     # targetPath entries overwrite everything before them, including the inline `values:`
     # above (Flux's own documented precedence) — the registry injection always wins.
