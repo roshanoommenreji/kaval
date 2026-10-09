@@ -83,6 +83,9 @@ needs its own decision on how an image that staging cannot exercise is accepted.
 
 - `promote.yml` with `sha-2459417`: all four questions answered yes (record, ECR "all four match", ahead of
   `sha-ffb436b`, 9 stories and none `uat`) and PR #80 opened. It was left **unmerged**.
+- Merged on Roshan's say-so as PR #83 (the first PR, #80, conflicted after a documentation merge touched the
+  same two prod files, so it was closed and the workflow re-run for the same tag). Prod's four pins on `main`
+  are now `sha-2459417`; prod is parked, so the migration runs the next time `make up` brings it up.
 - With `sha-ffb436b` (what prod runs; never on the record): refused at the first question; `propose` did not run.
 - The `uat` question against real Jira: `KAV-44` (`uat`, *In Staging*) refused; `KAV-40` (`uat`, *Done*) accepted.
 - `promotion-guard`: unchanged tags pass; a hand edit to `sha-deadbee` fails; `promote.py pin` output passes; and
