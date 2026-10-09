@@ -62,7 +62,7 @@ what a compromise of a combined job would.
 `propose` runs `scripts/release/pin_staging.py`, which rewrites the four image tags in
 `deploy/gitops/staging/helmrelease.yaml` and `deploy/environments/staging/values.yaml` together, and
 opens a pull request. Nothing pushes to `main`. The same branch protection and required checks apply
-as to any change. Prod is untouched: only `promote.yml` (not built yet) will ever write to
+as to any change. Prod is untouched: only `promote.yml` (ADR-0032) ever writes to
 `deploy/gitops/prod/`.
 
 **4. CI on the bot's pull request, and who starts it.** Opening the pull request needs the repository
@@ -155,7 +155,7 @@ together with it.
   the README, the budget plan and several ADRs still said "private until v1" and "a written rule, not
   enforced". All corrected in the same change. Two gaps in the protection are recorded rather than
   changed silently: `helm`, `image executor` and `image backup` were not required checks (added on
-  2026-10-08, `KAV-62`; all ten are required now), and `enforce_admins` is off.
+  2026-10-08, `KAV-62`; all eleven are required now, `promotion-guard` joined on 2026-10-09), and `enforce_admins` is off.
 - Asked whether a public repo is safe, I checked rather than assumed: no AWS account id, key or ARN in
   any tracked file or in all history (only `000000000000` test data and AWS's published example key),
   commits use noreply addresses. It found two open settings, fixed the same day: GitHub secret scanning

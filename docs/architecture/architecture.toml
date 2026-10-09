@@ -1003,7 +1003,7 @@ kind = "service"
 phase = 4
 col = 2
 row = 13
-note = "Deploys the artifact. It does not build one."
+note = "Deploys the artifact. It does not build one. Built (KAV-63, ADR-0032): a person dispatches it with a tag; the gate job checks the passed-staging record, that ECR still holds the recorded digests, that the tag is ahead of prod, and that every uat story in the release is Ready for Prod or Done in Jira, then a second job opens the pull request that pins prod. Merging that pull request is the go/no-go. A CI check (promotion-guard) fails any pull request that moves prod to a tag not already on the record on its base branch."
 
 [[delivery.node]]
 id = "d-digest"

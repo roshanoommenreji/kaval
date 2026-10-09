@@ -53,8 +53,8 @@ after every CI check on it is green**. A red check is fixed on the branch, never
 
 Until 2026-09-30 this was a written rule only, because GitHub Free offers no branch protection on
 private repositories. Going public made it free, and `main` now has branch protection with
-required status checks (all ten: lint, test, secrets, terraform, helm, and the five image builds;
-`helm`, `image executor` and `image backup` joined on 2026-10-08, `KAV-62`) and "branch must be up
+required status checks (all eleven: lint, test, secrets, terraform, helm, the five image builds and the promotion guard;
+`helm`, `image executor` and `image backup` joined on 2026-10-08, `KAV-62`, and `promotion-guard` on 2026-10-09, `KAV-63`) and "branch must be up
 to date". One honest limit: administrators can still bypass it (`enforce_admins` is off, so keep
 GitHub 2FA on). `release.yml`'s staging-pin pull request goes through the same protection like any other.
 

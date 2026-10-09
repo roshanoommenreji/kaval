@@ -5,7 +5,7 @@ cents; destroyed afterwards. Nothing else (the script only reads).
 
 [Lab 32](lab-32-release-publish-stage.md) ended with five images in ECR and a merged pull request
 pointing staging at `sha-2459417`, but staging had never actually run it. This lab runs it, checks it,
-and writes down that it passed, so that `promote.yml` (not built yet) has something to check. The
+and writes down that it passed, so that `promote.yml` ([Lab 34](lab-34-promote-workflow.md)) has something to check. The
 decisions and alternatives are in
 [ADR-0031](../adr/0031-staging-smoke-test-and-the-passed-staging-record.md).
 

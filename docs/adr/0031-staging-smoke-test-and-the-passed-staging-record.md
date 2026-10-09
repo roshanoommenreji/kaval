@@ -73,8 +73,8 @@ The point is that "passed staging" must not be read as "the whole product works"
 
 **5. The backup image is recorded, not exercised.** (If a tag predates the `kaval/backup` repository, as `sha-ffb436b` does, the note is printed and the pass is judged on the four deployed images.) `release.yml` publishes it and the record lists its
 digest under `published_not_exercised`, but staging does not deploy it (it needs prod's dump bucket).
-Prod does run it. How `promote.yml` treats a digest that could not be tested on staging is a decision
-for that workflow, recorded as open in the ROADMAP rather than hidden.
+Prod does not run it yet either (the nightly backup job is off until the dump bucket credentials exist), so
+`promote.yml` pins only the four deployed images (ADR-0032 corrects what this ADR first said here).
 
 ## Alternatives considered
 
