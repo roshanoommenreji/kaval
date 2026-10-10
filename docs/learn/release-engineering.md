@@ -1,8 +1,9 @@
 # Release engineering
 
-> **Written from:** theory
+> **Written from:** experience (rewritten 2026-10-10, after the pipeline was built and run end to end)
 > **Spans:** Phases 1, 3 and 4 — this is the one cross-cutting page
-> **Decisions:** [ADR-0004](../adr/0004-environment-strategy-and-promotion.md)
+> **Labs:** [18 promotion rehearsal](../labs/lab-18-promotion-rehearsal.md) · [29 staging](../labs/lab-29-staging-environment.md) · [30 staging up/down](../labs/lab-30-staging-up-down-and-idle-stop.md) · [32 publish](../labs/lab-32-release-publish-stage.md) · [33 smoke test](../labs/lab-33-staging-smoke-and-passed-record.md) · [34 promote](../labs/lab-34-promote-workflow.md) · [35 rollback](../labs/lab-35-rollback-workflow.md) · [36 versions and change records](../labs/lab-36-versions-tags-and-change-records.md) · [41 seeding staging](../labs/lab-41-filling-staging-from-a-cleaned-copy.md) · [42 Jira release](../labs/lab-42-a-jira-release-per-product-version.md)
+> **Decisions:** [ADR-0004](../adr/0004-environment-strategy-and-promotion.md) · [0013](../adr/0013-component-versions-and-release-naming.md) · [0030](../adr/0030-ci-publishes-images-by-oidc-and-staging-is-pinned-by-pull-request.md)–[0035](../adr/0035-computed-versions-tags-and-the-generated-change-record.md) · [0037](../adr/0037-staging-seeding-from-the-production-dump.md)–[0039](../adr/0039-staging-is-filled-from-a-copy-cleaned-on-the-laptop.md)
 
 ## Where this sits
 
@@ -39,6 +40,23 @@ cloud-init, k3s upgrades, spot reclamation. A staging environment that cannot te
 changes is a staging environment for application bugs only, and application bugs are the ones unit
 tests already catch.
 
+## What we assumed, and what happened
+
+| We assumed | What actually happened | Where |
+|---|---|---|
+| A gate is built once it exists | The first version was a sentence in an ADR; anyone who could merge could hand-edit prod's tags. It became real only with a check that compares the tag to a recorded pass, and a negative test that watched it refuse | Lab 34, ADR-0032 |
+| An immutable tag is enough | ECR tags are immutable only while the image exists; a tag deleted and pushed again matches by name and is different bytes. The gate compares digests *now* with the recorded ones | ADR-0032 |
+| A rollback path is the same as a roll-forward | The promote gate is for going forward; going back is its own workflow with its own rule (only to a version prod already ran or that passed staging) | Lab 35, ADR-0034 |
+| Rollback across a migration just works | It stalls until the migration is undone first. Found by rehearsing it, not by reading | Lab 35 |
+| Generating the change record is easy | The record needed "what did prod run before", and the promotion script answered wrongly because it read prod's files *after* the pin had rewritten them. The text of PR #83 said prod runs the *new* tag | Lab 36 |
+| Version bumps can be tagged before the build | The image label is stamped from the code, so the number must exist in a pull request *before* the build; tags are made after the images exist. A bump script also forgot `uv.lock` | Lab 36, ADR-0035 |
+| Cleaning the data is a script away | A first scrub had never been run, was written against a guessed schema, and the real database had different column names. Rewritten against the real schema and made to fail closed | Lab 39, ADR-0037 |
+| Staging always matches prod's data | It matches the last `make seed-refresh`, run by hand on a laptop that is sometimes off | Lab 41, ADR-0039 |
+| Every release gets a Jira record automatically | The job that writes the record deliberately has no Jira access, so the Jira Release is one manual command after the merge | Lab 42 |
+
+The common thread is the page's own principle: **a step is only a gate, a backup, or a rollback once something has
+made it refuse, restore, or go back.**
+
 ---
 
 ## Key concepts
@@ -61,34 +79,48 @@ The differences that matter, roughly in order of how often they bite:
 | Secrets and IAM | Permission errors found in production |
 
 This project buys exact parity on instance type, memory and model — the top two — and closes the
-data gap by **seeding staging from the latest sanitised production snapshot** on every
-`make staging-up`. Staging gets real data shape and real volume, so slow queries and index
-behaviour surface before production sees them.
+data gap by **filling staging from a cleaned copy of production's latest dump**. Staging gets real data shape
+and real volume, so slow queries and index behaviour can surface before production sees them.
 
-That gap was originally recorded as accepted. It did not survive being questioned: the nightly
-production dump already existed, so restoring it was a handful of lines rather than a constraint.
-[ADR-0004](../adr/0004-environment-strategy-and-promotion.md) still carries the original
-paragraph, struck through, because a decision reversed with a reason is more useful than one that
-appears to have been right first time.
+That gap was originally recorded as accepted. It did not survive being questioned: a nightly production dump
+was cheap to add, so restoring it was a handful of lines rather than a constraint.
+[ADR-0004](../adr/0004-environment-strategy-and-promotion.md) still carries the original paragraph, struck
+through, because a decision reversed with a reason is more useful than one that appears to have been right
+first time.
 
-**The restore pays a second dividend.** Because it runs on every release, the backup is verified
-several times a month instead of never — which is how the claim *a backup is not verified until
-you have restored one* stops being advice and becomes a property of the system.
+**How it works, as built** ([ADR-0039](../adr/0039-staging-is-filled-from-a-copy-cleaned-on-the-laptop.md)):
+`make seed-refresh` runs on the laptop, fetches production's newest dump read-only, cleans it in a throwaway
+database, and keeps only the cleaned file. `make staging-up` then puts that file in staging's *own* bucket and
+the staging node restores it before any service starts. No environment holds a key to the other, and the raw copy
+never leaves the laptop's temporary folder. Run live on 2026-10-10: staging filled in **2 seconds**, upgrade at
+head, permissions in place.
 
-The gap that genuinely remains is **freshness**: the snapshot is up to 24 hours old, so staging
-never holds the last day of production. In an interview, "staging is identical including data
-shape and volume, seeded from a sanitised prod snapshot that's up to a day old" is a much better
-answer than "staging is just like prod."
+**What that does not give you, said plainly:**
+- It is **not automatic.** Freshness is whatever `make seed-refresh` last produced; a laptop that is off
+  cannot refresh it (a later step could run the same script on the dev server).
+- It **is not** the "backup verified on every release" claim this page used to make. What it verifies is the
+  restore path and the cleaner. The dump itself was verified separately, by a restore drill (Lab 27).
+- Production's tables were **empty** the first time, so no real data went through the cleaner and no upgrade ran
+  over existing rows. Re-run it once production has traffic.
+
+In an interview, "staging is identical in size, model and schema, filled from a cleaned copy of production that
+is as fresh as my last refresh" is a much better answer than "staging is just like prod."
 
 ### Sanitising on the way in
 
-Copying production data into a lower environment unsanitised is the practice auditors flag. The
-anonymisation runs **before anything can read the database**, not after, and it asserts its own
-coverage — if a 12-digit account ID or a credential-shaped string survives, the restore aborts
-rather than leaving a partially-sanitised staging database readable.
+Copying production data into a lower environment unsanitised is the practice auditors flag. Cleaning happens
+**before staging can read anything**, and it fails closed ([ADR-0037](../adr/0037-staging-seeding-from-the-production-dump.md),
+[ADR-0039](../adr/0039-staging-is-filled-from-a-copy-cleaned-on-the-laptop.md)):
 
-The maintenance hazard is that a new column holding something sensitive is a new line in the
-script, and forgetting is silent. The assertions are the guard against that.
+- The scrub runs in **one transaction** and ends by proving that a second scrub changes nothing; if it cannot, it
+  rolls back and nothing is kept.
+- A **second, independent check** then reads the cleaned dump as plain text for the shapes of keys, account ARNs,
+  tokens and e-mail addresses. It shares no code with the scrub, because a check that shares code with what it
+  checks proves less — the scrub's own "clean it twice" test would pass a scrub that does nothing.
+- It deliberately does **not** flag bare 12-digit numbers: a byte count looks the same as an account id.
+
+The maintenance hazard is that a new column holding something sensitive is a new line in the scrub, and
+forgetting is silent. The independent check is the guard against that, and it is the part to keep extending.
 
 ### Build once, promote the artifact
 
@@ -138,10 +170,13 @@ A gate is only a gate if it can **refuse**. Three properties:
 Which is exactly the same reasoning as the product's approval screen, where the missing element is
 usually *what happens if you decline*.
 
-The mechanism here: `promote.yml` as a manual `workflow_dispatch`, moving to GitHub Environments
-with required reviewers, which the repo can now use because it is public (2026-09-30).
-**Verify the plan terms** — deployment protection rules on private repositories are a paid
-feature, and GitHub changes what is included.
+The mechanism, as built ([ADR-0032](../adr/0032-promote-workflow-and-the-promotion-guard.md)): a person
+dispatches `promote.yml` with a tag. Its `gate` job asks four questions — is the tag on the passed-staging
+record, do ECR's digests *now* equal the recorded ones, is the tag ahead of what prod runs, is every `uat`
+story accepted — and any "no" stops it. If it cannot decide (Jira unreachable, ECR unreadable) it refuses.
+When it passes, the workflow opens a pull request and **merging that pull request is the go/no-go**; the
+workflow has no cluster credentials at all. A CI check, `promotion-guard`, then stops anyone editing prod's
+image tags by hand. It was proven live by trying to promote an unproven digest and watching it refuse.
 
 ### Verification is not validation: UAT
 
@@ -230,19 +265,27 @@ What has to be in it:
 | Linked issues | From the Jira keys in the commits |
 | Risk assessment | Derived — does this touch infrastructure, policy, or the executor? |
 | Staging evidence | What actually passed, not that something was tested |
-| Rollback plan | The previous Helm revision, and the last *measured* rollback time |
+| Rollback plan | The previous image tag, the command, whether it crosses a migration, and the last *measured* time |
 | Post-deploy verification | Whether it worked, recorded after the fact |
 
 The rollback field is the one most often hand-waved. "We would roll back" is not a plan.
-"`helm rollback kaval 7`, last measured at 94 seconds" is.
+"`gh workflow run rollback.yml -f tag=sha-ffb436b`, last measured at about 80 seconds, and it crosses a database
+migration" is.
 
 ### Rollback is a property you test, not a plan you write
 
 Same principle as Phase 0's budget alarm and Phase 5's chaos experiments: **an untested recovery
 path does not work.**
 
-So rollback is drilled, not documented. `make rollback` performs a real `helm rollback` and
-records how long it took, and that measured figure goes into the next change record.
+So rollback is drilled, not documented. `rollback.yml` ([ADR-0034](../adr/0034-rollback-workflow-and-what-a-rollback-may-go-back-to.md))
+takes a tag, refuses anything prod never ran and that did not pass staging, and opens a pull request that
+points prod's pin back; Flux does the rest. It was rehearsed on staging: about **80 seconds** from merging that
+pull request to every service healthy, and that figure now goes into each change record. Prod's own time has not
+been measured yet.
+
+**The finding that mattered:** a rollback across a database migration *stalls*. The older version's database
+step refuses to run against a database already upgraded past it, so the migration must be undone first. The
+record now says when going back crosses a migration, and the runbook gives the order.
 
 The things that make rollback fail in practice, which is why it must be exercised:
 
@@ -266,7 +309,7 @@ four simultaneously.
 | **Deployment frequency** | How often you reach production | Count of records in `docs/releases/` |
 | **Lead time for changes** | Commit → running in production | First commit timestamp → promote timestamp |
 | **Change failure rate** | Proportion of deploys causing degradation | Releases followed by a rollback or incident |
-| **Time to restore** | How long to recover | Measured by `make rollback`, and by MTTR from Phase 5 |
+| **Time to restore** | How long to recover | Measured by the rollback drill (about 80 s on staging), and by MTTR from Phase 5 |
 
 The pairing is the point: frequency and lead time measure **speed**, failure rate and restore time
 measure **stability**. Reporting only the first pair is how teams justify shipping recklessly;
@@ -392,6 +435,15 @@ Two things make that answer work even though most of it describes a design, not 
 explicit about the line between built and designed, and it says *why* the design looks the way it
 does rather than just listing components. Both survive a good follow-up question; a vague "yes,
 we have staging" the moment someone asks "show me" does not.
+
+**"How do you know your release gate actually works?"**
+
+> "Because I tried to get past it. The promote workflow asks four questions — is this exact tag on the
+> passed-staging record, do the registry's digests today equal the recorded ones, is it ahead of what prod runs,
+> and are the user-acceptance stories accepted — and any no stops it. I proved it by trying to promote a digest
+> that had never passed staging and watching it refuse, and a CI check stops anyone editing prod's tags by hand
+> around it. Merging the pull request it opens is the approval, so the workflow itself has no cluster
+> credentials. The part I would add next is measuring prod's own rollback time; I have about 80 seconds on staging."
 
 ## Further reading
 

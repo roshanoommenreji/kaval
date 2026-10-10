@@ -67,6 +67,10 @@ It also pays a second dividend. The Phase 4 concept page asserts that *a backup 
 until you have restored one*. Restoring on every release makes that true continuously and
 automatically, several times a month, rather than being an annual fire drill nobody schedules.
 
+> **Update 2026-10-10 ([ADR-0039](0039-staging-is-filled-from-a-copy-cleaned-on-the-laptop.md)):** as built, the
+> restore is not automatic on every release. Staging is filled from a copy cleaned on the laptop by `make seed-refresh`,
+> so it is as fresh as the last refresh, and what the restore verifies is the restore path and the cleaner.
+
 Cost: **$0**. The dump exists already; staging's EBS is already budgeted.
 
 ### What is sanitised, and why

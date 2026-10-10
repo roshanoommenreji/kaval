@@ -1,9 +1,12 @@
 # Phase 2 — The agent loop
 
-> **Written from:** theory
-> **Lab:** to be written
-> **Cost:** $0 so far — Bedrock escalation is built (`KAV-44`) but blocked on an AWS Marketplace
-> payment issue before any real escalation has actually run and spent anything
+> **Written from:** experience (rewritten 2026-10-10, from what was built and measured; the Jev risk rating
+> (`KAV-27`) and a live Bedrock escalation (`KAV-44`) are the two parts not yet run, and are marked below)
+> **Labs:** [09 correlation](../labs/lab-09-signal-correlation.md) · [10 context builder](../labs/lab-10-context-builder.md) · [11 proposal output](../labs/lab-11-proposal-output.md) · [12 policy engine](../labs/lab-12-policy-engine.md) · [13 eval harness](../labs/lab-13-eval-harness.md) · [14 Bedrock escalation](../labs/lab-14-bedrock-escalation.md) · [08 UAT, versions, dashboards](../labs/lab-08-uat-versions-and-jira-dashboards.md)
+> **Decisions:** [ADR-0012](../adr/0012-user-acceptance-testing.md) · [0014](../adr/0014-signal-correlation-and-incident-fingerprints.md) · [0015](../adr/0015-context-builder-retrieval-design.md) · [0016](../adr/0016-json-schema-enforced-proposal-output.md) · [0017](../adr/0017-opa-policy-engine-and-earned-autonomy.md) · [0018](../adr/0018-eval-harness-and-golden-incidents.md) · [0019](../adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md)
+> **Cost:** $0. Everything ran on the local model and the dev server. Bedrock escalation is built and
+> unit-tested but has never completed a live call: the account is an Indian-entity (AISPL) one, and AWS
+> restricts Marketplace subscriptions on those, which Anthropic models on Bedrock need (ADR-0019)
 
 ## Where this sits
 
@@ -37,6 +40,25 @@ Each of those has a structural answer, and none of them is a better prompt:
 | Suggests something destructive | Policy classification the model cannot override |
 | Confident when wrong | Calibration measurement, and escalation on low confidence |
 | Returns prose when you need fields | Schema validation that rejects rather than parses hopefully |
+
+## What we assumed, and what happened
+
+Written when the phase closed. Each row is something this page used to say or the plan assumed, next to what was
+measured. The pattern: **every safety layer that was only designed had a hole until it was run against the real thing.**
+
+| We assumed | What actually happened | Where |
+|---|---|---|
+| Constrained decoding makes the output safe | It enforces field names, types and allowed words, **not number ranges**. The model returned `confidence: 70` against a schema that said `maximum: 1`, twice. Pydantic caught it; the prompt fix ("a fraction, never a percentage") ended it | Lab 11, ADR-0016 |
+| A similarity cut-off of 0.35 looked sensible | Unrelated questions scored 0.38–0.40 against the same runbook; a true match scored 0.69. The guess sat inside the noise. Set to 0.5 after measuring | Lab 10, ADR-0015 |
+| A passing safety test means the safety works | The first eval run said "never-class action proposed: 0 (OK)" while `opa` was simply not on the shell's path, so every action had fallen back to `ask` and the gate had not been tested at all. Run two, with `opa` reachable, failed the gate for real | Lab 13 |
+| The model resists a planted instruction | It did not. An adversarial case with a fake "SOP-114" telling it to terminate an EC2 instance fooled it: it wrote that the SOP "triggered automatically". The policy layer, which reads none of the model's reasoning, refused the action anyway | Lab 13, ADR-0017 |
+| Less evidence means less confidence | Both "sparse" cases (one signal instead of five) reported 0.70–0.75, the same as fully evidenced ones. Left failing on purpose: raising the threshold would have deleted a real finding | Lab 13, ADR-0018 |
+| A policy unit test proves the rule is enforced | The test supplied its own fake data path, so all 14 tests passed while the real path was wrong. Only a test calling `classify()` against the unmocked file caught it | Lab 12 |
+| Bedrock is a few lines of code and a model name | Five model and region combinations returned "does not exist"; one call worked once, then every identical call hit a payment-instrument error. Root cause (confirmed with AWS Support): an RBI-driven restriction on AISPL accounts, not a bug and not a model ID | Lab 14, ADR-0019 |
+
+The same two results hold across the runs: schema validity 20/20, root-cause keywords matched 16/16 judged cases,
+about 6,090 tokens in and 2,050 out for all twenty cases, cost $0. What is **not** measured: escalation precision
+(no live escalation has run) and Jev's calibration against the rules-only baseline (Jev is not built).
 
 ---
 
@@ -371,6 +393,17 @@ creates false comfort.
 
 That answer works because it names a real attack and shows the design anticipating it, rather than
 listing features.
+
+**"Tell me about a test that told you something was safe when it wasn't."**
+
+> "My first full run of the twenty-case eval said no dangerous action had been proposed. It was true and
+> meaningless: the policy tool wasn't on that shell's path, so every action fell back to 'ask' and the safety gate
+> had never actually run. I only saw it because the log line about the fallback was sitting in the output. The
+> next run, with the tool reachable, failed the gate for real — the model had believed a planted instruction and
+> proposed terminating an EC2 instance, and the policy layer refused it. What I took from it: a green gate only
+> counts if you've seen it go red. I now run the harness once on purpose with the policy tool missing, to confirm
+> the fallback degrades to 'ask' and not to silence — and I'd still like the report to say outright when policy was
+> unreachable, which today it doesn't."
 
 ## Further reading
 

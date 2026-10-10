@@ -74,7 +74,7 @@ The hard, interesting part. Still no AWS.
 - [ ] Jev risk rating feeding the policy engine (ADR-0006, `KAV-27`) — `typesafe-sdk`, pinned version, redaction, rules-only fallback
 - [x] Eval harness + 20 golden incidents: schema validity and action safety as hard gates; root-cause keywords, calibration and cost reported ([ADR-0018](docs/adr/0018-eval-harness-and-golden-incidents.md), `KAV-43`, signed off in UAT 2026-09-30) — Jev calibration vs the rules-only baseline and escalation precision wait for `KAV-27`/Bedrock below
 - [ ] Bedrock escalation path for low-confidence cases ([ADR-0019](docs/adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md), `KAV-44` — built and unit-tested; blocked live on an AWS Marketplace payment issue, not yet UAT-signed-off)
-- [ ] `docs/learn/phase-2-the-agent-loop.md` — flip **Written from** to `experience`
+- [x] `docs/learn/phase-2-the-agent-loop.md` — flip **Written from** to `experience` (2026-10-10: an assumed-vs-happened table from the labs, stale claims corrected, interview answers from what was built)
 
 **Exit gate:** 20 synthetic incidents produce valid, sane proposals; evals pass.
 
@@ -92,7 +92,7 @@ The hard, interesting part. Still no AWS.
 - [x] Split values: `deploy/environments/staging` and `prod`, each pinning image digests — rehearsed as two Helm releases on the local k3d cluster, not yet the real second AWS cluster ([ADR-0023](docs/adr/0023-promotion-rehearsal-on-k3d.md), `KAV-49`, Lab 18)
 - [x] Promotion mechanics rehearsed on k3d — deploy staging, gate, deploy prod — proven live with a byte-for-byte image-digest match between the two releases (`KAV-49`, Lab 18)
 - [x] **First rollback drill, timed** — `helm rollback`, record time-to-restore — 1.49s, with the honest finding that Kubernetes' own rollout default, not the rollback, was what kept the service up (`KAV-49`, Lab 18)
-- [ ] `docs/learn/phase-3-kubernetes-local.md` — flip **Written from** to `experience`
+- [x] `docs/learn/phase-3-kubernetes-local.md` — flip **Written from** to `experience` (2026-10-10: an assumed-vs-happened table from the labs, stale claims corrected, interview answers from what was built)
 
 **Exit gate:** kill a pod locally → agent proposes → you approve → executor fixes it.
 
@@ -134,7 +134,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [x] Generated change records in `docs/releases/`: `promote.yml` puts `change_record.py`'s file in the promotion pull request (components, changes, Jira keys, derived risk, staging evidence, rollback plan with the measured 80 s); the first record is backfilled for `v0.1.0` (`KAV-67`, Lab 36). `release-prepare.yml` ran live (baseline tags `v0.1.0` pushed 2026-10-10); the new `promote.yml`/`release.yml` steps first run at the next real release
   - [x] `rollback.yml` marks the record it undoes `Rolled back: yes` in the rollback pull request (`KAV-71`); "Time to restore" stays a hand-filled measurement
   - [x] A Jira Release (fix version) `Kaval X.Y.Z` per product version: `jira-sync.py release X.Y.Z` (`make jira-release`) reads the change record, creates the release and puts its issues in it. `Kaval 0.1.0` made live 2026-10-10 with its nine issues; repeatable ([ADR-0013](docs/adr/0013-component-versions-and-release-naming.md), 6; `KAV-35`, Lab 42)
-- [ ] `docs/learn/phase-4-aws-landing.md` — flip **Written from** to `experience`
+- [x] `docs/learn/phase-4-aws-landing.md` — flip **Written from** to `experience` (2026-10-10: an assumed-vs-happened table from the labs, stale claims corrected, interview answers from what was built)
 
 **Exit gate:** terminate the node by hand; it rebuilds itself from Git in under 5 minutes. ✅ **Proven and timed on prod 2026-10-08: 3 min 36 s** from `terminate-instances` to every pod `Running 1/1`, no human step (`KAV-60`, Lab 31). The phase stays `[~]` for the release pipeline lines above.
 
@@ -196,7 +196,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Jira retrospective; course outline from `docs/labs/`
 - [ ] Switch the promotion gate to GitHub Environments with required reviewers *(possible now: the repo is public)*
 - [x] Protect `main`: require the CI checks to pass before a pull request merges — done 2026-09-30 when the repo went public early; found enforced and the docs still saying otherwise on 2026-10-08. All ten CI checks are required (`helm`, `image executor`, `image backup` added 2026-10-08, `KAV-62`); `enforce_admins` stays off
-- [ ] `docs/learn/release-engineering.md` — flip **Written from** to `experience`
+- [x] `docs/learn/release-engineering.md` — flip **Written from** to `experience` (2026-10-10: an assumed-vs-happened table from the labs, stale claims corrected, interview answers from what was built)
 - [ ] `docs/learn/phase-8-harden-and-publish.md` — flip **Written from** to `experience`
 
 **Exit gate:** repo public, video recorded, bullets written.
