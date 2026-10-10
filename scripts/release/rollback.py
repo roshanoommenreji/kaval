@@ -9,7 +9,9 @@ never waits on Jira.
                      Has prod run T before, or did T pass staging? Is T an earlier version of what
                      prod runs? Do T's four images still exist in ECR (unchanged, if recorded)? Does
                      going back cross a database migration (refused unless accepted on purpose)?
-    pin --tag T      Re-check T is known, then point prod's two files at T. Edits files only.
+    pin --tag T [--reason R] [--date D]
+                     Re-check T is known, then point prod's two files at T and mark the change
+                     record of the release being undone "Rolled back: yes". Edits files only.
     body --tag T --reason R
                      The text of the rollback pull request (why, the images, the evidence).
 
@@ -28,8 +30,10 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -49,7 +53,11 @@ from promote import (
 from staging_smoke import RECORD, SERVICES, TAG_RE, Check
 
 MIGRATIONS = "migrations/versions"
+RELEASES = "docs/releases"
 REASON_MAX = 300
+# The two bullet fields of a change record (docs/releases/README.md) this file reads and edits.
+ROLLED_BACK_RE = re.compile(r"^- \*\*Rolled back:\*\*.*$", re.M)
+IMAGE_TAG_RE = re.compile(r"^- \*\*Image tag:\*\* *(\S+)", re.M)
 
 
 # ── pure parts: judging a rollback ────────────────────────────────────────────────────
@@ -117,6 +125,26 @@ def check_schema(added: list[str], accepted: bool) -> Check:
         "put the newer release back. Undo the migration first (docs/runbooks/rollback-prod.md), "
         "then re-run with accept_migrations",
     )
+
+
+def mark_rolled_back(text: str, to_tag: str, date: str, reason: str) -> str | None:
+    """The change record with its `Rolled back` line saying so, or None if it already does (a
+    second rollback of the same release must not overwrite the first one's account)."""
+    m = ROLLED_BACK_RE.search(text)
+    if m is None or m[0].split(":**", 1)[1].strip().lower().startswith("yes"):
+        return None
+    why = " ".join(reason.split())[:REASON_MAX]
+    line = f"- **Rolled back:** yes, to `{to_tag}` on {date}" + (f". Why: {why}" if why else "")
+    return text[: m.start()] + line + text[m.end() :]
+
+
+def find_record(releases: Path, tag: str) -> Path | None:
+    """The newest change record whose image tag is `tag`: the release a rollback undoes."""
+    for f in sorted(releases.glob("[0-9]*.md"), reverse=True):
+        m = IMAGE_TAG_RE.search(f.read_text(encoding="utf-8"))
+        if m and m[1] == tag:
+            return f
+    return None
 
 
 def pr_body(
@@ -217,7 +245,29 @@ def cmd_pin(args: argparse.Namespace) -> int:
     known = check_known(record, prod_history_tags("HEAD", args.root), args.tag)
     if not _report([known]):
         return 1
-    return rewrite_prod(args.root, args.tag)
+    undone = current_prod_tag(args.root)
+    rc = rewrite_prod(args.root, args.tag)
+    if rc != 0:
+        return rc
+    # The record travels in the same pull request as the pin, so merging the go/no-go also
+    # records that the release it undoes was rolled back. A missing record never blocks a
+    # rollback: it is an emergency, and the record is bookkeeping.
+    record_file = find_record(args.root / RELEASES, undone)
+    if record_file is None:
+        print(f"no change record for {undone}; nothing to mark")
+        return 0
+    marked = mark_rolled_back(
+        record_file.read_text(encoding="utf-8"),
+        args.tag,
+        args.date or datetime.now(UTC).strftime("%Y-%m-%d"),
+        args.reason,
+    )
+    if marked is None:
+        print(f"{record_file.name} already says it was rolled back; left as it is")
+        return 0
+    record_file.write_text(marked, encoding="utf-8", newline="\n")
+    print(f"marked {RELEASES}/{record_file.name} as rolled back")
+    return 0
 
 
 def cmd_body(args: argparse.Namespace) -> int:
@@ -245,6 +295,8 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(fn=cmd_verify)
     p = sub.add_parser("pin")
     p.add_argument("--tag", required=True)
+    p.add_argument("--reason", default="", help="why, for the change record")
+    p.add_argument("--date", help="YYYY-MM-DD for the change record (default: today, UTC)")
     p.set_defaults(fn=cmd_pin)
     p = sub.add_parser("body", help="markdown for the rollback pull request")
     p.add_argument("--tag", required=True)

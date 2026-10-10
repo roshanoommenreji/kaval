@@ -101,6 +101,9 @@ Jira. Time-to-restore is a measured number, not a hope.
 - For tags older than the record the gate cannot compare digests; it relies on ECR's immutable tags.
 - The `accept_migrations` box is trust, not proof.
 - Every bot pull request's first CI run still waits for a person to approve it.
+- The rollback pull request also carries the edit that marks the undone release's change record
+  `Rolled back: yes` (KAV-71, [ADR-0035](0035-computed-versions-tags-and-the-generated-change-record.md)
+  amendment). "Time to restore" in that record is still filled in by hand from the runbook's measurement.
 
 **Revisit when** migrations become backward-compatible by rule, a second maintainer joins, or the
 Flux polling interval stops being acceptable for a real outage.

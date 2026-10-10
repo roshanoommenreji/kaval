@@ -112,7 +112,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # `pin` checks the tag is known again on its own, so this job does not trust the one before.
-          python3 scripts/release/rollback.py pin --tag "$TAG"
+          # It also marks the change record of the release being undone "Rolled back: yes"
+          # (docs/releases/), so the record rides in this same pull request (KAV-66, ADR-0035).
+          python3 scripts/release/rollback.py pin --tag "$TAG" --reason "$REASON"
           if git diff --quiet; then
             echo "Prod already runs $TAG; nothing to propose."
             exit 0
@@ -127,7 +129,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add deploy/gitops/prod/helmrelease.yaml deploy/environments/prod/values.yaml
+          git add deploy/gitops/prod/helmrelease.yaml deploy/environments/prod/values.yaml docs/releases
           git commit -m "fix(release): roll back prod to $TAG"
           git push origin "$branch"
           gh pr create --base main --head "$branch" \
