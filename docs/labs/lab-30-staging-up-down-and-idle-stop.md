@@ -154,8 +154,8 @@ its database `stopped`, its data volume intact).
 ## What this does not do
 
 - It does not seed staging from a sanitised prod snapshot. `restore.sh` and `anonymise.sql` exist but
-  need the nightly dump to S3, which needs credentials this project has not built yet. Staging still
-  comes up with an empty database.
+  need the nightly dump to S3. The timer that takes it is built (Lab 40, `KAV-74`) but has not yet run on
+  AWS, and the restore into staging is `KAV-73`. Staging still comes up with an empty database.
 - It does not drive a release. `release.yml`, `promote.yml` and `rollback.yml` are separate lines.
 - It does not destroy on idle (ADR-0029). A parked staging costs about $1.64 a month until
   `make staging-down`.

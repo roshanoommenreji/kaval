@@ -29,8 +29,9 @@ Reading the old scrub script against the schema that exists now found it would h
   expression).
 
 None of this was visible because nothing had run it. Also found: the S3 backup bucket is **empty**. The
-nightly dump has never run, because it needs an `aws-creds` Secret that Roshan builds or approves (ROADMAP,
-"DB backups"). There is no production dump to restore yet.
+nightly dump has never run (the chart job needed an `aws-creds` Secret holding a live key; [ADR-0038](0038-nightly-dump-is-taken-by-the-app-node.md)
+replaces it with a timer on the app node that needs no new credential, built but not yet run on AWS).
+There is no production dump to restore yet.
 
 ## Decision
 
@@ -106,5 +107,8 @@ never run on staging.
    schema version to the new one. That is the point of seeding, and also the thing most likely to go wrong.
 3. **Permissions after the restore.** `db-roles.sql` grants each service its own database role access. A
    restored table either carries the grants in the dump or loses them, depending on the order in (2).
-4. **A dump has to exist.** Until the nightly dump is enabled, a drill can only use a synthetic dump made from a
-   scratch database, which tests the restore and the scrub but not real production data.
+4. **A dump has to exist.** The timer that takes it is built (ADR-0038, `KAV-74`) but takes effect only when
+   production is next switched on, and "nightly" then means nightly while it is running. Until a real dump
+   exists, a drill can only use a synthetic dump made from a scratch database (staging now installs the same
+   timer, so a dump of staging's own database into staging's own bucket is a free dress rehearsal), which tests
+   the restore and the scrub but not real production data.

@@ -95,6 +95,12 @@ actual, not projected. One addition not in the table above: an S3 bucket for the
 to the figures already here, and the free S3 gateway VPC endpoint means it never crosses a
 metered data-transfer path.
 
+**The nightly dump itself (`KAV-74`, [ADR-0038](../adr/0038-nightly-dump-is-taken-by-the-app-node.md), 2026-10-10)
+adds no spend:** it is a systemd timer on the app node that is already running, writing into the bucket above.
+The dump of the current schema is about 20 KB and 14 days are kept, so storage stays within the S3 line (0.05).
+No new resource, no change to the ceiling or the alerts. Staging gets the same timer, writing into staging's own
+bucket; a staging dump taken by hand during a drill costs the same fraction of a cent.
+
 Paused, the same account costs **~$4.80/month**: storage only, the app node's ~$2.20 plus the
 database server's two disks (~$2.55).
 

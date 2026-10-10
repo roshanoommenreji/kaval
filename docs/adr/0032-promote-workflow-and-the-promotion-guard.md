@@ -66,6 +66,8 @@ It compares tags only; it makes no AWS or Jira call, so it needs no secret.
 not run it (the nightly backup job is switched off until the dump bucket credentials exist), so it has no pin
 in prod. This corrects ADR-0031 and the roadmap, which said prod runs it. When backup is enabled in prod it
 needs its own decision on how an image that staging cannot exercise is accepted.
+*Update 2026-10-10:* that decision was avoided rather than made. [ADR-0038](0038-nightly-dump-is-taken-by-the-app-node.md)
+takes the dump from a timer on the app node running `backup.sh`, so prod never runs the backup image.
 
 ## Alternatives considered
 

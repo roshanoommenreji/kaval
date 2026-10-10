@@ -75,13 +75,14 @@ resource "aws_launch_template" "node" {
   }
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh.tftpl", {
-    ssh_public_key    = var.ssh_public_key
-    k3s_version       = var.k3s_version
-    k3s_sha256_arm64  = var.k3s_sha256_arm64
-    flux_version      = var.flux_version
-    flux_sha256_arm64 = var.flux_sha256_arm64
-    name_prefix       = var.name_prefix
-    gitops_env        = trimprefix(var.name_prefix, "kaval-") # "prod" / "staging": the deploy/gitops/<this> directory
+    ssh_public_key     = var.ssh_public_key
+    k3s_version        = var.k3s_version
+    k3s_sha256_arm64   = var.k3s_sha256_arm64
+    flux_version       = var.flux_version
+    flux_sha256_arm64  = var.flux_sha256_arm64
+    name_prefix        = var.name_prefix
+    backup_bucket_name = var.backup_bucket_name
+    gitops_env         = trimprefix(var.name_prefix, "kaval-") # "prod" / "staging": the deploy/gitops/<this> directory
   }))
 
   tag_specifications {
