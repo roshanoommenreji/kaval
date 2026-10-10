@@ -63,6 +63,11 @@ paths = [
   # these are the opposite, deliberately realistic-looking so the test is honest.
   '''services/executor/tests/test_redact\.py$''',
   '''services/executor/tests/test_executor_selection\.py$''',
+  # The staging scrub's test (KAV-72, ADR-0037): plants a textbook account id, ARN, access key id
+  # (AKIAABCDEFGHIJKLMNOP), a JWT built from {"alg":"HS256"}/{"sub":"1234567890"} and a PEM header
+  # in every free-text column, to prove anonymise.sql removes each. None is a real credential, and
+  # the test is only honest if they look real.
+  '''services/shared/tests/test_anonymise\.py$''',
 ]
 
 regexes = [

@@ -5,10 +5,15 @@
 #   ./restore.sh staging      seed the staging cluster (what make staging-up runs)
 #   ./restore.sh prod         disaster recovery. Prompts, twice.
 #
-# Two things this does beyond moving bytes:
+# Three things this does beyond moving bytes:
 #
-#   1. Anonymises BEFORE anything can read the database, not after.
-#   2. Records how long the restore took. That number is the measured RTO and
+#   1. Anonymises BEFORE anything can read the database, not after. Run it while no service
+#      is connected to the target (ADR-0037): pg_restore has put the unscrubbed copy there
+#      until the scrub finishes.
+#   2. Fails closed. The scrub runs as one transaction; if its final check fails, the
+#      restored tables are dropped, so a copy that could not be proven clean is never left
+#      for a service to read. The exit code is non-zero and last-restore.json says "failed".
+#   3. Records how long the restore took. That number is the measured RTO and
 #      goes into the next change record -- "we would restore from backup" is
 #      not a recovery plan.
 #
@@ -29,6 +34,12 @@ case "$TARGET" in
   staging)
     HOST="${STAGING_POSTGRES_HOST:?}"; DB="${STAGING_POSTGRES_DB:-kaval}"; USER="${STAGING_POSTGRES_USER:-kaval}"
     PASSWORD="${STAGING_POSTGRES_PASSWORD:?}"
+    # `--clean` below drops tables. Staging mode must never be pointed at the production
+    # server by a mistyped variable, so refuse when the two are the same host.
+    if [[ -n "${POSTGRES_HOST:-}" && "$HOST" == "$POSTGRES_HOST" ]]; then
+      echo "  refusing: STAGING_POSTGRES_HOST is the same host as POSTGRES_HOST (production)"
+      exit 1
+    fi
     ;;
   prod)
     HOST="${POSTGRES_HOST:?}"; DB="${POSTGRES_DB:-kaval}"; USER="${POSTGRES_USER:-kaval}"
@@ -60,12 +71,34 @@ aws s3 cp "s3://${BACKUP_BUCKET}/${KEY}" "$TMP" --only-show-errors
 echo "  restoring into ${TARGET} (${HOST}/${DB})..."
 pg_restore -h "$HOST" -U "$USER" -d "$DB" --clean --if-exists --no-owner "$TMP"
 
+record() {  # record <status>: one line for the change record, written on success and on failure
+  mkdir -p "$ROOT/.build"
+  printf '{"target":"%s","key":"%s","status":"%s","seconds":%s,"rows":"%s","at":"%s"}\n' \
+    "$TARGET" "$KEY" "$1" "$(( $(date +%s) - START ))" "${ROWS:-?}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    > "$ROOT/.build/last-restore.json"
+}
+
+# Drops every table in the public schema: the "fail closed" step below.
+DROP_ALL="DO \$\$ DECLARE t text; BEGIN
+  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', t);
+  END LOOP;
+END \$\$;"
+
 if [[ "$TARGET" == "staging" ]]; then
   echo "  sanitising..."
-  # Aborts the whole restore if an assertion in the script fails, so a
-  # partially-sanitised staging database is never left readable.
-  psql -h "$HOST" -U "$USER" -d "$DB" -v ON_ERROR_STOP=1 -q -f "$ROOT/scripts/ops/anonymise.sql"
-  echo "  sanitised — assertions passed"
+  # --single-transaction: the whole file commits or none of it does. If the final check in
+  # the script fails, nothing is kept, and the restored (unscrubbed) tables are dropped
+  # rather than left readable.
+  if ! psql -h "$HOST" -U "$USER" -d "$DB" -v ON_ERROR_STOP=1 -q --single-transaction \
+        -f "$ROOT/scripts/ops/anonymise.sql"; then
+    echo "  sanitising FAILED - dropping the restored tables so nothing unscrubbed stays readable"
+    psql -h "$HOST" -U "$USER" -d "$DB" -v ON_ERROR_STOP=1 -q -c "$DROP_ALL" \
+      || echo "  !! could not drop them either: treat this database as unclean and destroy it"
+    ROWS="?"; record failed
+    exit 1
+  fi
+  echo "  sanitised - the final check passed"
 fi
 
 ELAPSED=$(( $(date +%s) - START ))
@@ -76,7 +109,4 @@ echo "  restored in ${ELAPSED}s · ${ROWS} signal rows"
 echo "  ^ this is the measured RTO. It belongs in the next change record."
 echo ""
 
-mkdir -p "$ROOT/.build"
-printf '{"target":"%s","key":"%s","seconds":%s,"rows":"%s","at":"%s"}\n' \
-  "$TARGET" "$KEY" "$ELAPSED" "$ROWS" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  > "$ROOT/.build/last-restore.json"
+record ok

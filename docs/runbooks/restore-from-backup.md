@@ -157,7 +157,7 @@ restore duration (`.build/last-restore.json` for a dump), and the row counts bef
 - **Do not restore on every start.** The start-up health check restores only on failure. A stop keeps the EBS volume, so a normal start resumes from the same disk.
 - **Do not run `restore.sh prod` to test the restore path.** Staging exercises it on every release, which is the whole reason it seeds from the production snapshot.
 - **Do not restore with the writers running.** They will insert into a partially-restored schema.
-- **Do not skip the sanitisation when restoring into staging.** `restore.sh` handles it, but if you are doing this by hand, run `anonymise.sql` before anything reads the database.
+- **Do not skip the sanitisation when restoring into staging.** `restore.sh` handles it, and runs it as one transaction: if its final check fails, it drops the restored tables and exits non-zero (`.build/last-restore.json` says `failed`). If you are doing this by hand, run `psql --single-transaction -f scripts/ops/anonymise.sql` before anything reads the database, and never while a service is connected ([ADR-0037](../adr/0037-staging-seeding-from-the-production-dump.md)).
 - **Do not delete the damaged volume** until the restored database has been verified. It carries `prevent_destroy` for exactly this reason. A bad backup plus a deleted volume is total loss.
 - **Do not terminate the database server to "start clean".** Termination protection is on deliberately.
 
