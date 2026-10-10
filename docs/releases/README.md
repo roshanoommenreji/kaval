@@ -68,8 +68,8 @@ Post-deploy check result, recorded after the fact.
 | **Components** | The release's bill of materials: which version of each component it carries, and which changed ([ADR-0013](../adr/0013-component-versions-and-release-naming.md)) |
 | **Approved by** | The human oversight claim needs a name against it. Written before the merge, so it is who started the promotion; the approval is the merge |
 | **Lead time** | Commit → production, one of the four DORA measures |
-| **Rolled back** | Feeds change failure rate |
-| **Time to restore** | Measured, not estimated. "We would roll back" is not a plan. |
+| **Rolled back** | Feeds change failure rate. Written `no`; `rollback.yml` rewrites it to `yes, to <tag> on <date>. Why: ...` in the rollback pull request, so merging that records it |
+| **Time to restore** | Measured, not estimated. "We would roll back" is not a plan. Stays `—` until a person fills it in from the runbook's timing, because the restore happens after the file is written |
 | **Risk** | Derived from what the diff touches, not from someone's mood |
 | **Staging evidence** | *What* passed, not merely that something was tested |
 | **UAT** | Each `uat` story's sign-off, from its Jira comment. `promote.yml` refuses the release if one is missing ([ADR-0012](../adr/0012-user-acceptance-testing.md)) |

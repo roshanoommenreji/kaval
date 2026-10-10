@@ -81,7 +81,9 @@ The database holds real data. Take a snapshot of its data volume first (Lab 27 s
 2. The `gate` job prints four PASS/FAIL lines. A FAIL says why; fix that, do not work around it. In ~30
    seconds a pull request `fix(release): roll back prod to <tag>` appears.
 3. Actions tab → the pull request's first run → **Approve and run**. Wait for every check (about 2 minutes).
-4. Read the pull request description (why, images, what the gate checked), then **merge**.
+4. Read the pull request description (why, images, what the gate checked), then **merge**. The pull request
+   also edits the change record of the release being undone (`docs/releases/`, `Rolled back: yes, to <tag>`);
+   merging records that.
 5. Flux on prod pulls `main` within a minute and the services are healthy about 25 seconds later.
    Verify on the node: `kubectl get pods -n kaval-prod` (all `1/1 Running`, images on the old tag) and
    `kubectl get helmrelease -n flux-system` (`Released=True`).
@@ -98,6 +100,8 @@ The database holds real data. Take a snapshot of its data volume first (Lab 27 s
 
 - Prod now runs the old version; `main` says so. The bad version stays on the passed-staging record, so
   `promote.yml` could promote it again: do not, until the cause is fixed and staging has passed afresh.
+- Fill in `Time to restore` in that change record by hand (merge to every pod `1/1 Running`): the pull request
+  cannot know it, because it is written before the restore.
 - Open a Jira story for the cause. If a migration was undone, record which one and that the data it held
   (if any) was dropped.
 - If the rollback stalled instead (pods unchanged, `HelmRelease` `Stalled`), read the migrate job's log

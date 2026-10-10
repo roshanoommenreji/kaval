@@ -115,8 +115,9 @@ a generated, reviewable change record at the moment it is approved. A person nev
   identifies bytes, the version is the human label.
 - **"Approved by" is who started the promotion**, because the merger is not known when the file is written.
   The approval itself is merging the pull request.
-- **"Rolled back" stays `no`.** `rollback.yml` does not edit the record of the release it undoes, so the
-  dashboard's change-failure figure will undercount until it does. Follow-up.
+- **"Rolled back" says `no` until a rollback happens, then `rollback.yml` edits it** (KAV-71, amendment below).
+  "Time to restore" stays `—`: the restore happens after the merge, so the file written before it cannot
+  know it. It is measured by hand per the runbook.
 - **No Jira Release (fix version) is created yet** (ADR-0013, 6). It needs write access to Jira, which CI
   deliberately lacks; it will be a manual `jira-sync.py` step at the first real release. Follow-up.
 - **The measured restore time in a record is a constant** (`MEASURED` in `change_record.py`, from staging).
@@ -124,4 +125,24 @@ a generated, reviewable change record at the moment it is approved. A person nev
 - Every bot pull request's first CI run still waits for a person to approve it.
 
 **Revisit when** the script needs per-package changelogs (then release-please), a second maintainer joins and
-"Approved by" must be the merger, or `rollback.yml` should edit the record it undoes.
+"Approved by" must be the merger.
+
+## Amendment 2026-10-10 (KAV-71): a rollback marks the record it undoes
+
+The follow-up this ADR listed. `rollback.py pin` now finds the newest `docs/releases/` file whose `Image tag`
+is the tag prod runs *before* the pin, and rewrites its `Rolled back` line to
+`yes, to <tag> on <date>. Why: <reason>`. `rollback.yml` commits that file in the same pull request as the
+pin, exactly as `promote.yml` does for a new record, so merging the go/no-go also records it, and a rollback
+pull request closed unmerged leaves the record alone.
+
+- **Why in the same pull request, not a later job:** a record changed outside the reviewed change is a record
+  nobody approved. This keeps "the merge is the decision" true in both directions.
+- **A missing record never blocks a rollback.** A rollback is an emergency and the record is bookkeeping, so
+  `pin` prints "nothing to mark" and carries on.
+- **Already marked is left alone**, so a second rollback of the same release does not overwrite the first
+  one's account.
+- **Rejected:** a separate bookkeeping job after the merge (needs write access on `main`, which CI
+  deliberately lacks); making "Time to restore" a typed field in the workflow (a number someone types is the
+  thing the records exist to avoid).
+- The dashboard already counted `Rolled back: yes...`, so change-failure rate now moves (`test_rollback.py`
+  reads a marked record through `dashboard.read_releases`).

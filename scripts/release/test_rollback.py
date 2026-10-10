@@ -240,6 +240,91 @@ def test_a_rollback_pin_passes_the_guard(repo: Path) -> None:
     assert all(c.ok for c in promote.guard(base, head, RECORD, history))
 
 
+# ── the change record of the release being undone ─────────────────────────────────────
+
+
+def record_text(tag: str, rolled: str = "no") -> str:
+    return (
+        "# Release v0.1.0 — 2026-10-09\n\n"
+        f"- **Environment:** prod\n- **Image tag:** {tag}\n- **Rolled back:** {rolled}\n"
+        "- **Time to restore:** —\n"
+    )
+
+
+def _add_record(repo: Path, name: str, text: str) -> Path:
+    p = repo / rollback.RELEASES / name
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text, encoding="utf-8")
+    return p
+
+
+def test_mark_says_where_it_went_when_and_why() -> None:
+    out = rollback.mark_rolled_back(record_text("sha-2222222"), "sha-0000000", "2026-10-11", "boom")
+    assert out is not None
+    assert "- **Rolled back:** yes, to `sha-0000000` on 2026-10-11. Why: boom\n" in out
+    assert "- **Time to restore:** —" in out  # other fields untouched
+
+
+def test_mark_leaves_an_earlier_rollback_alone() -> None:
+    done = record_text("sha-2222222", "yes, to `sha-0000000` on 2026-10-11")
+    assert rollback.mark_rolled_back(done, "sha-1111111", "2026-10-12", "") is None
+
+
+def test_mark_flattens_and_cuts_the_reason() -> None:
+    out = rollback.mark_rolled_back(record_text("t"), "sha-0000000", "d", "a\nb\n" + "Q" * 5000)
+    assert out is not None and "a b Q" in out and out.count("Q") <= rollback.REASON_MAX
+
+
+def test_a_record_without_the_field_is_left_alone() -> None:
+    assert rollback.mark_rolled_back("# Release\n", "sha-0000000", "d", "x") is None
+
+
+def test_find_record_picks_the_newest_file_for_that_tag(tmp_path: Path) -> None:
+    _add_record(tmp_path, "2026-10-01-v0.1.0.md", record_text("sha-2222222"))
+    newer = _add_record(tmp_path, "2026-10-05-v0.2.0.md", record_text("sha-2222222"))
+    _add_record(tmp_path, "2026-10-06-v0.3.0.md", record_text("sha-9999999"))
+    _add_record(tmp_path, "README.md", record_text("sha-2222222"))  # not date-prefixed
+    releases = tmp_path / rollback.RELEASES
+    assert rollback.find_record(releases, "sha-2222222") == newer
+    assert rollback.find_record(releases, "sha-5555555") is None
+
+
+def test_pin_marks_the_record_of_the_release_it_undoes(repo: Path) -> None:
+    _pin_repo(repo)
+    undone = _add_record(repo, "2026-10-09-v0.1.0.md", record_text("sha-2222222"))
+    argv = ["--root", str(repo), "pin", "--tag", "sha-0000000", "--reason", "crash loop"]
+    assert rollback.main([*argv, "--date", "2026-10-11"]) == 0
+    assert "yes, to `sha-0000000` on 2026-10-11. Why: crash loop" in undone.read_text("utf-8")
+
+
+def test_pin_still_succeeds_when_there_is_no_record(repo: Path) -> None:
+    _pin_repo(repo)
+    assert rollback.main(["--root", str(repo), "pin", "--tag", "sha-0000000"]) == 0
+    assert "tag: sha-0000000" in (repo / promote.PROD_FILES[0]).read_text(encoding="utf-8")
+
+
+def test_a_refused_pin_marks_nothing(repo: Path) -> None:
+    _pin_repo(repo)
+    undone = _add_record(repo, "2026-10-09-v0.1.0.md", record_text("sha-2222222"))
+    assert rollback.main(["--root", str(repo), "pin", "--tag", "sha-5555555"]) == 1
+    assert undone.read_text("utf-8") == record_text("sha-2222222")
+
+
+def test_the_dashboard_counts_a_marked_record_as_rolled_back(tmp_path: Path) -> None:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "dashboard", Path(__file__).resolve().parents[1] / "tracking" / "dashboard.py"
+    )
+    assert spec and spec.loader
+    dash = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(dash)
+    marked = rollback.mark_rolled_back(record_text("sha-2222222"), "sha-0000000", "d", "x")
+    assert marked is not None
+    _add_record(tmp_path, "2026-10-09-v0.1.0.md", marked)
+    assert dash.read_releases(tmp_path / rollback.RELEASES)[0]["rolled_back"] is True
+
+
 def test_pr_body_says_why_what_moves_and_what_it_does_not_undo() -> None:
     body = rollback.pr_body(
         "sha-1111111", "sha-2222222", "agent crash-loops after the new image", "PASS  ok", ENTRY

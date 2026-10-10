@@ -18,7 +18,7 @@ migration **stalled** until the migration was undone; after that, merge to healt
 
 | Piece | Where | Job |
 |---|---|---|
-| The brain | `scripts/release/rollback.py` (+ `test_rollback.py`, 28 tests) | `verify`, `pin`, `body` |
+| The brain | `scripts/release/rollback.py` (+ `test_rollback.py`) | `verify`, `pin` (also marks the undone release's change record, KAV-71), `body` |
 | The workflow | `.github/workflows/rollback.yml` | `gate` (read-only AWS) then `propose` (opens the pull request) |
 | The guard change | `prod_history_tags` and a `history` argument in `scripts/release/promote.py` | `promotion-guard` also allows a tag prod has pinned before |
 | The runbook | `docs/runbooks/rollback-prod.md` | what a person does, including the database step |
@@ -109,6 +109,8 @@ Then `staging.sh down`: `Left tagged Env=staging: 0 instances, 0 volumes, 0 VPCs
 ## What this does not do
 
 - It does not undo database changes. That is the person's step, with a snapshot, in the runbook.
+- It marks the change record of the release it undoes (`Rolled back: yes, to <tag> on <date>`) in the same pull
+  request (KAV-71). It leaves `Time to restore` as `—`: that is measured after the merge, by hand.
 - It does not measure prod. Prod's node may pull images it has not got, and its database has real data.
 - It cannot compare digests for a tag older than the record; ECR's immutable tags are the guarantee.
 - A bot pull request's first CI run still needs a person to approve it.
