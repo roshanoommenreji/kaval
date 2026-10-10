@@ -186,6 +186,11 @@ Keep the two identities apart:
 Every running component reports its version (`/healthz`, `--version`, the image label), and CI
 checks the label matches the code. A version that three places disagree on isn't a version.
 
+The tracker needs the same name. In Jira that is a **Release** (also called a fix version): one per
+product version, with each shipped issue pointing at it, so anyone can open "Kaval 0.3.0" and see
+what it contained without reading commits. Kaval fills it from the change record rather than by hand
+(`jira-sync.py release`), so the record and the tracker cannot drift apart.
+
 ### Progressive delivery, and why not here
 
 Worth knowing by name, even though this project does not use it.

@@ -118,8 +118,8 @@ a generated, reviewable change record at the moment it is approved. A person nev
 - **"Rolled back" says `no` until a rollback happens, then `rollback.yml` edits it** (KAV-71, amendment below).
   "Time to restore" stays `—`: the restore happens after the merge, so the file written before it cannot
   know it. It is measured by hand per the runbook.
-- **No Jira Release (fix version) is created yet** (ADR-0013, 6). It needs write access to Jira, which CI
-  deliberately lacks; it will be a manual `jira-sync.py` step at the first real release. Follow-up.
+- **The Jira Release (fix version) is a manual step, not CI's** (ADR-0013, 6). It needs write access to Jira,
+  which CI deliberately lacks. Done 2026-10-10: `jira-sync.py release X.Y.Z` (Lab 42).
 - **The measured restore time in a record is a constant** (`MEASURED` in `change_record.py`, from staging).
   Update it and ADR-0034 when prod's own time is measured.
 - Every bot pull request's first CI run still waits for a person to approve it.

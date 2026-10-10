@@ -120,8 +120,8 @@ the delivery measures have their first row.
   `promote.yml`'s record step run at the next real release and promotion.
 - A component version describes its own folder, not the whole image: every image also holds the gateway,
   collector and agent code.
-- "Approved by" is who started the promotion; "Rolled back" is `no` until `rollback.yml` marks it (KAV-71); no Jira Release is created yet
-  (all in ADR-0035's limits).
+- "Approved by" is who started the promotion; "Rolled back" is `no` until `rollback.yml` marks it (KAV-71); the Jira Release is a manual step
+  ([Lab 42](lab-42-a-jira-release-per-product-version.md); all in ADR-0035's limits).
 
 ## Reproduce
 

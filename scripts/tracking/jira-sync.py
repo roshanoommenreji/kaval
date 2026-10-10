@@ -12,6 +12,7 @@ Usage:
     python scripts/tracking/jira-sync.py uat KAV-40 pass --env staging --note "..."
     python scripts/tracking/jira-sync.py uat KAV-40 fail --env staging --note "what broke"
     python scripts/tracking/jira-sync.py backfill-service [--apply]
+    python scripts/tracking/jira-sync.py release 0.1.0 [--apply]   # Jira Release "Kaval 0.1.0"
 
 Stories are created in the same layout every existing KAV story uses: Context, an
 Acceptance Criteria checklist, UAT scenarios when the story needs acceptance (ADR-0012),
@@ -27,6 +28,7 @@ import urllib.parse
 from datetime import date
 
 import jira_adf as adf
+import jira_release
 from atlassian import BASE, ROOT, call
 
 PROJECT = "KAV"
@@ -306,6 +308,52 @@ def backfill_service(apply: bool) -> None:
         print("dry run: nothing written. Re-run with --apply.")
 
 
+def release(version: str, apply: bool) -> None:
+    """Make the Jira Release (fix version) `Kaval X.Y.Z` for one product version and put every
+    issue its change record names into it (ADR-0013, 6). The change record is the source:
+    docs/releases/<date>-vX.Y.Z.md. Safe to run twice: it adds what is missing and nothing else."""
+    try:
+        record = jira_release.parse(
+            jira_release.find_record(ROOT / "docs" / "releases", version)
+            .read_text(encoding="utf-8"))
+    except (ValueError, FileNotFoundError) as e:
+        sys.exit(str(e))
+    status, project = call("GET", f"/rest/api/3/project/{PROJECT}")
+    if status != 200:
+        fail("could not read the project", status, project)
+    status, existing = call("GET", f"/rest/api/3/project/{PROJECT}/versions")
+    if status != 200:
+        fail("could not read the project's releases", status, existing)
+    have = next((v for v in existing if v["name"] == record.name), None)
+    state = "already exists" if have else "creating" if apply else "would be created"
+    issues = ", ".join(record.issues) or "none"
+    print(f"{record.name}: {state} (released {record.date}); "
+          f"{len(record.issues)} issue(s): {issues}")
+    if not apply:
+        print("dry run: nothing written. Re-run with --apply.")
+        return
+    if not have:
+        status, body = call("POST", "/rest/api/3/version", {
+            "name": record.name, "description": record.description, "released": True,
+            "releaseDate": record.date, "projectId": int(project["id"])})
+        if status != 201:
+            fail(f"creating {record.name} failed", status, body)
+        print(f"  created {record.name}")
+    for key in record.issues:
+        status, body = call("GET", f"/rest/api/3/issue/{key}?fields=fixVersions")
+        if status != 200:
+            print(f"  {key:<7} skip   (not readable in Jira: HTTP {status})")
+            continue
+        if any(v["name"] == record.name for v in body["fields"].get("fixVersions", [])):
+            print(f"  {key:<7} skip   (already in {record.name})")
+            continue
+        status, body = call("PUT", f"/rest/api/3/issue/{key}",
+                            {"update": {"fixVersions": [{"add": {"name": record.name}}]}})
+        if status != 204:
+            fail(f"adding {key} to {record.name} failed", status, body)
+        print(f"  {key:<7} added")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -350,6 +398,10 @@ def main() -> None:
     p_bf = sub.add_parser("backfill-service", help="set Service from the code each issue changed")
     p_bf.add_argument("--apply", action="store_true", help="write; without it, a dry run")
 
+    p_rel = sub.add_parser("release", help="make a product version's Jira Release (ADR-0013, 6)")
+    p_rel.add_argument("version", help="product version, e.g. 0.1.0; its change record is read")
+    p_rel.add_argument("--apply", action="store_true", help="write; without it, a dry run")
+
     args = parser.parse_args()
     if args.command == "show":
         show(args.epic)
@@ -363,6 +415,8 @@ def main() -> None:
         uat(args)
     elif args.command == "backfill-service":
         backfill_service(args.apply)
+    elif args.command == "release":
+        release(args.version, args.apply)
     else:
         create(args)
 
