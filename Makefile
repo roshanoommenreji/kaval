@@ -327,6 +327,10 @@ execute: ## Run the executor one pass against the database in .env (KAV-47). Nee
 watch-events: ## Poll real Kubernetes events into signal rows, one pass (KAV-48). Same cluster requirement as `make execute`.
 	@python -m kaval_collector.k8s_events $(if $(NAMESPACE),--namespace $(NAMESPACE),)
 
+.PHONY: watch-metrics
+watch-metrics: ## Ask Prometheus which containers are near their memory limit, one pass (KAV-75). PROMETHEUS_URL in .env; try `kubectl port-forward svc/kaval-local-prometheus 9090`.
+	@python -m kaval_collector.prometheus $(if $(NAMESPACE),--namespace $(NAMESPACE),)
+
 .PHONY: jira-dashboards
 jira-dashboards: ## Create or update the Jira dashboards from scripts/tracking/jira-dashboards.toml
 	@python scripts/tracking/jira-dashboards.py
