@@ -114,9 +114,10 @@ the delivery measures have their first row.
 
 ## What this does not do
 
-- **The new workflow steps have not run in GitHub Actions yet.** `release-prepare.yml` can be dispatched at once
-  (it will report nothing to bump). `release.yml`'s tag step and `promote.yml`'s record step run at the next real
-  release and promotion.
+- **Two of the three workflow changes have not run in GitHub Actions yet.** `release-prepare.yml` has: after
+  the baseline tags were pushed (2026-10-10) it was dispatched on `main` and reported "nothing has changed that
+  moves a version", which proves the checkout, the tags and the plan in CI. `release.yml`'s tag step and
+  `promote.yml`'s record step run at the next real release and promotion.
 - A component version describes its own folder, not the whole image: every image also holds the gateway,
   collector and agent code.
 - "Approved by" is who started the promotion; "Rolled back" stays `no`; no Jira Release is created yet

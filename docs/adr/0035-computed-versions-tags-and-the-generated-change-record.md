@@ -103,9 +103,11 @@ a generated, reviewable change record at the moment it is approved. A person nev
 
 **Harder / limits.**
 
-- **The new `promote.yml` and `release.yml` steps have not run live.** Only unit tests, a real run of the
-  generator against this repository's history, and a bump rehearsed in a clone (including `uv lock --check`)
-  prove them. The first real promotion after this one exercises them; a failure there blocks the pull
+- **Two of the three new workflow changes have not run live yet.** `release-prepare.yml` has (dispatched
+  on `main` on 2026-10-10 after the baseline tags were pushed: it checked out the history and tags, ran the plan
+  and correctly reported "nothing has changed that moves a version"). `release.yml`'s tag step and
+  `promote.yml`'s record step have not; unit tests, a real run of the generator against this repository's
+  history, and a bump rehearsed in a clone (including `uv lock --check`) are what prove them. The first real promotion after this one exercises them; a failure there blocks the pull
   request, loudly, rather than writing a wrong record.
 - **A component's version is about its own folder, not the whole image.** The gateway image also contains the
   collector's and agent's code (the Dockerfiles copy them), so a collector-only change changes the gateway
