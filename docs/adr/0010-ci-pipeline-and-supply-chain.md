@@ -80,3 +80,19 @@ Only a merged commit should produce an artifact.
   (68 s wall-clock, each job rounded up to a minute), about 12 a PR counting the run on `main`
   (measured in Lab 06).
 - `opa test` joins the test job in Phase 2, once `policy/` holds policies.
+
+## Amendment 2026-10-10 (KAV-69): all five images, and one dependency held back
+
+- **Coverage.** Dependabot's Docker entry listed three folders (gateway, collector, agent), so the executor
+  (which bundles OPA and is the only component that changes anything) and the backup job never got a base-image
+  update. Both are added; all five Dockerfiles are now watched.
+- **A major version held.** The weekly python group tried to move `kubernetes` 36.0.3 to 37.0.0. CI refused it:
+  version 37 ships type hints, and mypy reported 26 errors in the executor's and the collector's `k8s.py`. The
+  executor restarts and deletes real pods, and its unit tests use fakes, so a green build would not prove the
+  new client still works against a cluster. `dependabot.yml` now ignores *major* `kubernetes` updates; minor and
+  patch updates still arrive. `KAV-70` does the upgrade properly (fix the types, exercise the executor on
+  staging) and removes the ignore.
+- **Why not merge the other seven separately.** Dependabot groups by ecosystem, so one failing member blocks the
+  whole group. Ignoring the one dependency is smaller and keeps the weekly rhythm.
+- **Rejected:** loosening the mypy settings to let 37 through (hides the problem the new types are reporting),
+  and merging with the failing check bypassed (the 11 required checks are the point of ADR-0010).

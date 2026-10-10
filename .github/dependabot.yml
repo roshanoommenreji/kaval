@@ -23,10 +23,21 @@ updates:
     schedule: { interval: weekly, day: saturday }
     groups:
       python: { patterns: ["*"] }
+    ignore:
+      # Held on 36.x (KAV-69, ADR-0010): 37 is a major version that ships type hints, so mypy
+      # fails in the executor and the collector, and the executor makes real cluster changes,
+      # so it needs proving on staging first. KAV-70 does that; delete these three lines then.
+      - dependency-name: kubernetes
+        update-types: [version-update:semver-major]
     commit-message: { prefix: chore }
 
   - package-ecosystem: docker # the digest-pinned base images
-    directories: [/services/gateway, /services/collector, /services/agent]
+    directories:
+      - /services/gateway
+      - /services/collector
+      - /services/agent
+      - /services/executor # added by KAV-69: it bundles OPA, and had been left out
+      - /services/backup
     schedule: { interval: weekly, day: saturday }
     groups:
       base-images: { patterns: ["*"] }
