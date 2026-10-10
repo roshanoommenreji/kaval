@@ -143,7 +143,8 @@ publishing job has no more reach than its job needs.
 **Not done here, and why.** The smoke test, the record that a digest passed staging, component
 version bumps and tags (ADR-0013) and the generated change record are the next stage of `release.yml`.
 They need staging to be up, and the pass record is what `promote.yml` will check, so they are designed
-together with it.
+together with it. *(Since done: the smoke test and the record in ADR-0031, version bumps, tags and the
+change record in ADR-0035.)*
 
 **Revisit if** releases become frequent enough that approving and merging the pin by hand is a chore
 (add the second role and automate the wake and smoke test, or a GitHub App for the pull request).

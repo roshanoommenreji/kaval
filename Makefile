@@ -156,6 +156,10 @@ staging-status: ## Is staging running? Database state and the pods, read over Se
 staging-smoke: ## Smoke-test the tag staging runs (digest vs ECR, pods, database, API) and record a pass. Needs staging up (TAG=, NO_RECORD=1)
 	@python scripts/release/staging_smoke.py $(if $(TAG),--tag $(TAG)) $(if $(NO_RECORD),--no-record)
 
+.PHONY: version-plan
+version-plan: ## What the next component and product versions would be, from the commits since each tag. Writes nothing
+	@python scripts/release/versions.py plan
+
 .PHONY: staging-down
 staging-down: ## Destroy staging completely, data volume included (it also parks itself when idle)
 	@bash scripts/ops/staging.sh down

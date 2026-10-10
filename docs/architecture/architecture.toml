@@ -976,7 +976,7 @@ kind = "service"
 phase = 4
 col = 2
 row = 11
-note = "Named Kaval X.Y.Z with the component versions it carries (ADR-0013), each bumped from the conventional commits touching that component since its last tag. Lists the Jira issues named by their KAV keys, grouped by Service, and each uat story's sign-off (ADR-0012). Generated, so it is accurate and costs nothing per release."
+note = "Built (KAV-67, ADR-0035): versions.py works the versions out, release-prepare.yml opens the bump pull request, release.yml tags <svc>-vX.Y.Z and vX.Y.Z. Named Kaval X.Y.Z with the component versions it carries (ADR-0013), each bumped from the conventional commits touching that component since its last tag. Lists the Jira issues named by their KAV keys, grouped by Service, and each uat story's sign-off (ADR-0012). Generated, so it is accurate and costs nothing per release."
 
 [[delivery.node]]
 id = "d-approve"
@@ -1057,7 +1057,7 @@ kind = "store"
 phase = 4
 col = 2
 row = 17
-note = "docs/releases/YYYY-MM-DD-vX.Y.Z.md — digests, changes, linked issues, derived risk, staging evidence, the rollback plan with its last measured time, and the verification result."
+note = "Built (KAV-67, ADR-0035): change_record.py runs in promote.yml and the file rides in the promotion pull request. docs/releases/YYYY-MM-DD-vX.Y.Z.md — digests, changes, linked issues, derived risk, staging evidence, the rollback plan with its last measured time, and the verification result."
 
 [[delivery.node]]
 id = "d-jira"
