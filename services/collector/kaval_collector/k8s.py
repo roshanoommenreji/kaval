@@ -17,6 +17,6 @@ def load_config() -> None:
     kaval_collector.k8s_events --once` also works from a laptop against a reachable
     cluster, the same laptop-run affordance the rest of this codebase's tools have."""
     try:
-        config.load_incluster_config()
+        config.load_incluster_config()  # type: ignore[no-untyped-call]
     except config.ConfigException:
-        config.load_kube_config()
+        config.load_kube_config()  # type: ignore[no-untyped-call]
