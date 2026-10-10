@@ -109,6 +109,7 @@ Staging seeding (`KAV-73`, [ADR-0039](../adr/0039-staging-is-filled-from-a-copy-
 recurring spend and no resource: the cleaned file is about 20 KB in staging's own bucket, which is destroyed with staging
 (`force_destroy`), and the cleaning runs in Docker on the laptop. The live drill is one ordinary staging session, about
 $0.045/hour for one to two hours, so roughly 10 cents (the "$1-2" first estimated was an upper bound, not the expected cost).
+Measured, 2026-10-10: about 25 minutes of staging, a few cents; the seed file and staging's bucket were destroyed with it.
 
 Paused, the same account costs **~$4.80/month**: storage only, the app node's ~$2.20 plus the
 database server's two disks (~$2.55).
