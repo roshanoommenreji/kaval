@@ -47,6 +47,7 @@ import sys
 import time
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Protocol
 
 from kaval_shared.models import Signal
 from kubernetes import client
@@ -91,8 +92,21 @@ def _last_written_count(session: Session, event_uid: str) -> int:
     return int(count) if isinstance(count, (int, float, str)) else 0
 
 
+class _HasEvents(Protocol):
+    @property
+    def items(self) -> list[client.CoreV1Event]: ...
+
+
+class EventSource(Protocol):
+    """The one call `poll` makes. `client.CoreV1Api` satisfies it, and so does the small fake in
+    the tests. Naming the call, not the whole class, is what lets a fake stand in for the real
+    client now that the client library ships type hints (KAV-70)."""
+
+    def list_namespaced_event(self, namespace: str, *, field_selector: str = "") -> _HasEvents: ...
+
+
 def poll(
-    session: Session, v1: client.CoreV1Api, namespace: str = DEMO_NAMESPACE, *,
+    session: Session, v1: EventSource, namespace: str = DEMO_NAMESPACE, *,
     now: datetime | None = None,
 ) -> list[str]:
     """One pass: every `Warning` event on a `Pod` in `namespace` whose count has grown since

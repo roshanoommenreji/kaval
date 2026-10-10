@@ -25,9 +25,9 @@ def load_config() -> None:
     already have (Lab 10, Lab 11), not a new exception to the privilege-separation rule:
     whichever identity is active, RBAC still decides what it can do."""
     try:
-        config.load_incluster_config()
+        config.load_incluster_config()  # type: ignore[no-untyped-call]
     except config.ConfigException:
-        config.load_kube_config()
+        config.load_kube_config()  # type: ignore[no-untyped-call]
 
 
 class UnknownTarget(RuntimeError):
@@ -65,14 +65,19 @@ def restart_pod(target: str) -> tuple[dict[str, Any], dict[str, Any], str]:
                 f"pod {target} not found; nothing to restart",
             )
         raise
-    owner = pod.metadata.owner_references[0].kind if pod.metadata.owner_references else None
+    # The client library types every field as optional. A pod the API server returns always has
+    # all three; the fallbacks only satisfy the type checker and change nothing at runtime.
+    metadata = pod.metadata or client.V1ObjectMeta()
+    status = pod.status or client.V1PodStatus()
+    spec = pod.spec or client.V1PodSpec(containers=[])
+    owner = metadata.owner_references[0].kind if metadata.owner_references else None
     before_state = {
         "found": True,
-        "phase": pod.status.phase,
-        "node": pod.spec.node_name,
-        "restart_count": sum(c.restart_count for c in pod.status.container_statuses or []),
+        "phase": status.phase,
+        "node": spec.node_name,
+        "restart_count": sum(int(c.restart_count or 0) for c in status.container_statuses or []),
         "owner_kind": owner,
-        "uid": pod.metadata.uid,
+        "uid": metadata.uid,
     }
     v1.delete_namespaced_pod(name, namespace)
     after_state = {
@@ -82,7 +87,7 @@ def restart_pod(target: str) -> tuple[dict[str, Any], dict[str, Any], str]:
                        else "none — this pod has no owning controller",
     }
     stdout = (
-        f"deleted pod {target} (uid {pod.metadata.uid}, was {pod.status.phase}, "
+        f"deleted pod {target} (uid {metadata.uid}, was {status.phase}, "
         f"owner={owner or 'none'})"
     )
     return before_state, after_state, stdout
