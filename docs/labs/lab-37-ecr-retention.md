@@ -7,7 +7,7 @@ $0.71 a month (it is about $0.09 today). Decisions: [ADR-0036](../adr/0036-ecr-k
 tagged image forever. This lab limits that, and adds a check so that limiting it cannot leave a parked prod
 pointing at an image that no longer exists.
 
-**Result:** `infra/modules/ecr` has a second lifecycle rule (keep the newest 15 `sha-*` images per
+**Result:** applied to AWS and read back (section 5); `infra/modules/ecr` has a second lifecycle rule (keep the newest 15 `sha-*` images per
 repository); an ECR *preview* of the rule on the real gateway repository named exactly the older image;
 `make up` runs `promote.py preflight` first and, against the real registry, reports that prod's four images
 exist; the Terraform plan is five policy replacements and nothing else; 147 release tests pass.
@@ -76,7 +76,17 @@ Replacing a lifecycle policy means deleting and recreating the *policy*, which h
 repositories and the images are not in the plan. Only those five resources appear, the parked-prod node
 settings are untouched, and `terraform validate` and `terraform fmt -check` pass.
 
-## 5. What went wrong
+## 5. The apply (2026-10-10, approved by Roshan)
+
+```bash
+cd infra/envs/prod && terraform apply     # Apply complete! Resources: 5 added, 0 changed, 5 destroyed.
+aws ecr get-lifecycle-policy --repository-name kaval/gateway   # rule 1 untagged/7, rule 2 tagged/15
+```
+
+All five repositories read back with both rules; a second `terraform plan` said "No changes"; `preflight` still
+passed afterwards, so no image was touched.
+
+## 6. What went wrong
 
 Nothing broke, but one thing nearly went into the design: I first thought of protecting prod's image by giving
 it a second tag such as `keep-sha-2459417`. ECR has no "keep" action and no exclusion, so an image that also
