@@ -72,7 +72,7 @@ test: ## Unit tests + policy tests
 .PHONY: lint
 lint: ## Lint and type-check
 	ruff check infra/modules/idle-stop/lambda scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
-	mypy infra/modules/idle-stop/lambda/idle_stop.py scripts/release/pin_staging.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
+	mypy infra/modules/idle-stop/lambda/idle_stop.py scripts/release/pin_staging.py scripts/release/staging_smoke.py scripts/release/promote.py scripts/release/rollback.py scripts/release/versions.py scripts/release/change_record.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
 
 .PHONY: lock
 lock: ## Re-resolve uv.lock after editing pyproject.toml's dependencies (then commit both)
@@ -108,6 +108,7 @@ plan: ## Show what would change in prod (never applies)
 
 .PHONY: up
 up: ## Resume the database, provision the spot node and reconcile from Git (~5 min, STARTS BILLING)
+	@python scripts/release/promote.py preflight
 	@echo "This starts billing at roughly \$$0.0126/hr (app node) plus the database server (~\$$14.40/mo while running)."
 	@read -p "Continue? [y/N] " ok && [ "$$ok" = "y" ]
 	@bash scripts/ops/resume-database.sh
@@ -151,6 +152,14 @@ staging-up: ## Build or resume staging and wait until its services answer (~5 mi
 .PHONY: staging-status
 staging-status: ## Is staging running? Database state and the pods, read over Session Manager
 	@bash scripts/ops/staging.sh status
+
+.PHONY: staging-smoke
+staging-smoke: ## Smoke-test the tag staging runs (digest vs ECR, pods, database, API) and record a pass. Needs staging up (TAG=, NO_RECORD=1)
+	@python scripts/release/staging_smoke.py $(if $(TAG),--tag $(TAG)) $(if $(NO_RECORD),--no-record)
+
+.PHONY: version-plan
+version-plan: ## What the next component and product versions would be, from the commits since each tag. Writes nothing
+	@python scripts/release/versions.py plan
 
 .PHONY: staging-down
 staging-down: ## Destroy staging completely, data volume included (it also parks itself when idle)

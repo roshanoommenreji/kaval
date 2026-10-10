@@ -330,10 +330,10 @@ kind = "platform"
 phase = 4
 col = 2
 row = 8
-credentials = "IAM-authenticated pull"
-inputs = ["arm64 images, built once and tagged by commit SHA"]
+credentials = "IAM-authenticated pull by the node; push only by the kaval-ci-publish role, which GitHub Actions assumes by OIDC (this repo, main branch only)"
+inputs = ["arm64 images, built once and tagged by commit SHA, pushed by release.yml (KAV-61, ADR-0030)"]
 outputs = ["Images pulled by the node"]
-note = "First 500 MB free. Four repos live since KAV-50: kaval/gateway, kaval/agent, kaval/executor, kaval/collector, immutable tags. First real images pushed KAV-51 — a one-time manual bootstrap (release.yml, still unbuilt, automates this later); the node pulls them using a registry/credential pair its own cloud-init refreshes from its IAM role, never committed (ADR-0025)."
+note = "First 500 MB free. Five repos: kaval/gateway, kaval/agent, kaval/executor, kaval/collector (live since KAV-50) and kaval/backup (added KAV-61), immutable tags. The first images were pushed by hand in KAV-51; since KAV-61 release.yml publishes every image from CI through a push-only OIDC role (no stored key; the trust condition is the repo's immutable subject on main). The node pulls them using a registry/credential pair its own cloud-init refreshes from its IAM role, never committed (ADR-0025). Retention (KAV-68, ADR-0036): only the newest 15 tagged images per repository are kept (at most about $0.71/month), and make up checks first that the images prod pins still exist."
 
 [[system.node]]
 id = "s3"
@@ -921,8 +921,8 @@ kind = "service"
 phase = 4
 col = 2
 row = 5
-outputs = ["One arm64 image, tagged sha-<short>, referenced by digest"]
-note = "BUILD ONCE. A rebuild from the same commit can differ — base images move, dependencies resolve differently — so a rebuild is a different artifact, and staging then tested something else."
+outputs = ["Five arm64 images, tagged sha-<short>; the digest is read back from ECR and recorded beside the tag"]
+note = "Built in release.yml (KAV-61, ADR-0030): scanned, then pushed through a push-only OIDC role; the publishing job has no repo write access and the proposing job has no AWS access. BUILD ONCE. A rebuild from the same commit can differ — base images move, dependencies resolve differently — so a rebuild is a different artifact, and staging then tested something else."
 
 [[delivery.node]]
 id = "d-sign"
@@ -949,7 +949,7 @@ kind = "target"
 phase = 4
 col = 2
 row = 8
-note = "Exact parity with prod: same instance type, same 4 GB, same local model. That matters because memory pressure is this project's binding constraint, and a smaller staging node would miss precisely that."
+note = "Staging deploys the way prod does: release.yml opens a pull request that changes the image tag under deploy/gitops/staging/ and Flux pulls it (built, KAV-61). Exact parity with prod: same instance type, same 4 GB, same local model. That matters because memory pressure is this project's binding constraint, and a smaller staging node would miss precisely that."
 
 [[delivery.node]]
 id = "d-smoke"
@@ -958,7 +958,7 @@ kind = "decision"
 phase = 4
 col = 2
 row = 9
-note = "Does the loop actually work on a real cluster, and does OPA still refuse every never-class action?"
+note = "Does the loop actually work on a real cluster, and does OPA still refuse every never-class action? Built in part (KAV-62, ADR-0031): make staging-smoke checks pods, no crash loop, the running digest against ECR, the gateway database and migration revision, and the REST reads, then records the pass in deploy/promotion/passed-staging.json. Not yet covered: the model and agent diagnosis (no model is deployed anywhere), and OPA never-class refusal on a real cluster."
 
 [[delivery.node]]
 id = "d-stgfail"
@@ -976,7 +976,7 @@ kind = "service"
 phase = 4
 col = 2
 row = 11
-note = "Named Kaval X.Y.Z with the component versions it carries (ADR-0013), each bumped from the conventional commits touching that component since its last tag. Lists the Jira issues named by their KAV keys, grouped by Service, and each uat story's sign-off (ADR-0012). Generated, so it is accurate and costs nothing per release."
+note = "Built (KAV-67, ADR-0035): versions.py works the versions out, release-prepare.yml opens the bump pull request, release.yml tags <svc>-vX.Y.Z and vX.Y.Z. Named Kaval X.Y.Z with the component versions it carries (ADR-0013), each bumped from the conventional commits touching that component since its last tag. Lists the Jira issues named by their KAV keys, grouped by Service, and each uat story's sign-off (ADR-0012). Generated, so it is accurate and costs nothing per release."
 
 [[delivery.node]]
 id = "d-approve"
@@ -1003,7 +1003,7 @@ kind = "service"
 phase = 4
 col = 2
 row = 13
-note = "Deploys the artifact. It does not build one."
+note = "Deploys the artifact. It does not build one. Built (KAV-63, ADR-0032): a person dispatches it with a tag; the gate job checks the passed-staging record, that ECR still holds the recorded digests, that the tag is ahead of prod, and that every uat story in the release is Ready for Prod or Done in Jira, then a second job opens the pull request that pins prod. Merging that pull request is the go/no-go. A CI check (promotion-guard) fails any pull request that moves prod to a tag not already on the record on its base branch."
 
 [[delivery.node]]
 id = "d-digest"
@@ -1045,10 +1045,10 @@ note = "Health, smoke, and the agent loop still functioning. Verified after the 
 id = "d-rollback"
 label = "rollback.yml · timed"
 kind = "terminal"
-phase = 3
+phase = 4
 col = 0.6
 row = 17
-note = "helm rollback to the previous revision, measuring time-to-restore. That measured figure goes into the next change record, because 'we would roll back' is not a plan."
+note = "Built (KAV-66, ADR-0034). Opens a pull request that re-pins prod to a version prod already ran or that passed staging; never asks Jira; refuses to cross a database migration unless told it was undone first. Measured on staging: merge to healthy about 80 s (Flux's once-a-minute check is two-thirds of it). That figure goes into the next change record, because 'we would roll back' is not a plan."
 
 [[delivery.node]]
 id = "d-record"
@@ -1057,7 +1057,7 @@ kind = "store"
 phase = 4
 col = 2
 row = 17
-note = "docs/releases/YYYY-MM-DD-vX.Y.Z.md — digests, changes, linked issues, derived risk, staging evidence, the rollback plan with its last measured time, and the verification result."
+note = "Built (KAV-67, ADR-0035): change_record.py runs in promote.yml and the file rides in the promotion pull request. docs/releases/YYYY-MM-DD-vX.Y.Z.md — digests, changes, linked issues, derived risk, staging evidence, the rollback plan with its last measured time, and the verification result."
 
 [[delivery.node]]
 id = "d-jira"

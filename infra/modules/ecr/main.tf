@@ -25,24 +25,39 @@ resource "aws_ecr_repository" "this" {
   tags = { Name = "kaval-${each.value}" }
 }
 
-# Untagged images (left behind when a tag is reused in a *different* repo push, or by a
-# failed push) age out. Tagged sha-* images are never touched by this policy — they are
-# the record of every artifact that was ever built, which is the point of immutable tags.
+# Two rules (KAV-68, ADR-0036):
+#   1. Untagged images (left behind by a failed push) age out after a week.
+#   2. Only the newest var.keep_tagged_images tagged sha-* images are kept per repository.
+#      ECR cannot be told "except what prod runs", so the number has to be large enough that
+#      a parked prod's pin stays inside it; `make up` checks that before it starts anything.
 resource "aws_ecr_lifecycle_policy" "this" {
   for_each   = aws_ecr_repository.this
   repository = each.value.name
 
   policy = jsonencode({
-    rules = [{
-      rulePriority = 1
-      description  = "expire untagged images"
-      selection = {
-        tagStatus   = "untagged"
-        countType   = "sinceImagePushed"
-        countUnit   = "days"
-        countNumber = var.untagged_expire_days
-      }
-      action = { type = "expire" }
-    }]
+    rules = [
+      {
+        rulePriority = 1
+        description  = "expire untagged images"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = var.untagged_expire_days
+        }
+        action = { type = "expire" }
+      },
+      {
+        rulePriority = 2
+        description  = "keep the newest ${var.keep_tagged_images} tagged images"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["sha-"]
+          countType     = "imageCountMoreThan"
+          countNumber   = var.keep_tagged_images
+        }
+        action = { type = "expire" }
+      },
+    ]
   })
 }

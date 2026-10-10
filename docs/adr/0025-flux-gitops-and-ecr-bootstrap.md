@@ -216,7 +216,7 @@ the fix part of what a replacement node actually boots with.
 - A spot reclamation today reaches the state this story set out to prove: a fresh node boots,
   installs Flux, bootstraps the same `GitRepository`/`HelmRelease`, and Flux reconciles the
   last commit on `main` — no `helm upgrade --install` by hand.
-- `release.yml` (still unbuilt) inherits the tagging scheme this story's manual bootstrap push
+- `release.yml` (built since: ADR-0030) inherits the tagging scheme this story's manual bootstrap push
   used (`sha-<short>`) rather than inventing its own.
 - The ECR-credential-refresh timer is an acknowledged interim measure. IRSA-equivalent
   per-workload identity, when it lands in Phase 7/8, likely replaces it outright rather than

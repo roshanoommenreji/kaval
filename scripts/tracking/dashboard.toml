@@ -113,7 +113,7 @@ note  = "What awaits your acceptance, what you signed off, open UAT defects (ADR
 [[links]]
 label = "Jira — Releases dashboard"
 url   = "https://roshanoommenreji.atlassian.net/jira/dashboards/10003"
-note  = "Releases named Kaval X.Y.Z with their component versions (ADR-0013). Empty until Phase 4."
+note  = "Releases named Kaval X.Y.Z with their component versions (ADR-0013). Change records land in docs/releases/ with each promotion (ADR-0035)."
 
 [[links]]
 label = "Confluence — Kaval space"

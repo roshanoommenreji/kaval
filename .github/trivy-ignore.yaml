@@ -1,0 +1,34 @@
+# Vulnerabilities the image scans (ci.yml, release.yml) are told to overlook, each with a reason
+# and an end date. Read by `trivy image --ignorefile .github/trivy-ignore.yaml`.
+#
+# Rules for this file (ADR-0033):
+#   - one vulnerability id per entry, scoped to the file that carries it, never the whole image;
+#   - every entry has `expired_at`; after that date Trivy stops ignoring it and the scan fails
+#     again by itself, so an exception cannot be forgotten;
+#   - `statement` says why it is safe and what ends it.
+
+vulnerabilities:
+  # Go standard library 1.27.1 inside the OPA binary. Fixed in Go 1.27.2; OPA v1.21.0 and v1.21.1
+  # are both built with 1.27.1, and no OPA release built with 1.27.2 exists yet (checked 2026-10-09).
+  # OPA runs in the agent and executor as a short-lived command (`opa eval`), never as a server,
+  # so a network client cannot reach the denial-of-service paths in net/http or crypto/tls.
+  # Ends when an OPA release built with Go 1.27.2 or later is pinned (KAV-64).
+  - id: CVE-2026-78667
+    paths:
+      - usr/local/bin/opa
+    statement: net/http denial of service; opa is a one-shot command, not a server
+    expired_at: 2026-10-23
+  - id: CVE-2026-97031
+    paths:
+      - usr/local/bin/opa
+    statement: crypto/tls denial of service; opa is a one-shot command, not a server
+    expired_at: 2026-10-23
+  # A third one of the same kind, published 2026-10-10: HTTP/2 SETTINGS denial of service in
+  # golang.org/x/net v0.58.0 (fixed in 0.60.0) and Go stdlib 1.27.1 (fixed in Go 1.27.2), both inside
+  # the OPA binary. Same reasoning, same end date; no OPA release built with the fix exists yet
+  # (v1.21.1 is still the newest on 2026-10-10). Added with Roshan's approval (ADR-0033 amendment).
+  - id: CVE-2026-78669
+    paths:
+      - usr/local/bin/opa
+    statement: HTTP/2 SETTINGS denial of service; opa is a one-shot command, not a server
+    expired_at: 2026-10-23

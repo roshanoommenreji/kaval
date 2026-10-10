@@ -59,7 +59,7 @@ separate resources.
 ## Step 3 — push the first real images (one-time, manual)
 
 No image existed in ECR yet — CI builds and Trivy-scans real `arm64` images on every PR but
-deliberately never pushes (`release.yml`'s job, still unbuilt). Flux needs something real to
+deliberately never pushes (`release.yml`'s job, built since in Lab 32). Flux needs something real to
 pull, so this lab does the one push `release.yml` will later automate, using the identical
 `sha-<short>` tag scheme Lab 18's promotion rehearsal already established:
 

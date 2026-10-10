@@ -66,19 +66,19 @@ indefinitely and resumes without loss.
 | `t4g.medium` **On-Demand**, 730 hrs at $0.0224/hr ([ADR-0028](../adr/0028-prod-app-node-on-demand-and-ceiling-50.md), 2026-10-08). Was Spot at $0.0103–0.0109/hr (~$7.80/mo, verified live 2026-10-02, `KAV-50`) until Spot capacity ran out in every AZ on 2026-10-06 and 2026-10-08; `spot = true` brings the saving back | 16.35 |
 | EBS gp3, 20 GB | 1.82 |
 | Public IPv4 ($0.005/hr) | 3.65 |
-| ECR storage, four repos (`KAV-50`) | 0.20 |
+| ECR storage, five repos (`KAV-50`, `KAV-61`, `KAV-68`). Measured 2026-10-08: 878 MB across two image sets, about $0.09 at $0.10/GB; each release adds roughly 0.45 GB. Since `KAV-68` ([ADR-0036](../adr/0036-ecr-keeps-the-newest-fifteen-tagged-images.md)) ECR keeps only the newest 15 tagged `sha-*` images per repository, so storage is capped at about 15 × 0.48 GB = 7 GB, **about $0.71/month at the very most** (less in practice, since images in one repository share layers). This row budgets the cap | 0.70 |
 | S3 backups | 0.05 |
 | CloudWatch logs (trimmed) | 0.50 |
 | Bedrock escalations (light use) — Claude Haiku 4.5, cross-region tier, verified 2026-09-30 against the AWS Price List API at $1.00 / $5.00 per 1M input/output tokens ([ADR-0019](../adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md)); occasional escalations at that rate land well under this figure | 1.50 |
 | Jev risk rating — TypeSafe API, ~12M input tokens ([ADR-0006](../adr/0006-jev-as-proposal-risk-rater.md)) | 0.50 |
 | Data transfer | 1.00 |
-| **App node subtotal** (every row above) | **~$25.60** |
+| **App node subtotal** (every row above) | **~$26.10** |
 | Database server `t4g.small` on-demand, 730 hrs ($0.0112/hr) | 8.18 |
 | Database server root disk, 8 GB gp3 | 0.73 |
 | Database data volume, 20 GB gp3 ($0.0912/GB-month) | 1.82 |
 | Database server public IPv4 ($0.005/hr) | 3.65 |
 | Database EBS snapshots, daily, keep 7 (incremental; price to verify in Phase 4) | ~0.30 |
-| **Total, worst case** (Bedrock, Jev and transfer at their light-use ceilings; ~$38–39 expected) | **~$40.25** |
+| **Total, worst case** (Bedrock, Jev and transfer at their light-use ceilings; ~$38–39 expected) | **~$40.75** |
 
 **Corrected 2026-10-08.** This table used to read "app node subtotal ~$13" and "total ~$27". Those
 figures counted only compute, disk and IPv4 for the app node: the ECR, S3, logs, Bedrock, Jev and
@@ -177,6 +177,12 @@ four idle hours (a Lambda scales the node to zero and stops the database server;
 
 Measured 2026-10-08 (`KAV-57`, Lab 29): about $0.045/hour while up, and 48 resources apply in 71
 seconds. Staging is On-Demand because the Spot shortage that stalled Lab 28 hit it too.
+
+First real use (`KAV-62`, Lab 33, 2026-10-08): one build, the smoke test and a deliberate-fail run, then
+`make staging-down`, under an hour, so about $0.05 at that rate.
+
+Rollback rehearsal (`KAV-66`, Lab 35, 2026-10-09): staging up for 1 h 45 min (a failed rollback, a database
+undo, a successful rollback), then destroyed: about $0.08.
 
 **Parked is not free.** After the idle stop the node is gone, but the database server keeps its 8 GB
 root disk and 10 GB data volume: 18 GB × $0.0912/GB-month (gp3, Mumbai, Price List API, 2026-10-08) =

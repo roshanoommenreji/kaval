@@ -369,7 +369,7 @@ def main() -> None:
           "version, approver, image digests, staging evidence, rollback plan. This page links to "
           "each one as it's created."),
         h(2, "Releases"),
-        bullets([f.stem for f in release_files]) if release_files else p("No releases yet -- the first arrives with the delivery pipeline in Phase 4."),
+        bullets([f.stem for f in release_files]) if release_files else p("No releases yet -- a record is generated with each promotion (ADR-0035)."),
     )
     upsert_page(space_id, "Release Notes", releases, home_id)
 

@@ -49,22 +49,22 @@ gateway:
   image:
     # Build once, promote the artifact (ADR-0004): the digest tagged `sha-ffb436b` is the
     # one commit this story manually built and pushed to ECR (KAV-51, ADR-0025) — a
-    # one-time bootstrap push, not a rebuild. release.yml (still unbuilt, later in this
-    # phase) is what tags and pushes every future commit automatically.
-    tag: sha-ffb436b
+    # one-time bootstrap push, not a rebuild. release.yml (KAV-61) tags and pushes every
+    # later commit, and promote.yml (KAV-63) is the only thing that moves this tag.
+    tag: sha-2459417
 
 agent:
   correlateEverySeconds: 60
   image:
-    tag: sha-ffb436b
+    tag: sha-2459417
 
 executor:
   demoNamespace: kaval-demo-prod
   executeEverySeconds: 30
   image:
-    tag: sha-ffb436b
+    tag: sha-2459417
 
 collector:
   watchEverySeconds: 30
   image:
-    tag: sha-ffb436b
+    tag: sha-2459417

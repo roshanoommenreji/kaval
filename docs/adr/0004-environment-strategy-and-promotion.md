@@ -150,5 +150,26 @@ deployed the way prod is (a tag in Git, pulled by Flux). Prod is not touched by 
 its alternatives are in [ADR-0030](0030-ci-publishes-images-by-oidc-and-staging-is-pinned-by-pull-request.md).
 
 Because ECR tags are immutable, a tag and its digest are equivalent today; the digest is recorded
-beside the tag. Still not built: the smoke test, the "passed staging" record `promote.yml` will
-refuse to proceed without, `promote.yml` and `rollback.yml`.
+beside the tag.
+
+**Amended 2026-10-09 (KAV-63, [ADR-0032](0032-promote-workflow-and-the-promotion-guard.md)).** `promote.yml`
+now exists: it refuses a tag that is not on the passed-staging record, whose digests ECR no longer
+holds, that is not ahead of prod, or whose release has a `uat` story not signed off, and otherwise opens
+the pull request that pins prod. A CI check, `promotion-guard`, makes it the only way in.
+
+**Amended 2026-10-10 (KAV-66, [ADR-0034](0034-rollback-workflow-and-what-a-rollback-may-go-back-to.md)).**
+`rollback.yml` now exists: the other direction, to a version prod already ran or that passed staging, never
+asking Jira, and refusing to cross a database migration unless told it was undone first. `promotion-guard`
+accepts the same targets. Measured on staging: merge to healthy about 80 seconds. Rehearsing it found that a
+rollback across a migration stalls on the older image's database step (see the ADR and
+[Lab 35](../labs/lab-35-rollback-workflow.md)), which is the argument for expand/migrate/contract migrations
+that this ADR already makes.
+
+## Amendment, 2026-10-08: the smoke test and the passed-staging record (KAV-62)
+
+The other half of the gate now exists. `make staging-smoke` checks a running staging read-only (pods, no
+crash loop, the tag, **the running digest against ECR**, the gateway's database and migration revision,
+the REST reads) and, on a pass, appends the digests to `deploy/promotion/passed-staging.json`, committed
+by pull request. `promote.yml` will refuse any digest not in that file. It was proven live, including a
+deliberate failure. Decision, alternatives and limits (the record is review-protected, not signed; the
+model is not covered) are in [ADR-0031](0031-staging-smoke-test-and-the-passed-staging-record.md).

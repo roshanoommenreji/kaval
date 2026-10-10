@@ -67,7 +67,10 @@ promotion tier.
 **Build once, promote the artifact.** Images are built once and tagged by commit SHA. The digest
 that passed staging is the digest deployed to prod — never a rebuild, because a rebuild is a
 different artifact and staging then tested something else. `promote.yml` refuses any digest that
-did not pass staging.
+did not pass staging (built: [ADR-0032](docs/adr/0032-promote-workflow-and-the-promotion-guard.md);
+the `promotion-guard` CI check blocks hand edits of prod's tags; each promotion also carries a generated change record in `docs/releases/`, [ADR-0035](docs/adr/0035-computed-versions-tags-and-the-generated-change-record.md)). Going back is `rollback.yml`
+([ADR-0034](docs/adr/0034-rollback-workflow-and-what-a-rollback-may-go-back-to.md), runbook
+`docs/runbooks/rollback-prod.md`): only to a version prod already ran or that passed staging.
 
 Environments differ **only** by a Helm values file and a pinned digest. A template change needed
 for one environment and not another is a defect, not a special case.
@@ -184,6 +187,8 @@ make db-health-check     # run the database's start-up health check by hand (pg_
 make db-restore-snapshot # restore the database's data volume from an EBS snapshot (SNAPSHOT=<id>, else newest)
 make staging-up      # build or resume staging, wait for its pods (~5 min, ~$0.045/hr); it parks itself after 4 idle hours
 make staging-status  # database state and pods, read over Session Manager
+make version-plan    # the next component and product versions, worked out from the commits (nothing is written)
+make staging-smoke   # smoke-test the tag staging runs (digest vs ECR, pods, database, API); a pass is recorded in deploy/promotion/passed-staging.json
 make staging-down    # destroy staging completely, data volume included
 make docs-sync     # regenerate dashboard + republish Confluence
 make jira EPIC=KAV-6   # an epic's stories and status

@@ -53,10 +53,18 @@ after every CI check on it is green**. A red check is fixed on the branch, never
 
 Until 2026-09-30 this was a written rule only, because GitHub Free offers no branch protection on
 private repositories. Going public made it free, and `main` now has branch protection with
-required status checks (lint, test, secrets, terraform, the gateway/agent/collector image builds)
-and "branch must be up to date". Two honest limits: administrators can still bypass it
-(`enforce_admins` is off), and `helm`, `image executor` and `image backup` are not yet required
-checks. `release.yml`'s staging-pin pull request goes through the same protection like any other.
+required status checks (all eleven: lint, test, secrets, terraform, helm, the five image builds and the promotion guard;
+`helm`, `image executor` and `image backup` joined on 2026-10-08, `KAV-62`, and `promotion-guard` on 2026-10-09, `KAV-63`) and "branch must be up
+to date". One honest limit: administrators can still bypass it (`enforce_admins` is off, so keep
+GitHub 2FA on). `release.yml`'s staging-pin pull request goes through the same protection like any other.
+
+Because the repository is public, three more settings matter (set 2026-10-08, `KAV-61`):
+**secret scanning** and **push protection** are on (GitHub refuses a push that contains a
+recognisable credential, before it can reach history, which is permanent); and workflow runs from
+**every outside contributor** need a person's approval first (`all_external_contributors`, not just
+first-time ones). They sit on top of the local pre-commit scan and CI's full-history gitleaks job. Not
+done: restricting which third-party actions workflows may use (they are already pinned to commit SHAs),
+and `enforce_admins`, so the owner's account stays the weak point: keep GitHub 2FA on.
 
 ### What there is deliberately no branch for
 
@@ -128,9 +136,12 @@ version and lists the components inside it
 > **Kaval 0.3.0**: gateway 1.2.0 · collector 0.4.1 · agent 0.1.0
 
 - **What bumps a version:** the commits that touched that component's folder. `fix:` bumps the
-  patch, `feat:` the minor, and `!` the major. Shared code bumps every service that ships it, so
-  keep a commit to one component where you can.
-- **Tags:** `gateway-v1.2.0` for a component, `v0.3.0` for the product.
+  patch, `feat:` the minor, and `!` the major (the minor while a version is 0.x). Shared code bumps
+  every service that ships it, so keep a commit to one component where you can.
+- **Nobody edits a version by hand.** `make version-plan` shows what the next versions would be;
+  the `release-prepare.yml` workflow opens the pull request that writes them
+  ([ADR-0035](adr/0035-computed-versions-tags-and-the-generated-change-record.md)).
+- **Tags:** `gateway-v1.2.0` for a component, `v0.3.0` for the product; `release.yml` makes them.
 - **Where a version shows:** `/healthz`, `--version`, and each image's
   `org.opencontainers.image.version` label. CI fails if the label and the code disagree.
 - **Who bumps them:** `release.yml` computes and applies the bumps from Phase 4. Until then
