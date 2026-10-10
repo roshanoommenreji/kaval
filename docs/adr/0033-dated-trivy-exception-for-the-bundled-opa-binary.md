@@ -69,4 +69,15 @@ The statement above is the justification and it holds only while OPA stays a one
 ever run as a server (for example as a sidecar answering other services), this exception must be removed
 the same day.
 
+## Amendment, 2026-10-10: a third CVE of the same kind
+
+CVE-2026-78669 (HTTP/2 SETTINGS denial of service in `golang.org/x/net` v0.58.0, fixed in 0.60.0, and Go
+stdlib 1.27.1) appeared the day after this ADR and turned the agent and executor image checks red on the
+`KAV-66` documentation pull request. This is the case decision 2 was written for: one entry per CVE means a
+new vulnerability is *seen*, not silently absorbed. OPA v1.21.1 is still the newest release (checked
+2026-10-10), so there is nothing to update to. Roshan approved a third entry on the same terms: only
+`usr/local/bin/opa`, ending 2026-10-23, same justification (a one-shot `opa eval`, never a server). If a
+fourth appears the pattern is clear enough to stop adding entries and decide on replacing or building OPA;
+`KAV-65` is the place.
+
 **Revisit when** an OPA release built with Go 1.27.2 or later appears, or on 2026-10-23, whichever is first.
