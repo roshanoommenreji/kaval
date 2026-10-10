@@ -58,6 +58,20 @@ sed -n "/<<'BACKUPSCRIPT'/,/^BACKUPSCRIPT/p" with.sh | sed '1d;$d' > wrapper.sh
 sed 's/POSTGRES_SSLMODE=require/POSTGRES_SSLMODE=disable/' wrapper.sh > wrapper-nossl.sh   # the throwaway server has no TLS
 ```
 
+## 1b. Measure the rendered size (found live, 2026-10-10)
+
+EC2 refuses user data over 16,384 bytes, and `terraform plan` does not check it. The first real `make up` failed
+with `InvalidUserData.Malformed` because this script had grown to 17,643 bytes. With the rendered `with.sh` from
+step 1:
+
+```bash
+wc -c with.sh                                            # raw size: must be under 16384, or it must be zipped
+python -c "import gzip;print(len(gzip.compress(open('with.sh','rb').read(),9)))"   # ~6550 once zipped
+```
+
+The node module now sends the script with `base64gzip` (cloud-init unzips it), so the second number is the one AWS
+counts. Run both after any edit to the boot script.
+
 ## 2. Stand-ins for the AWS calls
 
 Put these two scripts in a folder called `fakebin` and make them executable. `curl` answers the node's lookup of

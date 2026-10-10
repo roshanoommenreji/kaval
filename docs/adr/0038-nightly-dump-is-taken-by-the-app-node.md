@@ -93,6 +93,15 @@ moves, a 40-day-old dump expires and a 3-day-old one stays. Four failures upload
 unreadable dump, a version-mismatch error, no database server found, a refused login). With the readable-file
 check removed, a junk file **is** uploaded and `LATEST` is moved to it, so the check earns its place.
 
+## Found live, 2026-10-10: the boot script was over EC2's size limit
+
+The first `make up` after this change failed before any server started: `InvalidUserData.Malformed: User data is
+limited to 16384 bytes`. The rendered script is 17,643 bytes (14,653 before this ADR). `terraform plan` does not check
+the limit, and none of the local proof exercised it, so the plan's "0 add, 2 change" was true and still not enough.
+Fix: `base64gzip` instead of `base64encode` in `infra/modules/node/main.tf`; cloud-init unzips gzip user data by
+itself, and the zipped script is about 6,550 bytes, so the limit is no longer close. Staging shares the module, so it
+would have failed identically. The rule for the next addition: measure the **rendered** size (Lab 40, step 1b).
+
 ## Not proven (needs a live run, and is part of `KAV-73`)
 
 - That `dnf install postgresql16` exists on this Amazon Linux 2023 image. Search results conflicted. If it

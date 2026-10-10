@@ -74,7 +74,11 @@ resource "aws_launch_template" "node" {
     }
   }
 
-  user_data = base64encode(templatefile("${path.module}/user_data.sh.tftpl", {
+  # base64gzip, not base64encode: EC2 refuses user data over 16384 bytes, and this script
+  # outgrew that with the nightly-dump timer (KAV-74, ADR-0038; first seen live on the first
+  # `make up` after it, "InvalidUserData.Malformed"). cloud-init unzips gzip user data by itself.
+  # Zipped it is ~6.6 KB, so there is room; `terraform plan` does NOT check this limit.
+  user_data = base64gzip(templatefile("${path.module}/user_data.sh.tftpl", {
     ssh_public_key     = var.ssh_public_key
     k3s_version        = var.k3s_version
     k3s_sha256_arm64   = var.k3s_sha256_arm64
