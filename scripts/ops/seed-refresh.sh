@@ -57,7 +57,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-aws s3 cp "s3://${BUCKET}/${KEY}" "$WORK/raw.dump" --only-show-errors
+# On Windows the AWS CLI is a native program: it does not understand Git Bash's /tmp/... paths
+# (found live: it wrote the raw dump to C:\tmp\ instead, where nothing would delete it). Give it a
+# Windows-style path when cygpath exists, and check the file is where this script expects it.
+AWS_WORK="$WORK"
+command -v cygpath > /dev/null 2>&1 && AWS_WORK="$(cygpath -m "$WORK")"
+aws s3 cp "s3://${BUCKET}/${KEY}" "$AWS_WORK/raw.dump" --only-show-errors
+[[ -s "$WORK/raw.dump" ]] || { echo "  the download did not produce a file where expected -- stopping"; exit 1; }
 echo "  downloaded       $(du -h "$WORK/raw.dump" | cut -f1) (raw: deleted when this script ends)"
 
 echo "  starting a throwaway Postgres (${IMAGE})..."
