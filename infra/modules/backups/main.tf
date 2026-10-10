@@ -18,7 +18,8 @@ resource "random_id" "bucket_suffix" {
 }
 
 resource "aws_s3_bucket" "backups" {
-  bucket = "${var.name_prefix}-db-backups-${random_id.bucket_suffix.hex}"
+  bucket        = "${var.name_prefix}-db-backups-${random_id.bucket_suffix.hex}"
+  force_destroy = var.force_destroy
 
   tags = { Name = "${var.name_prefix}-db-backups" }
 }

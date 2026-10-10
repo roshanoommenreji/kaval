@@ -940,7 +940,7 @@ kind = "platform"
 phase = 4
 col = 2
 row = 7
-note = "Terraform creates a second t4g.medium node (On-Demand) with its own k3s, etcd, database and VPC, and starts with an empty database today. The design (ADR-0005, ADR-0037) is to restore the latest production dump through scripts/ops/anonymise.sql, so staging gets real data shape and volume and the backup gets restore-tested on every release. The scrub and restore script are proven on a local database (KAV-72); wiring them into staging-up needs a production dump to exist and a live drill (KAV-73). About five minutes."
+note = "Terraform creates a second t4g.medium node (On-Demand) with its own k3s, etcd, database and VPC, and fills an empty database from a cleaned copy of production's data (ADR-0005, ADR-0037, ADR-0039): `make seed-refresh` on the laptop restores the latest production dump into a throwaway Postgres, scrubs it with scripts/ops/anonymise.sql and checks the result a second way; staging-up puts only that cleaned file in staging's own bucket, and the node restores it before Flux starts any service, then the migration moves it forward and db-roles.sql hands out permissions (run twice). No environment holds a key to the other. If there is no cleaned copy, staging starts empty and says so. Built and proven on a local database (KAV-72, KAV-73); the live drill is still to do. About five minutes."
 
 [[delivery.node]]
 id = "d-stg"
@@ -1403,7 +1403,7 @@ label = "photographed daily · keep 7"
 [[aws-tour.edge]]
 from = "dbserver"
 to = "s3"
-label = "nightly export — not yet wired"
+label = "nightly dump, taken by the app node (ADR-0038) — run once live"
 
 # ═══════════════════════════════════════════════════════════════════════
 # PODS-POSTGRES VIEW — what's running in the cluster, and the database they share

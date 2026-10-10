@@ -14,6 +14,17 @@ variable "backup_bucket_name" {
   default     = ""
 }
 
+variable "seed_database" {
+  description = "Staging only (KAV-73, ADR-0039). On the first boot against an EMPTY database the node fills it from the cleaned copy in backup_bucket_name's seed/ folder (restore.sh), before Flux starts any service. Never true for prod: the restore replaces the tables. Needs backup_bucket_name."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.seed_database || var.backup_bucket_name != ""
+    error_message = "seed_database needs backup_bucket_name: the cleaned copy is read from that bucket."
+  }
+}
+
 variable "vpc_id" {
   type = string
 }

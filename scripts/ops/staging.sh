@@ -2,7 +2,8 @@
 # The staging cluster's lifecycle (ADR-0004, ADR-0029). One script, three verbs:
 #
 #   staging.sh up       resume the database if it is parked, apply infra/envs/staging, wait
-#                       until the services answer. STARTS BILLING (~$0.045/hr).
+#                       until the services answer. STARTS BILLING (~$0.045/hr). On a fresh staging
+#                       it also hands over the cleaned copy from `make seed-refresh` (ADR-0039).
 #   staging.sh status   what is running, and the pods, read from the node over Session Manager.
 #   staging.sh down     destroy everything, including the database's data volume.
 #
@@ -24,6 +25,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TF="$ROOT/infra/envs/staging"
 PREFIX="kaval-staging"
 NAMESPACE="kaval-staging"
+SEED_DIR="$ROOT/.build/seed"
 ASSUME_YES="${ASSUME_YES:-0}"
 WAIT_MINUTES="${WAIT_MINUTES:-15}"
 
@@ -72,6 +74,54 @@ on_node() {
     --query "StandardOutputContent" --output text 2>/dev/null || true
 }
 
+# Hand the cleaned copy (made on this laptop by `make seed-refresh`, ADR-0039) to the node by
+# putting it in staging's own bucket. The node, booting at about this moment, waits up to ten
+# minutes for seed/LATEST (a cleaned copy) or seed/NONE (nothing to give) and then fills its EMPTY
+# database from it before any service starts. Only the pointer is written last, so the node never
+# sees a pointer to a file that is not there yet.
+upload_seed() {
+  local bucket key
+  bucket="$(tf output -raw backup_bucket_name 2>/dev/null | tr -d '\r' || true)"
+  if [ -z "$bucket" ]; then
+    echo "Seed: could not read staging's bucket name - staging will start with an EMPTY database."
+    return 0
+  fi
+  # Already handed over for this staging (a resumed one, or a re-run of `up`): leave it. The bucket
+  # is destroyed with staging, so "something is in seed/" means "this staging was already given its
+  # answer". A staging whose database already has tables ignores the seed anyway.
+  if aws s3 ls "s3://${bucket}/seed/" > /dev/null 2>&1; then
+    echo "Seed: already handed over to this staging - leaving it."
+    return 0
+  fi
+  if [ -f "$SEED_DIR/clean.dump" ]; then
+    key="seed/clean-$(date -u +%Y%m%dT%H%M%SZ).dump"
+    aws s3 cp "$SEED_DIR/clean.dump" "s3://${bucket}/${key}" --only-show-errors
+    printf '%s' "$key" | aws s3 cp - "s3://${bucket}/seed/LATEST" --only-show-errors
+    echo "Seed: put the cleaned copy in staging's bucket ($(tr -d '\r\n' < "$SEED_DIR/clean.json"))."
+  else
+    printf 'none' | aws s3 cp - "s3://${bucket}/seed/NONE" --only-show-errors
+    echo "Seed: there is no cleaned copy on this laptop (run 'make seed-refresh' first)."
+    echo "      Staging will start with an EMPTY database, as it did before."
+  fi
+}
+
+# What the node did about seeding, read from the node (its status file), so a staging that came
+# up empty says so instead of looking like a seeded one.
+seed_report() {
+  local node="$1" report
+  report="$(on_node "$node" "cat /var/lib/kaval/seed-status.json 2>/dev/null" | tr -d '\r\n')"
+  if [ -z "$report" ]; then
+    echo "Seed status: none recorded (this node was not set up to seed)."
+  else
+    echo "Seed status: $report"
+    case "$report" in
+      *'"status":"ok"'*) ;;
+      *'"status":"skipped"'*) echo "             (skipped is normal for a resumed staging: its database already had tables.)" ;;
+      *) echo "             !! Staging did NOT get the cleaned data. Why: /var/log/cloud-init-output.log on the node (Session Manager)." ;;
+    esac
+  fi
+}
+
 pods_ready() {
   # Ready = at least the four services listed, and every pod either Running n/n or Completed.
   awk 'NF { total++; split($2, r, "/"); if ($3 == "Completed" || ($3 == "Running" && r[1] == r[2])) ok++ }
@@ -111,6 +161,8 @@ cmd_up() {
     tf apply
   fi
 
+  upload_seed
+
   echo "Waiting up to ${WAIT_MINUTES} min for the node to come up and Flux to reconcile..."
   local deadline=$(( $(date +%s) + WAIT_MINUTES * 60 )) node pods
   while [ "$(date +%s)" -lt "$deadline" ]; do
@@ -120,6 +172,8 @@ cmd_up() {
       if [ -n "$pods" ] && printf '%s\n' "$pods" | pods_ready; then
         echo ""
         printf '%s\n' "$pods"
+        echo ""
+        seed_report "$node"
         echo ""
         echo "Staging is up. Look at it with: make staging-status"
         return 0
