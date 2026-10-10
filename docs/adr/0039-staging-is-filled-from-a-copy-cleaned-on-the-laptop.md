@@ -1,6 +1,6 @@
 # ADR-0039: Staging is filled from a copy cleaned on the laptop, and the order is restore → upgrade → permissions
 
-**Status:** Accepted. Built and proven locally (Lab 41); **the live run on AWS is still to do** (see "Not proven").
+**Status:** Accepted. Built, proven locally and **run live on staging 2026-10-10** (Lab 41, "Proven live" below).
 **Date:** 2026-10-10
 **Related:** [ADR-0037](0037-staging-seeding-from-the-production-dump.md) (the scrub and `restore.sh`; its
 "Not decided here" is settled by this ADR), [ADR-0038](0038-nightly-dump-is-taken-by-the-app-node.md) (the dump
@@ -131,10 +131,19 @@ Against a real Postgres 16 with pgvector and the repository's real migrations, w
 - `terraform validate` and `fmt` clean; read-only plans: production `0 to add, 2 to change, 0 to destroy`,
   staging creates only its own resources.
 
+## Proven live, 2026-10-10
+
+- The real production dump cleaned without tripping the independent check (24 KB raw, 20 KB cleaned, **0 signal rows**).
+- The node found `seed/LATEST`, restored over real TLS in **2 seconds**, status `ok`; the release object was created in the
+  same second the seed finished, the first pod three seconds later; 10 tables, `alembic_version` at head (the migration ran
+  over the restored tables); four service roles with their grants; all four programs `Running`.
+- `make staging-down` destroyed everything including the bucket holding the seed (0 instances, volumes, VPCs, buckets).
+- The first run of `seed-refresh.sh` failed: the native Windows AWS CLI wrote the raw dump to `C:	mp` (it does not read Git
+  Bash paths). Deleted by hand, fixed (PR #112): see Lab 41.
+
 ## Not proven
 
-- **Everything on AWS**: the node waiting for and finding `seed/LATEST`, the real TLS restore, the migration over
-  restored data, the second permissions run after the release is Ready, the restore time on the real server.
-  That is the live drill (staging, about 10 cents).
-- Whether the real production dump (not the local stand-in) cleans without tripping the independent check.
-- `make staging-down` with a populated bucket (`force_destroy`).
+- **Behaviour over many rows.** Production's tables are empty, so a migration over existing data has not been exercised. Run
+  `make seed-refresh` again after production has carried real traffic.
+- **The second permissions run** is not visible in the boot log (the end state is right).
+- Everything still unproven in ADR-0038 (the timer firing by itself).

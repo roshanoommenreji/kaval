@@ -9,7 +9,7 @@ the dump. This lab joins them: a script on your machine turns production's dump 
 staging's node fills its empty database from it, before any service starts. Everything is proven on your machine
 with a real Postgres; only AWS is stood in for.
 
-**Result:** `make seed-refresh` produces `.build/seed/clean.dump` and refuses to if anything still looks like a
+**Result (run live 2026-10-10, step 7):** `make seed-refresh` produces `.build/seed/clean.dump` and refuses to if anything still looks like a
 secret. `make staging-up` hands it over and prints `Seed status: ... "status":"ok"`. Four failure cases leave no
 unclean data behind.
 
@@ -174,7 +174,19 @@ the row counts, `alembic_version`, that the services are `Running` and that `\dp
 
 **First attempt, 2026-10-10: failed on Windows paths.** The AWS CLI on Windows is a native program and does not understand Git Bash's `/tmp/...` paths. It wrote the raw production dump to `C:	mp\` instead of the script's temp folder (where nothing would delete it), and the script carried on with no file. The stray file was deleted by hand. The script now passes `cygpath -m` paths to `aws` and stops if the file is not where it expects. My local proof used a bash stand-in for `aws`, which cannot show this.
 
-_The result of the successful run is recorded below once it has happened._
+**Second attempt, same day: it worked.** `make seed-refresh` on the real production dump (24 KB raw, 20 KB cleaned,
+**0 signal rows**: production has had no traffic, so this run proves the machinery, not behaviour over many rows).
+`make staging-up` printed `Seed status: {... "status":"ok","seconds":2,"rows":"0" ...}` and all four programs were
+`Running`. Checked read-only over Session Manager: 10 tables; `alembic_version` = `a1c4f9b0e3d2` (the migration ran over the
+restored tables); the four service roles exist and hold their grants on `signal`, `incident_signal` and `alembic_version`;
+no table is untouched by every service role; the seed finished at 15:03:13 and the release object was created in the
+same second, the first pod three seconds later (restore before any service). **The restore took 2 seconds** (this is
+the figure for the change record; it will grow with the data). `make staging-down` then left 0 instances, 0 volumes, 0 VPCs
+and **0 buckets**, so `force_destroy` worked on a bucket that held the seed. Cost: about 25 minutes of staging, a few cents.
+
+Not seen: the second permissions run is not distinguishable in the boot log (the end state is right, but production's
+empty tables would not have exposed the original ordering problem either), and no check yet that a new version's
+migration copes with many existing rows.
 
 ## What to take from this
 
