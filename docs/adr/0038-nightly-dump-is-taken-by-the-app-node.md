@@ -102,9 +102,21 @@ Fix: `base64gzip` instead of `base64encode` in `infra/modules/node/main.tf`; clo
 itself, and the zipped script is about 6,550 bytes, so the limit is no longer close. Staging shares the module, so it
 would have failed identically. The rule for the next addition: measure the **rendered** size (Lab 40, step 1b).
 
-## Not proven (needs a live run, and is part of `KAV-73`)
+## Proven live, 2026-10-10 (the first `make up` after the size fix)
 
-- That `dnf install postgresql16` exists on this Amazon Linux 2023 image. Search results conflicted. If it
-  does not, the node falls back to 15 and the dump fails with the version-mismatch message.
-- The real TLS connection to the database server, and the real S3 writes under the node's IAM policy.
-- That the systemd timer fires at 19:30 UTC.
+- The zipped boot script unpacked and the boot finished (`cloud-init status: done`).
+- `dnf install postgresql16` exists on this Amazon Linux 2023 image: `pg_dump (PostgreSQL) 16.15` on the node.
+  The fallback to 15 was not needed.
+- `kaval-db-backup.timer` was installed and scheduled for 19:30 UTC; `kaval-db-backup` is in `/usr/local/sbin`.
+- `systemctl start kaval-db-backup` exited 0: the real TLS connection to the database server, the SSM password
+  read and the S3 write under the node's own role all worked. A 22 KB dump landed at
+  `postgres/kaval-20261010T134919Z.dump`, `LATEST` points at it, and the file begins with the `PGDMP` marker.
+  (The node ran `pg_restore --list` on it before uploading; a full restore into a database is `KAV-73`.)
+- No key, token or `aws-creds` Secret was created. The node's identity was enough, as decided.
+
+## Still not proven
+
+- That the timer **fires by itself** at 19:30 UTC. The node was parked before then. The first night prod is left on
+  settles it: `journalctl -u kaval-db-backup` should show a run at 19:30 and a new dump should appear.
+- A full restore of this dump into a database (`KAV-73`, the staging drill).
+- The `Persistent=` behaviour if the node boots after 19:30 (not set; a missed night is simply missed).

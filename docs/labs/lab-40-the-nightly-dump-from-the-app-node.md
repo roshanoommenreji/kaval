@@ -12,7 +12,8 @@ runs it end to end on your own machine, with stand-ins only for the three AWS ca
 Locally: the dump is uploaded, readable and contains the data; the `LATEST` pointer moves; an old dump expires;
 four failure cases upload nothing; removing the new readable-file check lets junk through.
 
-**Not covered:** anything on AWS. See ADR-0038, "Not proven".
+**Not covered by steps 0-5:** anything on AWS. Step 6 is the live run, done once on 2026-10-10. The timer
+firing by itself is still unproven (ADR-0038, "Still not proven").
 
 ## 0. What you need
 
@@ -158,6 +159,29 @@ Expected: `Plan: 0 to add, 2 to change, 0 to destroy.` The two changes are the l
 the Auto Scaling group's pointer to the new template version. Nothing is running to be disturbed, and nothing is
 applied. The change reaches a machine on the next `make up`.
 
+## 6. The live run (2026-10-10, about $0.10)
+
+Costs the app node and database server for about an hour. After merging this change:
+
+```bash
+AWS_PROFILE=kaval make up        # type y, then yes; ~5 minutes
+```
+
+Then, over Session Manager (or `aws ssm send-command`) on the app node:
+
+```bash
+cloud-init status                                    # status: done
+pg_dump --version                                    # 16.x, not 15
+systemctl list-timers kaval-db-backup.timer          # NEXT 19:30:00 UTC
+sudo systemctl start kaval-db-backup; echo $?        # 0
+journalctl -u kaval-db-backup -o cat -n 20           # "24K -> s3://.../postgres/kaval-<stamp>.dump"
+```
+
+and from the laptop: `aws s3 ls s3://<prod backups bucket>/postgres/` shows the dump and `LATEST`. Then
+`AWS_PROFILE=kaval make down`. What happened on the day: the first attempt failed on the 16 KB user-data limit (step
+1b), the second passed every check above. On Windows the log's arrow character can break the CLI's output
+(`'charmap' codec`); set `PYTHONUTF8=1` and read the finished command again rather than running it twice.
+
 ## What to take from this
 
 - **A schedule has to be checked against the other schedules.** The dump was set for a time at which the
@@ -165,5 +189,7 @@ applied. The change reaches a machine on the next `make up`.
 - **Check the tools match the server, not just that they exist.** The node had a Postgres client; it was one
   major version behind the database.
 - **A backup you cannot read is worse than none**, because it moves the pointer that the restore trusts.
+- **A plan proves the shape of a change, not the limits of the service that receives it.** The only way to find
+  the 16 KB limit was to send it to EC2.
 - **Prefer using an identity to storing a key.** The node already is the identity; the timer needs no secret
   that did not exist before.

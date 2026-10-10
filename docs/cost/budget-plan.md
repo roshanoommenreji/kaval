@@ -101,6 +101,10 @@ The dump of the current schema is about 20 KB and 14 days are kept, so storage s
 No new resource, no change to the ceiling or the alerts. Staging gets the same timer, writing into staging's own
 bucket; a staging dump taken by hand during a drill costs the same fraction of a cent.
 
+One-off, the same day: switching prod on to take the first real dump (the app node plus the database server for
+about an hour, and a failed first attempt that left the database server running a little longer) cost roughly $0.10.
+The measured dump was 22 KB.
+
 Paused, the same account costs **~$4.80/month**: storage only, the app node's ~$2.20 plus the
 database server's two disks (~$2.55).
 
