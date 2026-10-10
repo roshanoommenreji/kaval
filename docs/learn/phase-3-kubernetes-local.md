@@ -1,10 +1,12 @@
 # Phase 3 — Kubernetes local
 
-> **Written from:** theory
-> **Lab:** to be written
+> **Written from:** experience (rewritten 2026-10-10, from what was deployed, broken and rolled back; Prometheus
+> as a second signal source was deliberately deferred and is marked below)
+> **Labs:** [15 Helm chart and k3d](../labs/lab-15-helm-chart-and-k3d.md) · [16 executor and scoped RBAC](../labs/lab-16-executor-and-scoped-rbac.md) · [17 real Kubernetes events](../labs/lab-17-real-k8s-events.md) · [18 promotion rehearsal](../labs/lab-18-promotion-rehearsal.md)
+> **Decisions:** [ADR-0020](../adr/0020-the-helm-chart-and-the-local-k3d-environment.md) chart and k3d · [0021](../adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md) executor and RBAC · [0022](../adr/0022-real-kubernetes-events-as-signals.md) real events · [0023](../adr/0023-promotion-rehearsal-on-k3d.md) promotion rehearsal
 > **Cost:** part of the dev server's ~$5/month. k3d runs in Docker on the AWS dev server
 > ([ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md)); it was on the laptop until
-> 2026-09-26. The point below still holds: it's a throwaway cluster, separate from anything real.
+> 2026-09-26. It is a throwaway cluster, separate from anything real.
 
 ## Where this sits
 
@@ -32,6 +34,27 @@ is a security finding.
 The rejected alternative was going straight to AWS after Phase 2. It merges two hard problems —
 "do I understand Kubernetes" and "does my cloud networking work" — into one debugging session
 where every symptom has two possible causes.
+
+## What we assumed, and what happened
+
+Each row is something the plan or this page assumed, next to what the live runs showed. Most of the real findings
+came from **deploying**, not from reading the rendered files.
+
+| We assumed | What actually happened | Where |
+|---|---|---|
+| A database set-up step that runs "before install" is the safe place | It runs before *anything* exists, including the database it waits for. The first install left the migration pod stuck forever. Moved to run after install | Lab 15 |
+| A restart is harmless | The agent crashed once on its first tick racing the database's start-up; Kubernetes restarted it silently. `RESTARTS 1` on a 29-second-old pod was the whole clue. Fixed with a wait-for-database step | Lab 15 |
+| `helm lint` passing means the chart renders correctly | A whitespace trim ate the newline after a comment, turning `apiVersion` into part of the comment. Lint passed. Only reading the rendered output caught it; CI now checks rendered output with kubeconform, and was confirmed to fail on the re-introduced bug | Lab 15 |
+| Importing a rebuilt image updates the running service | `k3d image import` restarts nothing, and an unchanged tag gives Helm nothing to notice, so approval returned a real 404 from the old pod. Needs `rollout restart` | Lab 16 |
+| A second process in the executor's pod is a cheap diagnostic | It shared the pod's 128Mi limit and OOM-killed the executor. Used a throwaway unconstrained pod instead of loosening the real limit | Lab 16 |
+| The executor is safe because policy says so | Proven below policy: a `delete_pvc` row written straight into the database, bypassing the gateway, was refused by the executor's own re-check. Nothing was touched | Lab 16 |
+| Real events need real work to test | One real crash-looping pod produced a real event, a real signal and a real incident with no hand-written row; the signal's count climbed 2 to 6 as the pod restarted, one new signal per real increase | Lab 17 |
+| A bad image tag gives a clean rollout to roll back from | A bad gateway tag failed the whole upgrade before any pod changed, because the migration hook runs from the same image. A bad gateway image cannot reach a running pod. The rollback drill had to use the executor's tag instead | Lab 18 |
+| Rollback is the thing that keeps the service up | `helm rollback` took **1.49 s**, but the service was never down: Kubernetes keeps one good replica during a rolling update. Rollback was release bookkeeping, not recovery. A different failure shape would measure a different, slower number | Lab 18 |
+| k3d catches what the cloud will | It did not catch the VPC and pod address ranges colliding, the registry login token leaking into a log, or a label bug in the sync tool. All three appeared only on the real node in Phase 4 | Phase 4, Lab 20 |
+
+What was **not** done: Prometheus metrics as a second signal source (ADR-0022 deferred it on purpose so it would not
+be bundled into the events work).
 
 ---
 
@@ -203,7 +226,10 @@ the record; the event stream is only the feed.
 | Environment-specific template changes | Portability claim quietly becomes false |
 | Querying events as if they persist | They expire in about an hour |
 | Counting event objects instead of reading `count` | Fifty restarts look like one |
-| Expecting k3d to catch cloud networking problems | Phase 4 surprises you anyway |
+| Expecting k3d to catch cloud networking problems | Phase 4 surprises you anyway: three bugs only appeared on the real node (Lab 20) |
+| Putting a database-dependent step in a `pre-install` hook | It runs before the database exists and waits forever (Lab 15) |
+| Trusting `helm lint` | It passed a chart whose `apiVersion` had become a comment; read the rendered output (Lab 15) |
+| Believing `helm rollback` is what kept a single-replica service up | Kubernetes' rolling-update default did; rollback only tidied the release (Lab 18) |
 
 ## Glossary
 
@@ -258,6 +284,16 @@ the record; the event stream is only the feed.
 > so the claim is tested rather than asserted."
 
 The strong move is that the guarantee lives below your own code, and that you test it.
+
+**"Tell me about a deployment that went wrong while you were building it."**
+
+> "My first real install of the chart left the database-migration job stuck at Init:0/1 with no database pod
+> anywhere. I'd made it a pre-install hook, which runs before every other resource in the release, including the
+> database it was waiting for. I moved it to post-install and pre-upgrade and the next install finished in under
+> thirty seconds. The same install showed my agent restarting once on its first tick, racing the database's
+> start-up, and Kubernetes quietly recovering it, which is exactly the kind of thing that looks like noise until
+> you read the previous container's log. Both are in the lab write-up, and the second one is why the agent now
+> waits for the database before it starts."
 
 ## Further reading
 

@@ -1,8 +1,10 @@
 # Phase 4 — AWS landing
 
-> **Written from:** theory
-> **Lab:** to be written
-> **Cost:** first real spend — posture is **paused between sessions**, ~$2.20/mo parked
+> **Written from:** experience (rewritten 2026-10-10, when the last Phase 4 build task closed)
+> **Labs:** [19 landing](../labs/lab-19-aws-landing.md) · [20 Flux](../labs/lab-20-flux-gitops.md) · [21 Slack](../labs/lab-21-slack-chatops.md) · [22 database server](../labs/lab-22-production-database.md) · [23 secrets](../labs/lab-23-automatic-secret-recreation.md) · [24](../labs/lab-24-pre-stop-snapshot-and-database-pause.md)–[26](../labs/lab-26-startup-health-check.md) pausing and health check · [27 restore drill](../labs/lab-27-restore-drill.md) · [28 up/down drill](../labs/lab-28-make-up-down-drill.md) · [29 staging](../labs/lab-29-staging-environment.md) · [30 staging up/down](../labs/lab-30-staging-up-down-and-idle-stop.md) · [31 exit gate](../labs/lab-31-phase-4-exit-gate.md) · [32](../labs/lab-32-release-publish-stage.md)–[37](../labs/lab-37-ecr-retention.md) release pipeline · [40 nightly dump](../labs/lab-40-the-nightly-dump-from-the-app-node.md) · [41 seeding staging](../labs/lab-41-filling-staging-from-a-cleaned-copy.md) · [42 Jira release](../labs/lab-42-a-jira-release-per-product-version.md)
+> **Decisions:** ADR-0008, 0025–0039 (the database server, Flux, Slack, On-Demand and the $50 ceiling, staging, promotion, rollback, versions, backups, seeding)
+> **Cost:** first real spend. Everything is switched off between sessions: prod parked costs about $2/month,
+> staging about $0.045/hour only while up, and the whole phase stayed inside the ceiling
 
 ## Where this sits
 
@@ -37,6 +39,29 @@ of configuration into Git, which is where it should have been anyway.
 The rejected alternative was an on-demand instance for stability. It costs roughly $24/month
 against $9, consuming the entire budget for a property — uninterrupted uptime — that this project
 specifically does not need and arguably benefits from lacking.
+
+## What we assumed, and what happened
+
+Every row is something this page or the plan assumed, next to what the real runs showed. The lesson that repeats:
+**a script or a design that was reviewed and syntax-checked still had bugs until it ran against the real thing.**
+
+| We assumed | What actually happened | Where |
+|---|---|---|
+| Spot is the cheap way to run the node | Spot had no `t4g.medium` capacity in any zone on 6 and 8 Oct, while On-Demand launched at once. The node went On-Demand and the ceiling rose to $50. The self-healing design did not change; only what pays for it | Lab 28, ADR-0028 |
+| The network ranges we picked would not clash | The server network and the pod network overlapped, a registry login token leaked into a log, and a label bug confused the sync tool. k3d had caught none of them | Lab 20, ADR-0025 |
+| Reading the plan shows what `make down` does | An unscoped `apply` would have destroyed the live database; found by running it. Then the fix had a near miss of its own | Lab 28 |
+| A restore script that was reviewed works | The first real restore drill hit two bugs that had been latent since the script was written: a Windows-shell path problem and an AWS CLI argument-format problem | Lab 27 |
+| Modules written for prod are reusable for staging | Three shared modules had `kaval-prod` baked into names; a "find the database server" lookup matched the wrong machine in five places; grants for the gateway's tables were missing, a latent bug on prod too | Lab 29 |
+| "Wait for the tables" means the database is ready | On a restored database the tables exist before the upgrade has run, so the wait ended too early. Permissions are now applied a second time after the release is healthy | Lab 41, ADR-0039 |
+| The boot script can keep growing | EC2 refuses start-up text over 16,384 bytes. Adding the backup timer broke the first `make up`; fixed by compressing it, and staging is now at about 11,000 of the 16,384 | Lab 40, PR #108 |
+| The exit gate is a guess | Killing the node and timing it: **3 min 36 s**, 84 seconds inside the five-minute target, with nobody typing a command. 96 of those 216 seconds is AWS launching the machine | Lab 31 |
+| Rollback takes minutes | Measured on staging: about **80 seconds** merge-to-healthy. Across a database change it stalls until the change is undone first | Lab 35, ADR-0034 |
+| Seeding staging means copying prod's data | The raw copy must never leave prod's side uncleaned. The copy is cleaned on the laptop and only the cleaned file crosses. Live: staging was filled in **2 seconds** before any service started | Lab 41, ADR-0039 |
+| The tools work the same on every machine | Windows Git Bash handed the AWS tool a path it could not read; the raw prod dump landed in the wrong folder and had to be found and deleted. The first live run of a script is the real test | Lab 41 |
+
+**Honest limits at the close of the phase:** production's tables were empty when staging was first filled, so no real
+data has been through the cleaner and no upgrade has run over existing rows; the nightly backup timer has not been seen
+firing on its own; nothing here has run with real traffic.
 
 ---
 
@@ -234,9 +259,10 @@ there is nothing to restore. Three things keep that true:
 That gives no data loss and a clean resume. It does **not** give uninterrupted service while
 paused, because the app is stopped too. Continuous service is the always-on posture from Phase 6.
 
-**Backups are not verified until you have restored one.** In this project that restore is not a
-lab exercise — `make staging-up` performs it on every release, so the backup is verified several
-times a month automatically.
+**Backups are not verified until you have restored one.** This project has restored three ways: from a snapshot
+(Lab 27), a staging database from a cleaned copy of the dump (Lab 41, 2 seconds), and the scrub proven on a real
+Postgres (Lab 39). The first two found real bugs. What is still unseen is the nightly timer firing on its own
+(ADR-0038).
 
 ### RPO and RTO, stated rather than assumed
 
@@ -282,6 +308,10 @@ Knowing which of your mechanisms covers which failure — and being able to say 
 | Cluster credentials in CI | The thing GitOps exists to avoid |
 | Assuming a backup works | It does not until you have restored it |
 | Reaching for an ALB out of habit | $18/month for something a free tunnel does better here |
+| An unscoped `terraform apply` in a tear-down script | `make down` would have destroyed the live database (Lab 28) |
+| Growing the boot script without checking its size | EC2 rejects start-up text over 16,384 bytes; the first `make up` after the change failed (Lab 40) |
+| Trusting a script that was only reviewed | Two restore bugs stayed hidden until the first real drill (Lab 27) |
+| Handing a native Windows tool a Git Bash path | The file lands somewhere unexpected; a raw prod dump had to be hunted down (Lab 41) |
 
 ## Glossary
 
@@ -342,12 +372,21 @@ Knowing which of your mechanisms covers which failure — and being able to say 
 > five minutes (timed on prod, 3 min 36 s, Lab 31). (Then the discount stopped being available: twice AWS had no spot capacity at all,
 > and I moved the node to on-demand and raised the ceiling to pay for it, with the arithmetic in an ADR.)
 > The result was that AWS chaos-tested my recovery path continuously and for free —
-> which is the same argument the product makes about deliberate failure injection. It also cost
-> $9 a month instead of $24. I'd make a different call for something with a real uptime SLA, but
+> which is the same argument the product makes about deliberate failure injection. For a while it
+> cost $9 a month instead of $24. I'd make a different call for something with a real uptime SLA, but
 > then I'd also be paying for multi-AZ, and the honest version of that trade-off is the interesting
 > conversation."
 
 Naming the exit gate is what makes this credible — it is a tested property, not an intention.
+
+**"Tell me about a drill that found something your review missed."**
+
+> "I wrote a tear-down command for the whole environment and had reviewed it carefully. Running it for real
+> showed that, without a narrower target, it would have destroyed the live production database — the plan said so
+> in plain words, and I only found it because I ran the drill rather than trusting the review. Then my fix for it
+> nearly had a problem of its own. Later the first real restore drill found two bugs that had sat in the script
+> since I wrote it. I now treat 'reviewed and syntax-checked' as unproven, and every new script gets a real run
+> against a throwaway copy before it counts as done; each of those findings is written up in the lab it came from."
 
 ## Further reading
 
