@@ -91,6 +91,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true # the push below uses the workflow token
+          # Full history and tags: the change record lists the commits since prod's version.
+          fetch-depth: 0
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: verify
@@ -99,6 +101,7 @@ jobs:
       - name: point prod at the tag
         env:
           TAG: ${{ inputs.tag }}
+          ACTOR: ${{ github.actor }}
           GH_TOKEN: ${{ github.token }}
         run: |
           # `pin` checks the record again on its own, so this job does not trust the one before it.
@@ -113,10 +116,15 @@ jobs:
             exit 0
           fi
           python3 scripts/release/promote.py body --tag "$TAG" --evidence evidence/verify.txt > body.md
+          # The change record (ADR-0035) rides in the same pull request as the pin, so merging the
+          # go/no-go also records what was decided. It needs neither AWS nor Jira.
+          record=$(python3 scripts/release/change_record.py render --tag "$TAG" \
+            --evidence evidence/verify.txt --actor "$ACTOR")
+          echo "change record: $record"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add deploy/gitops/prod/helmrelease.yaml deploy/environments/prod/values.yaml
+          git add deploy/gitops/prod/helmrelease.yaml deploy/environments/prod/values.yaml "$record"
           git commit -m "chore(release): promote $TAG to prod"
           git push origin "$branch"
           gh pr create --base main --head "$branch" \
