@@ -107,7 +107,7 @@ budgeted against it.
 | k3s control plane + system | ~700 MB |
 | Local model: `gemma3:1b-it-qat` (measured) | ~1.1 GB |
 | kaval services (4 × ~120 MB) | ~480 MB |
-| Prometheus (trimmed retention) | ~400 MB |
+| Prometheus (trimmed retention) | ~400 MB budgeted; **33 MiB measured** on k3d (KAV-75, Lab 43), plus a 45 MiB poller. Re-measure on staging before prod enables it |
 | Flux | ~100 MB |
 | **Total** | **~2.8 GB** |
 | Headroom | ~1.2 GB |

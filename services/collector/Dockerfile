@@ -2,6 +2,7 @@
 #
 # Collector image. Two entrypoints live here:
 #   make signals SCENARIO=oom-crashloop         # fake incidents (Phase 1), one-shot
+#   python -m kaval_collector.prometheus --every 30   # Prometheus (KAV-75), same idea, own Deployment
 #   python -m kaval_collector.k8s_events --every 15   # real K8s events (KAV-48), the
 #                                                       # Helm-deployed shape — overrides
 #                                                       # this image's default ENTRYPOINT
