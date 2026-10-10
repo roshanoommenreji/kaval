@@ -44,6 +44,10 @@ days (failed pushes, reused layers); every `sha-*` tagged image is kept forever 
 of what was ever built and promoted, and ECR's free tier (first 500 MB) comfortably covers a
 learning project's release cadence.
 
+> **Amended 2026-10-10 by [ADR-0036](0036-ecr-keeps-the-newest-fifteen-tagged-images.md) (`KAV-68`):**
+> "kept forever" no longer holds. ECR keeps the newest 15 tagged images per repository; the record of what
+> was built and promoted is in Git (tags, `passed-staging.json`, `docs/releases/`).
+
 ### Network: a dedicated VPC, still no NAT Gateway
 
 Unlike `infra/modules/devbox` (lives in the account's default VPC — it's disposable), prod gets

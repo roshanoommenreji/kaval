@@ -108,6 +108,7 @@ plan: ## Show what would change in prod (never applies)
 
 .PHONY: up
 up: ## Resume the database, provision the spot node and reconcile from Git (~5 min, STARTS BILLING)
+	@python scripts/release/promote.py preflight
 	@echo "This starts billing at roughly \$$0.0126/hr (app node) plus the database server (~\$$14.40/mo while running)."
 	@read -p "Continue? [y/N] " ok && [ "$$ok" = "y" ]
 	@bash scripts/ops/resume-database.sh

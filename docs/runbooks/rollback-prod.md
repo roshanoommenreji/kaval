@@ -21,7 +21,9 @@ touches the cluster and never asks Jira. Measured on staging: merge to healthy i
 ## Diagnosis
 
 1. **Which version?** The one prod ran before. Prod's pins in `deploy/gitops/prod/helmrelease.yaml` show the
-   current tag; `git log -p -- deploy/gitops/prod/helmrelease.yaml` shows the earlier ones.
+   current tag; `git log -p -- deploy/gitops/prod/helmrelease.yaml` shows the earlier ones. ECR keeps only the
+   newest 15 images per repository ([ADR-0036](../adr/0036-ecr-keeps-the-newest-fifteen-tagged-images.md)), so a
+   very old version may be gone; `rollback.yml` says so and refuses.
 2. **Did the bad release add a database migration?** Compare `migrations/versions/` at the two commits
    (`git diff --stat <old-commit> <new-commit> -- migrations/versions`). The workflow also tells you.
    - **No migration:** go to step 1 below.

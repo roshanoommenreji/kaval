@@ -32,6 +32,7 @@ import sys
 import urllib.error
 import urllib.request
 from base64 import b64encode
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -95,6 +96,23 @@ def check_ecr(entry: dict[str, Any], ecr: dict[str, str]) -> Check:
     if wrong:
         return Check("ECR digests equal the digests that passed", False, "; ".join(wrong))
     return Check("ECR digests equal the digests that passed", True, "all four match")
+
+
+def check_pinned_images(tag: str, lookup: Callable[[str], dict[str, str]]) -> Check:
+    """Prod's pinned images must still be in ECR. The retention rule (KAV-68) keeps the newest 15
+    per repository, so a prod parked through more builds than that would pin a deleted tag, and the
+    pods would sit in ImagePullBackOff. `lookup` is `ecr_digests`; a stub in the tests."""
+    name = "prod's pinned images are still in ECR"
+    try:
+        lookup(tag)
+    except RuntimeError as exc:
+        return Check(
+            name,
+            False,
+            f"{exc}. ECR's retention rule has probably deleted it; promote a newer tag that "
+            "passed staging (promote.yml) before starting prod",
+        )
+    return Check(name, True, f"all four images tagged {tag} exist")
 
 
 def release_keys(subjects: str) -> list[str]:
@@ -388,6 +406,16 @@ def rewrite_prod(root: Path, tag: str) -> int:
     return 0
 
 
+def cmd_preflight(args: argparse.Namespace) -> int:
+    """Run by `make up` before anything starts billing."""
+    try:
+        check = check_pinned_images(current_prod_tag(args.root), ecr_digests)
+    except (RuntimeError, OSError) as exc:
+        print(f"cannot decide: {exc}", file=sys.stderr)
+        return 2
+    return 0 if _report([check]) else 1
+
+
 def cmd_guard(args: argparse.Namespace) -> int:
     head = {f: (args.root / f).read_text(encoding="utf-8") for f in PROD_FILES}
     base = {f: git_show(args.base, f, args.root) for f in PROD_FILES}
@@ -420,6 +448,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tag", required=True)
     p.add_argument("--evidence", type=Path, help="the verify output to quote")
     p.set_defaults(fn=cmd_body)
+    p = sub.add_parser("preflight", help="do the images prod pins still exist in ECR?")
+    p.set_defaults(fn=cmd_preflight)
     p = sub.add_parser("guard")
     p.add_argument("--base", required=True, help="the commit the change merges into")
     p.set_defaults(fn=cmd_guard)
