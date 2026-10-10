@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Autonomous ops agent with human-in-the-loop approval"
 requires-python = ">=3.11"
 dependencies = [
-    "sqlalchemy>=2.0.29",
+    "sqlalchemy>=2.1.3",
     "alembic>=1.13",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.6",
@@ -15,8 +15,8 @@ dependencies = [
 
 [project.optional-dependencies]
 gateway = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.53.0",
+    "fastapi>=0.142.2",
+    "uvicorn[standard]>=0.54.0",
     "httpx>=0.27",
     # Slack ChatOps (KAV-55, ADR-0026): the outbound Socket Mode connection and chat.postMessage.
     # Pure stdlib-plus-websocket-client under the hood — no aiohttp needed, since this gateway
@@ -37,27 +37,27 @@ agent = [
     # profile, or an instance role — never a key committed anywhere), so boto3 is a real runtime
     # dependency here, not incidental. Laptop-only for the same reason httpx above is: nothing
     # decides how the deployed agent gets triggered yet (ADR-0016).
-    "anthropic>=0.97",
-    "boto3>=1.34",
+    "anthropic>=1.11.0",
+    "boto3>=1.43.108",
 ]
 executor = [
     # The only client the executor needs (KAV-47): it talks to the Kubernetes API, not to
     # AWS directly — cost actions (Phase 7) will add boto3 then, scoped the same way. Core,
     # not laptop-only like agent's httpx/boto3 above: kaval_executor.executor's entrypoint
     # loop calls it every pass, deployed or not.
-    "kubernetes>=31.0",
+    "kubernetes>=37.0.0",
 ]
 collector = [
     # Real Kubernetes events (KAV-48): kaval_collector.k8s_events' entrypoint loop calls it
     # every pass, deployed or not — core, same reasoning as executor's own kubernetes extra.
     # kaval_collector.synthetic doesn't need it (no network call, pure fixture generation),
     # so this stays its own extra rather than merging into the always-installed core deps.
-    "kubernetes>=31.0",
+    "kubernetes>=37.0.0",
 ]
 dev = [
     "pytest>=8.0",
-    "ruff>=0.4",
-    "mypy>=1.9",
+    "ruff>=0.16.10",
+    "mypy>=2.4.0",
     "httpx2>=2.13",     # Starlette's TestClient (successor to httpx; Tom Christie, maintained by Pydantic)
 ]
 
