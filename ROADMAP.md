@@ -80,12 +80,12 @@ The hard, interesting part. Still no AWS.
 
 ---
 
-## Phase 3 — Kubernetes local · weeks 10–12 · `[~]`
+## Phase 3 — Kubernetes local · weeks 10–12 · `[x]`
 
 - [x] k3d cluster on the dev server ([ADR-0020](docs/adr/0020-the-helm-chart-and-the-local-k3d-environment.md), `KAV-46`)
 - [x] Helm umbrella chart, `local` values — Postgres, gateway, the correlate loop running continuously in real Kubernetes, verified live (`KAV-46`, Lab 15)
 - [x] Real K8s events as a signal source — polled continuously, de-duplicated by count, proven live with a real unscripted pod failure ([ADR-0022](docs/adr/0022-real-kubernetes-events-as-signals.md), `KAV-48`, Lab 17)
-- [ ] Prometheus as a signal source *(deliberately deferred, ADR-0022 — a second real source, not bundled into `KAV-48`)*
+- [x] Prometheus as a signal source — a small Prometheus in the chart, polled for containers near their memory limit, proven live with the agent opening a `memory_pressure` incident on its own; 33 MiB measured against the ~400 MB budgeted ([ADR-0040](docs/adr/0040-prometheus-as-a-polled-signal-source.md), `KAV-75`, Lab 43). Staging and prod stay off until re-measured on a real node
 - [x] Executor with scoped RBAC — the privilege split made real, proven live with `kubectl auth can-i` ([ADR-0021](docs/adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md), `KAV-47`, Lab 16)
 - [x] **Executor redacts `stdout` at write time** — prod must never store a secret (ADR-0005, closed by `KAV-47`)
 - [x] `arm64` multi-arch image builds — CI already built and Trivy-scanned these natively on every PR; this phase's hardware is what proved it end-to-end: the first real images, pushed to ECR and running on the real Graviton node (`KAV-51`, [ADR-0025](docs/adr/0025-flux-gitops-and-ecr-bootstrap.md), Lab 20)

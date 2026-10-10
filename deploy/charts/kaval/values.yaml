@@ -127,3 +127,29 @@ collector:
   resources:
     requests: { cpu: 25m, memory: 32Mi }
     limits: { cpu: 100m, memory: 128Mi }
+
+# Prometheus, and the collector poller that turns it into signals (KAV-75, ADR-0040).
+# Off here; an environment switches it on from its own values file. The memory limit below is
+# a first guess until Lab 43 measures it, and staging/prod stay off until it is measured on a
+# real node (docs/architecture/overview.md carries the 4 GB budget).
+prometheus:
+  enabled: false
+  # quay.io, not Docker Hub: no anonymous pull limit on a node that restarts. Pinned by digest.
+  image: quay.io/prometheus/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+  scrapeIntervalSeconds: 30
+  # How long measurements are kept. Short on purpose: the signal table is the record, and
+  # retention is what Prometheus's memory scales with.
+  retention: 2h
+  # Verify the kubelet's certificate against the cluster CA (proven on k3d, Lab 43). Flip to
+  # true in one environment's values only if its kubelet's certificate does not cover the
+  # address Prometheus finds it at; the token sent can only read node metrics either way.
+  kubeletInsecureSkipVerify: false
+  # kaval_collector.prometheus's own flags.
+  pollEverySeconds: 30
+  memoryNearLimitThreshold: 0.9
+  # While a container stays near its limit, write a fresh signal this often so its incident
+  # stays open (the 15-minute quiet window in kaval_agent.correlate).
+  renewSeconds: 300
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 384Mi }

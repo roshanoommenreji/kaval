@@ -1,0 +1,210 @@
+{{- if .Values.prometheus.enabled }}
+# Prometheus and the poller that turns it into signals (KAV-75, ADR-0040). Off by default
+# (`prometheus.enabled`); an environment opts in from its values file, the only way
+# environments are allowed to differ.
+#
+# Two Deployments, on purpose:
+#   - prometheus: scrapes the kubelet's container measurements (cAdvisor) on every node.
+#     Cluster-scoped read access to `nodes` is unavoidable for that — nodes are not in any
+#     namespace — and it is the first ClusterRole in this chart. Read-only, and limited to
+#     `nodes` and `nodes/metrics`: no pods, no secrets, no write verb. Storage is an
+#     emptyDir: measurements are disposable, the database is the record.
+#   - collector-prometheus: asks Prometheus a question and writes signal rows
+#     (kaval_collector.prometheus). It never talks to the Kubernetes API, so it gets no
+#     ServiceAccount permissions and no token mounted at all — same structural guarantee
+#     as collector.yaml, with less to give.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kaval.fullname" . }}-prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kaval.fullname" . }}-{{ .Release.Namespace }}-prometheus
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+rules:
+  # `nodes` get/list/watch: kubernetes_sd_configs role "node" finds each kubelet's address.
+  # `nodes/metrics`: the kubelet authorises /metrics/cadvisor against this subresource.
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes/metrics"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kaval.fullname" . }}-{{ .Release.Namespace }}-prometheus
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kaval.fullname" . }}-{{ .Release.Namespace }}-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kaval.fullname" . }}-prometheus
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kaval.fullname" . }}-prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: {{ .Values.prometheus.scrapeIntervalSeconds }}s
+    scrape_configs:
+      - job_name: cadvisor
+        scheme: https
+        metrics_path: /metrics/cadvisor
+        kubernetes_sd_configs:
+          - role: node
+        authorization:
+          credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: {{ .Values.prometheus.kubeletInsecureSkipVerify }}
+        # Only what the one rule needs. Everything else cAdvisor exports is dropped before it
+        # is stored, which is most of what keeps this inside its memory budget (ADR-0040).
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: container_memory_working_set_bytes|container_spec_memory_limit_bytes
+            action: keep
+---
+{{ $prom := "prometheus" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaval.fullname" . }}-prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+    {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $prom) | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $prom) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $prom) | nindent 8 }}
+      annotations:
+        # A changed scrape setting restarts Prometheus, so a values change is never half-applied.
+        checksum/config: {{ toJson .Values.prometheus | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "kaval.fullname" . }}-prometheus
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+        - name: prometheus
+          image: {{ .Values.prometheus.image | quote }}
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time={{ .Values.prometheus.retention }}
+            - --web.listen-address=:9090
+          ports:
+            - name: http
+              containerPort: 9090
+          readinessProbe:
+            httpGet: { path: /-/ready, port: http }
+          volumeMounts:
+            - { name: config, mountPath: /etc/prometheus, readOnly: true }
+            - { name: data, mountPath: /prometheus }
+          resources:
+            {{- toYaml .Values.prometheus.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "kaval.fullname" . }}-prometheus
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kaval.fullname" . }}-prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $prom) | nindent 4 }}
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http
+---
+{{ $poller := "collector-prometheus" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaval.fullname" . }}-collector-prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+    {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $poller) | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $poller) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $poller) | nindent 8 }}
+    spec:
+      {{- include "kaval.imagePullSecrets" . | nindent 6 }}
+      # Talks to Prometheus and Postgres only. No Kubernetes API call anywhere in the code, so
+      # no token is mounted; a bug here cannot be turned into cluster access.
+      automountServiceAccountToken: false
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.postgres.image }}
+          envFrom:
+            - secretRef:
+                name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "collector") }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT"; do
+                echo "waiting for postgres..."; sleep 2
+              done
+      containers:
+        - name: collector-prometheus
+          image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.collector.image.repository "tag" .Values.collector.image.tag) }}"
+          imagePullPolicy: {{ .Values.collector.image.pullPolicy }}
+          command: ["python", "-m", "kaval_collector.prometheus"]
+          args:
+            - "--url"
+            - "http://{{ include "kaval.fullname" . }}-prometheus:9090"
+            - "--namespace"
+            - {{ .Values.executor.demoNamespace | quote }}
+            - "--threshold"
+            - {{ .Values.prometheus.memoryNearLimitThreshold | quote }}
+            - "--renew"
+            - {{ .Values.prometheus.renewSeconds | quote }}
+            - "--every"
+            - {{ .Values.prometheus.pollEverySeconds | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "collector") }}
+          resources:
+            {{- toYaml .Values.collector.resources | nindent 12 }}
+{{- end }}
