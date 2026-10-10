@@ -247,7 +247,7 @@ resource "aws_dlm_lifecycle_policy" "database" {
       create_rule {
         interval      = 24
         interval_unit = "HOURS"
-        times         = ["03:00"] # UTC, after the nightly pg_dump CronJob (00:00 UTC, deploy/charts/kaval/templates/backup-cronjob.yaml)
+        times         = ["03:00"] # UTC, after the nightly pg_dump (19:30 UTC, a systemd timer on the app node, ADR-0038)
       }
 
       retain_rule {

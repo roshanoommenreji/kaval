@@ -164,6 +164,9 @@ here rather than a new ADR, since none of them change the decision above, only h
   safety classifier rather than written. The design for both is recorded here and in
   `docs/labs/lab-22-production-database.md`; Roshan builds or approves those two pieces
   directly rather than an assistant writing them unsupervised.
+  *Update 2026-10-10 ([ADR-0038](0038-nightly-dump-is-taken-by-the-app-node.md)):* the first of the two is no
+  longer needed. The nightly dump is taken by a systemd timer on the app node using its own instance role, so
+  no `aws-creds` Secret is created and no credential enters the cluster. The CronJob stays disabled.
 
 ## Amendment, 2026-10-05 — pre-stop snapshot, and `make down` actually pausing the database (`KAV-32`)
 

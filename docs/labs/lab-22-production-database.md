@@ -101,6 +101,10 @@ Secret can read it**, and this environment's own safety classifier refused to le
 write either one — correctly cautious, since "write code that pulls a real credential and
 stores it" is exactly the kind of action that should get a second look:
 
+*Update 2026-10-10: item 1 below was resolved a different way, without any credential in the cluster: the
+nightly dump is a systemd timer on the app node ([ADR-0038](../adr/0038-nightly-dump-is-taken-by-the-app-node.md),
+Lab 40). The original design is left here as the record of what was weighed.*
+
 1. **`aws-creds`, a generic AWS credentials Secret**, refreshed hourly from the app node's own
    instance role (`infra/modules/iam`'s `kaval-prod-node` role already has the S3 permissions
    it would use). This is the *same pattern* `infra/modules/node/user_data.sh.tftpl` already

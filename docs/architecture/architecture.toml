@@ -345,7 +345,7 @@ row = 8
 credentials = "scoped write"
 inputs = ["Nightly pg_dump"]
 outputs = ["Restorable database snapshots"]
-note = "Nightly pg_dump. RPO is 24 hours — a decision, not a default (ADR-0005). Every `make staging-up` restores this snapshot into staging, so the backup is verified several times a month rather than never."
+note = "Nightly pg_dump, taken by a systemd timer on the app node (19:30 UTC, before the 20:30 UTC auto-stop) using the node's own instance role, so no key is stored anywhere (ADR-0038). The dump is checked readable before it is uploaded. RPO is 24 hours while production is running — a decision, not a default (ADR-0005); parked days rely on the EBS snapshots. Built and proven locally, not yet run on AWS. Seeding staging from this dump is ADR-0037 / KAV-73: designed and the scrub proven, the live restore not yet run (so today staging still starts empty)."
 
 [[system.node]]
 id = "guardrail"

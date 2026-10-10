@@ -75,6 +75,8 @@ The point is that "passed staging" must not be read as "the whole product works"
 digest under `published_not_exercised`, but staging does not deploy it (it needs prod's dump bucket).
 Prod does not run it yet either (the nightly backup job is off until the dump bucket credentials exist), so
 `promote.yml` pins only the four deployed images (ADR-0032 corrects what this ADR first said here).
+*Update 2026-10-10:* the nightly dump is now a timer on the app node ([ADR-0038](0038-nightly-dump-is-taken-by-the-app-node.md)),
+which runs `backup.sh` fetched from `main` and not this image; prod still does not run the backup image.
 
 ## Alternatives considered
 

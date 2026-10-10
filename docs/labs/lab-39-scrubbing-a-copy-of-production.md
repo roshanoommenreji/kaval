@@ -126,5 +126,6 @@ docker rm -f scrubtest      # Option A
   "written, not yet run" in the repository guide, and the scrub would have failed on its first line that touched
   the JSON column.
 - **Check after, and roll back if the check fails.** The old script committed first and checked second.
-- **Prove a restore, not just a backup.** The nightly dump has never run, so there is no real copy to restore
-  yet. That is the next piece, and it is Roshan's to build or approve (it needs a credential).
+- **Prove a restore, not just a backup.** The nightly dump had never run, so there was no real copy to restore.
+  The piece that takes it is now built without any new credential ([Lab 40](lab-40-the-nightly-dump-from-the-app-node.md)),
+  but it still has to run once on AWS before a restore into staging can be tried.

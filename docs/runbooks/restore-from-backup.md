@@ -114,6 +114,23 @@ This stops the Postgres container, creates a new volume from the snapshot in the
 detaches the damaged volume (tagged `Reason=damaged`, **not deleted**), attaches and mounts the
 new one, and starts Postgres. WAL crash recovery runs on first start; that's expected.
 
+### Where the nightly dump comes from, and how to take one by hand
+
+A systemd timer on the app node (`kaval-db-backup.timer`, 19:30 UTC / 01:00 IST, before the 02:00 IST
+auto-stop) runs `scripts/ops/backup.sh` using the node's own role ([ADR-0038](../adr/0038-nightly-dump-is-taken-by-the-app-node.md)).
+It only runs on nights production is running. To take a dump now (do this right before `make down` if you
+want a fresh one), over Session Manager on the app node:
+
+```bash
+sudo systemctl start kaval-db-backup        # waits until it finishes; exit status 0 = uploaded
+sudo journalctl -u kaval-db-backup -n 20    # what it did
+sudo systemctl list-timers kaval-db-backup.timer   # when it next runs
+```
+
+Is last night's dump there? `aws s3 ls "s3://${BACKUP_BUCKET}/postgres/" --profile kaval` lists them (14 days
+are kept) and `aws s3 cp "s3://${BACKUP_BUCKET}/postgres/LATEST" -` names the newest. A dump that is more than
+a day old on a night production was running means the timer failed: read the journal.
+
 ### Restore option B: from the nightly dump (logical damage)
 
 **Reversible:** no. **Blast radius:** the entire database.

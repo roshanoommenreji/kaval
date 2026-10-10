@@ -9,7 +9,7 @@ variable "ecr_repository_arns" {
 }
 
 variable "backup_bucket_arn" {
-  description = "The node's own role needs this (KAV-32): the backup CronJob runs on the app node and reaches the database server over 5432, there being no other compute in the cluster to run it from."
+  description = "The node's own role needs this (KAV-32, KAV-74): the nightly dump runs on the app node (a systemd timer, ADR-0038) and reaches the database server over 5432, there being no other compute to run it from."
   type        = string
 }
 

@@ -129,6 +129,9 @@ module "node" {
   instance_profile_name = module.iam.instance_profile_name
   ssh_public_key        = var.ssh_public_key
   desired_capacity      = var.app_node_desired_capacity
+  # The nightly database dump (KAV-74, ADR-0038): a systemd timer on this node, 19:30 UTC,
+  # using the node's own role. Replaces the chart's backup CronJob, which stays disabled.
+  backup_bucket_name = module.backups.bucket_name
   # instance_type, disk_gb, k3s_version, k3s_sha256_arm64 and spot keep their module defaults
   # (t4g.medium, On-Demand). On-Demand became the default on 2026-10-08 (ADR-0028): Spot
   # t4g.medium/large had no capacity anywhere in ap-south-1 on 2026-10-06 and 2026-10-08, and

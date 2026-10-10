@@ -17,6 +17,8 @@ set -euo pipefail
 # guessed: this script had no password handling at all until KAV-32 actually ran it against
 # a real server with auth enabled instead of a trust-auth dev container.
 export PGPASSWORD="$POSTGRES_PASSWORD"
+# libpq reads PGSSLMODE; the Secret and the node timer both set POSTGRES_SSLMODE=require.
+export PGSSLMODE="${POSTGRES_SSLMODE:-prefer}"
 
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 KEY="postgres/${POSTGRES_DB}-${STAMP}.dump"
@@ -25,7 +27,16 @@ trap 'rm -f "$TMP"' EXIT
 
 echo "  dumping ${POSTGRES_DB}..."
 # -Fc is the custom format: compressed, and pg_restore can filter it.
+# pg_dump refuses to dump a server NEWER than itself ("server version mismatch"), so a node
+# whose client tools lag the database fails here, before anything is uploaded (ADR-0038).
 pg_dump -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f "$TMP"
+
+# An archive that cannot be listed cannot be restored, and a backup nobody can read is worse
+# than none: it looks like one. Listing is cheap and catches a truncated or empty file.
+if ! pg_restore --list "$TMP" > /dev/null; then
+  echo "  the dump cannot be read back by pg_restore -- NOT uploading it" >&2
+  exit 1
+fi
 
 SIZE=$(du -h "$TMP" | cut -f1)
 echo "  ${SIZE} → s3://${BACKUP_BUCKET}/${KEY}"

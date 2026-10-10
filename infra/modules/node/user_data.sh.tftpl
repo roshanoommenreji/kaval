@@ -19,7 +19,11 @@ modprobe overlay || true
 # psql client, for the bootstrap script's db-roles.sql step below (KAV-56). Installed once
 # here at first boot, not inside the repeating bootstrap script -- it only needs to exist,
 # not be reinstalled every 6h.
-dnf install -y postgresql15
+# 16, not 15 (KAV-74, ADR-0038): the database server runs Postgres 16, and pg_dump refuses to
+# dump a server newer than itself, so the nightly dump needs a 16 client. psql would have been
+# fine with 15. Falls back to 15 only so a missing 16 package cannot stop the whole node from
+# booting; the dump then fails loudly on its own, which is the safer way to find out.
+dnf install -y postgresql16 || dnf install -y postgresql15
 
 # Systemd unit hand-written from k3s's own install.sh template (SYSTEMD_TYPE=notify for a
 # server), so the checksum-verified binary above gets the same supervision the official
@@ -285,3 +289,66 @@ UNIT
 
 systemctl daemon-reload
 systemctl enable --now kaval-gitops-bootstrap.timer
+
+%{ if backup_bucket_name != "" ~}
+# ── Nightly database dump (KAV-74, ADR-0038) ─────────────────────────────────────────────
+# Taken from the node itself, using the node's own instance role (it can already write to the
+# backup bucket, infra/modules/iam), NOT from the chart's CronJob: a pod cannot reach the
+# instance role, and the alternative (a short-lived AWS key left in a Kubernetes Secret) puts a
+# live credential inside the cluster. This reuses what this host already does for db-roles.sql:
+# read the admin password from SSM, find the database server by tag, talk to it over TLS.
+#
+# 19:30 UTC = 01:00 IST: before the 20:30 UTC (02:00 IST) nightly auto-stop, which scales this
+# node to zero and stops the database. The chart's CronJob was set to 00:00 UTC, after that
+# stop, so it would never have found anything running. The dump itself is scripts/ops/backup.sh
+# (one copy of the logic, fetched the same way as db-roles.sql); this wrapper only supplies its
+# environment. `set -x` stays off: the admin password is in this script's environment.
+cat > /usr/local/sbin/kaval-db-backup <<'BACKUPSCRIPT'
+#!/bin/bash
+set -euo pipefail
+# Assigned first, exported after: `export X=$(cmd)` would swallow a failure of cmd.
+IMDS_TOKEN=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 300')
+AWS_DEFAULT_REGION=$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
+export AWS_DEFAULT_REGION
+DB_HOST=$(aws ec2 describe-instances \
+  --filters "Name=tag:Role,Values=database" "Name=tag:Name,Values=${name_prefix}-database" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].PrivateIpAddress" --output text)
+if [ -z "$DB_HOST" ] || [ "$DB_HOST" = "None" ]; then
+  echo "no running database server found -- nothing to dump" >&2
+  exit 1
+fi
+DB_PASSWORD=$(aws ssm get-parameter --with-decryption \
+  --name "/kaval/${name_prefix}/db/admin-password" --query Parameter.Value --output text)
+export POSTGRES_HOST="$DB_HOST" POSTGRES_PASSWORD="$DB_PASSWORD"
+export POSTGRES_DB=kaval POSTGRES_USER=kaval POSTGRES_SSLMODE=require
+export BACKUP_BUCKET="${backup_bucket_name}"
+
+SCRIPT_FILE=$(mktemp)
+trap 'rm -f "$SCRIPT_FILE"' EXIT
+curl -fsSL -o "$SCRIPT_FILE" "https://raw.githubusercontent.com/roshanoommenreji/kaval/main/scripts/ops/backup.sh"
+bash "$SCRIPT_FILE"
+BACKUPSCRIPT
+chmod +x /usr/local/sbin/kaval-db-backup
+
+cat > /etc/systemd/system/kaval-db-backup.service <<'UNIT'
+[Unit]
+Description=Dump the Kaval database to the backup bucket
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kaval-db-backup
+UNIT
+
+cat > /etc/systemd/system/kaval-db-backup.timer <<'UNIT'
+[Unit]
+Description=Nightly Kaval database dump, 01:00 IST (before the 02:00 IST auto-stop)
+[Timer]
+OnCalendar=*-*-* 19:30:00 UTC
+[Install]
+WantedBy=timers.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now kaval-db-backup.timer
+%{ endif ~}

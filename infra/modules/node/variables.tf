@@ -8,6 +8,12 @@ variable "name_prefix" {
   }
 }
 
+variable "backup_bucket_name" {
+  description = "The S3 bucket the node dumps its environment's database into every night (KAV-74, ADR-0038), via a systemd timer on the node using its own instance role. Empty (the default) installs no timer. The node's role must be able to write to this bucket (infra/modules/iam backup_bucket_arn)."
+  type        = string
+  default     = ""
+}
+
 variable "vpc_id" {
   type = string
 }
