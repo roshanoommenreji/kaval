@@ -29,22 +29,22 @@ gateway:
   image:
     # Build once, promote the artifact (ADR-0004): the same sha-ffb436b digest prod runs, pushed
     # to the shared ECR by KAV-51's one-time bootstrap push. Never rebuilt for staging.
-    tag: sha-2459417
+    tag: sha-22cee5d
 
 agent:
   # Wider than local's 30s, narrower than prod's 60s: staging should surface a stuck loop fast.
   correlateEverySeconds: 45
   image:
-    tag: sha-2459417
+    tag: sha-22cee5d
 
 executor:
   # A namespace of its own, not local's `kaval-demo` and not prod's `kaval-demo-prod`.
   demoNamespace: kaval-demo-staging
   executeEverySeconds: 20
   image:
-    tag: sha-2459417
+    tag: sha-22cee5d
 
 collector:
   watchEverySeconds: 20
   image:
-    tag: sha-2459417
+    tag: sha-22cee5d
