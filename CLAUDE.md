@@ -68,7 +68,9 @@ promotion tier.
 that passed staging is the digest deployed to prod — never a rebuild, because a rebuild is a
 different artifact and staging then tested something else. `promote.yml` refuses any digest that
 did not pass staging (built: [ADR-0032](docs/adr/0032-promote-workflow-and-the-promotion-guard.md);
-the `promotion-guard` CI check blocks hand edits of prod's tags).
+the `promotion-guard` CI check blocks hand edits of prod's tags). Going back is `rollback.yml`
+([ADR-0034](docs/adr/0034-rollback-workflow-and-what-a-rollback-may-go-back-to.md), runbook
+`docs/runbooks/rollback-prod.md`): only to a version prod already ran or that passed staging.
 
 Environments differ **only** by a Helm values file and a pinned digest. A template change needed
 for one environment and not another is a defect, not a special case.

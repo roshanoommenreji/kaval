@@ -23,3 +23,12 @@ vulnerabilities:
       - usr/local/bin/opa
     statement: crypto/tls denial of service; opa is a one-shot command, not a server
     expired_at: 2026-10-23
+  # A third one of the same kind, published 2026-10-10: HTTP/2 SETTINGS denial of service in
+  # golang.org/x/net v0.58.0 (fixed in 0.60.0) and Go stdlib 1.27.1 (fixed in Go 1.27.2), both inside
+  # the OPA binary. Same reasoning, same end date; no OPA release built with the fix exists yet
+  # (v1.21.1 is still the newest on 2026-10-10). Added with Roshan's approval (ADR-0033 amendment).
+  - id: CVE-2026-78669
+    paths:
+      - usr/local/bin/opa
+    statement: HTTP/2 SETTINGS denial of service; opa is a one-shot command, not a server
+    expired_at: 2026-10-23

@@ -104,7 +104,8 @@ digests, what the gate checked), so the go/no-go is made with the facts in front
 - Merging PR #80 means the next time prod comes up it pulls the new images and runs the database migration
   against the production database. The pull request says so; nothing is applied by merging alone.
 - A rollback to a tag that never passed staging (for example `sha-ffb436b`) is now blocked by the guard.
-  `rollback.yml` (next) has to define how a known-good earlier version is allowed back in.
+  `rollback.yml` ([ADR-0034](0034-rollback-workflow-and-what-a-rollback-may-go-back-to.md), built) defines
+  it: the guard also accepts a tag prod has pinned at an earlier commit on the base branch.
 - The story link is a commit-message convention. A change whose commit subjects carry no key is invisible to
   the UAT question.
 - A person with admin rights can still bypass branch protection (`enforce_admins` is off), and the record is
@@ -112,5 +113,5 @@ digests, what the gate checked), so the go/no-go is made with the facts in front
 - The repository now holds three Actions secrets. They are readable only by workflows on `main`, and a
   malicious workflow change merged to `main` could read them: the read-only scope is what limits that.
 
-**Revisit when** a second maintainer joins (add an Environment reviewer), `rollback.yml` is built, or the
+**Revisit when** a second maintainer joins (add an Environment reviewer), the
 backup job is enabled in prod.

@@ -155,8 +155,15 @@ beside the tag.
 **Amended 2026-10-09 (KAV-63, [ADR-0032](0032-promote-workflow-and-the-promotion-guard.md)).** `promote.yml`
 now exists: it refuses a tag that is not on the passed-staging record, whose digests ECR no longer
 holds, that is not ahead of prod, or whose release has a `uat` story not signed off, and otherwise opens
-the pull request that pins prod. A CI check, `promotion-guard`, makes it the only way in. Still not
-built: `rollback.yml`.
+the pull request that pins prod. A CI check, `promotion-guard`, makes it the only way in.
+
+**Amended 2026-10-10 (KAV-66, [ADR-0034](0034-rollback-workflow-and-what-a-rollback-may-go-back-to.md)).**
+`rollback.yml` now exists: the other direction, to a version prod already ran or that passed staging, never
+asking Jira, and refusing to cross a database migration unless told it was undone first. `promotion-guard`
+accepts the same targets. Measured on staging: merge to healthy about 80 seconds. Rehearsing it found that a
+rollback across a migration stalls on the older image's database step (see the ADR and
+[Lab 35](../labs/lab-35-rollback-workflow.md)), which is the argument for expand/migrate/contract migrations
+that this ADR already makes.
 
 ## Amendment, 2026-10-08: the smoke test and the passed-staging record (KAV-62)
 

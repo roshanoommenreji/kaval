@@ -181,6 +181,9 @@ seconds. Staging is On-Demand because the Spot shortage that stalled Lab 28 hit 
 First real use (`KAV-62`, Lab 33, 2026-10-08): one build, the smoke test and a deliberate-fail run, then
 `make staging-down`, under an hour, so about $0.05 at that rate.
 
+Rollback rehearsal (`KAV-66`, Lab 35, 2026-10-09): staging up for 1 h 45 min (a failed rollback, a database
+undo, a successful rollback), then destroyed: about $0.08.
+
 **Parked is not free.** After the idle stop the node is gone, but the database server keeps its 8 GB
 root disk and 10 GB data volume: 18 GB × $0.0912/GB-month (gp3, Mumbai, Price List API, 2026-10-08) =
 **~$1.64/month**, plus a few cents of pre-stop snapshot. That is the cost of parking over destroying

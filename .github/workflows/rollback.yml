@@ -32,7 +32,7 @@ on:
         required: true
         type: string
       accept_migrations:
-        description: "Go back even though it crosses a database migration (older code, newer database)"
+        description: "Tick only after the database migration this crosses has been undone (docs/runbooks/rollback-prod.md)"
         required: false
         type: boolean
         default: false
