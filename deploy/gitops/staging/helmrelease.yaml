@@ -38,20 +38,20 @@ spec:
     gateway:
       replicas: 1
       image:
-        tag: sha-9b2eb7d
+        tag: sha-0d8c96f
     agent:
       correlateEverySeconds: 45
       image:
-        tag: sha-9b2eb7d
+        tag: sha-0d8c96f
     executor:
       demoNamespace: kaval-demo-staging
       executeEverySeconds: 20
       image:
-        tag: sha-9b2eb7d
+        tag: sha-0d8c96f
     collector:
       watchEverySeconds: 20
       image:
-        tag: sha-9b2eb7d
+        tag: sha-0d8c96f
   valuesFrom:
     - kind: ConfigMap
       name: kaval-registry
