@@ -1045,10 +1045,10 @@ note = "Health, smoke, and the agent loop still functioning. Verified after the 
 id = "d-rollback"
 label = "rollback.yml · timed"
 kind = "terminal"
-phase = 3
+phase = 4
 col = 0.6
 row = 17
-note = "helm rollback to the previous revision, measuring time-to-restore. That measured figure goes into the next change record, because 'we would roll back' is not a plan."
+note = "Built (KAV-66, ADR-0034). Opens a pull request that re-pins prod to a version prod already ran or that passed staging; never asks Jira; refuses to cross a database migration unless told it was undone first. Measured on staging: merge to healthy about 80 s (Flux's once-a-minute check is two-thirds of it). That figure goes into the next change record, because 'we would roll back' is not a plan."
 
 [[delivery.node]]
 id = "d-record"

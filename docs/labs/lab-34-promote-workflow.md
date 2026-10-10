@@ -101,8 +101,8 @@ the same change.
 
 ## What this does not do
 
-- It does not roll back. An older tag is refused as "a rollback"; `rollback.yml` is next, and the guard will
-  need to learn which earlier versions are allowed back.
+- It does not roll back. An older tag is refused as "a rollback"; that is [`rollback.yml`](lab-35-rollback-workflow.md)
+  (`KAV-66`), and the guard now also accepts a tag prod has pinned before.
 - It does not check the backup image, which prod does not run yet.
 - Which stories are in a release comes from commit subjects. A commit without a `KAV-n` in its subject is
   invisible to the `uat` check.

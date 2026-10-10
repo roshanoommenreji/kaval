@@ -97,6 +97,7 @@ def test_a_migration_refuses_unless_accepted() -> None:
     added = ["migrations/versions/a1c4f9b0e3d2_action_slack_notified_at.py"]
     c = rollback.check_schema(added, False)
     assert not c.ok and "a1c4f9b0e3d2" in c.detail and "accept_migrations" in c.detail
+    assert "rollback-prod.md" in c.detail
     assert rollback.check_schema(added, True).ok
 
 

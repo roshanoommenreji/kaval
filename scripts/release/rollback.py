@@ -97,22 +97,25 @@ def check_images(entry: dict[str, Any] | None, ecr: dict[str, str]) -> Check:
 
 
 def check_schema(added: list[str], accepted: bool) -> Check:
-    """Going back across a database migration runs older code against a newer schema. It is often
-    fine (a new nullable column) and sometimes is not, and nothing here can tell which, so the
-    person must say they know."""
+    """Going back across a database migration does not just run older code against a newer
+    schema: the older image's own migrate step stops with "Can't locate revision", Helm gives up
+    after its retries and Flux restores the newer release (found on staging, Lab 35). The
+    migration has to be undone first, so the person must say it has been dealt with."""
     name = "going back crosses no database migration"
     if not added:
         return Check(name, True, "no migration was added after this version")
     listing = ", ".join(Path(a).name for a in added)
     if accepted:
         return Check(
-            name, True, f"crosses {len(added)} migration(s), accepted on purpose: {listing}"
+            name, True, f"crosses {len(added)} migration(s), said to be dealt with: {listing}"
         )
     return Check(
         name,
         False,
-        f"crosses {len(added)} migration(s): {listing}. The older code would run against the "
-        "newer database. Re-run with accept_migrations if that is understood and acceptable",
+        f"crosses {len(added)} migration(s): {listing}. The older version's database step cannot "
+        "run against a database that is ahead of it, so the rollback would stall and Flux would "
+        "put the newer release back. Undo the migration first (docs/runbooks/rollback-prod.md), "
+        "then re-run with accept_migrations",
     )
 
 
@@ -138,7 +141,8 @@ def pr_body(
         "applied by this pull request itself. CI's first run on a bot's pull request waits for a "
         "person to approve it (Actions tab, `Approve and run`); merge when every check is "
         f"green.{NN}"
-        "A rollback puts the old code back; it does not undo database changes the newer code made."
+        "A rollback puts the old code back; it does not undo database changes the newer code made, "
+        "and the older version cannot start against a database that is ahead of it."
     )
 
 
