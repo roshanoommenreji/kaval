@@ -940,7 +940,7 @@ kind = "platform"
 phase = 4
 col = 2
 row = 7
-note = "Terraform creates a second t4g.medium node (On-Demand) with its own k3s, etcd, database and VPC, then restores the latest production snapshot through scripts/ops/anonymise.sql. Staging gets real data shape and volume, and the backup gets restore-tested on every release. About five minutes."
+note = "Terraform creates a second t4g.medium node (On-Demand) with its own k3s, etcd, database and VPC, and starts with an empty database today. The design (ADR-0005, ADR-0037) is to restore the latest production dump through scripts/ops/anonymise.sql, so staging gets real data shape and volume and the backup gets restore-tested on every release. The scrub and restore script are proven on a local database (KAV-72); wiring them into staging-up needs a production dump to exist and a live drill (KAV-73). About five minutes."
 
 [[delivery.node]]
 id = "d-stg"
