@@ -96,3 +96,8 @@ Only a merged commit should produce an artifact.
   whole group. Ignoring the one dependency is smaller and keeps the weekly rhythm.
 - **Rejected:** loosening the mypy settings to let 37 through (hides the problem the new types are reporting),
   and merging with the failing check bypassed (the 11 required checks are the point of ADR-0010).
+- **Closed 2026-10-10 (KAV-70).** The client is on 37.0.1 and the ignore is gone. The executor's `k8s.py` falls back
+  to empty metadata/status/spec objects (the library now types every field as optional; a real pod always has them),
+  the collector's `poll()` takes a small `EventSource` protocol so its test fake still fits, and the library's two
+  untyped config loaders carry a one-line ignore. The executor then ran on staging against a real cluster (Lab 38):
+  found, recorded and deleted a pod, saw its controller replace it, and reported a missing pod as "not found".

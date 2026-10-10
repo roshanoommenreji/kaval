@@ -50,6 +50,56 @@
         "the backup image: published, not deployed to staging",
         "Slack approval: staging has no Slack app of its own"
       ]
+    },
+    {
+      "tag": "sha-9b2eb7d",
+      "commit": "9b2eb7db3eb4973228fa644a1ff3d83f8dff9aa6",
+      "passed_at": "2026-10-10T11:21:04Z",
+      "images": {
+        "agent": "sha256:dec8c2a968e685165bc6b31742268ded1fbb52282c7229fdc28a544233ed1a21",
+        "collector": "sha256:4c73c25f3f78d0c1aa355e9cf01a1021c64084ce1e17320cb5ad4a4685e17a7a",
+        "executor": "sha256:5af4adf76dd17396c5f910f8c0ee4d37704f4d9e715c7ffb769a8cbd63fcbcbc",
+        "gateway": "sha256:67af70b9a83d21865073f4433f2cc09dc4a4163366316e0bf0823121ea9d1ad1"
+      },
+      "published_not_exercised": {
+        "backup": "sha256:502e57efaa59abbdc4114d84e5438e731b1dcdd752dd3ddcf8d340dca9179765"
+      },
+      "checks": [
+        {
+          "name": "pods running and ready",
+          "detail": "4 running"
+        },
+        {
+          "name": "no crash loop",
+          "detail": "kaval-staging-agent-5f9f5dcd9b-mnh98 restarted 1x; kaval-staging-executor-6965757b78-jgpjv restarted 1x (within the first-boot tolerance of 2)"
+        },
+        {
+          "name": "every service runs sha-9b2eb7d",
+          "detail": "ok"
+        },
+        {
+          "name": "running digest equals the ECR digest",
+          "detail": "all four match"
+        },
+        {
+          "name": "gateway reaches the database, migrated",
+          "detail": "migrated to a1c4f9b0e3d2"
+        },
+        {
+          "name": "GET /v1/incidents?limit=1",
+          "detail": "HTTP 200"
+        },
+        {
+          "name": "GET /v1/signals?limit=1",
+          "detail": "HTTP 200"
+        }
+      ],
+      "not_covered": [
+        "Ollama and the model: no environment deploys one yet, so /healthz's ollama check is expected to fail and is not gated on",
+        "agent diagnosis and proposals: they need the model",
+        "the backup image: published, not deployed to staging",
+        "Slack approval: staging has no Slack app of its own"
+      ]
     }
   ]
 }
