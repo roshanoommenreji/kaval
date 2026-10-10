@@ -1,0 +1,79 @@
+# Release prepare: work out the next versions from the commits, and open the pull request that
+# writes them (KAV-67, ADR-0013, ADR-0035).
+#
+#   you run it  ->  scripts/release/versions.py reads the conventional commits that touched each
+#   component since its last tag  ->  a pull request bumps __version__ in each component that
+#   changed, pyproject.toml and uv.lock  ->  you merge  ->  release.yml builds the images with
+#   those versions on them and tags <svc>-vX.Y.Z and vX.Y.Z at that commit.
+#
+# Nobody types a version. The only choices a person makes are when to run this and whether to
+# merge what it proposes. It touches no AWS and no Jira: it reads Git and writes a branch.
+#
+# Run it from `main`. A bump is only meaningful against main's history, and the pull request goes
+# through the same required checks as any other change (CI's first run on a bot's pull request
+# waits for a person to approve it: Actions tab, "Approve and run").
+
+name: release-prepare
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-prepare
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    name: propose the version bump (pull request)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true # the push below uses the workflow token
+          fetch-depth: 0 # the commits since each component's last tag, and the tags themselves
+      - name: work out the bump
+        id: plan
+        shell: bash # pipefail: a plan that cannot decide must fail the job
+        run: |
+          python3 scripts/release/versions.py plan | tee plan.txt
+          python3 scripts/release/versions.py plan --markdown > body.md
+          if head -1 plan.txt | grep -q -- '->'; then
+            to=$(head -1 plan.txt | sed 's/.*-> //')
+            echo "to=$to" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nothing has changed that moves a version; no pull request."
+            echo "to=" >> "$GITHUB_OUTPUT"
+          fi
+      - name: open the pull request
+        if: steps.plan.outputs.to != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TO: ${{ steps.plan.outputs.to }}
+        run: |
+          branch="release/kaval-${TO}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "$branch already exists; leaving it for a person to look at."
+            exit 0
+          fi
+          python3 scripts/release/versions.py bump
+          {
+            echo
+            echo "Written by \`release-prepare.yml\` from the conventional commits since each component's last tag (ADR-0013, ADR-0035): \`fix\` is a patch, \`feat\` a minor, \`!\` a major (a minor while a version is 0.x). Merging this starts \`release.yml\`, which builds the images with these versions and tags them."
+            echo
+            echo "CI's first run on this pull request waits for a person to approve it (Actions tab, \`Approve and run\`)."
+          } >> body.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add pyproject.toml uv.lock services/*/kaval_*/__init__.py
+          git commit -m "chore(release): Kaval ${TO}"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "chore(release): Kaval ${TO}" --body-file body.md

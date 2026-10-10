@@ -6,9 +6,10 @@
 #     ->  staging's Flux pulls the new tag the next time staging is up.
 #
 # Staging deploys the same way prod does: a tag committed to Git, pulled by Flux. CI never gets
-# credentials to a cluster. What is NOT here yet, and is the next stage of release.yml: the
-# smoke test, the "this digest passed staging" record, component version bumps and tags
-# (ADR-0013) and the generated change record. promote.yml and rollback.yml build on those.
+# credentials to a cluster. The smoke test and the "this digest passed staging" record are made
+# by hand-run tooling (ADR-0031). Component version tags are made here once the images exist
+# (ADR-0035); release-prepare.yml writes the version bumps, and promote.yml generates the change
+# record. promote.yml and rollback.yml build on all of that.
 #
 # What this workflow is allowed to do, and why that is the whole security story:
 #   - The two jobs have different powers. `publish` can reach AWS (OIDC, push-only to ECR) but
@@ -165,11 +166,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true # the push below uses the workflow token
+          fetch-depth: 0 # the existing tags, to know which versions are already named
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: digest-*
           merge-multiple: true
           path: digests
+
+      # Name the versions these images carry (ADR-0013, ADR-0035): <svc>-vX.Y.Z for each component
+      # and vX.Y.Z for the product, at this commit. Only a version with no tag yet is tagged, so a
+      # release that did not bump anything tags nothing, and running this twice is harmless.
+      - name: tag the versions
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 scripts/release/versions.py tag --commit "$GITHUB_SHA" --push
 
       - name: point staging at the new tag
         id: pin

@@ -136,9 +136,12 @@ version and lists the components inside it
 > **Kaval 0.3.0**: gateway 1.2.0 · collector 0.4.1 · agent 0.1.0
 
 - **What bumps a version:** the commits that touched that component's folder. `fix:` bumps the
-  patch, `feat:` the minor, and `!` the major. Shared code bumps every service that ships it, so
-  keep a commit to one component where you can.
-- **Tags:** `gateway-v1.2.0` for a component, `v0.3.0` for the product.
+  patch, `feat:` the minor, and `!` the major (the minor while a version is 0.x). Shared code bumps
+  every service that ships it, so keep a commit to one component where you can.
+- **Nobody edits a version by hand.** `make version-plan` shows what the next versions would be;
+  the `release-prepare.yml` workflow opens the pull request that writes them
+  ([ADR-0035](adr/0035-computed-versions-tags-and-the-generated-change-record.md)).
+- **Tags:** `gateway-v1.2.0` for a component, `v0.3.0` for the product; `release.yml` makes them.
 - **Where a version shows:** `/healthz`, `--version`, and each image's
   `org.opencontainers.image.version` label. CI fails if the label and the code disagree.
 - **Who bumps them:** `release.yml` computes and applies the bumps from Phase 4. Until then

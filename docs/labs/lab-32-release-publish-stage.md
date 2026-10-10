@@ -12,7 +12,7 @@ page is the build, the live run and the two things that went wrong.
 
 **Result:** a merged change produces five scanned arm64 images in ECR and a pull request that points
 staging at them, in **1 min 47 s**, with no stored AWS key and no laptop. Not built yet: the smoke
-test, the "passed staging" record, version tags and the change record (the next stage).
+test, the "passed staging" record, version tags and the change record (the next stages: Labs 33 and 36).
 
 ---
 
@@ -160,7 +160,7 @@ The approval stays, and is a reasonable human step before staging moves. It is o
 - **No smoke test, no "passed staging" record.** Staging has the new tag only once the pin merges and
   staging is up. Proving the digest works there, and recording it so `promote.yml` can refuse an
   untested one, is the next stage.
-- **No version bumps, tags or release notes yet** (ADR-0013).
+- **No version bumps, tags or release notes yet** (ADR-0013). *(Added later: Lab 36.)*
 - **Prod is untouched.** `promote.yml` is the only thing that will ever write `deploy/gitops/prod/`.
 - **The cluster does not need any of this to run.** The node pulls with its own role (ADR-0025); this
   role only matters for publishing.

@@ -257,3 +257,13 @@ def test_pr_body_for_a_tag_older_than_the_record_has_no_digest_table() -> None:
 def test_pr_body_cuts_a_very_long_reason() -> None:
     body = rollback.pr_body("sha-0000000", "sha-2222222", "Q" * 5000, "ok", None)
     assert body.count("Q") == rollback.REASON_MAX
+
+
+def test_committed_prod_tag_ignores_a_pin_not_yet_committed(repo: Path) -> None:
+    """promote.yml pins first and writes the pull request text second; the text must still say what
+    prod runs *before* the change (pull request #83's text named the new tag instead)."""
+    _commit_pin(repo, "sha-0000000")
+    for f in promote.PROD_FILES:
+        (repo / f).write_text(values("sha-1111111"), encoding="utf-8")
+    assert promote.current_prod_tag(repo) == "sha-1111111"
+    assert promote.committed_prod_tag(repo) == "sha-0000000"

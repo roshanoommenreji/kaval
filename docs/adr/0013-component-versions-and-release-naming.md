@@ -87,3 +87,14 @@ means nothing to a person.
 - The Service field depends on people ticking it. Every new story sets it via `--service`, and
   release time cross-checks it against the code, so a missing tick gets caught instead of
   silently making the notes wrong.
+
+## Amendment 2026-10-10 (KAV-67, ADR-0035)
+
+- **Decision 7 is settled: a small stdlib script, not release-please** (`scripts/release/versions.py`).
+  `release-prepare.yml` opens the bump pull request, `release.yml` tags after the images are pushed, and
+  `promote.yml` carries the generated change record ([ADR-0035](0035-computed-versions-tags-and-the-generated-change-record.md)).
+- **Decision 2, for versions below 1.0.0:** a breaking change (`!` or a `BREAKING CHANGE:` footer) moves the
+  **minor** number, so that 1.0.0 is a decision about the project and not a side effect of one commit. From
+  1.0.0 the rule above stands.
+- The baseline is `v0.1.0` and `<svc>-v0.1.0`, tagged at `sha-2459417`, the version prod is pinned to. The
+  statement "versions stay at 0.1.0 until a release exists" is now history: a release exists.
