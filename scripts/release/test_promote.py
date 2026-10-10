@@ -220,3 +220,19 @@ def test_pr_body_names_the_tag_digests_and_the_meaning_of_merging(tmp_path: Path
     assert "`kaval/gateway:sha-1111111`" in body and D["agent"] in body
     assert "PASS  tag is on the record" in body and "go/no-go" in body
     assert "sha-0000000" in body
+
+
+# ── the pre-flight `make up` runs (KAV-68) ────────────────────────────────────────────
+
+
+def test_preflight_passes_when_the_images_exist() -> None:
+    check = promote.check_pinned_images("sha-1111111", lambda tag: D)
+    assert check.ok and "sha-1111111" in check.detail
+
+
+def test_preflight_fails_and_says_what_to_do_when_ecr_no_longer_has_the_tag() -> None:
+    def gone(tag: str) -> dict[str, str]:
+        raise RuntimeError(f"kaval/gateway:{tag} is not readable in ECR: not found")
+
+    check = promote.check_pinned_images("sha-1111111", gone)
+    assert not check.ok and "promote.yml" in check.detail and "not found" in check.detail
