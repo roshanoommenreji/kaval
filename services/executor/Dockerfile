@@ -18,15 +18,15 @@
 # linux/arm64 always (CLAUDE.md constraint 2). Base images pinned by digest (KAV-24).
 
 # ── Stage 1: uv.lock → hash-pinned requirements, core deps + the executor extra only ───────
-FROM ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 AS uv
-FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637cecc392d97f980d4fec56b AS lock
+FROM ghcr.io/astral-sh/uv:0.13.0@sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168 AS uv
+FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89 AS lock
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
 COPY pyproject.toml uv.lock ./
 RUN uv export --frozen --no-dev --no-emit-project --extra executor -o /requirements.txt
 
 # ── Stage 1b: the opa binary, checksum-verified, same source as the agent's image ──────────
-FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637cecc392d97f980d4fec56b AS opa
+FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89 AS opa
 ARG OPA_VERSION=1.21.0
 ARG OPA_SHA256=0ec34027c15b4d969c21d01ed570fe14fbebd508a08157043ab09f9a0dccbee6
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
@@ -37,7 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
  && chmod +x /opa
 
 # ── Stage 2: the runtime image ──────────────────────────────────────────────
-FROM python:3.11-slim-bookworm@sha256:a36c24f9cbdf4fd0f52d67f0823eeac19c2028c637cecc392d97f980d4fec56b
+FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89
 
 # OS-level patch, independent of uv.lock: Debian shipped a fix for CVE-2026-103111
 # (libpcre2-8-0, HIGH) after this digest was pinned. Trivy flags the base image's own
