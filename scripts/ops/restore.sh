@@ -59,8 +59,12 @@ export PGPASSWORD="$PASSWORD"
 
 START=$(date +%s)
 
-KEY=$(aws s3 cp "s3://${BACKUP_BUCKET}/postgres/LATEST" - 2>/dev/null || true)
-[[ -n "$KEY" ]] || { echo "  no LATEST pointer in s3://${BACKUP_BUCKET}/postgres/ — has backup.sh ever run?"; exit 1; }
+# Which folder of the bucket to read. The default is the nightly dump (backup.sh writes
+# postgres/); staging's seed is the cleaned copy a person carried over (seed/, ADR-0039).
+FOLDER="${RESTORE_PREFIX:-postgres}"
+
+KEY=$(aws s3 cp "s3://${BACKUP_BUCKET}/${FOLDER}/LATEST" - 2>/dev/null || true)
+[[ -n "$KEY" ]] || { echo "  no LATEST pointer in s3://${BACKUP_BUCKET}/${FOLDER}/ — has a dump ever been put there?"; exit 1; }
 
 TMP=$(mktemp)
 trap 'rm -f "$TMP"' EXIT
@@ -69,7 +73,13 @@ echo "  snapshot  ${KEY}"
 aws s3 cp "s3://${BACKUP_BUCKET}/${KEY}" "$TMP" --only-show-errors
 
 echo "  restoring into ${TARGET} (${HOST}/${DB})..."
-pg_restore -h "$HOST" -U "$USER" -d "$DB" --clean --if-exists --no-owner "$TMP"
+# Staging: leave the dump's GRANTs out. They name production's service roles, which do not
+# exist on a fresh staging server yet, and every one would be an error. db-roles.sql is the one
+# place that hands permissions out, after the restore and the schema upgrade (ADR-0039).
+# Prod (disaster recovery) keeps them: the roles are still there, and so are the grants.
+PRIVS=()
+[[ "$TARGET" == "staging" ]] && PRIVS=(--no-privileges)
+pg_restore -h "$HOST" -U "$USER" -d "$DB" --clean --if-exists --no-owner ${PRIVS[@]+"${PRIVS[@]}"} "$TMP"
 
 record() {  # record <status>: one line for the change record, written on success and on failure
   mkdir -p "$ROOT/.build"

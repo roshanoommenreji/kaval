@@ -124,6 +124,78 @@ rm -f /tmp/flux.tar.gz /tmp/flux
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 flux install
 
+%{ if seed_database ~}
+# ── Fill an EMPTY database from the cleaned copy (KAV-73, ADR-0039; staging only) ─────────
+# Run by kaval-gitops-bootstrap below BEFORE Flux is told about the release, so no service is
+# connected while the restore runs (ADR-0037 point 7). The cleaned copy is put in this
+# environment's bucket (seed/) by `make staging-up` from the laptop that cleaned it; staging never
+# sees production's raw dump. Exit 0 = seeded, 10 = nothing to do (the database already has tables,
+# or no seed was provided), anything else = failed. Failed and skipped both leave staging with an
+# empty database, exactly as it was before this existed; the status file says which happened.
+# `set -x` stays off: the admin password is in this script's environment.
+install -d /var/lib/kaval
+cat > /usr/local/sbin/kaval-db-seed <<'SEEDSCRIPT'
+#!/bin/bash
+set -euo pipefail
+STATUS=/var/lib/kaval/seed-status.json
+status() { printf '{"status":"%s","detail":"%s","at":"%s"}\n' "$1" "$2" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATUS"; }
+IMDS_TOKEN=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 300')
+AWS_DEFAULT_REGION=$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
+export AWS_DEFAULT_REGION
+BUCKET="${backup_bucket_name}"
+DB_HOST=$(aws ec2 describe-instances \
+  --filters "Name=tag:Role,Values=database" "Name=tag:Name,Values=${name_prefix}-database" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].PrivateIpAddress" --output text)
+if [ -z "$DB_HOST" ] || [ "$DB_HOST" = "None" ]; then
+  status failed "no running database server found"; echo "seed: no running database server found" >&2; exit 1
+fi
+ADMIN_PW=$(aws ssm get-parameter --with-decryption \
+  --name "/kaval/${name_prefix}/db/admin-password" --query Parameter.Value --output text)
+DSN="host=$DB_HOST port=5432 dbname=kaval user=kaval sslmode=require"
+
+# The database server may still be starting (a parked staging was just resumed): wait for it.
+HAS=""
+for _ in $(seq 1 40); do
+  if HAS=$(PGPASSWORD="$ADMIN_PW" psql "$DSN" -tAc "select coalesce(to_regclass('public.signal')::text, 'none')" 2>/dev/null); then break; fi
+  HAS=""; sleep 15
+done
+if [ -z "$HAS" ]; then status failed "database not reachable after 10 minutes"; echo "seed: database not reachable" >&2; exit 1; fi
+# Seed only a database with no tables. A parked-and-resumed staging keeps its data; restoring
+# over it would throw that away, and this script also runs on every later boot of the node.
+if [ "$HAS" != "none" ]; then status skipped "the database already has tables"; echo "seed: the database already has tables -- not seeding"; exit 10; fi
+
+# The laptop puts seed/LATEST (the cleaned copy) or seed/NONE (nothing to put) in the bucket just
+# after Terraform creates it, which is about when this node boots. Wait for either.
+for _ in $(seq 1 40); do
+  if aws s3 ls "s3://$BUCKET/seed/LATEST" > /dev/null 2>&1; then break; fi
+  if aws s3 ls "s3://$BUCKET/seed/NONE" > /dev/null 2>&1; then
+    status skipped "no cleaned copy was provided"; echo "seed: no cleaned copy was provided -- staging starts empty"; exit 10
+  fi
+  sleep 15
+done
+if ! aws s3 ls "s3://$BUCKET/seed/LATEST" > /dev/null 2>&1; then
+  status failed "no cleaned copy appeared in the bucket after 10 minutes"; echo "seed: nothing appeared in seed/" >&2; exit 1
+fi
+
+# restore.sh needs anonymise.sql next to it (two folders up from the script); fetched from main,
+# the same trust the node already extends to backup.sh and db-roles.sql (ADR-0038).
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+mkdir -p "$WORK/scripts/ops"
+RAW=https://raw.githubusercontent.com/roshanoommenreji/kaval/main/scripts/ops
+curl -fsSL -o "$WORK/scripts/ops/restore.sh" "$RAW/restore.sh"
+curl -fsSL -o "$WORK/scripts/ops/anonymise.sql" "$RAW/anonymise.sql"
+export BACKUP_BUCKET="$BUCKET" RESTORE_PREFIX=seed STAGING_POSTGRES_HOST="$DB_HOST" STAGING_POSTGRES_PASSWORD="$ADMIN_PW" PGSSLMODE=require
+if bash "$WORK/scripts/ops/restore.sh" staging; then
+  cp "$WORK/.build/last-restore.json" "$STATUS"
+  exit 0
+fi
+status failed "restore.sh failed; see the boot log. Tables were dropped if the scrub was the part that failed"
+exit 1
+SEEDSCRIPT
+chmod +x /usr/local/sbin/kaval-db-seed
+
+%{ endif ~}
 # This node has no EKS-style credential provider for ECR (ADR-0024's IAM-scoping decision:
 # per-workload AWS identity is Phase 7/8 IRSA territory, not this story). So two things get
 # refreshed from the node's own instance role instead of committed to Git: the registry
@@ -216,6 +288,20 @@ kubectl create secret generic kaval-slack -n ${name_prefix} \
   --dry-run=client -o yaml | kubectl apply -f -
 unset SLACK_BOT_TOKEN SLACK_APP_TOKEN SLACK_CHANNEL_ID
 
+%{ if seed_database ~}
+# Staging: fill an empty database from the cleaned copy BEFORE Flux is told about the release
+# (the two lines below), so nothing is connected to the database while it is restored and
+# scrubbed (ADR-0039). A database that already has tables is left alone: this script also runs
+# every 6 hours, and again whenever a parked staging is resumed.
+SEED_RC=0
+/usr/local/sbin/kaval-db-seed || SEED_RC=$?
+SEEDED=""
+if [ "$SEED_RC" = 0 ]; then SEEDED=1; fi
+if [ "$SEED_RC" != 0 ] && [ "$SEED_RC" != 10 ]; then
+  echo "seeding failed (exit $SEED_RC) -- staging starts with an empty database; see /var/lib/kaval/seed-status.json"
+fi
+
+%{ endif ~}
 curl -fsSL "$RAW/source.yaml" | kubectl apply -f -
 curl -fsSL "$RAW/helmrelease.yaml" | kubectl apply -f -
 # From here, kustomize-controller's own Kustomization (sync.yaml) takes over watching this
@@ -250,7 +336,7 @@ for attempt in $(seq 1 40); do
   fi
   sleep 15
 done
-if [ -n "$SCHEMA_READY" ]; then
+run_db_roles() {
   PGPASSWORD="$ADMIN_PW" psql "host=$DB_HOST port=5432 dbname=kaval user=kaval sslmode=require" \
     -v ON_ERROR_STOP=1 \
     -v gateway_password="$GATEWAY_PW" \
@@ -258,9 +344,24 @@ if [ -n "$SCHEMA_READY" ]; then
     -v executor_password="$EXECUTOR_PW" \
     -v collector_password="$COLLECTOR_PW" \
     -f /tmp/db-roles.sql || echo "db-roles.sql failed this run -- will retry on the next 6h timer"
+}
+if [ -n "$SCHEMA_READY" ]; then
+  run_db_roles
 else
   echo "schema still missing after ~10 min -- db-roles.sql skipped, will retry on the next 6h timer"
 fi
+%{ if seed_database ~}
+if [ -n "$${SEEDED:-}" ]; then
+  # A restored database already had its tables, so the wait above ended at once -- before the
+  # migration job had moved them to THIS release's version. A table that migration adds would
+  # get no grants. The first run above still matters (it creates the service logins, without
+  # which the pods cannot start and the release never becomes Ready); once the release is Ready
+  # the migration has finished, so hand the permissions out a second time (ADR-0039).
+  kubectl wait helmrelease/${name_prefix} -n flux-system --for=condition=Ready --timeout=600s \
+    || echo "release not Ready after 10 min -- permissions for any new table wait for the next 6h timer"
+  run_db_roles
+fi
+%{ endif ~}
 unset ADMIN_PW GATEWAY_PW AGENT_PW EXECUTOR_PW COLLECTOR_PW
 rm -f /tmp/db-roles.sql
 SCRIPT

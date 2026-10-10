@@ -1,7 +1,9 @@
 # ADR-0037: Staging is seeded from the production dump, and the scrub fails closed
 
-**Status:** Accepted for the scrub and the restore script (built and proven locally). **Open** for the wiring
-(how staging gets at the dump, and in what order things start); see "Not decided here".
+**Status:** Accepted for the scrub and the restore script (built and proven locally). The wiring that was open
+here (how staging gets at the dump, and in what order things start) is **settled by
+[ADR-0039](0039-staging-is-filled-from-a-copy-cleaned-on-the-laptop.md)** (2026-10-10); see "Not decided here",
+kept as the record of what was open.
 **Date:** 2026-10-10
 **Related:** [ADR-0005](0005-data-durability-and-staging-seeding.md) (decided that staging is seeded from a
 sanitised production snapshot; this builds it),
@@ -97,6 +99,17 @@ path, the failed-scrub path (0 tables left, exit 1) and the refuse-production pa
 never run on staging.
 
 ## Not decided here (needs a live run and Roshan's go-ahead; story `KAV-73`)
+
+> **Update, 2026-10-10 — decided in [ADR-0039](0039-staging-is-filled-from-a-copy-cleaned-on-the-laptop.md).**
+> (1) Staging does not read production's bucket and no copy step runs in the release workflow: the scrub
+> runs first, on the laptop (`make seed-refresh`), and only the cleaned file is put in staging's own bucket.
+> (2) The order is restore and scrub, then Flux and the migration, then permissions, with `db-roles.sql` run a
+> second time once the release is Ready. (3) The staging restore ignores the dump's GRANTs (`--no-privileges`);
+> `db-roles.sql` is the only source of permissions. (4) A real dump exists since 2026-10-10 (ADR-0038).
+> One thing in this ADR changes with it: the "alternative rejected" above, *scrub on the production side and
+> upload only the scrubbed copy*, is in effect what ADR-0039 does (on the laptop rather than on production's
+> servers), because raw data landing on staging's side was judged unacceptable once cleaning on the laptop
+> turned out to be cheap. The original text follows unchanged.
 
 1. **How staging reaches the dump.** The staging database server's role can read only its own SSM parameters; it
    has no S3 access, and the staging backup bucket is separate from prod's. Either staging's role gets

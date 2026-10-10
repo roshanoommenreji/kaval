@@ -69,6 +69,9 @@ module "backups" {
   name_prefix     = local.name_prefix
   vpc_id          = module.network.vpc_id
   route_table_ids = [module.network.public_route_table_id]
+  # Staging is destroyed after every release; the bucket holds the seed and its own dumps by then,
+  # and a plain destroy stops on a non-empty bucket (KAV-73). Prod's stays false.
+  force_destroy = true
 }
 
 # Staging has no Slack: both environments sharing one Socket Mode app would split events
@@ -117,6 +120,9 @@ module "node" {
   # It will rarely fire (staging parks itself after 4 idle hours), but it is the same code path
   # as prod's, so `systemctl start kaval-db-backup` on a staging node proves the dump for free.
   backup_bucket_name = module.backups.bucket_name
+  # Fill an empty database from the cleaned copy in this bucket's seed/ folder before any service
+  # starts (KAV-73, ADR-0039). staging.sh up puts it there; prod never sets this.
+  seed_database = true
 }
 
 module "database" {

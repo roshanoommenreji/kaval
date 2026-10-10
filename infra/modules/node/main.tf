@@ -86,6 +86,7 @@ resource "aws_launch_template" "node" {
     flux_sha256_arm64  = var.flux_sha256_arm64
     name_prefix        = var.name_prefix
     backup_bucket_name = var.backup_bucket_name
+    seed_database      = var.seed_database
     gitops_env         = trimprefix(var.name_prefix, "kaval-") # "prod" / "staging": the deploy/gitops/<this> directory
   }))
 

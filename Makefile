@@ -222,8 +222,12 @@ lab-down: ## Destroy the EKS lab. ALWAYS run this. Verify with cost-report tomor
 backup: ## Dump the prod database to S3 (RPO 24h — see ADR-0005)
 	@bash scripts/ops/backup.sh
 
+.PHONY: seed-refresh
+seed-refresh: ## Clean production's newest dump on THIS machine for staging to be filled from (needs Docker; ADR-0039)
+	@bash scripts/ops/seed-refresh.sh
+
 .PHONY: restore-staging
-restore-staging: ## Seed staging from the latest sanitised prod snapshot
+restore-staging: ## By hand: restore the latest dump in BACKUP_BUCKET into staging, scrubbing it (the staging node does this itself at boot, ADR-0039)
 	@bash scripts/ops/restore.sh staging
 
 .PHONY: restore-prod

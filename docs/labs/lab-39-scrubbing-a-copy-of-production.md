@@ -14,8 +14,8 @@ rewrite passes 15 tests against the repository's real migrations; `restore.sh` w
 `pg_dump` for three cases: it works, it refuses to touch the production host, and when the scrub fails it
 deletes the unscrubbed copy and exits with an error.
 
-**Not covered:** anything on AWS. No production dump exists yet (the backup bucket is empty), and the restore
-has not run on staging. See ADR-0037, "Not decided here".
+**Not covered:** anything on AWS. (Since written: a production dump exists, [Lab 40](lab-40-the-nightly-dump-from-the-app-node.md);
+the wiring into staging is decided and proven locally in [Lab 41](lab-41-filling-staging-from-a-cleaned-copy.md), [ADR-0039](../adr/0039-staging-is-filled-from-a-copy-cleaned-on-the-laptop.md).)
 
 ## 0. What you need
 
