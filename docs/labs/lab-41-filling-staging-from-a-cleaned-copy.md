@@ -172,10 +172,13 @@ Then check, read-only, over Session Manager on the node: the restore time in `/v
 the row counts, `alembic_version`, that the services are `Running` and that `\dp signal` lists the service roles
 (the second permissions run). `AWS_PROFILE=kaval make staging-down` ends it (the bucket now empties itself).
 
-_The result of this run is recorded below once it has happened._
+**First attempt, 2026-10-10: failed on Windows paths.** The AWS CLI on Windows is a native program and does not understand Git Bash's `/tmp/...` paths. It wrote the raw production dump to `C:	mp\` instead of the script's temp folder (where nothing would delete it), and the script carried on with no file. The stray file was deleted by hand. The script now passes `cygpath -m` paths to `aws` and stops if the file is not where it expects. My local proof used a bash stand-in for `aws`, which cannot show this.
+
+_The result of the successful run is recorded below once it has happened._
 
 ## What to take from this
 
+- **A stand-in proves the logic, not the platform.** The fake `aws` was a bash script, so it could never show that the real one is a Windows program with different path rules. Run the real tool on a tiny harmless file first.
 - **Clean before it travels, not after it arrives.** The same scrub, run one step earlier, removes the whole
   window in which raw data sits somewhere less protected, and removes the need for any permission between
   environments.
