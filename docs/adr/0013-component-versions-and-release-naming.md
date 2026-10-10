@@ -98,3 +98,11 @@ means nothing to a person.
   1.0.0 the rule above stands.
 - The baseline is `v0.1.0` and `<svc>-v0.1.0`, tagged at `sha-2459417`, the version prod is pinned to. The
   statement "versions stay at 0.1.0 until a release exists" is now history: a release exists.
+- **Decision 6, the Jira Release, is built (2026-10-10, Lab 42).** `jira-sync.py release X.Y.Z` reads that
+  version's change record (`docs/releases/<date>-vX.Y.Z.md`, ADR-0035): the `Kaval X.Y.Z: ...` line becomes the
+  Release's description, the record's date its release date, and every Jira key under `## Issues` gets the Release
+  as its Fix version. It is a **manual** step after the promotion pull request merges, because the job that
+  writes the record has no Jira access on purpose. It is a dry run unless given `--apply`, and running it twice
+  changes nothing the second time. `Kaval 0.1.0` was made live with its nine issues. The Release is marked
+  released: a record exists only for a version that was promoted to prod. Not done: moving a story that was missed
+  in the commits (a story whose commits name no Jira key is not in the record, so it is not in the Release).

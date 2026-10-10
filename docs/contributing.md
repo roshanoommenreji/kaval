@@ -142,6 +142,10 @@ version and lists the components inside it
   the `release-prepare.yml` workflow opens the pull request that writes them
   ([ADR-0035](adr/0035-computed-versions-tags-and-the-generated-change-record.md)).
 - **Tags:** `gateway-v1.2.0` for a component, `v0.3.0` for the product; `release.yml` makes them.
+- **The Jira Release:** once a promotion pull request has merged, run
+  `make jira-release VERSION=0.3.0` to see what it would do, then `make jira-release VERSION=0.3.0 APPLY=1`.
+  It makes the Jira Release `Kaval 0.3.0` and puts every issue named in the change record into it
+  ([Lab 42](labs/lab-42-a-jira-release-per-product-version.md)).
 - **Where a version shows:** `/healthz`, `--version`, and each image's
   `org.opencontainers.image.version` label. CI fails if the label and the code disagree.
 - **Who bumps them:** `release.yml` computes and applies the bumps from Phase 4. Until then

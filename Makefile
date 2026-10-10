@@ -71,8 +71,8 @@ test: ## Unit tests + policy tests
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check infra/modules/idle-stop/lambda scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
-	mypy infra/modules/idle-stop/lambda/idle_stop.py scripts/release/pin_staging.py scripts/release/staging_smoke.py scripts/release/promote.py scripts/release/rollback.py scripts/release/versions.py scripts/release/change_record.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py
+	ruff check infra/modules/idle-stop/lambda scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira_release.py scripts/tracking/test_jira_release.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
+	mypy infra/modules/idle-stop/lambda/idle_stop.py scripts/release/pin_staging.py scripts/release/staging_smoke.py scripts/release/promote.py scripts/release/rollback.py scripts/release/versions.py scripts/release/change_record.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py scripts/tracking/jira_release.py
 
 .PHONY: lock
 lock: ## Re-resolve uv.lock after editing pyproject.toml's dependencies (then commit both)
@@ -273,6 +273,11 @@ docs-sync: dashboard ## Regenerate the dashboard and republish Confluence (Defin
 .PHONY: jira
 jira: ## Show an epic's stories. Usage: make jira EPIC=KAV-6
 	@python scripts/tracking/jira-sync.py show $(or $(EPIC),KAV-6)
+
+.PHONY: jira-release
+jira-release: ## Make the Jira Release "Kaval X.Y.Z" and put its issues in it. Usage: make jira-release VERSION=0.1.0 [APPLY=1]; without APPLY it only shows what it would do
+	@test -n "$(VERSION)" || { echo "usage: make jira-release VERSION=0.1.0 [APPLY=1]"; exit 2; }
+	@python scripts/tracking/jira-sync.py release $(VERSION) $(if $(APPLY),--apply)
 
 .PHONY: pull-embed-model
 pull-embed-model: ## Ensure EMBED_MODEL is pulled into Ollama (KAV-40); a no-op after the first run
