@@ -47,7 +47,7 @@ def test_the_switch_is_rendered_off(env: str) -> None:
 def test_the_cronjob_is_suspended_with_a_hard_limit(env: str) -> None:
     cj = _find(_render(env), "CronJob", "chaos-oom")
     assert re.search(r"(?m)^\s+suspend: true$", cj)
-    assert re.search(r"(?m)^\s+activeDeadlineSeconds: 900$", cj)
+    assert re.search(r"(?m)^\s+activeDeadlineSeconds: 1500$", cj)
     assert re.search(r"(?m)^\s+backoffLimit: 0$", cj)
     assert f"value: \"{env}\"" in cj
 

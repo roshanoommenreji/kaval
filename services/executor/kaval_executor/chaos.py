@@ -50,7 +50,7 @@ VICTIM_NEEDS_MIB = 96
 VICTIM_LIMIT = "64Mi"
 VICTIM_NAME = "chaos-oomer"
 STABLE_SECONDS = 60
-MAX_SECONDS = 12 * 60  # inside the CronJob's 15-minute hard limit
+MAX_SECONDS = 20 * 60  # inside the CronJob's 25-minute hard limit; long enough for a person to answer
 POLL_SECONDS = 10
 
 EXIT_OK, EXIT_REFUSED, EXIT_ABORTED, EXIT_TIMEOUT = 0, 2, 3, 4

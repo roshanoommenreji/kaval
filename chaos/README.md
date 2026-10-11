@@ -27,7 +27,7 @@ make staging-down
 ## What stops a run
 
 - The **switch** (a ConfigMap that every deploy resets to off) — turn it off and the runner aborts and cleans up
-- The **clock**: the runner stops itself at 12 minutes and the Job is killed at 15
+- The **clock**: the runner stops itself at 20 minutes (a person needs time to approve) and the Job is killed at 25
 - `make chaos-stop`, from anywhere
 - **Prod renders none of this at all** (`chaos.enabled` is false there; a test and a CI step check it)
 

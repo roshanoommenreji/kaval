@@ -41,7 +41,7 @@ the same switch and the same namespace fence.
 3. **Three stops:** (a) a switch (a ConfigMap rendered `"false"` on every deploy, turned on by
    `make chaos-run`, turned off at the end or by `make chaos-stop`; the runner aborts and cleans up
    if it goes off mid-run); (b) the CronJob is suspended so nothing runs by itself; (c) the Job has a
-   hard 15-minute limit whatever the code is doing, and the experiment stops itself at 12.
+   hard 25-minute limit whatever the code is doing, and the experiment stops itself at 20 (first live run: 12 minutes was too short for a person to answer; the run timed out unapproved).
 4. **No new image.** The runner is a different command in the executor image: nothing new to build,
    scan, pin or promote.
 
