@@ -221,21 +221,19 @@ credentials = "SCOPED WRITE — RoleBinding in the app namespace only; IRSA on E
 inputs = ["Approved proposals", "A second policy evaluation before every action"]
 outputs = ["Cluster and AWS mutations", "execution and outcome rows"]
 tables = ["execution", "outcome"]
-note = "The only component that changes anything, and it never calls an LLM. Since KAV-77 (ADR-0041) it also judges its own fixes: five minutes after one, kaval_executor.verify reads the signals other components wrote and records an outcome row (resolved or not, regression, wall-clock time to restore); make mttr reports it by stage. It never touches the cluster for that, and a failure there never stops an execution. Built live (KAV-47, ADR-0021): bound with a RoleBinding, in a separate kaval-demo namespace it doesn't itself run in, so it structurally cannot touch kube-system OR its own siblings (postgres/gateway/agent) — proven with kubectl auth can-i, not just asserted. Its RBAC grants exactly the verbs its one handler (restart_pod) calls today — get, delete on pods, nothing speculative. Re-checks policy itself from each action's own fields immediately before acting, never trusting the stored policy_class — verified live by bypassing the gateway's own refusal of a never-class approval and watching the executor refuse it anyway."
+note = "The only component that changes anything, and it never calls an LLM. Since KAV-77 (ADR-0041) it also judges its own fixes: five minutes after one, kaval_executor.verify reads the signals other components wrote and records an outcome row (resolved or not, regression, wall-clock time to restore); make mttr reports it by stage. It never touches the cluster for that, and a failure there never stops an execution. Built live (KAV-47, ADR-0021): bound with a RoleBinding, in a separate kaval-demo namespace it doesn't itself run in, so it structurally cannot touch kube-system OR its own siblings (postgres/gateway/agent) — proven with kubectl auth can-i, not just asserted. Its RBAC grants exactly the verbs its two handlers call — get, delete on pods (restart_pod) and, since KAV-79 (ADR-0044), get, patch on deployments plus get on replicasets (increase_memory_limit: doubles a memory limit, never above 512 MiB, refuses rather than guesses, always ask-class) — nothing speculative, all in the demo namespace. Re-checks policy itself from each action's own fields immediately before acting, never trusting the stored policy_class — verified live by bypassing the gateway's own refusal of a never-class approval and watching the executor refuse it anyway."
 
 [[system.node]]
 id = "chaos"
-label = "chaos CronJobs"
+label = "chaos runner (Job)"
 kind = "service"
 phase = 5
 col = 3.6
 row = 6
-credentials = "scoped write · labelled namespace only"
-inputs = ["A schedule, or a manual make chaos-run"]
-outputs = ["Injected faults: OOM kill, crashloop, disk fill, latency, node drain"]
-note = "Confined to namespaces labelled kaval.io/chaos=enabled. The containment is tested before the experiments are trusted, because the chaos tooling is itself dangerous."
-
-# ── row 7: what gets changed ───────────────────────────────────────────
+credentials = "its own ServiceAccount: create/delete Deployments and list pods in the demo namespace only; reads one named ConfigMap (the switch). No database, no policy, nothing in Kaval's own namespace"
+inputs = ["A person's make chaos-run: a Job made from a suspended CronJob, only while the switch is on"]
+outputs = ["One injected fault (today: a memory-starved program), then a timeline and clean-up"]
+note = "The breaker is not the fixer: the executor can patch a Deployment but not create one, the runner can create but not patch. Off in prod (the chart renders none of it; a test and a CI step check), refuses any environment but local/staging, stops on the switch, its own 20-minute clock, a 25-minute hard limit or make chaos-stop. Built and run on staging in KAV-79 (ADR-0044, Lab 46, post-mortem 2026-10-11): oom experiment, noticed in 81 s, fixed after approval, held. Staging has no language model, so make chaos-propose files the diagnosis by hand and the post-mortem says so."
 
 [[system.node]]
 id = "cluster"
@@ -470,7 +468,7 @@ label = "cost actions (IRSA)"
 [[system.edge]]
 from = "chaos"
 to = "cluster"
-label = "inject fault"
+label = "inject fault (create/delete in demo namespace)"
 
 [[system.edge]]
 from = "cluster"

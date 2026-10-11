@@ -177,6 +177,8 @@ make test          # unit + policy tests
 make lint          # ruff + mypy, the same target CI runs
 make rules-test    # promtool-test Kaval's own-health alert rules (needs Docker; CI runs it)
 make mttr [LAST=n] # time to restore by stage, machine time and wall-clock, from the outcome rows
+make chaos-run [EXPERIMENT=oom] # game day on staging (needs staging up): switch on, cause the failure, follow, switch off
+make chaos-propose / chaos-approve ACTION=<id> / chaos-mttr / chaos-status / chaos-stop  # the rest of a staging game day; stop = the stop button
 make sync          # install exactly what uv.lock pins into .venv
 make lock          # after editing pyproject.toml's dependencies; commit uv.lock with it
 make up            # provision the AWS node (~5 min, starts billing)

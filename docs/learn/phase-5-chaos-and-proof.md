@@ -3,7 +3,11 @@
 > **Written from:** theory
 > **Lab:** to be written
 > **Cost:** no change — posture still **paused between sessions**
-> **Built so far:** slice 2 (`KAV-78`) — every service shows its own health, Prometheus judges it with three tested rules, and a person is told straight from the signals when Kaval itself stops ([ADR-0042](../adr/0042-watching-the-watcher.md), [Lab 45](../labs/lab-45-watching-the-watcher.md)). Slice 1 (`KAV-77`) — [service levels](../architecture/service-levels.md), the executor recording whether each fix held, and `make mttr` ([ADR-0041](../adr/0041-service-levels-and-recording-whether-a-fix-held.md), [Lab 44](../labs/lab-44-recording-whether-a-fix-held.md)). The rest is still theory, so this page stays marked as written from theory
+> **Built so far:** slice 3 (`KAV-79`) — the chaos framework and the memory experiment: our own small jobs, a failure maker that cannot repair and an executor that cannot break, a switch, a clock and a stop button, and one real game day on staging whose fix held ([ADR-0044](../adr/0044-chaos-with-our-own-jobs-and-a-bounded-memory-fix.md), [Lab 46](../labs/lab-46-chaos-and-the-memory-game-day.md), [post-mortem](../postmortems/2026-10-11-oom.md)). Slice 2 (`KAV-78`) — every service shows its own health, Prometheus judges it with three tested rules, and a person is told straight from the signals when Kaval itself stops ([ADR-0042](../adr/0042-watching-the-watcher.md), [Lab 45](../labs/lab-45-watching-the-watcher.md)). Slice 1 (`KAV-77`) — [service levels](../architecture/service-levels.md), the executor recording whether each fix held, and `make mttr` ([ADR-0041](../adr/0041-service-levels-and-recording-whether-a-fix-held.md), [Lab 44](../labs/lab-44-recording-whether-a-fix-held.md)). The rest is still theory, so this page stays marked as written from theory
+
+## What the first game day showed (2026-10-11)
+
+The hypothesis held: Kaval noticed in 81 s and, once a person approved, raised the memory limit and the program stayed up. The more useful result was everything *around* it. Running the experiment found three defects in the chaos tooling itself that no test with a stubbed cluster could find, showed that twelve minutes is too short for a person to answer, and showed that Kaval called an out-of-memory kill a "crash loop". A failed hypothesis is a success; so is an experiment that breaks your own scaffolding. See the [post-mortem](../postmortems/2026-10-11-oom.md).
 
 ## Where this sits
 
@@ -17,7 +21,7 @@ failure classes," which is a different kind of sentence.
 
 ## What we're doing
 
-- Chaos CronJobs injecting five failure classes into a namespace labelled `kaval.io/chaos=enabled`
+- Chaos jobs injecting five failure classes into the demo namespace on staging only, one done so far (out of memory)
 - Blast-radius containment, tested before the experiments are trusted
 - MTTR measured from signal to verified resolution
 - A **runbook per failure class** — which is also the agent's retrieval corpus

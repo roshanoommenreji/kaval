@@ -7,6 +7,7 @@
 #   chaos.sh propose     staging has no language model: file the diagnosis it would have written
 #                        (chaos_propose.py). The post-mortem says the run used this.
 #   chaos.sh approve ID  the human step: approve a proposed action through the gateway.
+#   chaos.sh mttr        time to restore by stage, read from staging's database (make chaos-mttr).
 #   chaos.sh status      the switch, the Jobs, the victim.
 #
 # Staging only. It finds the node by its staging name tag and refuses to run if there is none,
@@ -112,32 +113,49 @@ run_script_on_node() {  # script text on stdin
   on_node "$NODE" "echo ${b64} | base64 -d | bash 2>&1"
 }
 
-cmd_propose() {
-  need_node
-  local py cj
-  py="$(base64 -w0 "$HERE/chaos_propose.py" 2>/dev/null || base64 "$HERE/chaos_propose.py")"
+# One short-lived pod from the executor image with one service's database role and 256 MiB, deleted
+# after its log is read. Never exec into a running service for this (that is how the project once
+# OOM-killed its own agent). Arguments: pod name, a word in the Secret's name, the Python to run
+# (base64), extra env JSON items (may be empty).
+pod_run() {
+  local name="$1" secret_word="$2" py="$3" extra="${4:-}" cj
   cj="$(find_name cronjob chaos-oom)"
   [ -n "$cj" ] || { echo "chaos is not deployed in staging" >&2; exit 1; }
-  # A throwaway pod from the executor image, with the AGENT's database role and 256 MiB. The script
-  # travels in an environment variable (no stdin to attach), the pod is read once it finishes and
-  # always deleted.
   run_script_on_node <<SCRIPT
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 K=/usr/local/bin/kubectl
 IMG=\$(\$K get cronjob ${cj} -n ${NAMESPACE} -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}')
-AGENT_SECRET=\$(\$K get secret -n ${NAMESPACE} -o name | grep postgres-agent | head -1 | cut -d/ -f2)
-\$K delete pod chaos-propose -n ${NAMESPACE} --ignore-not-found >/dev/null 2>&1
-\$K run chaos-propose -n ${NAMESPACE} --restart=Never --image="\$IMG" \
-  --overrides='{"spec":{"imagePullSecrets":[{"name":"ecr-cred"}],"containers":[{"name":"chaos-propose","image":"'"\$IMG"'","command":["python","-c","import base64,os;exec(base64.b64decode(os.environ[\\"CHAOS_SCRIPT\\"]))"],"envFrom":[{"secretRef":{"name":"'"\$AGENT_SECRET"'"}}],"env":[{"name":"CHAOS_TARGET_NAMESPACE","value":"${DEMO_NAMESPACE}"},{"name":"CHAOS_SCRIPT","value":"${py}"}],"resources":{"limits":{"memory":"256Mi"}}}]}}' >/dev/null
+DB_SECRET=\$(\$K get secret -n ${NAMESPACE} -o name | grep postgres-${secret_word} | head -1 | cut -d/ -f2)
+\$K delete pod ${name} -n ${NAMESPACE} --ignore-not-found >/dev/null 2>&1
+\$K run ${name} -n ${NAMESPACE} --restart=Never --image="\$IMG" \
+  --overrides='{"spec":{"imagePullSecrets":[{"name":"ecr-cred"}],"containers":[{"name":"${name}","image":"'"\$IMG"'","command":["python","-c","import base64,os;exec(base64.b64decode(os.environ[\\"CHAOS_SCRIPT\\"]))"],"envFrom":[{"secretRef":{"name":"'"\$DB_SECRET"'"}}],"env":[{"name":"CHAOS_TARGET_NAMESPACE","value":"${DEMO_NAMESPACE}"},{"name":"CHAOS_SCRIPT","value":"${py}"}${extra}],"resources":{"limits":{"memory":"256Mi"}}}]}}' >/dev/null
 for i in \$(seq 1 40); do
-  phase=\$(\$K get pod chaos-propose -n ${NAMESPACE} -o jsonpath='{.status.phase}')
+  phase=\$(\$K get pod ${name} -n ${NAMESPACE} -o jsonpath='{.status.phase}')
   case "\$phase" in Succeeded|Failed) break ;; esac
   sleep 3
 done
-\$K logs chaos-propose -n ${NAMESPACE}
-\$K delete pod chaos-propose -n ${NAMESPACE} --ignore-not-found >/dev/null 2>&1
+\$K logs ${name} -n ${NAMESPACE}
+\$K delete pod ${name} -n ${NAMESPACE} --ignore-not-found >/dev/null 2>&1
 SCRIPT
 }
+
+# Staging has no language model: file the diagnosis it would write, with the AGENT's database role
+# (the one allowed to write proposals).
+cmd_propose() {
+  need_node
+  pod_run chaos-propose agent "$(b64_of "$HERE/chaos_propose.py")"
+}
+
+# How long each stage took, from the outcome rows, with the EXECUTOR's database role.
+cmd_mttr() {
+  need_node
+  pod_run chaos-mttr executor "$(printf 'import runpy,sys
+sys.argv=["mttr"]
+runpy.run_module("kaval_executor.mttr",run_name="__main__")
+' | b64_of /dev/stdin)"
+}
+
+b64_of() { base64 -w0 "$1" 2>/dev/null || base64 "$1"; }
 
 cmd_approve() {
   local id="${1:-}"
@@ -198,7 +216,8 @@ case "${1:-}" in
   stop)   cmd_stop ;;
   status) cmd_status ;;
   propose) cmd_propose ;;
+  mttr)    cmd_mttr ;;
   approve) cmd_approve "${2:-}" ;;
-  *) echo "usage: chaos.sh <run [oom]|stop|status|propose|approve ID>"; exit 2 ;;
+  *) echo "usage: chaos.sh <run [oom]|stop|status|propose|approve ID|mttr>"; exit 2 ;;
 esac
 fi

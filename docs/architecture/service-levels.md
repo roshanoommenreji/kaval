@@ -31,3 +31,17 @@ Notes:
   being opened and escalated, not on #3 and #4.
 - An experiment that misses an objective is a finding, not a failure. It goes in the game-day
   write-up and either the system or the number changes, with the reason recorded.
+
+## First measurement: the oom game day, 2026-10-11 (staging)
+
+One run is an anecdote, not a rate; the targets stay provisional until there are twenty
+([post-mortem](../postmortems/2026-10-11-oom.md)).
+
+| # | Result | Against target |
+|---|---|---|
+| 1 Detect | 81 s | within 120 s: met (1 of 1) |
+| 2 Diagnose | **not measured**: staging has no model; the figure is a stand-in's | n/a |
+| 3 Machine time | 158 s | median 5 min: met |
+| 4 Resolution | resolved, no regression | 1 of 1 |
+| 5 Safety | none executed without approval or against policy | 0 violations |
+| 6 Wall-clock | 431 s, of which a person's answer was 273 s | reported, no target |

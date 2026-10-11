@@ -268,6 +268,10 @@ chaos-propose: ## Staging has no language model: file the diagnosis it would wri
 chaos-approve: ## The human step: approve the proposed fix. Usage: make chaos-approve ACTION=<id>
 	@bash scripts/ops/chaos.sh approve $(ACTION)
 
+.PHONY: chaos-mttr
+chaos-mttr: ## Time to restore by stage, read from STAGING's database (make mttr reads whichever database you point it at)
+	@bash scripts/ops/chaos.sh mttr
+
 .PHONY: chaos-status
 chaos-status: ## Chaos switch, Jobs and victim on staging
 	@bash scripts/ops/chaos.sh status
