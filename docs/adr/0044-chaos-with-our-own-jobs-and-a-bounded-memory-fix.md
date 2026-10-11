@@ -85,5 +85,8 @@ prove Kaval does not reach for it.
 - **First live result:** noticed in 81 s, fixed 32 s after a person's approval, held; and the first run found
   three defects in the tooling and a window too short for a person (now 20 min), all fixed. Kaval labelled the
   incident `crashloop`, not memory: whether an OOM kill is its own cause is for `KAV-80`.
+- **The model cannot yet propose this fix:** on the dev server it named the cause but proposed no action in
+  3 of 3 runs, because its prompt never lists the available fixes. Not changed here (a prompt change needs
+  the golden-incident score before and after): `KAV-84`.
 - Thresholds in [service levels](../architecture/service-levels.md) stay provisional until the
   first post-mortem has real numbers: [game-day template](../../chaos/game-day-template.md).

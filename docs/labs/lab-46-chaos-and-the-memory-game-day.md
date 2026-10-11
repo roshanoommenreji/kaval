@@ -84,7 +84,30 @@ outcome row says `resolved`.
 
 ## Step 5 — the same failure with the language model (dev server)
 
-*Done in the follow-up on the dev server; recorded below when run.*
+The dev server has the model. The staging fault cannot be reproduced there (no staging-style event feed), so
+the same *kind* of incident is made with the synthetic scenario and the real model is asked about it:
+
+```bash
+AWS_PROFILE=kaval make dev                 # dev server + the Compose stack (model, Postgres, gateway)
+# own terminal: make dev-tunnel            # or ssh -N -L 8000:... -L 5432:... -L 11435:... kaval-devbox
+set -a; . ./.env; set +a                   # points the tools at the tunnel
+python -m kaval_collector.synthetic oom-crashloop
+python -m kaval_agent.correlate            # opens oom_killed:k8s:kaval-demo/checkout
+python -m kaval_agent.index_runbooks       # loads docs/runbooks/pod-oomkilled.md
+python -m kaval_agent.diagnose <incident-id> --with-changes --dry-run     # run it three times
+```
+
+(`make signals` / `make correlate` do the same inside Docker on the dev server, but that SSH-to-Docker link
+dropped repeatedly on the day; the Python commands over the tunnel are equivalent.)
+
+**Result, three runs:** the model named the cause correctly every time ("memory pressure", "persistent
+OOMKilled state", confidence 0.8 to 0.85, risk high) and proposed **no action at all** every time
+(`"actions": []`). It did not propose a restart, which would be the wrong repair, and it did not propose
+`increase_memory_limit` either. Reason: the prompt never lists the fixes the executor can perform. So the
+by-hand proposal on staging stands in for something the model cannot yet do; teaching it is
+[KAV-84](https://roshanoommenreji.atlassian.net/browse/KAV-84), measured against the golden incidents.
+Also noted: the synthetic scenario produces cause `oom_killed`, while real staging events produced
+`crashloop`.
 
 ## Step 6 — tear down
 
@@ -114,4 +137,4 @@ Stubbed tests cannot find any of these; only running it can. That is the argumen
 - [x] `kubectl auth can-i` gives the answers in Step 3
 - [x] Staging: the oom game day ran to `resolved` and `make chaos-mttr` gave real figures (81 s detect, 273 s human, 158 s machine, 431 s wall-clock)
 - [x] Post-mortem written the same day
-- [ ] The model-written diagnosis of the same failure, on the dev server (Step 5)
+- [x] The model-written diagnosis of the same kind of failure, on the dev server (Step 5): cause right 3 of 3, no action proposed 3 of 3 (KAV-84)
