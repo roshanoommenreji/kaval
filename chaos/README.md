@@ -7,7 +7,8 @@ rather than Chaos Mesh or LitmusChaos, and how it is fenced in:
 
 ```bash
 make staging-up                 # ~5 min, about $0.045/hr
-make chaos-run EXPERIMENT=oom   # switch on, cause the failure, follow it, switch off
+make chaos-run EXPERIMENT=oom   # switch on, cause the failure, follow it, switch off (or badrelease)
+make chaos-node                 # lose the app server (laptop-run; asks you to type the machine id)
 make chaos-status               # the switch, the Jobs, the victim
 make chaos-stop                 # the stop button
 make mttr                       # how long each stage took
@@ -36,12 +37,12 @@ make staging-down
 | Experiment | Injects | Should produce | Status |
 |---|---|---|---|
 | `oom` | A program needing ~96 MiB started with a 64 MiB limit | OOMKilled → proposal to raise the memory limit → approval → fixed and holding | Slice 3 (`KAV-79`) |
-| `crashloop` | A bad command in a container | CrashLoopBackOff → rollback or fix proposal | Slice 4 (`KAV-80`) |
-| `lost-server` | The node disappears | Node lost → rebuild verification | Slice 4 (`KAV-80`) |
+| `badrelease` | A healthy program, then a new version that crashes at start-up | CrashLoopBackOff → proposal to **roll back** (not restart) → approval → previous version back and holding | Slice 4 (`KAV-80`, [ADR-0045](../docs/adr/0045-rolling-back-a-bad-release-and-flux-versus-direct-fixes.md)) |
+| `node` (`make chaos-node`) | The app server is ended; the auto-scaling group replaces it | Nothing inside Kaval can notice (it ran on that machine); the run times the self-heal and checks no data was lost | Slice 4 (`KAV-80`, [ADR-0046](../docs/adr/0046-losing-the-app-server-and-how-we-test-it.md)) |
 | `disk-fill` | A volume filled to 95 % | DiskPressure → **alert to a person, no automated action** | Slice 5 (`KAV-81`) |
 | `latency` | Injected slowness | SLO breach → investigation, **no automated action** | Slice 5 (`KAV-81`) |
 
 Each experiment is only complete when a matching runbook exists in `docs/runbooks/` — the agent needs
 something to retrieve, and writing it is how you find out whether you understand the failure. The
-runner code is `services/executor/kaval_executor/chaos.py`; its chart objects are
+runner code is `services/executor/kaval_executor/chaos.py` (the `node` experiment is the laptop-run `scripts/ops/chaos_node.py`); its chart objects are
 `deploy/charts/kaval/templates/chaos.yaml`; the script behind the make targets is `scripts/ops/chaos.sh`.

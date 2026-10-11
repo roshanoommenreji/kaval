@@ -43,9 +43,11 @@ def test_the_switch_is_rendered_off(env: str) -> None:
     assert re.search(r'(?m)^\s+enabled: "false"$', cm)
 
 
+@pytest.mark.parametrize("experiment", ["oom", "badrelease"])
 @pytest.mark.parametrize("env", ["staging", "local"])
-def test_the_cronjob_is_suspended_with_a_hard_limit(env: str) -> None:
-    cj = _find(_render(env), "CronJob", "chaos-oom")
+def test_the_cronjob_is_suspended_with_a_hard_limit(env: str, experiment: str) -> None:
+    cj = _find(_render(env), "CronJob", f"chaos-{experiment}")
+    assert f'"kaval_executor.chaos", "{experiment}"' in cj
     assert re.search(r"(?m)^\s+suspend: true$", cj)
     assert re.search(r"(?m)^\s+activeDeadlineSeconds: 1500$", cj)
     assert re.search(r"(?m)^\s+backoffLimit: 0$", cj)
@@ -57,6 +59,10 @@ def test_the_runner_can_only_write_in_the_demo_namespace() -> None:
     role = _find(docs, "Role", "chaos-runner")
     assert "namespace: kaval-demo-staging" in role
     assert 'verbs: ["get", "create", "delete"]' in role
+    # The one write the runner gets beyond create/delete (KAV-80) is a patch on ONE named Deployment.
+    assert 'resourceNames: ["chaos-badrelease"]\n    verbs: ["patch"]' in role
+    assert role.count('"patch"') == 1
+    assert "\"update\"" not in role
     # No other grant for the runner anywhere but the named switch ConfigMap.
     runner_roles = [d for d in docs if re.search(r"(?m)^kind: Role$", d) and "chaos" in d]
     assert len(runner_roles) == 2
@@ -65,8 +71,16 @@ def test_the_runner_can_only_write_in_the_demo_namespace() -> None:
     assert not [d for d in docs if re.search(r"(?m)^kind: Cluster", d) and "chaos" in d]
 
 
-def test_the_executor_gains_only_deployment_get_patch_and_replicaset_get() -> None:
+def test_the_executor_gains_only_deployment_get_patch_and_replicaset_get_list() -> None:
     role = _find(_render("staging"), "Role", "executor")
     assert 'resources: ["deployments"]\n    verbs: ["get", "patch"]' in role
-    assert 'resources: ["replicasets"]\n    verbs: ["get"]' in role
+    assert 'resources: ["replicasets"]\n    verbs: ["get", "list"]' in role
     assert "\"create\"" not in role
+
+
+def test_the_collector_may_read_a_pod_but_not_list_or_change_one() -> None:
+    role = _find(_render("staging"), "Role", "collector")
+    assert 'resources: ["pods"]\n    verbs: ["get"]' in role
+    assert 'resources: ["events"]\n    verbs: ["list", "watch"]' in role
+    for verb in ("create", "patch", "update", "delete"):
+        assert f'"{verb}"' not in role

@@ -29,6 +29,14 @@ would need a different `target` shape this module doesn't produce yet; left for 
 that's actually needed, not provisioned speculatively now (the same "RBAC and code grow
 together" call `kaval_executor` made, ADR-0021).
 
+**Why a `BackOff` event is not enough (KAV-80).** Kubernetes never emits an `OOMKilled` *event*:
+that word lives in the pod's status (`lastState.terminated.reason`). What the event feed shows for
+a program killed for memory is the same `BackOff` it shows for a bad release that crashes at
+start-up, so on staging a real out-of-memory kill was labelled `crashloop` (the first game day).
+The right fix differs (raise the limit, or roll back the release), so for a `BackOff` this module
+reads the pod once and records why its container last ended; `OOMKilled` there makes the signal
+`pod_oom_killed`. This needs `get` on pods in the demo namespace and nothing more.
+
 Reason -> `kind` is a small, explicit table for the reasons `kaval_agent.correlate.cause_of`
 specifically recognises (`OOMKilled`, `BackOff`, the exec-format `Error`) — anything else
 falls through to a snake_cased version of the real `reason` string, which `cause_of` already
@@ -52,6 +60,7 @@ from typing import Protocol
 from kaval_shared import metrics
 from kaval_shared.models import Signal
 from kubernetes import client
+from kubernetes.client.exceptions import ApiException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -93,17 +102,39 @@ def _last_written_count(session: Session, event_uid: str) -> int:
     return int(count) if isinstance(count, (int, float, str)) else 0
 
 
+def last_exit(pod: client.V1Pod) -> tuple[str | None, int | None]:
+    """Why a pod's container last ended, as `(reason, exit_code)`: the most recent termination
+    among its containers, from `lastState` (a restarted container) or `state` (one that is down
+    right now). `(None, None)` when nothing has terminated."""
+    best: client.V1ContainerStateTerminated | None = None
+    for cs in (pod.status.container_statuses if pod.status else None) or []:
+        for state in (cs.last_state, cs.state):
+            term = state.terminated if state else None
+            if term is None:
+                continue
+            if best is None or (term.finished_at or NEVER) > (best.finished_at or NEVER):
+                best = term
+    if best is None:
+        return None, None
+    return best.reason, best.exit_code
+
+
+NEVER = datetime.min.replace(tzinfo=UTC)
+
+
 class _HasEvents(Protocol):
     @property
     def items(self) -> list[client.CoreV1Event]: ...
 
 
 class EventSource(Protocol):
-    """The one call `poll` makes. `client.CoreV1Api` satisfies it, and so does the small fake in
+    """The two calls `poll` makes. `client.CoreV1Api` satisfies it, and so does the small fake in
     the tests. Naming the call, not the whole class, is what lets a fake stand in for the real
     client now that the client library ships type hints (KAV-70)."""
 
     def list_namespaced_event(self, namespace: str, *, field_selector: str = "") -> _HasEvents: ...
+
+    def read_namespaced_pod(self, name: str, namespace: str) -> client.V1Pod: ...
 
 
 def poll(
@@ -135,6 +166,12 @@ def poll(
             "involvedObject": {"kind": obj.kind, "namespace": namespace, "name": obj.name},
             "event_uid": uid,
         }
+        if kind == "pod_back_off" and obj.name:
+            exit_reason, exit_code = _why_it_ended(v1, namespace, obj.name)
+            if exit_reason is not None:
+                value["last_exit_reason"], value["last_exit_code"] = exit_reason, exit_code
+            if exit_reason == "OOMKilled":
+                kind = "pod_oom_killed"
         observed_at = event.last_timestamp or event.event_time or event.first_timestamp or now
         session.add(Signal(
             source=KUBERNETES, kind=kind, target=target, value=value, observed_at=observed_at,
@@ -142,6 +179,15 @@ def poll(
         report.append(f"{kind:28} {target}  count={count}")
     session.commit()
     return report
+
+
+def _why_it_ended(v1: EventSource, namespace: str, pod_name: str) -> tuple[str | None, int | None]:
+    """The pod's last exit reason, or nothing when it cannot be read (already replaced, no
+    permission): the signal is then written as the plain `BackOff` it always was, never lost."""
+    try:
+        return last_exit(v1.read_namespaced_pod(pod_name, namespace))
+    except ApiException:
+        return None, None
 
 
 def report(lines: Sequence[str]) -> list[str]:

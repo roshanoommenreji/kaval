@@ -3,12 +3,13 @@
 # direction: a bug in this component's code cannot escalate into a write, because no binding
 # anywhere grants one.
 #
-# Scoped to list/watch `events` in .Values.executor.demoNamespace only — the same namespace
+# Scoped to list/watch `events`, and `get` on pods (KAV-80), in .Values.executor.demoNamespace only — the same namespace
 # the executor acts on, since that's the one namespace with anything worth watching today.
-# Not `get` (nothing here ever fetches one named event), not pods/deployments (the Event
-# objects this reads already carry everything kaval_collector.k8s_events needs in their own
-# involvedObject field) — exactly the verbs the code calls, nothing provisioned ahead of it,
-# the same rule executor.yaml's RBAC follows.
+# Not `get` on events (nothing here ever fetches one named event). `get` on pods is the one
+# addition (KAV-80): a `BackOff` event cannot say whether the program was killed for memory or
+# crashed on its own, the pod's last exit reason can, and that decides the fix. Read only, one
+# named pod at a time, no list. Exactly the verbs the code calls, nothing provisioned ahead of
+# it, the same rule executor.yaml's RBAC follows.
 
 apiVersion: v1
 kind: ServiceAccount
@@ -29,6 +30,9 @@ rules:
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

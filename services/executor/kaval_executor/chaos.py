@@ -18,7 +18,14 @@ Three things stop it, in this order of strength:
   3. The clock. The CronJob's `activeDeadlineSeconds` ends the pod whatever the code is doing,
      and `MAX_SECONDS` ends the experiment earlier, from the inside.
 
-    python -m kaval_executor.chaos oom      # as the chaos CronJob runs it
+Two experiments (KAV-79, KAV-80), each with its own victim Deployment in the demo namespace:
+  oom         a program that needs more memory than its limit allows. Fix: raise the limit.
+  badrelease  a healthy program, then a new version that crashes at start-up. Fix: roll back.
+              Delivering the new version is a `patch`, which the runner may do to this one
+              named Deployment only (RBAC `resourceNames`), never to anything else.
+
+    python -m kaval_executor.chaos oom          # as the chaos CronJob runs it
+    python -m kaval_executor.chaos badrelease
 """
 
 from __future__ import annotations
@@ -49,7 +56,10 @@ VICTIM_IMAGE = ("python:3.11-slim-bookworm@sha256:"
 VICTIM_NEEDS_MIB = 96
 VICTIM_LIMIT = "64Mi"
 VICTIM_NAME = "chaos-oomer"
+RELEASE_VICTIM_NAME = "chaos-badrelease"
 STABLE_SECONDS = 60
+# How long the good first version gets to come up before the experiment gives up.
+HEALTHY_SECONDS = 5 * 60
 # Inside the CronJob's 25-minute hard limit, and long enough for a person to approve the fix.
 MAX_SECONDS = 20 * 60
 POLL_SECONDS = 10
@@ -135,6 +145,122 @@ class Timeline:
         self.events.setdefault(name, round(elapsed, 1))
 
 
+def release_manifest(namespace: str, release: str) -> dict[str, Any]:
+    """The release victim at one version. `v1` runs fine; `v2` is the bad release: it prints a
+    configuration error and exits at once, so every start is a crash. The version is a label on
+    the pod template, so the Deployment's rollout history has two real, different revisions."""
+    if release == "v1":
+        program = ("import time\nprint('release v1 running', flush=True)\ntime.sleep(86400)\n")
+    else:
+        program = ("import sys\nprint('release ' + sys.argv[1] + ': configuration error, "
+                   "cannot start', flush=True)\nsys.exit(1)\n")
+    labels = {"app": RELEASE_VICTIM_NAME, VICTIM_LABEL: "true"}
+    return {
+        "apiVersion": "apps/v1", "kind": "Deployment",
+        "metadata": {"name": RELEASE_VICTIM_NAME, "namespace": namespace, "labels": labels},
+        "spec": {
+            "replicas": 1,
+            "selector": {"matchLabels": {"app": RELEASE_VICTIM_NAME}},
+            "template": {
+                "metadata": {"labels": {**labels, "release": release}},
+                "spec": {
+                    "automountServiceAccountToken": False,
+                    "containers": [{
+                        "name": "app", "image": VICTIM_IMAGE,
+                        "command": ["python", "-c", program, release],
+                        "resources": {"requests": {"memory": "32Mi", "cpu": "10m"},
+                                      "limits": {"memory": "128Mi", "cpu": "100m"}},
+                        "securityContext": {"runAsNonRoot": True, "runAsUser": 10001,
+                                            "allowPrivilegeEscalation": False,
+                                            "capabilities": {"drop": ["ALL"]}},
+                    }],
+                },
+            },
+        },
+    }
+
+
+def bad_release_patch(namespace: str) -> dict[str, Any]:
+    """The change that makes the new version: the pod template of `v2`, as a merge patch."""
+    template = release_manifest(namespace, "v2")["spec"]["template"]
+    return {"spec": {"template": {
+        "metadata": {"labels": {"release": "v2"}},
+        "spec": {"containers": [{"name": "app",
+                                 "command": template["spec"]["containers"][0]["command"]}]},
+    }}}
+
+
+@dataclass
+class ReleaseSnapshot:
+    release: str | None  # the `release` label on the Deployment's pod template: "v1" or "v2"
+    rolled_out: bool     # every replica is the latest template, ready, none unavailable
+    crashing: bool       # a pod of the victim has ended with a non-zero exit
+
+
+class ReleaseCluster(Protocol):
+    def switch_on(self) -> bool: ...
+    def victim_exists(self) -> bool: ...
+    def create_victim(self) -> None: ...
+    def deliver_bad_release(self) -> None: ...
+    def release_snapshot(self) -> ReleaseSnapshot: ...
+    def delete_victim(self) -> None: ...
+
+
+def run_badrelease(
+    cluster: ReleaseCluster, *, max_seconds: float = MAX_SECONDS,
+    stable_seconds: float = STABLE_SECONDS, healthy_seconds: float = HEALTHY_SECONDS,
+    poll_seconds: float = POLL_SECONDS, clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> tuple[int, Timeline]:
+    """Start a healthy v1, ship a v2 that crashes, then watch until Kaval's rollback holds, the
+    switch goes off, or time runs out. The victim is always deleted on the way out."""
+    timeline = Timeline("badrelease", started_at=datetime.now(UTC).isoformat())
+    if cluster.victim_exists():
+        raise Refused(f"{RELEASE_VICTIM_NAME} already exists; run `make chaos-stop` first")
+    t0 = clock()
+    cluster.create_victim()
+    timeline.mark("victim_created", 0)
+    delivered = False
+    stable_since: float | None = None
+    try:
+        while True:
+            elapsed = clock() - t0
+            if not cluster.switch_on():
+                timeline.result = "aborted: switch turned off"
+                return EXIT_ABORTED, timeline
+            if elapsed >= max_seconds:
+                timeline.result = f"timeout after {int(max_seconds)} s: not recovered"
+                return EXIT_TIMEOUT, timeline
+            if not delivered and elapsed >= healthy_seconds:
+                timeline.result = f"v1 did not come up within {int(healthy_seconds)} s"
+                return EXIT_TIMEOUT, timeline
+            snap = cluster.release_snapshot()
+            if not delivered:
+                if snap.release == "v1" and snap.rolled_out:
+                    timeline.mark("v1_healthy", elapsed)
+                    cluster.deliver_bad_release()
+                    delivered = True
+                    timeline.mark("bad_release_delivered", clock() - t0)
+            else:
+                if snap.crashing:
+                    timeline.mark("first_crash", elapsed)
+                back = snap.release == "v1"
+                if back:
+                    timeline.mark("rolled_back", elapsed)
+                if back and snap.rolled_out:
+                    stable_since = stable_since if stable_since is not None else elapsed
+                    if elapsed - stable_since >= stable_seconds:
+                        timeline.mark("recovered", stable_since)
+                        timeline.result = "recovered: rolled back and the program stayed up"
+                        return EXIT_OK, timeline
+                else:
+                    stable_since = None
+            sleep(poll_seconds)
+    finally:
+        cluster.delete_victim()
+        timeline.mark("victim_deleted", clock() - t0)
+
+
 def run_oom(
     cluster: Cluster, *, max_seconds: float = MAX_SECONDS, stable_seconds: float = STABLE_SECONDS,
     poll_seconds: float = POLL_SECONDS, clock: Callable[[], float] = time.monotonic,
@@ -185,6 +311,8 @@ def run_oom(
 class KubeCluster:
     """The real thing, behind the `Cluster` protocol so the loop above is testable."""
 
+    victim = VICTIM_NAME
+
     def __init__(self, namespace: str, release_namespace: str, switch_name: str) -> None:
         self.namespace = namespace
         self.release_namespace = release_namespace
@@ -198,7 +326,7 @@ class KubeCluster:
 
     def victim_exists(self) -> bool:
         try:
-            self.apps.read_namespaced_deployment(VICTIM_NAME, self.namespace)
+            self.apps.read_namespaced_deployment(self.victim, self.namespace)
         except ApiException as exc:
             if exc.status == 404:
                 return False
@@ -211,7 +339,7 @@ class KubeCluster:
             self.namespace, victim_manifest(self.namespace))  # type: ignore[arg-type]
 
     def snapshot(self) -> Snapshot:
-        deployment = self.apps.read_namespaced_deployment(VICTIM_NAME, self.namespace)
+        deployment = self.apps.read_namespaced_deployment(self.victim, self.namespace)
         raw: Any = None
         for c in (deployment.spec.template.spec.containers  # type: ignore[union-attr]
                   if deployment.spec else []):
@@ -221,7 +349,7 @@ class KubeCluster:
                      if raw else None)
         status = deployment.status
         pods = self.core.list_namespaced_pod(
-            self.namespace, label_selector=f"app={VICTIM_NAME}").items
+            self.namespace, label_selector=f"app={self.victim}").items
         oom = False
         restarts = 0
         for pod in pods:
@@ -236,13 +364,59 @@ class KubeCluster:
 
     def delete_victim(self) -> None:
         try:
-            self.apps.delete_namespaced_deployment(VICTIM_NAME, self.namespace)
+            self.apps.delete_namespaced_deployment(self.victim, self.namespace)
         except ApiException as exc:
             if exc.status != 404:
                 raise
 
 
-EXPERIMENTS: dict[str, Callable[..., tuple[int, Timeline]]] = {"oom": run_oom}
+class KubeReleaseCluster(KubeCluster):
+    """The bad-release experiment's real cluster: the same switch, the same clean-up, a different
+    victim."""
+
+    victim = RELEASE_VICTIM_NAME
+
+    def create_victim(self) -> None:
+        self.apps.create_namespaced_deployment(
+            self.namespace, release_manifest(self.namespace, "v1"))  # type: ignore[arg-type]
+
+    def deliver_bad_release(self) -> None:
+        self.apps.patch_namespaced_deployment(
+            self.victim, self.namespace, bad_release_patch(self.namespace))
+
+    def release_snapshot(self) -> ReleaseSnapshot:
+        deployment = self.apps.read_namespaced_deployment(self.victim, self.namespace)
+        template = deployment.spec.template if deployment.spec else None
+        labels = (template.metadata.labels if template and template.metadata else None) or {}
+        status = deployment.status
+        wanted = int(deployment.spec.replicas or 0) if deployment.spec else 0
+        generation = int(deployment.metadata.generation or 0) if deployment.metadata else 0
+        rolled_out = bool(
+            status and wanted >= 1 and int(status.observed_generation or 0) >= generation
+            and int(status.updated_replicas or 0) == wanted
+            and int(status.replicas or 0) == wanted
+            and int(status.ready_replicas or 0) == wanted
+            and int(status.unavailable_replicas or 0) == 0)
+        crashing = False
+        for pod in self.core.list_namespaced_pod(
+                self.namespace, label_selector=f"app={self.victim}").items:
+            for cs in (pod.status.container_statuses or []) if pod.status else []:
+                waiting = cs.state.waiting if cs.state else None
+                ended = cs.state.terminated if cs.state else None
+                last = cs.last_state.terminated if cs.last_state else None
+                if ((waiting is not None and waiting.reason == "CrashLoopBackOff")
+                        or (ended is not None and ended.exit_code)
+                        or (last is not None and last.exit_code)):
+                    crashing = True
+        return ReleaseSnapshot(release=labels.get("release"), rolled_out=rolled_out,
+                               crashing=crashing)
+
+
+# name -> (the experiment, the real cluster class it runs against)
+EXPERIMENTS: dict[str, Callable[..., tuple[int, Timeline]]] = {
+    "oom": run_oom, "badrelease": run_badrelease,
+}
+CLUSTERS: dict[str, type[KubeCluster]] = {"oom": KubeCluster, "badrelease": KubeReleaseCluster}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -260,7 +434,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_REFUSED
     try:
         k8s.load_config()
-        cluster = KubeCluster(namespace, release_namespace, switch_name)
+        cluster = CLUSTERS[args.experiment](namespace, release_namespace, switch_name)
         guard(environment, cluster.switch_on())
         code, timeline = EXPERIMENTS[args.experiment](cluster)
     except Refused as exc:
