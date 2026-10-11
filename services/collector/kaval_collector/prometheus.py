@@ -63,6 +63,12 @@ ALERT_KIND = "alert_firing"
 WATCHDOG = "KavalWatchdog"
 # Passes in a row without an answer before "Prometheus is down" is a signal. One miss is a restart.
 UNREACHABLE_AFTER = 3
+# How long Prometheus may answer without the watchdog before "rules not running" is a signal. A
+# restarted Prometheus answers at once but takes a while to evaluate its rules the first time:
+# measured on staging at 65 s (12:22:36 to 12:23:41), and 83 s in the first quiet check. 150 s is
+# a little over twice the worst seen. Counted in time, not passes: 3 passes of 30 s sit inside
+# the gap, which is how the first attempt at this fix still raised a false alarm.
+WATCHDOG_GRACE = timedelta(seconds=150)
 UNREACHABLE = "kaval_prometheus_unreachable"
 WATCHDOG_MISSING = "kaval_watchdog_missing"
 
@@ -73,7 +79,7 @@ class Health:
     A Prometheus that has just started answers before it has evaluated its rules once, so the
     watchdog is briefly absent (found live on staging, KAV-78): that must not page anyone."""
 
-    watchdog_misses: int = 0
+    watchdog_missing_since: datetime | None = None
 
 
 class PrometheusError(RuntimeError):
@@ -207,9 +213,9 @@ def poll_alerts(
 ) -> list[str]:
     """Every firing Kaval-health alert becomes a signal, renewed while it keeps firing (the same
     reasoning as the memory signals above). Also checks the always-firing watchdog: if Prometheus
-    answers but that alert is absent for `UNREACHABLE_AFTER` passes in a row (`health` carries the
-    count between passes), its rules are not being evaluated, and no rule can say so. Without a
-    `health`, a single miss counts: only for callers that debounce themselves."""
+    answers but that alert is absent for `WATCHDOG_GRACE` (`health` carries when it was first missed
+    between passes), its rules are not being evaluated, and no rule can say so. Without a `health`,
+    a single miss counts: only for callers that debounce themselves."""
     now = now or datetime.now(UTC)
     since = now - timedelta(seconds=renew_seconds)
     lines: list[str] = []
@@ -228,11 +234,11 @@ def poll_alerts(
         lines.append(f"{ALERT_KIND:28} {target}  {name}")
     if prom.query(f'ALERTS{{alertname="{WATCHDOG}",alertstate="firing"}}'):
         if health is not None:
-            health.watchdog_misses = 0
+            health.watchdog_missing_since = None
     else:
-        if health is not None:
-            health.watchdog_misses += 1
-        if health is None or health.watchdog_misses >= UNREACHABLE_AFTER:
+        if health is not None and health.watchdog_missing_since is None:
+            health.watchdog_missing_since = now
+        if health is None or now - (health.watchdog_missing_since or now) >= WATCHDOG_GRACE:
             lines += _health_signal(session, kaval_namespace, WATCHDOG_MISSING, since, now)
     session.commit()
     return lines

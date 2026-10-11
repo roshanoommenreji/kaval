@@ -136,9 +136,13 @@ python -m kaval_agent.diagnose <incident-id>
 > the poller raised `kaval_watchdog_missing` (high severity) while nothing was wrong: a Prometheus
 > that has just started answers before it has evaluated its rules once, so the watchdog is briefly
 > absent. The "unreachable" check already waited for three misses in a row; the watchdog check
-> acted on the first. Fixed (`Health` carries the count between passes) with a test that reproduces
-> the restart, [PR #124](https://github.com/roshanoommenreji/kaval/pull/124). This is why the quiet
-> check exists.
+> acted on the first. A first fix ("three misses in a row", [PR #124](https://github.com/roshanoommenreji/kaval/pull/124)) was
+> **not enough**: the re-run after deploying it raised the same alarm 83 s after a Prometheus restart. A
+> timeline taken from inside the cluster (`ALERTS` polled every 5 s while restarting it) showed the
+> watchdog absent from 12:22:36 to 12:23:41, **65 s**, because a restarted Prometheus waits before its
+> first rule evaluation, and three 30 s polls fit inside that. The grace is now a time, `WATCHDOG_GRACE` =
+> 150 s (a little over twice the worst seen), with a test that goes silent for five passes and fires only
+> at the full grace. This is why the quiet check exists, and why it is worth running twice.
 >
 > **Found live (2): my own test killed the agent.** Starting a second Python process inside the
 > agent's container (to ask for a diagnosis) shared its 128 MiB limit and got the container
