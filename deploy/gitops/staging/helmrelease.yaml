@@ -52,6 +52,8 @@ spec:
       watchEverySeconds: 20
       image:
         tag: sha-ab86d0a
+    prometheus:
+      enabled: true
   valuesFrom:
     - kind: ConfigMap
       name: kaval-registry

@@ -49,6 +49,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Protocol
 
+from kaval_shared import metrics
 from kaval_shared.models import Signal
 from kubernetes import client
 from sqlalchemy import select
@@ -165,11 +166,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     k8s.load_config()
     v1 = client.CoreV1Api()
 
+    if args.every:
+        metrics.serve("collector", interval=args.every, version=__version__)
     try:
         while True:
             with Session(get_engine()) as session:
                 for line in report(poll(session, v1, args.namespace)):
                     print(line, flush=True)
+            metrics.pass_ok("collector")
             if not args.every:
                 return 0
             time.sleep(args.every)

@@ -17,6 +17,13 @@ Two plain PromQL queries and the ratio worked out here, rather than one clever d
 PromQL: a limit of 0 means "no limit", which PromQL would turn into an infinite ratio, and a
 threshold test in Python is a unit test rather than a live experiment.
 
+Second job (KAV-78, ADR-0042): the same poller also reads Prometheus's own list of firing alerts
+(`ALERTS`), because that is how Kaval learns that one of its own services has stopped. Polling the
+list is the whole reason Alertmanager is not adopted (ADR-0043). It also watches Prometheus
+itself: a Prometheus that cannot be asked for `UNREACHABLE_AFTER` passes in a row, or that answers
+but is not evaluating its rules (the always-firing `KavalWatchdog` is missing), becomes a
+`kaval_*` signal, the one failure no rule inside Prometheus could report.
+
 Talks to Prometheus with the standard library, so the collector image gains no dependency.
 It needs no Kubernetes API access at all, which is why the chart runs it as its own Deployment
 with no token mounted (deploy/charts/kaval/templates/prometheus.yaml).
@@ -40,6 +47,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
+from kaval_shared import metrics
 from kaval_shared.models import Signal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -51,6 +59,12 @@ KIND = "container_memory_near_limit"
 DEFAULT_URL = "http://localhost:9090"
 THRESHOLD = 0.90  # fraction of the memory limit
 RENEW_SECONDS = 300.0
+ALERT_KIND = "alert_firing"
+WATCHDOG = "KavalWatchdog"
+# Passes in a row without an answer before "Prometheus is down" is a signal. One miss is a restart.
+UNREACHABLE_AFTER = 3
+UNREACHABLE = "kaval_prometheus_unreachable"
+WATCHDOG_MISSING = "kaval_watchdog_missing"
 
 
 class PrometheusError(RuntimeError):
@@ -166,6 +180,69 @@ def poll(
     return report
 
 
+def _written_since(session: Session, target: str, kind: str, since: datetime,
+                   alertname: str | None = None) -> bool:
+    query = select(Signal.id).where(
+        Signal.source == PROMETHEUS, Signal.kind == kind, Signal.target == target,
+        Signal.observed_at >= since,
+    )
+    if alertname is not None:
+        query = query.where(Signal.value.contains({"alertname": alertname}))
+    return session.scalar(query.limit(1)) is not None
+
+
+def poll_alerts(
+    session: Session, prom: Prometheus, kaval_namespace: str, *,
+    renew_seconds: float = RENEW_SECONDS, now: datetime | None = None,
+) -> list[str]:
+    """Every firing Kaval-health alert becomes a signal, renewed while it keeps firing (the same
+    reasoning as the memory signals above). Also checks the always-firing watchdog: if Prometheus
+    answers but that alert is absent, its rules are not being evaluated, and no rule can say so."""
+    now = now or datetime.now(UTC)
+    since = now - timedelta(seconds=renew_seconds)
+    lines: list[str] = []
+    for sample in prom.query('ALERTS{alertstate="firing",kaval_health="true"}'):
+        name, service = sample.labels.get("alertname"), sample.labels.get("service")
+        if not name or not service:
+            continue
+        target = f"{kaval_namespace}/{service}"
+        if _written_since(session, target, ALERT_KIND, since, alertname=name):
+            continue
+        session.add(Signal(
+            source=PROMETHEUS, kind=ALERT_KIND, target=target, observed_at=now,
+            value={"alertname": name, "severity": sample.labels.get("severity", "critical"),
+                   "service": service},
+        ))
+        lines.append(f"{ALERT_KIND:28} {target}  {name}")
+    if not prom.query(f'ALERTS{{alertname="{WATCHDOG}",alertstate="firing"}}'):
+        lines += _health_signal(session, kaval_namespace, WATCHDOG_MISSING, since, now)
+    session.commit()
+    return lines
+
+
+def _health_signal(session: Session, kaval_namespace: str, kind: str, since: datetime,
+                   now: datetime) -> list[str]:
+    target = f"{kaval_namespace}/prometheus"
+    if _written_since(session, target, kind, since):
+        return []
+    session.add(Signal(source=PROMETHEUS, kind=kind, target=target, observed_at=now,
+                       value={"service": "prometheus"}))
+    return [f"{kind:28} {target}"]
+
+
+def record_unreachable(
+    session: Session, kaval_namespace: str, *, renew_seconds: float = RENEW_SECONDS,
+    now: datetime | None = None,
+) -> list[str]:
+    """Prometheus has not answered for `UNREACHABLE_AFTER` passes. Written to the database, which
+    is up even when Prometheus is not; renewed while it stays down."""
+    now = now or datetime.now(UTC)
+    lines = _health_signal(session, kaval_namespace, UNREACHABLE,
+                           now - timedelta(seconds=renew_seconds), now)
+    session.commit()
+    return lines
+
+
 def report(lines: Sequence[str]) -> list[str]:
     return list(lines) or ["nothing new"]
 
@@ -178,6 +255,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--url", default=os.environ.get("PROMETHEUS_URL", DEFAULT_URL))
     parser.add_argument("--namespace", default=DEMO_NAMESPACE)
+    parser.add_argument("--kaval-namespace", default=os.environ.get("KAVAL_NAMESPACE", "kaval"),
+                        help="where Kaval's own services run, for health alerts (default: "
+                             "$KAVAL_NAMESPACE, which the chart sets)")
     parser.add_argument("--threshold", type=float, default=THRESHOLD,
                         help="fraction of the memory limit that counts as near it (default 0.9)")
     parser.add_argument("--renew", type=float, default=RENEW_SECONDS, metavar="SECONDS",
@@ -191,20 +271,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     from kaval_shared.db import get_engine  # only a real run needs the database
 
     prom = HttpPrometheus(args.url)
+    if args.every:
+        metrics.serve("collector-prometheus", interval=args.every, version=__version__)
+    misses = 0
     try:
         while True:
             try:
                 with Session(get_engine()) as session:
                     lines = poll(session, prom, args.namespace,
                                  threshold=args.threshold, renew_seconds=args.renew)
+                    lines += poll_alerts(session, prom, args.kaval_namespace,
+                                         renew_seconds=args.renew)
                 for line in report(lines):
                     print(line, flush=True)
+                misses = 0
+                metrics.pass_ok("collector-prometheus")
             except PrometheusError as exc:
                 # A Prometheus that is down must be visible, and must not stop the loop: the
                 # next pass may find it back. A single pass has nothing to wait for, so it fails.
                 print(f"prometheus unreachable: {exc}", file=sys.stderr, flush=True)
+                metrics.pass_failed("collector-prometheus")
                 if not args.every:
                     return 1
+                misses += 1
+                if misses >= UNREACHABLE_AFTER:
+                    with Session(get_engine()) as session:
+                        for line in record_unreachable(session, args.kaval_namespace,
+                                                       renew_seconds=args.renew):
+                            print(line, flush=True)
             if not args.every:
                 return 0
             time.sleep(args.every)

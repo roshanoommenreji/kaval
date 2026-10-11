@@ -72,6 +72,8 @@ NOT_FREE_FORM = {
     "runbook_chunk.heading": "public runbook text",
     "runbook_chunk.content": "public runbook text",
     "runbook_chunk.content_hash": "sha256",
+    "notification.key": "alert name and Kaval service name (KAV-78), no data from the cluster",
+    "notification.message": "a fixed template naming a Kaval service (KAV-78); never signal text",
 }
 SCRUBBED = {
     "signal.target", "signal.value", "incident.fingerprint", "proposal.summary",

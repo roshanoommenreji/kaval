@@ -105,5 +105,7 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "executor") }}
+          ports:
+            - { name: metrics, containerPort: 9100 }
           resources:
             {{- toYaml .Values.executor.resources | nindent 12 }}

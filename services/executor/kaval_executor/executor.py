@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from kaval_agent import policy as policy_mod
+from kaval_shared import metrics
 from kaval_shared.models import Action, Decision, Execution, ExecutionStatus, PolicyClass, Verdict
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -184,12 +185,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     from kaval_shared.db import get_engine  # only a real run needs the database
     k8s.load_config()
 
+    if args.every:
+        metrics.serve("executor", interval=args.every, version=__version__)
     try:
         while True:
             with Session(get_engine()) as session:
                 for line in report(run_once(session)):
                     print(line, flush=True)
                 _verify(session)
+            metrics.pass_ok("executor")
             if not args.every:
                 return 0
             time.sleep(args.every)

@@ -11,6 +11,9 @@ dependencies = [
     # The Vector column type (KAV-40). Core, not an extra: kaval_shared.models imports it,
     # and every image — gateway, collector, agent — imports kaval_shared.models.
     "pgvector>=0.3.6",
+    # Every service shows its own health numbers on :9100 (KAV-78, ADR-0042). Pure Python, no
+    # dependencies of its own; core rather than an extra because every image imports kaval_shared.
+    "prometheus-client>=0.21",
 ]
 
 [project.optional-dependencies]

@@ -61,10 +61,31 @@ metadata:
   labels:
     {{- include "kaval.labels" . | nindent 4 }}
 data:
+  # The rules are a file of their own, so promtool can test them (deploy/charts/kaval/tests/).
+  kaval-alerts.rules.yaml: |
+    {{- .Files.Get "files/kaval-alerts.rules.yaml" | nindent 4 }}
   prometheus.yml: |
     global:
       scrape_interval: {{ .Values.prometheus.scrapeIntervalSeconds }}s
+      evaluation_interval: {{ .Values.prometheus.scrapeIntervalSeconds }}s
+    rule_files:
+      - /etc/prometheus/kaval-alerts.rules.yaml
     scrape_configs:
+      # Prometheus's own numbers: its real memory is what the staging measurement reads.
+      - job_name: prometheus
+        static_configs:
+          - targets: ["localhost:9090"]
+      # Kaval's own services (KAV-78, ADR-0042). Each has a headless Service
+      # (metrics.yaml) so the answer is every pod's own address, never one pod picked by a
+      # load balancer. No Kubernetes API access is needed for this: it is plain DNS.
+      {{- range $component := include "kaval.metricsComponents" . | fromJsonArray }}
+      - job_name: kaval-{{ $component }}
+        dns_sd_configs:
+          - names: ["{{ include "kaval.fullname" $ }}-{{ $component }}-metrics.{{ $.Release.Namespace }}.svc.cluster.local"]
+            type: A
+            port: 9100
+            refresh_interval: 30s
+      {{- end }}
       - job_name: cadvisor
         scheme: https
         metrics_path: /metrics/cadvisor
@@ -102,7 +123,7 @@ spec:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $prom) | nindent 8 }}
       annotations:
         # A changed scrape setting restarts Prometheus, so a values change is never half-applied.
-        checksum/config: {{ toJson .Values.prometheus | sha256sum }}
+        checksum/config: {{ list (toJson .Values.prometheus) (.Files.Get "files/kaval-alerts.rules.yaml") | toJson | sha256sum }}
     spec:
       serviceAccountName: {{ include "kaval.fullname" . }}-prometheus
       automountServiceAccountToken: true
@@ -202,9 +223,14 @@ spec:
             - {{ .Values.prometheus.renewSeconds | quote }}
             - "--every"
             - {{ .Values.prometheus.pollEverySeconds | quote }}
+          env:
+            # Where Kaval's own services run: the poller names health alerts after it.
+            - { name: KAVAL_NAMESPACE, value: {{ .Release.Namespace | quote }} }
           envFrom:
             - secretRef:
                 name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "collector") }}
+          ports:
+            - { name: metrics, containerPort: 9100 }
           resources:
             {{- toYaml .Values.collector.resources | nindent 12 }}
 {{- end }}

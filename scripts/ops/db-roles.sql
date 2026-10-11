@@ -94,6 +94,9 @@ GRANT SELECT, INSERT, UPDATE ON decision TO kaval_gateway;
 -- signals endpoint would have too. Found live on the first fresh staging cluster, KAV-57; it was
 -- invisible on prod because /healthz also 503s there for want of a model (nothing on AWS serves one yet).
 GRANT SELECT ON signal, incident_signal, alembic_version TO kaval_gateway;
+-- notification: the record of what a person was told that was not a proposal (KAV-78, ADR-0042).
+-- Insert-only, like the rest of the spine: it is also how the notifier avoids repeating itself.
+GRANT SELECT, INSERT ON notification TO kaval_gateway;
 
 -- A GRANT on a table's INSERT doesn't cover its identity/serial sequence.
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public

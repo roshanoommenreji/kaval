@@ -27,6 +27,10 @@ The fix. Mark each action reversible or not, and name its blast radius.
 Actions that look right and make it worse.
 ```
 
+## Written
+
+- `restore-from-backup.md`, `rollback-prod.md`, `kaval-stopped-reporting.md` (`KAV-78`)
+
 ## Planned (Phase 5)
 
 - `pod-crashloop.md`

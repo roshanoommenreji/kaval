@@ -3,7 +3,7 @@
 > **Written from:** theory
 > **Lab:** to be written
 > **Cost:** no change — posture still **paused between sessions**
-> **Built so far:** slice 1 (`KAV-77`) — [service levels](../architecture/service-levels.md), the executor recording whether each fix held, and `make mttr` ([ADR-0041](../adr/0041-service-levels-and-recording-whether-a-fix-held.md), [Lab 44](../labs/lab-44-recording-whether-a-fix-held.md)). The rest is still theory, so this page stays marked as written from theory
+> **Built so far:** slice 2 (`KAV-78`) — every service shows its own health, Prometheus judges it with three tested rules, and a person is told straight from the signals when Kaval itself stops ([ADR-0042](../adr/0042-watching-the-watcher.md), [Lab 45](../labs/lab-45-watching-the-watcher.md)). Slice 1 (`KAV-77`) — [service levels](../architecture/service-levels.md), the executor recording whether each fix held, and `make mttr` ([ADR-0041](../adr/0041-service-levels-and-recording-whether-a-fix-held.md), [Lab 44](../labs/lab-44-recording-whether-a-fix-held.md)). The rest is still theory, so this page stays marked as written from theory
 
 ## Where this sits
 

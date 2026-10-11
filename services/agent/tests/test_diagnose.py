@@ -193,3 +193,25 @@ def test_write_proposal_with_no_actions_writes_only_the_proposal(db_session: Ses
 
     actions = db_session.scalars(select(Action).where(Action.proposal_id == proposal.id)).all()
     assert actions == []
+
+
+def test_a_kaval_health_incident_gets_no_proposal_because_it_is_for_a_person(
+    db_session: Session,
+) -> None:
+    """KAV-78: when Kaval itself has stopped, a fix proposal is the wrong output. Refused at the
+    one place every proposal is written, and nothing is left behind."""
+    from kaval_agent.schema import Diagnosis
+
+    incident = Incident(
+        id=uuid.uuid4(), fingerprint="kaval_loop_stalled:k8s:kaval-staging/executor",
+        severity=Severity.high, opened_at=AT,
+    )
+    db_session.add(incident)
+    db_session.flush()
+
+    with pytest.raises(dg.HealthIncidentError):
+        dg.write_proposal(db_session, incident, Diagnosis.model_validate(VALID_DIAGNOSIS),
+                          dg.ModelUsage(tokens_in=1, tokens_out=1), model="m")
+
+    assert db_session.scalars(
+        select(Proposal).where(Proposal.incident_id == incident.id)).first() is None

@@ -81,3 +81,14 @@ Call as: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "gateway
 {{- include "kaval.fullname" .root }}-postgres
 {{- end -}}
 {{- end -}}
+
+{{/*
+The services that show health numbers on :9100 (KAV-78, ADR-0042): one scrape job and one headless
+Service each (metrics.yaml). The poller is only there when Prometheus is, so it is listed here only
+then. A JSON list because a Helm helper can only return text.
+*/}}
+{{- define "kaval.metricsComponents" -}}
+{{- $c := list "gateway" "agent" "executor" "collector" -}}
+{{- if .Values.prometheus.enabled -}}{{- $c = append $c "collector-prometheus" -}}{{- end -}}
+{{- toJson $c -}}
+{{- end -}}
