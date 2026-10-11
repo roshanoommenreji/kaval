@@ -196,6 +196,34 @@ make jira EPIC=KAV-6   # an epic's stories and status
 
 ---
 
+## Planning standard
+
+Raised 2026-10-11 after Prometheus was built and proven locally with no rollout planned for
+staging or prod. **Plan every piece of work the way a real IT company would, before building, and
+say so in the plan.** Roshan should never have to ask "how is this done in industry?" or "what
+about prod?" — answering those is part of planning. For anything non-trivial, write down:
+
+1. **What real companies do** — two or three common patterns, one line each, then a
+   recommendation (the existing "industry practice first" rule, applied to every plan).
+2. **The whole path:** local → staging → prod. If it is not going everywhere in this story, the
+   rollout gets its own roadmap line **and** Jira story now, never "later".
+3. **Security:** least privilege (what can it read, what can it never do), secrets, and what an
+   attacker or a confused model could do with it.
+4. **Failure:** what happens when it is down or wrong, how that is noticed (alerts, not silence),
+   and how it is turned off or rolled back.
+5. **Observability:** how we will know it works in prod (metrics, logs, an alert on the feature itself).
+6. **Cost and capacity:** AWS cost stated first; memory and CPU headroom on the 4 GB node
+   measured, not guessed.
+7. **Testing at each level:** unit, a real-dependency run, a live proof, and the negative case
+   (prove it refuses or stays silent when it should).
+8. **People and process:** runbook, ownership, expiry and escalation for anything waiting on a
+   human, and the documentation surfaces in the Definition of Done.
+
+Future phases in `ROADMAP.md` were reviewed against this list on 2026-10-11; their added lines are
+marked *Planning-standard additions*. When a phase starts, re-read its lines first.
+
+---
+
 ## Working style here
 
 - Phases are sequential and gated — check `ROADMAP.md` for where we actually are before

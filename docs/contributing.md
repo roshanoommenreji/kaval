@@ -187,6 +187,6 @@ board: it went straight from the backlog to Done.
 
 ## Finishing a piece of work
 
-Merging is step one of the Definition of Done in `CLAUDE.md`. The rest follows in the same
+Work is planned against the Planning standard in `CLAUDE.md` (what real companies do, the whole local → staging → prod path, security, failure, observability, cost, testing, people) before it is built. Merging is step one of the Definition of Done in `CLAUDE.md`. The rest follows in the same
 session: lab doc, journal entry, ADR if a decision was made, `jira-sync.py transition`, then
 `make docs-sync` to regenerate the dashboard and Confluence.
