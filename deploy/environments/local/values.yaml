@@ -16,3 +16,6 @@ gateway:
 
 agent:
   correlateEverySeconds: 30
+
+prometheus:
+  enabled: true

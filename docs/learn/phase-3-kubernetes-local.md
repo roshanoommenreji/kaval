@@ -1,9 +1,9 @@
 # Phase 3 — Kubernetes local
 
 > **Written from:** experience (rewritten 2026-10-10, from what was deployed, broken and rolled back; Prometheus
-> as a second signal source was deliberately deferred and is marked below)
-> **Labs:** [15 Helm chart and k3d](../labs/lab-15-helm-chart-and-k3d.md) · [16 executor and scoped RBAC](../labs/lab-16-executor-and-scoped-rbac.md) · [17 real Kubernetes events](../labs/lab-17-real-k8s-events.md) · [18 promotion rehearsal](../labs/lab-18-promotion-rehearsal.md)
-> **Decisions:** [ADR-0020](../adr/0020-the-helm-chart-and-the-local-k3d-environment.md) chart and k3d · [0021](../adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md) executor and RBAC · [0022](../adr/0022-real-kubernetes-events-as-signals.md) real events · [0023](../adr/0023-promotion-rehearsal-on-k3d.md) promotion rehearsal
+> added 2026-10-11 when it was built and measured)
+> **Labs:** [15 Helm chart and k3d](../labs/lab-15-helm-chart-and-k3d.md) · [16 executor and scoped RBAC](../labs/lab-16-executor-and-scoped-rbac.md) · [17 real Kubernetes events](../labs/lab-17-real-k8s-events.md) · [18 promotion rehearsal](../labs/lab-18-promotion-rehearsal.md) · [43 Prometheus](../labs/lab-43-prometheus-as-a-signal-source.md)
+> **Decisions:** [ADR-0020](../adr/0020-the-helm-chart-and-the-local-k3d-environment.md) chart and k3d · [0021](../adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md) executor and RBAC · [0022](../adr/0022-real-kubernetes-events-as-signals.md) real events · [0023](../adr/0023-promotion-rehearsal-on-k3d.md) promotion rehearsal · [0040](../adr/0040-prometheus-as-a-polled-signal-source.md) Prometheus
 > **Cost:** part of the dev server's ~$5/month. k3d runs in Docker on the AWS dev server
 > ([ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md)); it was on the laptop until
 > 2026-09-26. It is a throwaway cluster, separate from anything real.
@@ -53,8 +53,15 @@ came from **deploying**, not from reading the rendered files.
 | Rollback is the thing that keeps the service up | `helm rollback` took **1.49 s**, but the service was never down: Kubernetes keeps one good replica during a rolling update. Rollback was release bookkeeping, not recovery. A different failure shape would measure a different, slower number | Lab 18 |
 | k3d catches what the cloud will | It did not catch the VPC and pod address ranges colliding, the registry login token leaking into a log, or a label bug in the sync tool. All three appeared only on the real node in Phase 4 | Phase 4, Lab 20 |
 
-What was **not** done: Prometheus metrics as a second signal source (ADR-0022 deferred it on purpose so it would not
-be bundled into the events work).
+Prometheus was built afterwards, as its own story, so it would not be bundled into the events work (ADR-0022):
+
+| We assumed | What actually happened | Where |
+|---|---|---|
+| Prometheus needs ~400 MB on a 4 GB node | Measured on k3d: **33 MiB** (the poller 45 MiB), one node, 96 series, 2-hour retention. Small, but one cluster for a short time; staging gets the re-measurement before prod turns it on | Lab 43, ADR-0040 |
+| A metric is signalled like an event | An event has a `count` to compare; a container at 95% has none. One signal ever would let the 15-minute quiet window close the incident under a container still at its limit, so the poller renews every 5 minutes while it persists | ADR-0040 |
+| Prometheus needs a certificate shortcut to reach the kubelet | Verified TLS worked first try on k3d, so the shortcut is off by default | Lab 43 |
+| The poller needs a Kubernetes account | It only talks to Prometheus and Postgres, so it runs with no token mounted at all. Only Prometheus gets cluster-wide read, on `nodes` and `nodes/metrics` | ADR-0040 |
+| An old local cluster takes the new chart | Its stored database secret predated the 2026-10-06 change and the migration waited forever on an empty host name. Patched by hand | Lab 43 |
 
 ---
 

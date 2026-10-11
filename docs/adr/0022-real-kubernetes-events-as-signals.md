@@ -107,6 +107,8 @@ signals. Node-level and Deployment-level problems (node pressure, a Deployment s
 progressing) produce real Kubernetes events today that this collector silently skips — not a
 bug, a scope line, revisited if something needs it.
 
+**Update 2026-10-11:** Prometheus arrived as the second real source ([ADR-0040](0040-prometheus-as-a-polled-signal-source.md), `KAV-75`). Its signals share only the `signal` table with this module, as hoped; the two de-duplicate differently (an event has a `count`, a metric level does not).
+
 **Revisit if:** a `Node`- or `Deployment`-shaped incident becomes something worth reacting to
 (the target-shape question above needs an answer first); Prometheus arrives as a second real
 source and the two need to share more than the `signal` table; `docs/learn/
