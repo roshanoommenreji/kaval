@@ -1,6 +1,6 @@
 # ADR-0044 — Chaos with our own small jobs, and a bounded memory-limit fix
 
-- **Status:** Accepted
+- **Status:** Accepted — proven live on staging ([post-mortem](../postmortems/2026-10-11-oom.md))
 - **Date:** 2026-10-11
 - **Deciders:** Roshan
 - **Story:** `KAV-79` (Phase 5, slice 3) · roadmap lines "Chaos tooling decision, as an ADR" and "Blast-radius containment"
@@ -82,5 +82,11 @@ prove Kaval does not reach for it.
 - **Prod:** no chaos runs on prod in Phase 5. Whether a supervised game day is ever run there is left
   open on purpose; the minimum before asking would be three clean staging runs per experiment, a
   rollback rehearsed that week, and a quiet period agreed in advance.
+- **First live result:** noticed in 81 s, fixed 32 s after a person's approval, held; and the first run found
+  three defects in the tooling and a window too short for a person (now 20 min), all fixed. Kaval labelled the
+  incident `crashloop`, not memory: whether an OOM kill is its own cause is for `KAV-80`.
+- **The model cannot yet propose this fix:** on the dev server it named the cause but proposed no action in
+  3 of 3 runs, because its prompt never lists the available fixes. Not changed here (a prompt change needs
+  the golden-incident score before and after): `KAV-84`.
 - Thresholds in [service levels](../architecture/service-levels.md) stay provisional until the
   first post-mortem has real numbers: [game-day template](../../chaos/game-day-template.md).
