@@ -54,6 +54,9 @@ spec:
         tag: sha-12b7179
     prometheus:
       enabled: true
+    chaos:
+      enabled: true
+      environment: staging
   valuesFrom:
     - kind: ConfigMap
       name: kaval-registry

@@ -253,9 +253,16 @@ cost-check: ## Fail loudly if MTD spend exceeds the ceiling
 ##@ Chaos and verification
 
 .PHONY: chaos-run
-chaos-run: ## Inject a failure. Usage: make chaos-run EXPERIMENT=oom-kill
-	@test -n "$(EXPERIMENT)" || (echo "set EXPERIMENT= (see chaos/)" && exit 1)
-	kubectl apply -f chaos/$(EXPERIMENT).yaml
+chaos-run: ## Game day on staging: cause the failure EXPERIMENT=oom, follow it, switch off after. Needs staging up and chaos/game-day-template.md
+	@bash scripts/ops/chaos.sh run $(or $(EXPERIMENT),oom)
+
+.PHONY: chaos-stop
+chaos-stop: ## The stop button: chaos switch off, Jobs and the victim deleted (staging)
+	@bash scripts/ops/chaos.sh stop
+
+.PHONY: chaos-status
+chaos-status: ## Chaos switch, Jobs and victim on staging
+	@bash scripts/ops/chaos.sh status
 
 .PHONY: mttr
 mttr: ## Time to restore by stage, median/p90/worst, machine time and wall-clock apart (KAV-77). Usage: make mttr [LAST=20]

@@ -37,7 +37,8 @@ class DiagnosisAction(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    type: str = Field(min_length=1, description="e.g. restart_pod, scale_deployment")
+    type: str = Field(min_length=1, description="e.g. restart_pod, increase_memory_limit, "
+                      "scale_deployment")
     target: str = Field(min_length=1, description="the concrete resource, e.g. "
                          "kaval-demo/checkout")
     params: dict[str, object] = Field(default_factory=dict)

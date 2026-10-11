@@ -8,10 +8,10 @@
 #   namespace — it cannot touch the very postgres/gateway/agent pods it's deployed alongside,
 #   let alone kube-system. That's a stronger guarantee than "scoped to the app namespace"
 #   usually buys, and it falls directly out of Kaval's own namespace split, not an extra rule.
-# - The Role's rules are exactly the two verbs `kaval_executor.k8s.restart_pod` actually
-#   calls today — get, delete on pods. No list/watch (nothing enumerates or watches), no
-#   patch on deployments (no handler calls it yet, see ADR-00NN). RBAC grows in the same PR
-#   as the code that would use it, not ahead of it.
+# - The Role's rules are exactly the verbs the handlers in `kaval_executor.k8s` call:
+#   get, delete on pods (`restart_pod`); get, patch on deployments and get on replicasets
+#   (`increase_memory_limit`, KAV-79). No list/watch (nothing enumerates or watches). RBAC
+#   grows in the same PR as the code that would use it, not ahead of it.
 # - `kubectl auth can-i delete pods --as=system:serviceaccount:{{ .Release.Namespace }}:
 #   {{ include "kaval.fullname" . }}-executor -n {{ .Release.Namespace }}` must say "no" —
 #   see Lab 16. That command, not this comment, is the actual proof.
@@ -42,6 +42,15 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "delete"]
+  # `increase_memory_limit` (KAV-79, ADR-0044): read a Deployment and change it. `patch` is the
+  # only write verb, never create or delete. ReplicaSets are read only, to find a pod's
+  # Deployment when the incident names a pod.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
