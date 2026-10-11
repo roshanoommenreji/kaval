@@ -144,6 +144,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 
 **Posture: paused between sessions.**
 
+- [ ] Switch Prometheus on in **staging**, then **prod** — `prometheus.enabled` in each values file, measure its real memory on staging's 4 GB node first, then promote through the normal gate; built in Phase 3 (ADR-0040, `KAV-75`), still off outside `local`. The OOM chaos type needs it on staging to be caught early
 - [ ] Chaos CronJobs: OOM kill · crashloop · disk fill · latency injection · node drain
 - [ ] Blast-radius containment — chaos confined to a labelled namespace
 - [ ] MTTR measurement and dashboard
