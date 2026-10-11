@@ -138,8 +138,11 @@ memory the rest of the time.
   5. Thresholds (four intervals, two-minute floor) are provisional until the first game day. Measured on
      staging: a stalled loop became an incident 4 min 38 s after the stall began; a missing pod 5 min 30 s
      after it was removed; Prometheus down 2 min 22 s after it was switched off.
-  6. The first quiet-case run found a false alarm (the watchdog check acted on a single miss right after
-     Prometheus started); fixed to need three misses in a row, as the unreachable check does.
+  6. The quiet-case run found a false alarm twice. First the watchdog check acted on a single miss right
+     after Prometheus started. Fixing that with "three misses in a row" was not enough: a restarted
+     Prometheus answers at once but its watchdog is absent for 65-83 s (it waits before the first rule
+     evaluation), and three 30 s passes fit inside that. The grace is now a time, 150 s, a little over twice
+     the worst measured.
 
 ## Observability
 
