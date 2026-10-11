@@ -220,6 +220,14 @@ jobs:
       # comment and its apiVersion: line, silently turning the
       # whole resource into a YAML comment — helm lint alone did not catch it; only rendering
       # and reading the output did. kubeconform is the automated version of that reading.
+      # Chaos must not exist in prod (KAV-79, ADR-0044): a prod render with any chaos object in it
+      # is a defect, whatever else is true. scripts/dev/test_chart_chaos.py checks the shape of
+      # what staging does get.
+      - name: prod renders no chaos objects
+        run: |
+          if helm template kaval-prod deploy/charts/kaval -f deploy/environments/prod/values.yaml | grep -i chaos; then
+            echo "::error::the prod render contains a chaos object"; exit 1
+          fi
       - name: lint and render every environment's chart
         run: |
           for env in deploy/environments/*/; do

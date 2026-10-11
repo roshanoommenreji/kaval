@@ -14,6 +14,15 @@ test_ordinary_action_is_ask if {
 	}
 }
 
+# KAV-79: the memory-limit fix starts at ask, at any confidence. Nothing is born auto, and the
+# type must not trip a never keyword by accident ("increase_memory_limit" contains none).
+test_increase_memory_limit_is_ask if {
+	policy.decision == "ask" with input as {
+		"action": {"type": "increase_memory_limit", "target": "x/y", "blast_radius": "deployment", "reversible": true},
+		"confidence": 0.99,
+	}
+}
+
 # ── never: action type keywords, case-insensitive ───────────────────────────────────────
 
 test_never_delete_pvc if {

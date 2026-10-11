@@ -54,3 +54,9 @@ collector:
 # (KAV-83). Everything else is the chart's default; see `prometheus:` in values.yaml.
 prometheus:
   enabled: true
+
+# Chaos experiments run here, never in prod (KAV-79, ADR-0044). The switch inside stays off
+# until a game day turns it on (`make chaos-run`).
+chaos:
+  enabled: true
+  environment: staging

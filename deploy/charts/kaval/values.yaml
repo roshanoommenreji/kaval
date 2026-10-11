@@ -153,3 +153,19 @@ prometheus:
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { cpu: 500m, memory: 384Mi }
+
+# Chaos experiments (KAV-79, ADR-0044). OFF everywhere unless an environment's own values file
+# turns it on: staging and local do, prod never does, and nothing below is rendered when it is
+# false (a test renders prod and fails if any chaos object appears). The runner is the BREAKER,
+# its own identity with a grant only in the demo namespace; it is not the executor.
+chaos:
+  enabled: false
+  # What this environment calls itself to the runner, which refuses anything but local/staging.
+  environment: ""
+  # The Job is killed after this long whatever the code is doing. The switch ConfigMap is
+  # rendered "false" on every deploy, so a deploy always leaves chaos off; a game day turns it on
+  # with `make chaos-run` and back off at the end.
+  hardLimitSeconds: 900
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits: { cpu: 200m, memory: 192Mi }
