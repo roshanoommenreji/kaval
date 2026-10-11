@@ -1,6 +1,6 @@
 # ADR-0041 — Service levels, and recording whether a fix held
 
-- **Status:** Accepted — built, tested against a real Postgres; live proof in [Lab 44](../labs/lab-44-recording-whether-a-fix-held.md)
+- **Status:** Accepted — built, tested against a real Postgres; proven live on the dev server ([Lab 44](../labs/lab-44-recording-whether-a-fix-held.md)) and on staging with real database roles ([Lab 45](../labs/lab-45-watching-the-watcher.md))
 - **Date:** 2026-10-11
 - **Deciders:** Roshan
 - **Story:** `KAV-77` · first slice of Phase 5 (`KAV-10`) · uses the `outcome` table from the original spine

@@ -180,7 +180,7 @@ Nothing runs on the node for this; the viewer exists only while you look.
   and approved through the gateway; the executor deleted the pod; five minutes later
   `resolved memory_pressure:k8s:kaval-demo-staging/hoga 152s`. `make mttr`: detect 87 s, diagnose 54 s,
   human 1 s, queue 0 s, execute 10 s = 152 s wall, 151 s machine. The new read grants work.
-- **Still to repeat after the fix ships:** 30 quiet minutes with a Prometheus restart in the middle and no false alarm.
+- **The quiet check, passed on the third deployment:** 32 minutes on `sha-12b7179` with Prometheus restarted twice (12:44 and 12:59), no signal written after the old 12:10 one, no pod restarted, six targets up, only the watchdog firing, node at 1.99 GiB (51%).
 
 ## Done when
 
@@ -189,7 +189,7 @@ Nothing runs on the node for this; the viewer exists only while you look.
 - [x] Local cluster: five health pages read by Prometheus, only the watchdog firing, loops within their intervals
 - [x] The dashboard imports into Grafana and shows ten panels
 - [x] Staging: each fault (A–C) raises its alert, signal and incident, and clears when the cause is removed
-- [ ] Staging: 30 quiet minutes with no false alarm; real memory of every service and of Prometheus recorded
+- [x] Staging: 32 quiet minutes with two Prometheus restarts and no false alarm (after two fixes: the first attempt found the watchdog false alarm, #124 was not enough, #126 made the grace a time); real memory of every service and of Prometheus recorded, node at 1.99 GiB of 4 (51%)
 - [x] Staging: kubelet certificate verified (`cadvisor` target up with verification on)
 - [x] Staging: KAV-77's verifier and the database grants proven (`make mttr` row)
-- [ ] The Slack message seen in a real channel (production, with the production rollout, `KAV-83`)
+- [ ] The Slack message seen in a real channel (production, with the production rollout, `KAV-83`; tracked there, not a blocker for this lab)
