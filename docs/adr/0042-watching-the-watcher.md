@@ -1,6 +1,6 @@
 # ADR-0042 — Watching the watcher: health numbers, "stopped" alerts, and telling a person
 
-- **Status:** Accepted — built, tested (unit, real Postgres, promtool) and proven live on staging (stalled loop, missing pod, Prometheus down); live proof in [Lab 45](../labs/lab-45-watching-the-watcher.md)
+- **Status:** Accepted — built, tested (unit, real Postgres, promtool) and proven live on staging (stalled loop, missing pod, Prometheus down, and 32 quiet minutes with two Prometheus restarts); live proof in [Lab 45](../labs/lab-45-watching-the-watcher.md)
 - **Date:** 2026-10-11
 - **Deciders:** Roshan
 - **Story:** `KAV-78` · second slice of Phase 5 (`KAV-10`), part of `KAV-76` (Prometheus on staging, then prod)
@@ -154,7 +154,7 @@ each) and by the watchdog.
 
 No AWS cost. Memory, measured on staging's real 4 GB node (not guessed), [Lab 45](../labs/lab-45-watching-the-watcher.md):
 each service's resident memory is 63–105 MiB, Prometheus 80–83 MiB resident (40 MiB working set), the whole
-node 1.92 GiB of 4 (50%) with everything running and no language model. The [memory budget](../architecture/overview.md#runtime-footprint)
+node 1.79-1.99 GiB of 4 (46-51%) with everything running and no language model. The [memory budget](../architecture/overview.md#runtime-footprint)
 is updated. Prod adds the model (~1.1 GB), so prod's headroom is re-measured at its own rollout (`KAV-83`).
 
 ## Consequences

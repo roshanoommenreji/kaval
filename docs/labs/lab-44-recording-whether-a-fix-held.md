@@ -174,4 +174,4 @@ AWS_PROFILE=kaval make devbox-down        # or let it stop itself after an idle 
 - [x] Nothing is judged before five minutes, and nothing is judged twice
 - [x] `make mttr` shows stages that add up, machine time and wall-clock apart, median/p90/worst
 - [x] No hand-written outcome row; the verifier ran inside the deployed executor
-- [ ] The database grants (`db-roles.sql`) and the verifier proven on **staging** with the role-separated database, where permissions are real — first staging session after this merges
+- [x] The database grants (`db-roles.sql`) and the verifier proven on **staging** with the role-separated database: `resolved memory_pressure:k8s:kaval-demo-staging/hoga 152s`, `make mttr` 152 s wall / 151 s machine (2026-10-11, [Lab 45](lab-45-watching-the-watcher.md))
