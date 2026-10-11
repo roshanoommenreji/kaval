@@ -47,7 +47,9 @@ over, so five minutes proves nothing; Phase 6 gives them their own check.
 
 ### The report separates machine time from human time
 
-`make mttr` (`kaval_executor.mttr`) splits each wall-clock figure into stages that add up exactly
+`make mttr` (`kaval_executor.mttr`) measures "incident opened" from the row's `created_at`, not
+`opened_at` (which is the first signal's own time; the live run first printed `detect 0s` for this
+reason). It splits each wall-clock figure into stages that add up exactly
 (detect, diagnose, human, queue, execute) and prints median, p90 and worst, for both machine time
 and wall-clock. It never prints a mean, and never only the flattering number. Incidents that
 later regressed still appear, because they were resolved when measured; the resolution-rate

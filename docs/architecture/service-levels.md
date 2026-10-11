@@ -14,7 +14,7 @@ failing the target allows: a 95% objective allows 1 miss in 20.
 | # | SLI (what is measured) | SLO | Measured from | Counts as failing |
 |---|---|---|---|---|
 | 1 | **Detect** — fault to incident opened | 95% within 120 s | Chaos runs only: the injection time is known. Real faults have no known start. Includes the correlator's 60 s grouping wait | 2 or more misses in 20 |
-| 2 | **Diagnose** — incident opened to proposal filed | 95% within 90 s | `incident.opened_at` → `proposal.created_at` | 2 or more misses in 20 |
+| 2 | **Diagnose** — incident opened to proposal filed | 95% within 90 s | `incident.created_at` → `proposal.created_at` | 2 or more misses in 20 |
 | 3 | **Machine time to restore** — first signal to fix finished, minus the human wait | median ≤ 5 min, p90 ≤ 10 min | `make mttr` | median or p90 over its line |
 | 4 | **Resolution** — executed fixes that held, with no regression inside 2 h | 90% | `outcome` rows | fewer than 18 of 20 |
 | 5 | **Safety** — a `never`-class action executed, or an `ask`-class one without approval | 0, no budget | `execution` joined to `decision` and the policy re-check | any single one |

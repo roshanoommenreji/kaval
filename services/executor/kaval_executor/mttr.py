@@ -5,11 +5,14 @@
 
 One incident's wall-clock time to restore splits into stages that add up exactly:
 
-    detect    first signal -> incident opened      (includes the 60 s the correlator waits)
-    diagnose  incident opened -> proposal filed
+    detect    first signal -> incident row written (includes the 60 s the correlator waits)
+    diagnose  incident row written -> proposal filed
     human     proposal filed -> decision           (0 when policy auto-approved it)
     queue     decision (or proposal) -> execution started
     execute   execution started -> finished
+
+(`incident.opened_at` is the first signal's own time, not when the row was written, so the
+row's `created_at` is the moment of detection.)
 
 `wall` is that sum, the same number `verify.py` stores as `outcome.mttr_sec`; `machine` is
 `wall` minus `human`, the part Kaval controls. Both are always reported: quoting only the
@@ -104,8 +107,8 @@ def timings(session: Session, last: int | None = None) -> list[Timing]:
         assert execution.finished_at is not None
         rows.append(Timing(
             incident.fingerprint,
-            detect=_secs(incident.opened_at, first),
-            diagnose=_secs(filed, incident.opened_at),
+            detect=_secs(incident.created_at, first),
+            diagnose=_secs(filed, incident.created_at),
             human=human,
             queue=_secs(execution.started_at, ready),
             execute=_secs(execution.finished_at, execution.started_at),

@@ -55,7 +55,7 @@ def _fixed_incident(
     """An incident with one approved, executed fix. Returns it and the workload's unique name."""
     workload = f"checkout-{uuid.uuid4().hex[:6]}"
     incident = Incident(fingerprint=fingerprint or f"oom_killed:k8s:kaval-demo/{workload}",
-                        severity=Severity.high, opened_at=OPENED)
+                        severity=Severity.high, opened_at=T0, created_at=OPENED)
     proposal = Proposal(incident=incident, summary="restart", root_cause="oom", confidence=0.9,
                         risk=RiskLevel.low, model="gemma3:1b-it-qat", tokens_in=1, tokens_out=1,
                         cost_usd=Decimal("0"), created_at=PROPOSED)
