@@ -38,20 +38,20 @@ spec:
     gateway:
       replicas: 1
       image:
-        tag: sha-8680ac3
+        tag: sha-fafc880
     agent:
       correlateEverySeconds: 45
       image:
-        tag: sha-8680ac3
+        tag: sha-fafc880
     executor:
       demoNamespace: kaval-demo-staging
       executeEverySeconds: 20
       image:
-        tag: sha-8680ac3
+        tag: sha-fafc880
     collector:
       watchEverySeconds: 20
       image:
-        tag: sha-8680ac3
+        tag: sha-fafc880
     prometheus:
       enabled: true
     chaos:
