@@ -253,10 +253,9 @@ chaos-run: ## Inject a failure. Usage: make chaos-run EXPERIMENT=oom-kill
 	@test -n "$(EXPERIMENT)" || (echo "set EXPERIMENT= (see chaos/)" && exit 1)
 	kubectl apply -f chaos/$(EXPERIMENT).yaml
 
-.PHONY: verify-outcome
-verify-outcome: ## Assert an incident resolved within SLO. Usage: make verify-outcome INCIDENT=<id>
-	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<id>" && exit 1)
-	@bash scripts/verify-outcome.sh $(INCIDENT)
+.PHONY: mttr
+mttr: ## Time to restore by stage, median/p90/worst, machine time and wall-clock apart (KAV-77). Usage: make mttr [LAST=20]
+	@python -m kaval_executor.mttr $(if $(LAST),--last $(LAST),)
 
 # ─────────────────────────────────────────────────────────────
 ##@ Housekeeping

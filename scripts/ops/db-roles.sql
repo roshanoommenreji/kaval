@@ -81,6 +81,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON runbook_chunk TO kaval_agent;
 -- executor: the only component that acts, and only on what's already been decided.
 GRANT SELECT ON action, decision TO kaval_executor;
 GRANT SELECT, INSERT, UPDATE ON execution, outcome TO kaval_executor;
+-- Read-only, for verify.py (KAV-77, ADR-0041): five minutes after a fix it asks whether the same
+-- workload is still being reported as broken. Telemetry only; nothing here is a secret.
+GRANT SELECT ON signal, incident, incident_signal, proposal TO kaval_executor;
 
 -- gateway: the human-facing API. Reads broadly across the pipeline, writes decisions.
 GRANT SELECT ON incident, proposal, action, execution, outcome TO kaval_gateway;

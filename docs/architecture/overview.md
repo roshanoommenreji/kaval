@@ -67,7 +67,7 @@ Append-only. Nothing is ever updated in place, so the table *is* the audit trail
 | `action` | One concrete operation: `{type, target, params, reversible, blast_radius}` |
 | `decision` | Human verdict: `{verdict, actor, reason, ts}` |
 | `execution` | What actually ran: `{status, stdout, before_state, after_state}` |
-| `outcome` | Measured 5 minutes later: `{resolved, mttr_sec, regression}` |
+| `outcome` | Measured 5 minutes later by `kaval_executor.verify` (silence from the detectors means it held): `{resolved, mttr_sec, regression}`; `make mttr` reports it by stage ([ADR-0041](../adr/0041-service-levels-and-recording-whether-a-fix-held.md)) |
 
 `outcome` is what makes the autonomy argument possible. Promoting an action class from `ask` to
 `auto` requires pointing at rows.
