@@ -123,7 +123,27 @@ python -m kaval_agent.diagnose <incident-id>
 # for and no fix proposed (see docs/runbooks/kaval-stopped-reporting.md)
 ```
 
-> **Status:** Steps 4 and 6 are the live proof this lab exists for; the checklist at the end shows which are done.
+### Results on staging (2026-10-11)
+
+| Fault | When | What followed |
+|---|---|---|
+| **A** database lock on `action` (from the agent pod, 7 min) | locked 10:48:21 | `KavalLoopStalled` for `executor` and **only** the executor; incident `kaval_loop_stalled:k8s:kaval-staging/executor` opened 10:52:59 (4 min 38 s after the lock). Cleared by itself after the lock ended |
+| **B** collector scaled to 0 | 10:55:48 | `KavalTargetDown` for `collector` (the `absent()` case, live); incident `kaval_target_down:k8s:kaval-staging/collector` 11:01:18. Scaled back, closed |
+| **C** Prometheus scaled to 0 | 11:03:26 | poller logged `prometheus unreachable` three times, then wrote `kaval_prometheus_unreachable`; incident 11:05:48 (2 min 22 s). No rule could have raised this one |
+| **D** ask for a fix | n/a | refused in `write_proposal` (unit test). Not shown live: the deployed agent image deliberately lacks the model-calling libraries, so `kaval_agent.diagnose` cannot even be imported there |
+
+> **Found live (1): a false alarm in the quiet case.** About two minutes after staging came up,
+> the poller raised `kaval_watchdog_missing` (high severity) while nothing was wrong: a Prometheus
+> that has just started answers before it has evaluated its rules once, so the watchdog is briefly
+> absent. The "unreachable" check already waited for three misses in a row; the watchdog check
+> acted on the first. Fixed (`Health` carries the count between passes) with a test that reproduces
+> the restart, [PR #124](https://github.com/roshanoommenreji/kaval/pull/124). This is why the quiet
+> check exists.
+>
+> **Found live (2): my own test killed the agent.** Starting a second Python process inside the
+> agent's container (to ask for a diagnosis) shared its 128 MiB limit and got the container
+> `OOMKilled` (exit 137). Run one-off tools in a Job or from the laptop, never `exec` into a
+> running service that has a small limit. The fault test itself had already run well past its alert.
 
 ## Step 5 — the dashboard
 
@@ -139,19 +159,24 @@ docker run --rm -p 3300:3000 -e GF_AUTH_ANONYMOUS_ENABLED=true -e GF_AUTH_ANONYM
 
 Nothing runs on the node for this; the viewer exists only while you look.
 
-## Step 6 — staging *(after the pull request merges and the release pins staging)*
+## Step 6 — staging, quiet case and measurements (done 2026-10-11)
 
-1. `AWS_PROFILE=kaval make staging-up`, then `make staging-smoke`.
-2. Repeat Step 3's check inside the staging cluster: five `up` targets, only the watchdog firing, for
-   30 minutes with a pod restart in the middle (the quiet case must stay quiet).
-3. Read each service's real resident memory and Prometheus's own, `kubectl top node`, and **kubelet TLS**
-   (`cadvisor` target `up` with `kubeletInsecureSkipVerify: false`, not yet confirmed on k3s). Record the numbers in
-   the [memory budget](../architecture/overview.md#runtime-footprint).
-4. Step 4's faults A to D.
-5. KAV-77's check on staging: file a proposal for a bare `hog` pod in `kaval-demo-staging`, approve it, wait five
-   minutes, `kubectl exec deploy/<release>-executor -- python -m kaval_executor.mttr`. A row proves the
-   verifier and the new read grants on a database where the roles are real.
-6. `make staging-down`.
+`AWS_PROFILE=kaval make staging-up`, then reads over Session Manager (a read-only helper that runs
+`kubectl` on the node). Findings:
+
+- **Kubelet certificate verified.** The `cadvisor` target is `up` over HTTPS with
+  `kubeletInsecureSkipVerify: false`, on k3s: the open question from ADR-0040 is closed. No switch needed.
+- **All six targets up** (five services plus Prometheus's own), only the watchdog firing, every loop inside its interval.
+- **Real memory on the real 4 GB node** (resident / container working set, MiB): gateway 72-88 / 79,
+  collector 98 / 81, executor 81-105 / 62, agent 63 / 49, poller 63 / 58, **Prometheus 80-83 / 40**.
+  `kubectl top node`: **1.79 GiB (46%) right after start, 1.92 GiB (50%) after the faults**, with no
+  language model on the staging node.
+- **KAV-77's check, on a database with real roles:** a bare test pod near its limit opened
+  `memory_pressure:k8s:kaval-demo-staging/hoga` from a real Prometheus signal; a proposal filed by hand
+  and approved through the gateway; the executor deleted the pod; five minutes later
+  `resolved memory_pressure:k8s:kaval-demo-staging/hoga 152s`. `make mttr`: detect 87 s, diagnose 54 s,
+  human 1 s, queue 0 s, execute 10 s = 152 s wall, 151 s machine. The new read grants work.
+- **Still to repeat after the fix ships:** 30 quiet minutes with a Prometheus restart in the middle and no false alarm.
 
 ## Done when
 
@@ -159,8 +184,8 @@ Nothing runs on the node for this; the viewer exists only while you look.
 - [x] `pytest services` passes against a real Postgres (264 passed), `ruff` and `mypy` clean
 - [x] Local cluster: five health pages read by Prometheus, only the watchdog firing, loops within their intervals
 - [x] The dashboard imports into Grafana and shows ten panels
-- [ ] Local or staging: each fault (A–C) raises its alert, signal and incident, and clears when the cause is removed
+- [x] Staging: each fault (A–C) raises its alert, signal and incident, and clears when the cause is removed
 - [ ] Staging: 30 quiet minutes with no false alarm; real memory of every service and of Prometheus recorded
-- [ ] Staging: kubelet certificate verified (`cadvisor` target up with verification on)
-- [ ] Staging: KAV-77's verifier and the database grants proven (`make mttr` row)
+- [x] Staging: kubelet certificate verified (`cadvisor` target up with verification on)
+- [x] Staging: KAV-77's verifier and the database grants proven (`make mttr` row)
 - [ ] The Slack message seen in a real channel (production, with the production rollout, `KAV-83`)

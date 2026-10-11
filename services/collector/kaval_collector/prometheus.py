@@ -67,6 +67,15 @@ UNREACHABLE = "kaval_prometheus_unreachable"
 WATCHDOG_MISSING = "kaval_watchdog_missing"
 
 
+@dataclass
+class Health:
+    """What the poller has seen across passes, so one odd pass is not mistaken for an outage.
+    A Prometheus that has just started answers before it has evaluated its rules once, so the
+    watchdog is briefly absent (found live on staging, KAV-78): that must not page anyone."""
+
+    watchdog_misses: int = 0
+
+
 class PrometheusError(RuntimeError):
     """Prometheus could not be asked, or answered with something that is not a result."""
 
@@ -194,10 +203,13 @@ def _written_since(session: Session, target: str, kind: str, since: datetime,
 def poll_alerts(
     session: Session, prom: Prometheus, kaval_namespace: str, *,
     renew_seconds: float = RENEW_SECONDS, now: datetime | None = None,
+    health: Health | None = None,
 ) -> list[str]:
     """Every firing Kaval-health alert becomes a signal, renewed while it keeps firing (the same
     reasoning as the memory signals above). Also checks the always-firing watchdog: if Prometheus
-    answers but that alert is absent, its rules are not being evaluated, and no rule can say so."""
+    answers but that alert is absent for `UNREACHABLE_AFTER` passes in a row (`health` carries the
+    count between passes), its rules are not being evaluated, and no rule can say so. Without a
+    `health`, a single miss counts: only for callers that debounce themselves."""
     now = now or datetime.now(UTC)
     since = now - timedelta(seconds=renew_seconds)
     lines: list[str] = []
@@ -214,8 +226,14 @@ def poll_alerts(
                    "service": service},
         ))
         lines.append(f"{ALERT_KIND:28} {target}  {name}")
-    if not prom.query(f'ALERTS{{alertname="{WATCHDOG}",alertstate="firing"}}'):
-        lines += _health_signal(session, kaval_namespace, WATCHDOG_MISSING, since, now)
+    if prom.query(f'ALERTS{{alertname="{WATCHDOG}",alertstate="firing"}}'):
+        if health is not None:
+            health.watchdog_misses = 0
+    else:
+        if health is not None:
+            health.watchdog_misses += 1
+        if health is None or health.watchdog_misses >= UNREACHABLE_AFTER:
+            lines += _health_signal(session, kaval_namespace, WATCHDOG_MISSING, since, now)
     session.commit()
     return lines
 
@@ -274,6 +292,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.every:
         metrics.serve("collector-prometheus", interval=args.every, version=__version__)
     misses = 0
+    health = Health()
     try:
         while True:
             try:
@@ -281,7 +300,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     lines = poll(session, prom, args.namespace,
                                  threshold=args.threshold, renew_seconds=args.renew)
                     lines += poll_alerts(session, prom, args.kaval_namespace,
-                                         renew_seconds=args.renew)
+                                         renew_seconds=args.renew, health=health)
                 for line in report(lines):
                     print(line, flush=True)
                 misses = 0
