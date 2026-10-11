@@ -233,7 +233,7 @@ credentials = "SCOPED WRITE — RoleBinding in the app namespace only; IRSA on E
 inputs = ["Approved proposals", "A second policy evaluation before every action"]
 outputs = ["Cluster and AWS mutations", "execution and outcome rows"]
 tables = ["execution", "outcome"]
-note = "The only component that changes anything, and it never calls an LLM. Built live (KAV-47, ADR-0021): bound with a RoleBinding, in a separate kaval-demo namespace it doesn't itself run in, so it structurally cannot touch kube-system OR its own siblings (postgres/gateway/agent) — proven with kubectl auth can-i, not just asserted. Its RBAC grants exactly the verbs its one handler (restart_pod) calls today — get, delete on pods, nothing speculative. Re-checks policy itself from each action's own fields immediately before acting, never trusting the stored policy_class — verified live by bypassing the gateway's own refusal of a never-class approval and watching the executor refuse it anyway."
+note = "The only component that changes anything, and it never calls an LLM. Since KAV-77 (ADR-0041) it also judges its own fixes: five minutes after one, kaval_executor.verify reads the signals other components wrote and records an outcome row (resolved or not, regression, wall-clock time to restore); make mttr reports it by stage. It never touches the cluster for that, and a failure there never stops an execution. Built live (KAV-47, ADR-0021): bound with a RoleBinding, in a separate kaval-demo namespace it doesn't itself run in, so it structurally cannot touch kube-system OR its own siblings (postgres/gateway/agent) — proven with kubectl auth can-i, not just asserted. Its RBAC grants exactly the verbs its one handler (restart_pod) calls today — get, delete on pods, nothing speculative. Re-checks policy itself from each action's own fields immediately before acting, never trusting the stored policy_class — verified live by bypassing the gateway's own refusal of a never-class approval and watching the executor refuse it anyway."
 
 [[system.node]]
 id = "chaos"
@@ -1492,7 +1492,7 @@ kind = "service"
 phase = 3
 col = 2
 row = 2
-credentials = "kaval_executor · read action/decision, read+write execution/outcome"
+credentials = "kaval_executor · read action/decision, read+write execution/outcome, read-only signal/incident/proposal for verify.py"
 inputs = ["Only actions that already have a yes from a human or a pre-approved rule"]
 outputs = ["What it actually did, and the before/after state"]
 tables = ["action", "decision", "execution", "outcome"]

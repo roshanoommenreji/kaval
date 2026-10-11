@@ -38,7 +38,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from kaval_executor import __version__, k8s
+from kaval_executor import __version__, k8s, verify
 from kaval_executor.redact import redact
 
 _APPROVED_VERDICTS = {Verdict.approved, Verdict.auto_approved}
@@ -157,6 +157,18 @@ def report(results: Sequence[Executed]) -> list[str]:
            for r in results]
 
 
+def _verify(session: Session) -> None:
+    """Judge fixes that have had five minutes (KAV-77). Whatever goes wrong here is printed and
+    dropped: a verification problem must never stop the next execution pass."""
+    try:
+        for line in verify.report(verify.run_once(session)):
+            if line != "nothing to verify":
+                print(line, flush=True)
+    except Exception as exc:  # noqa: BLE001 - the loop must survive, the next pass retries
+        session.rollback()
+        print(f"verify failed: {type(exc).__name__}: {exc}", flush=True)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m kaval_executor.executor",
@@ -177,6 +189,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             with Session(get_engine()) as session:
                 for line in report(run_once(session)):
                     print(line, flush=True)
+                _verify(session)
             if not args.every:
                 return 0
             time.sleep(args.every)
