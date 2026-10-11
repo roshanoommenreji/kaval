@@ -217,6 +217,31 @@ def test_the_watchdog_present_is_silence_and_missing_is_a_signal_once_per_renewa
     assert (row.kind, row.target) == (prometheus.WATCHDOG_MISSING, f"{KAVAL_NS}/prometheus")
 
 
+def test_a_freshly_started_prometheus_is_not_reported_for_missing_its_watchdog_once(
+    db_session: Session,
+) -> None:
+    """Found live on staging: a Prometheus that has just started answers before it has evaluated
+    its rules, so the watchdog is absent for a pass or two. That is a restart, not an outage."""
+    health = prometheus.Health()
+    fresh = _FakeAlerts([], watchdog=False)
+    before = len(_health_rows(db_session))
+
+    for n in range(prometheus.UNREACHABLE_AFTER - 1):
+        lines = prometheus.poll_alerts(db_session, fresh, KAVAL_NS, health=health,
+                                       now=NOW + timedelta(seconds=30 * n))
+        assert lines == []
+    assert len(_health_rows(db_session)) == before          # two misses: still silent
+
+    third = prometheus.poll_alerts(db_session, fresh, KAVAL_NS, health=health,
+                                   now=NOW + timedelta(seconds=90))
+    assert len(third) == 1                                  # the third in a row is real
+
+    # and once the rules are running, the count starts again
+    prometheus.poll_alerts(db_session, _FakeAlerts([], watchdog=True), KAVAL_NS, health=health,
+                           now=NOW + timedelta(seconds=120))
+    assert health.watchdog_misses == 0
+
+
 def test_unreachable_is_written_to_the_database_and_renewed_while_it_lasts(
     db_session: Session,
 ) -> None:
