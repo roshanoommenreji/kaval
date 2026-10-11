@@ -69,6 +69,10 @@ test: ## Unit tests + policy tests
 	pytest services/ scripts/dev/ scripts/tracking/ scripts/release/ evals/ infra/modules/idle-stop/lambda/ -q
 	@command -v opa >/dev/null 2>&1 && opa test policy/ -v || echo "opa not installed — skipping policy tests"
 
+.PHONY: rules-test
+rules-test: ## promtool-test Kaval's own-health alert rules with the Prometheus image the chart pins (needs Docker)
+	bash scripts/dev/rules_test.sh
+
 .PHONY: lint
 lint: ## Lint and type-check
 	ruff check infra/modules/idle-stop/lambda scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira_release.py scripts/tracking/test_jira_release.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py

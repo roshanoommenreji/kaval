@@ -36,21 +36,9 @@ phase = 3
 col = 1
 row = 0
 credentials = "none · in-cluster HTTP"
-inputs = ["Scraped metrics from kubelet, cAdvisor and the services"]
-outputs = ["Instant and range query results over /api/v1/query"]
-note = "Retention is trimmed deliberately (2 hours) and everything but two container-memory metrics is dropped before storage. Measured on k3d (KAV-75, Lab 43): 33 MiB against the ~400 MB budgeted. Built behind prometheus.enabled, on in local only; staging and prod stay off until re-measured on a real node. The first ClusterRole in the chart: read-only on nodes and nodes/metrics."
-
-[[system.node]]
-id = "alertmanager"
-label = "Alertmanager"
-kind = "source"
-phase = 3
-col = 2
-row = 0
-credentials = "none · webhook receiver"
-inputs = ["Firing alert rules from Prometheus"]
-outputs = ["Webhook POST with alert labels, annotations and status"]
-note = "The push half of the signal path. Prometheus is polled; Alertmanager pushes."
+inputs = ["Scraped metrics from the kubelet (cAdvisor) and from every Kaval service's own health page on :9100"]
+outputs = ["Instant and range query results over /api/v1/query", "ALERTS: which Kaval-health rules are firing (stalled, unreachable, the always-on watchdog)"]
+note = "Retention is trimmed deliberately (2 hours) and everything but two container-memory metrics is dropped before storage. Since KAV-78 (ADR-0042) it also reads each Kaval service's health page (kaval_shared.metrics, :9100, no data labels) by plain DNS through a headless Service each, and evaluates three rules (deploy/charts/kaval/files/kaval-alerts.rules.yaml, promtool-tested): a loop that stopped finishing passes, a service unreachable or missing, and an always-firing watchdog. Alertmanager is deliberately not run (ADR-0043): the collector polls the list of firing alerts instead. Built behind prometheus.enabled, on in local and staging; prod follows in KAV-83. The first ClusterRole in the chart: read-only on nodes and nodes/metrics (reading the services needs none)."
 
 [[system.node]]
 id = "cost-explorer"
@@ -82,7 +70,7 @@ inputs = [
 ]
 outputs = ["signal rows — INSERT only"]
 tables = ["signal"]
-note = "Normalises unlike sources into one shape. The database is the record; the event stream is only the feed. Phase 1 runs only the synthetic source (KAV-23); the first real one, Kubernetes events, arrived in Phase 3 (KAV-48, ADR-0022) — kaval_collector.k8s_events polls (list, de-duplicated by the event's own count) rather than holding a persistent watch connection, scoped to one namespace and Pod-involved events only. Downstream code can't tell a real signal from a synthetic one except the synthetic flag, by design. Its RBAC (list, watch on events, nothing else) is granted in kaval-demo, not its own release namespace — the same split KAV-47's executor established. Prometheus arrived in KAV-75 (ADR-0040) as a separate poller Deployment with no Kubernetes token at all: it asks for containers above 90% of their memory limit and writes the same container_memory_near_limit shape the synthetic scenarios use, renewing every 5 minutes while the level persists. Alertmanager and Cost Explorer are still not built."
+note = "Normalises unlike sources into one shape. The database is the record; the event stream is only the feed. Phase 1 runs only the synthetic source (KAV-23); the first real one, Kubernetes events, arrived in Phase 3 (KAV-48, ADR-0022) — kaval_collector.k8s_events polls (list, de-duplicated by the event's own count) rather than holding a persistent watch connection, scoped to one namespace and Pod-involved events only. Downstream code can't tell a real signal from a synthetic one except the synthetic flag, by design. Its RBAC (list, watch on events, nothing else) is granted in kaval-demo, not its own release namespace — the same split KAV-47's executor established. Prometheus arrived in KAV-75 (ADR-0040) as a separate poller Deployment with no Kubernetes token at all: it asks for containers above 90% of their memory limit and writes the same container_memory_near_limit shape the synthetic scenarios use, renewing every 5 minutes while the level persists. Since KAV-78 the same poller also reads Prometheus's list of firing Kaval-health alerts and writes them as alert_firing signals, and raises kaval_prometheus_unreachable / kaval_watchdog_missing itself (ADR-0042); Alertmanager is not adopted (ADR-0043). Cost Explorer is still not built."
 
 [[system.node]]
 id = "synthetic"
@@ -381,12 +369,7 @@ label = "events (watch)"
 [[system.edge]]
 from = "prometheus"
 to = "collector"
-label = "metric queries"
-
-[[system.edge]]
-from = "alertmanager"
-to = "collector"
-label = "webhook"
+label = "metric queries · firing Kaval alerts"
 
 [[system.edge]]
 from = "cost-explorer"
@@ -1418,7 +1401,7 @@ col = 0
 row = 0
 credentials = "admin database role"
 inputs = ["This repo's own Alembic migration files"]
-outputs = ["The database schema — all 9 tables, empty"]
+outputs = ["The database schema — all 10 tables, empty"]
 note = "A Helm hook Job that runs once per release, before anything else, then exits. It never shows up in a 'running pods' list because by the time anyone looks, it has already finished."
 
 [[pods-postgres.node]]
@@ -1448,7 +1431,7 @@ note = "The scout. Zero opinions — it only writes down exactly what it saw."
 
 [[pods-postgres.node]]
 id = "db"
-label = "Postgres (9 tables)"
+label = "Postgres (10 tables)"
 kind = "store"
 phase = 1
 col = 1
@@ -1456,7 +1439,7 @@ row = 1
 credentials = "TLS in transit · 4 scoped roles + 1 admin role"
 inputs = ["Writes from all four always-on pods"]
 outputs = ["Everything any pod ever reads"]
-tables = ["signal", "incident_signal", "incident", "proposal", "action", "decision", "execution", "outcome", "runbook_chunk"]
+tables = ["signal", "incident_signal", "incident", "proposal", "action", "decision", "execution", "outcome", "runbook_chunk", "notification"]
 note = "One shared filing cabinet, on its own dedicated computer (see AWS, plain and simple), reached over an encrypted connection. See the Keycards table on this page for exactly who can open which drawer."
 
 [[pods-postgres.node]]
@@ -1479,10 +1462,10 @@ kind = "service"
 phase = 1
 col = 0
 row = 2
-credentials = "kaval_gateway · reads broadly, read+write decision only"
+credentials = "kaval_gateway · reads broadly, read+write decision, insert-only notification"
 inputs = ["Everything needed to show a human what's happening"]
 outputs = ["The actual yes/no a human gave", "Slack buttons and messages"]
-tables = ["incident", "proposal", "action", "execution", "outcome", "decision"]
+tables = ["incident", "proposal", "action", "execution", "outcome", "decision", "notification"]
 note = "The front desk — the only pod that talks to actual people. Runs twice because it's the single piece a human is waiting on, so there's always a second copy if one is busy."
 
 [[pods-postgres.node]]
@@ -1506,14 +1489,14 @@ phase = 4
 col = 0
 row = 3
 credentials = "outbound Socket Mode connection — no inbound port, no public address"
-inputs = ["Approve / Deny buttons posted by the gateway"]
+inputs = ["Approve / Deny buttons posted by the gateway", "Plain \"Kaval's own health\" messages (no buttons) posted straight from the signal table when a Kaval service stops (KAV-78, ADR-0042)"]
 outputs = ["Which button a human actually clicked"]
 note = "The gateway calls out to Slack; Slack never calls in. That's why there's no public web address for Kaval at all."
 
 [[pods-postgres.edge]]
 from = "migrate"
 to = "db"
-label = "creates the 9 tables"
+label = "creates the 10 tables"
 
 [[pods-postgres.edge]]
 from = "dbroles"

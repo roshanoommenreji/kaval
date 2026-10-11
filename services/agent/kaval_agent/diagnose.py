@@ -43,6 +43,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 import httpx
+from kaval_shared import health
 from kaval_shared.models import Action, BlastRadius, Incident, Proposal, RiskLevel
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -66,6 +67,10 @@ DEFAULT_SYSTEM_PROMPT = (
 
 class DiagnosisError(RuntimeError):
     """Ollama failed, or two attempts both returned a reply that didn't validate."""
+
+
+class HealthIncidentError(RuntimeError):
+    """The incident is about Kaval itself; a person handles it, so no proposal is written."""
 
 
 @dataclass(frozen=True)
@@ -152,9 +157,17 @@ def write_proposal(
     action. Nothing here is called unless `diagnose()` (or `escalate()`) already returned
     successfully — there is deliberately no path that writes an unvalidated diagnosis.
 
+    **Refuses Kaval's own health incidents** (KAV-78, `kaval_shared.health`): when Kaval has
+    stopped working, the right outcome is a person, never a proposed fix. This is the one place
+    every proposal passes through, so it is the place the rule is enforced.
+
     `cost_usd` defaults to 0: self-hosted local inference has no metered cost. A Bedrock
     escalation (KAV-44, ADR-0019) passes its real, measured cost instead —
     `kaval_agent.escalate.estimate_cost_usd` — never a guess made in advance."""
+    if health.is_health_fingerprint(incident.fingerprint):
+        raise HealthIncidentError(
+            f"{incident.fingerprint} is Kaval's own health: it is for a person, not a proposal"
+        )
     proposal = Proposal(
         incident_id=incident.id,
         summary=diagnosis.summary,
@@ -219,6 +232,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         incident = session.get(Incident, incident_id)
         if incident is None:
             sys.exit(f"no incident {incident_id}")
+        if health.is_health_fingerprint(incident.fingerprint):
+            sys.exit(f"{incident.fingerprint} is Kaval's own health: it is for a person, "
+                     "so no diagnosis is asked for and no fix proposed "
+                     "(see docs/runbooks/kaval-stopped-reporting.md)")
         changes = None
         if args.with_changes:
             from kaval_agent import recent_changes as rc

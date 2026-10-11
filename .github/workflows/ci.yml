@@ -209,6 +209,11 @@ jobs:
           echo "${KUBECONFORM_SHA256}  kubeconform.tgz" | sha256sum --check --strict
           tar -xzf kubeconform.tgz kubeconform
           sudo install -m 0755 kubeconform /usr/local/bin/kubeconform
+      # The alert rules that say "Kaval itself has stopped" (KAV-78): tested with promtool, using
+      # the same pinned Prometheus image the chart deploys. A rule that fires on a healthy system
+      # gets muted, so the "stays silent" cases are in the same file as the "fires" ones.
+      - name: test the Kaval health alert rules (promtool)
+        run: make rules-test
       # Every environment that has its own values.yaml today (local, plus staging/prod as a
       # k3d rehearsal, ADR-0023; lab-eks is still a placeholder, Phase 8). Found live, not
       # hypothetically (Lab 15): a {{- -}} trim pair ate the newline between a template's top

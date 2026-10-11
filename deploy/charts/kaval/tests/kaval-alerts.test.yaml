@@ -1,0 +1,129 @@
+# promtool unit tests for kaval-alerts.rules.yaml (KAV-78). `make rules-test` runs them.
+# The negative cases matter as much as the positive ones: an alert that fires on a healthy
+# system gets muted, and a muted alert is the same as none.
+rule_files:
+  - ../files/kaval-alerts.rules.yaml
+evaluation_interval: 30s
+
+tests:
+  - name: a healthy executor never alerts
+    interval: 15s
+    input_series:
+      - series: 'kaval_loop_interval_seconds{service="executor",job="kaval-executor"}'
+        values: "15+0x40"
+      # finishes a pass every 15 s, forever
+      - series: 'kaval_loop_last_success_timestamp_seconds{service="executor",job="kaval-executor"}'
+        values: "0+15x40"
+      - series: 'up{job="kaval-executor"}'
+        values: "1+0x40"
+      - series: 'up{job="kaval-gateway"}'
+        values: "1+0x40"
+      - series: 'up{job="kaval-agent"}'
+        values: "1+0x40"
+      - series: 'up{job="kaval-collector"}'
+        values: "1+0x40"
+      - series: 'up{job="kaval-collector-prometheus"}'
+        values: "1+0x40"
+    alert_rule_test:
+      - { eval_time: 8m, alertname: KavalLoopStalled, exp_alerts: [] }
+      - { eval_time: 8m, alertname: KavalTargetDown, exp_alerts: [] }
+
+  - name: a loop that stops finishing passes alerts after the floor and the wait
+    interval: 15s
+    input_series:
+      - series: 'kaval_loop_interval_seconds{service="executor",job="kaval-executor"}'
+        values: "15+0x60"
+      # passes complete until 60 s, then the timestamp freezes
+      - series: 'kaval_loop_last_success_timestamp_seconds{service="executor",job="kaval-executor"}'
+        values: "0+15x4 60+0x60"
+      - series: 'up{job="kaval-executor"}'
+        values: "1+0x60"
+    alert_rule_test:
+      # 60 s after the last pass: under the 120 s floor, so nothing yet
+      - { eval_time: 2m, alertname: KavalLoopStalled, exp_alerts: [] }
+      # stale for over 120 s but not yet for the 1-minute wait
+      - { eval_time: 3m, alertname: KavalLoopStalled, exp_alerts: [] }
+      - eval_time: 5m
+        alertname: KavalLoopStalled
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: executor
+              job: kaval-executor
+            exp_annotations:
+              summary: "executor has not finished a pass for over four intervals."
+
+  - name: a slow pass on a long interval is not a stall
+    interval: 30s
+    input_series:
+      - series: 'kaval_loop_interval_seconds{service="agent",job="kaval-agent"}'
+        values: "60+0x40"
+      # a pass every 60 s; the last one 200 s ago is still under 4 x 60 = 240 s
+      - series: 'kaval_loop_last_success_timestamp_seconds{service="agent",job="kaval-agent"}'
+        values: "0+60x2 120+0x40"
+    alert_rule_test:
+      - { eval_time: 5m, alertname: KavalLoopStalled, exp_alerts: [] }
+
+  - name: a service whose port stops answering alerts
+    interval: 15s
+    input_series:
+      - series: 'up{job="kaval-gateway"}'
+        values: "1+0x8 0+0x40"
+      - series: 'up{job="kaval-agent"}'
+        values: "1+0x60"
+      - series: 'up{job="kaval-executor"}'
+        values: "1+0x60"
+      - series: 'up{job="kaval-collector"}'
+        values: "1+0x60"
+      - series: 'up{job="kaval-collector-prometheus"}'
+        values: "1+0x60"
+    alert_rule_test:
+      - { eval_time: 3m, alertname: KavalTargetDown, exp_alerts: [] }  # down 1 min: still waiting
+      - eval_time: 5m
+        alertname: KavalTargetDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: gateway
+              job: kaval-gateway
+            exp_annotations:
+              summary: "gateway cannot be reached."
+
+  - name: a service with no pod at all alerts, because it has no up series to be zero
+    interval: 15s
+    input_series:
+      - series: 'up{job="kaval-gateway"}'
+        values: "1+0x60"
+      - series: 'up{job="kaval-agent"}'
+        values: "1+0x60"
+      - series: 'up{job="kaval-collector"}'
+        values: "1+0x60"
+      - series: 'up{job="kaval-collector-prometheus"}'
+        values: "1+0x60"
+      # kaval-executor has no series: its Deployment was scaled to zero
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: KavalTargetDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: executor
+              job: kaval-executor
+            exp_annotations:
+              summary: "executor cannot be reached."
+
+  - name: the watchdog always fires
+    interval: 30s
+    input_series:
+      - series: 'up{job="kaval-gateway"}'
+        values: "1+0x20"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: KavalWatchdog
+        exp_alerts:
+          - exp_labels: { severity: none }
+            exp_annotations:
+              summary: Always firing. Its absence means Prometheus is not evaluating its rules.

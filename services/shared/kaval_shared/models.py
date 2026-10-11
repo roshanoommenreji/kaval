@@ -283,6 +283,27 @@ class Outcome(Base):
     incident: Mapped[Incident] = relationship(back_populates="outcomes")
 
 
+class Notification(Base):
+    """A message a person was sent about something that needs them but is not a proposal (KAV-78).
+
+    Written once per message and never changed: the audit record of "who was told what, when",
+    and the memory the notifier uses to avoid repeating itself (`key` is the thing being
+    reported, e.g. `KavalLoopStalled:kaval-staging/executor`; one message per key per reminder
+    period). Approvals are not here: an `action` carries its own `slack_notified_at`.
+    """
+
+    __tablename__ = "notification"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    key: Mapped[str] = mapped_column(Text, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_notification_key_created_at", "key", "created_at"),)
+
+
 class RunbookChunk(Base):
     """One H2 section of a runbook in `docs/runbooks/`, with its embedding (KAV-40, ADR-0015).
 

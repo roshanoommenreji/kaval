@@ -34,6 +34,7 @@ from slack_sdk.web import WebClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from kaval_gateway import health_alerts
 from kaval_gateway.decisions import DecisionOutcome, record_decision
 
 logger = logging.getLogger("kaval_gateway.slack_chatops")
@@ -116,6 +117,7 @@ def _notify_loop(web_client: WebClient, channel: str, stop: threading.Event) -> 
         try:
             with Session(get_engine()) as session:
                 notify_pass(session, web_client, channel)
+                health_alerts.notify_pass(session, web_client, channel)
         except Exception:
             logger.exception("slack_chatops: notify loop failed this pass")
         stop.wait(POLL_SECONDS)

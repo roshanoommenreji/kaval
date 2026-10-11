@@ -48,3 +48,9 @@ collector:
   watchEverySeconds: 20
   image:
     tag: sha-ffb552b
+
+# Prometheus is on here first (KAV-78, ADR-0042): staging is where its real memory on the 4 GB
+# node is measured, and where the "Kaval has stopped" alerts are proven, before prod turns it on
+# (KAV-83). Everything else is the chart's default; see `prometheus:` in values.yaml.
+prometheus:
+  enabled: true

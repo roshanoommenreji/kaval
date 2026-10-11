@@ -1,0 +1,40 @@
+# Prometheus rules for Kaval's own health (KAV-78, ADR-0042). Evaluated by Prometheus; the
+# collector's Prometheus poller reads which of them are firing (ALERTS) and writes signals.
+# Tested with promtool: deploy/charts/kaval/tests/kaval-alerts.test.yaml (make rules-test).
+groups:
+  - name: kaval-health
+    rules:
+      # Always firing, on purpose. If the poller can reach Prometheus but this is not in the list
+      # of firing alerts, then Prometheus is not evaluating rules at all, which no rule can say.
+      - alert: KavalWatchdog
+        expr: vector(1)
+        labels: { severity: none }
+        annotations:
+          summary: Always firing. Its absence means Prometheus is not evaluating its rules.
+
+      # The process is alive and its port answers, but it has not finished a pass for four
+      # intervals (and never less than two minutes). The failure a pod's health check cannot see.
+      - alert: KavalLoopStalled
+        expr: >-
+          time() - kaval_loop_last_success_timestamp_seconds
+            > clamp_min(4 * kaval_loop_interval_seconds, 120)
+        for: 1m
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: "{{ $labels.service }} has not finished a pass for over four intervals."
+
+      # The pod is gone, or its port does not answer. `absent()` is what catches "no pod at all":
+      # a pod that does not exist has no `up` series to be 0.
+      - alert: KavalTargetDown
+        expr: >-
+          label_replace(up{job=~"kaval-.+"} == 0, "service", "$1", "job", "kaval-(.+)")
+          or label_replace(absent(up{job="kaval-gateway"}), "service", "gateway", "", "")
+          or label_replace(absent(up{job="kaval-agent"}), "service", "agent", "", "")
+          or label_replace(absent(up{job="kaval-executor"}), "service", "executor", "", "")
+          or label_replace(absent(up{job="kaval-collector"}), "service", "collector", "", "")
+          or label_replace(absent(up{job="kaval-collector-prometheus"}),
+                           "service", "collector-prometheus", "", "")
+        for: 2m
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: "{{ $labels.service }} cannot be reached."

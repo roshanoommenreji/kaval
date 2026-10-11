@@ -191,3 +191,27 @@ def test_a_second_correlator_is_refused_while_one_runs(
     assert db_session.scalar(text("SELECT pg_try_advisory_xact_lock(:k)"), {"k": c.LOCK_KEY})
     with Session(migrated_engine) as other:
         assert c.correlate(other) is None
+
+
+# -- Kaval's own health (KAV-78) ---------------------------------------------------------------
+
+
+def test_a_stalled_kaval_service_is_a_high_incident_named_for_what_stopped() -> None:
+    stalled = signal("alert_firing", AT, target="kaval-staging/executor", source="prometheus",
+                     alertname="KavalLoopStalled", severity="critical", service="executor")
+
+    cause = c.cause_of(stalled, set())
+
+    assert cause is not None and cause.name == "kaval_loop_stalled"
+    assert cause.severity == Severity.high
+    assert c.subject(stalled) == "kaval-staging/executor"
+
+
+def test_the_pollers_own_unreachable_signal_is_a_high_incident() -> None:
+    down = signal("kaval_prometheus_unreachable", AT, target="kaval-staging/prometheus",
+                  source="prometheus", service="prometheus")
+
+    cause = c.cause_of(down, set())
+
+    assert cause is not None and cause.name == "kaval_prometheus_unreachable"
+    assert cause.severity == Severity.high

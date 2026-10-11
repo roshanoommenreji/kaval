@@ -94,7 +94,10 @@ think.**
 | Path | What it will do | Status |
 |---|---|---|
 | `services/shared/` | Code every service shares. Today that's the database layer | Working |
-| `services/shared/kaval_shared/models.py` | The seven database tables that record each incident from start to finish: `signal → incident → proposal → action → decision → execution → outcome`. Rows are added, never edited, so the tables are the audit trail | Working |
+| `services/shared/kaval_shared/models.py` | The database tables that record each incident from start to finish: `signal → incident → proposal → action → decision → execution → outcome`, plus `notification` (what a person was told about Kaval's own health, `KAV-78`). Rows are added, never edited, so the tables are the audit trail | Working |
+| `services/shared/kaval_shared/metrics.py` | The health page every service shows on port 9100: when its last pass finished, how often one should, how many failed, and its real memory. Nothing from the data is ever on it (a test enforces that) | Working (`KAV-78`, [ADR-0042](adr/0042-watching-the-watcher.md)) |
+| `services/shared/kaval_shared/health.py` | The rule that a cause starting `kaval_` is Kaval's own health, for a person and never for a proposed fix | Working (`KAV-78`) |
+| `services/gateway/kaval_gateway/health_alerts.py` | Posts "Kaval's own health" to Slack straight from the signals (not via the correlator), once per fault per 30 minutes, recorded in `notification` | Working, tested; the Slack hop is seen live only in prod (`KAV-78`, `KAV-83`) |
 | `services/shared/kaval_shared/db.py` | Opens the database connection from the `POSTGRES_*` settings in `.env` | Working |
 | `services/shared/tests/` | Tests for the tables: one checks their shape, one writes a full incident through all seven, one runs the staging scrub (`anonymise.sql`) over planted secrets and fails when a new text column has no decision | Working |
 | `services/collector/` | Gathers raw observations (Kubernetes events, Prometheus metrics, AWS cost data) and saves them as `signal` rows. Read-only | Fake signals (`KAV-23`), real Kubernetes events (`KAV-48`) and Prometheus memory-near-limit (`KAV-75`) working; cost data in Phase 6 |
@@ -129,7 +132,7 @@ think.**
 
 | Path | What it is | Status |
 |---|---|---|
-| `migrations/versions/` | One file per change to the database structure: the seven spine tables, then the correlation index (`KAV-39`), then `runbook_chunk` and the pgvector extension (`KAV-40`) | Working |
+| `migrations/versions/` | One file per change to the database structure: the seven spine tables, then the correlation index (`KAV-39`), then `runbook_chunk` and the pgvector extension (`KAV-40`), `action.slack_notified_at` (`KAV-55`) and the `notification` table (`KAV-78`) | Working |
 | `migrations/env.py` | Connects Alembic to the database and to `models.py` | Working |
 | `migrations/script.py.mako` | Template for new migration files | Working |
 
@@ -178,8 +181,9 @@ Run `make migrate` to bring a database up to date.
 
 | Path | What it will do | Status |
 |---|---|---|
-| `deploy/charts/kaval/` | One Helm chart. Deploys the gateway, the agent's correlate loop, the scoped-RBAC executor, the real-event collector and, where switched on (`prometheus.enabled`, local only), Prometheus with its poller (`KAV-75`, [ADR-0040](adr/0040-prometheus-as-a-polled-signal-source.md)) to a real cluster ([ADR-0020](adr/0020-the-helm-chart-and-the-local-k3d-environment.md), [ADR-0021](adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md), [ADR-0022](adr/0022-real-kubernetes-events-as-signals.md)). Postgres is now optional (`postgres.enabled`, `KAV-32`) — local/dev deploy it in-cluster; prod reads an out-of-band Secret per service, pointed at the standalone database server instead. `helm lint`/`helm template` run through kubeconform in CI, on every environment that has a values file | Working — `local` (`KAV-46`–`48`, Labs 15–17); prod's database wiring built and live (`KAV-32`, Lab 22) |
+| `deploy/charts/kaval/` | One Helm chart. Deploys the gateway, the agent's correlate loop, the scoped-RBAC executor, the real-event collector and, where switched on (`prometheus.enabled`: local and staging), Prometheus with its poller (`KAV-75`, [ADR-0040](adr/0040-prometheus-as-a-polled-signal-source.md)), a headless Service per service for its health page, and the alert rules in `files/kaval-alerts.rules.yaml` with their promtool tests in `tests/` (`KAV-78`, [ADR-0042](adr/0042-watching-the-watcher.md)) to a real cluster ([ADR-0020](adr/0020-the-helm-chart-and-the-local-k3d-environment.md), [ADR-0021](adr/0021-the-executor-scoped-rbac-and-the-approval-write-path.md), [ADR-0022](adr/0022-real-kubernetes-events-as-signals.md)). Postgres is now optional (`postgres.enabled`, `KAV-32`) — local/dev deploy it in-cluster; prod reads an out-of-band Secret per service, pointed at the standalone database server instead. `helm lint`/`helm template` run through kubeconform in CI, on every environment that has a values file | Working — `local` (`KAV-46`–`48`, Labs 15–17); prod's database wiring built and live (`KAV-32`, Lab 22) |
 | `deploy/environments/local/`, `staging/`, `prod/`, `lab-eks/` | One settings file per environment. **These are the only differences between environments.** The code and the chart are identical everywhere (ADR-0004). `staging` and `prod` were first rehearsed as two Helm releases in the *same* k3d cluster `local` runs in ([ADR-0023](adr/0023-promotion-rehearsal-on-k3d.md)); both now describe real AWS clusters, `staging` since `KAV-57` | `local` working (`KAV-46`); `prod` live (`KAV-51`); `staging` proven live (`KAV-57`, Lab 29); `lab-eks` in Phase 8 |
+| `deploy/dashboards/` | Dashboards kept as files. `kaval-health.json` is a Grafana dashboard for Kaval's own health, shown by a viewer on the dev server or the laptop against a port-forward, never on the node | Working, imports cleanly (`KAV-78`) |
 | `deploy/gitops/` | Flux configuration. The cluster pulls its setup from Git and rebuilds itself if the server is lost | Working, applied in AWS (`KAV-51`, ADR-0025, Lab 20) — `prod/` holds the `GitRepository` + `HelmRelease` the node's cloud-init bootstraps at boot |
 
 ---
@@ -212,7 +216,7 @@ Run `make migrate` to bring a database up to date.
 | `docs/architecture/model-shortlist.md` | The local AI models measured on the prod-sized server: memory, speed, output-format results, and which three go to the Phase 2 evals (`make bench` reproduces it) | Working (`KAV-22`) |
 | `docs/architecture/architecture.toml` | The system's architecture written as data: every component and connection, and which phase it arrives in. The dashboard draws the three diagrams from this. Update it whenever a component is added, removed or rewired (Definition of Done item 6) | Working |
 | `docs/architecture/diagrams/` | Exported diagram images. The live diagrams come from `docs/architecture/architecture.toml` and appear on the dashboard | Placeholder, Phase 8 |
-| `docs/runbooks/` | **Troubleshooting guides**, one per failure type. Written for humans, **and** the AI agent reads them when diagnosing incidents | Working (1 runbook); more in Phase 5 |
+| `docs/runbooks/` | **Troubleshooting guides**, one per failure type. Written for humans, **and** the AI agent reads them when diagnosing incidents | Working (3 runbooks, including [Kaval itself has stopped](runbooks/kaval-stopped-reporting.md)); more in Phase 5 |
 | `docs/cost/budget-plan.md` | Every expected cost, the $50/month ceiling, and how it's enforced | Working |
 | `docs/cost/actuals/` | The real bill, one file per month | Placeholder. Starts with the first real spend, in Phase 4 |
 | `docs/releases/` | A change record for every production release, generated by `promote.yml`: what changed, who approved it, how to roll back | Working (`KAV-67`); format in `README.md`, first record `2026-10-09-v0.1.0.md` (backfilled) |
@@ -255,6 +259,7 @@ Run `make migrate` to bring a database up to date.
 | `scripts/tracking/jira_adf.py` | Builds and reads Jira story descriptions (Context, Acceptance Criteria, UAT scenarios) and maps code folders to the Service field; no network, so it's unit-tested in `test_jira_adf.py` | Working (`KAV-34`) |
 | `scripts/dev/install-hooks.sh` | Installs the two Git hooks: `pre-commit` (blocks secrets) and `commit-msg` (the commit convention) | Working |
 | `scripts/dev/check_commits.py` | The commit-convention checker, used by the `commit-msg` hook and by CI on every PR; tests in `test_check_commits.py` ([ADR-0011](adr/0011-commit-convention-and-jira-link.md), [Lab 07](labs/lab-07-commits-and-jira-link.md)) | Working (`KAV-25`) |
+| `scripts/dev/rules_test.sh` | Runs the alert rules through `promtool` using the Prometheus image the chart pins (`make rules-test`; CI runs it) | Working (`KAV-78`) |
 | `scripts/dev/new-lab.sh` | Creates a new lab document and journal entry from a template (`make lab NAME=...`) | Working |
 | `scripts/dev/bench_models.py` | Measures the local model shortlist on the dev server: memory, load time, time to first token, speed, JSON validity (`make bench`). Results in `docs/architecture/model-shortlist.md` | Working (`KAV-22`) |
 

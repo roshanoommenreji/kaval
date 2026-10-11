@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
+from kaval_shared import health, metrics
 from kaval_shared.models import Incident, IncidentSignal, Severity, Signal
 from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
@@ -123,6 +124,9 @@ def cause_of(signal: Signal, spikes: set[uuid.UUID]) -> Cause | None:
         alert = str(v.get("alertname", "alert"))
         name = "crashloop" if alert == "KubePodCrashLooping" else _snake(alert)
         return Cause(name, 3, _ALERT_SEVERITY.get(str(v.get("severity")), Severity.low))
+    if health.is_health_cause(kind):
+        # Kaval's own poller saying it cannot see (kaval_prometheus_unreachable, ...).
+        return Cause(kind, 1, Severity.high)
     if kind == "container_memory_near_limit":
         return Cause("memory_pressure", 4, Severity.low)
     if kind == "daily_cost":
@@ -341,11 +345,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     from kaval_shared.db import get_engine  # only a real run needs the database
 
+    if args.every:
+        metrics.serve("agent", interval=args.every, version=__version__)
     try:
         while True:
             with Session(get_engine()) as session:
                 for line in report(correlate(session)):
                     print(line, flush=True)
+            metrics.pass_ok("agent")
             if not args.every:
                 return 0
             time.sleep(args.every)

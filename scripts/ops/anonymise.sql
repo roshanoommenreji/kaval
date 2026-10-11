@@ -178,6 +178,8 @@ $f$;
 
 -- ── columns deliberately NOT touched ────────────────────────────────
 -- runbook_chunk   the runbooks are public files in this repository; the table is an index of them.
+-- notification   (KAV-78) what a person was told about Kaval's own health: a fixed message template
+--                 and a Kaval service name. Nothing from the cluster or a person is ever put in it.
 -- proposal.model, action.type, every enum, boolean and timestamp: no free text.
 -- numbers inside jsonb: a 12-digit JSON number is as likely a byte count as an account id
 --                 (ids with a leading zero arrive as text, and text is scrubbed), and rewriting

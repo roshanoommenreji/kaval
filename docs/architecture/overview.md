@@ -69,6 +69,8 @@ Append-only. Nothing is ever updated in place, so the table *is* the audit trail
 | `execution` | What actually ran: `{status, stdout, before_state, after_state}` |
 | `outcome` | Measured 5 minutes later by `kaval_executor.verify` (silence from the detectors means it held): `{resolved, mttr_sec, regression}`; `make mttr` reports it by stage ([ADR-0041](../adr/0041-service-levels-and-recording-whether-a-fix-held.md)) |
 
+| `notification` | What a person was told that was not a proposal (Kaval's own health): `{key, message, ts}`. Insert-only; also how the notifier avoids repeating itself ([ADR-0042](../adr/0042-watching-the-watcher.md)) |
+
 `outcome` is what makes the autonomy argument possible. Promoting an action class from `ask` to
 `auto` requires pointing at rows.
 
@@ -106,7 +108,7 @@ budgeted against it.
 |---|---|
 | k3s control plane + system | ~700 MB |
 | Local model: `gemma3:1b-it-qat` (measured) | ~1.1 GB |
-| kaval services (4 × ~120 MB) | ~480 MB |
+| kaval services (4 × ~120 MB) | ~480 MB budgeted; resident memory read from each service's own health page (KAV-78): 62–98 MiB each on k3d. Staging's real figures: [Lab 45](../labs/lab-45-watching-the-watcher.md) |
 | Prometheus (trimmed retention) | ~400 MB budgeted; **33 MiB measured** on k3d (KAV-75, Lab 43), plus a 45 MiB poller. Re-measure on staging before prod enables it |
 | Flux | ~100 MB |
 | **Total** | **~2.8 GB** |

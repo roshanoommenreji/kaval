@@ -18,6 +18,7 @@ from typing import Literal
 
 import httpx
 from fastapi import FastAPI, Response
+from kaval_shared import metrics
 from kaval_shared.db import get_engine
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -38,6 +39,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # No-op unless SLACK_BOT_TOKEN/SLACK_APP_TOKEN/SLACK_CHANNEL_ID are all set — true for
     # every environment so far, including every CI run (kaval_gateway.slack_chatops).
     slack_chatops.start()
+    metrics.serve("gateway", version=__version__)
     yield
 
 

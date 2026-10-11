@@ -1,0 +1,23 @@
+{{- if .Values.prometheus.enabled }}
+# One headless Service per Kaval service, so Prometheus can find every pod's health page
+# (KAV-78, ADR-0042). `clusterIP: None` means DNS answers with the pods' own addresses.
+# `publishNotReadyAddresses` matters: a pod that is failing its readiness check is exactly the
+# one whose health numbers are wanted.
+{{- range $component := include "kaval.metricsComponents" . | fromJsonArray }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kaval.fullname" $ }}-{{ $component }}-metrics
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" $ | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "kaval.selectorLabels" (dict "Release" $.Release "component" $component) | nindent 4 }}
+  ports:
+    - { name: metrics, port: 9100, targetPort: metrics }
+{{- end }}
+{{- end }}
