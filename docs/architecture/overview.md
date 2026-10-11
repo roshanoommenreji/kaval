@@ -108,8 +108,8 @@ budgeted against it.
 |---|---|
 | k3s control plane + system | ~700 MB |
 | Local model: `gemma3:1b-it-qat` (measured) | ~1.1 GB |
-| kaval services (4 × ~120 MB) | ~480 MB budgeted; resident memory read from each service's own health page (KAV-78): 62–98 MiB each on k3d. Staging's real figures: [Lab 45](../labs/lab-45-watching-the-watcher.md) |
-| Prometheus (trimmed retention) | ~400 MB budgeted; **33 MiB measured** on k3d (KAV-75, Lab 43), plus a 45 MiB poller. Re-measure on staging before prod enables it |
+| kaval services (4 × ~120 MB) | ~480 MB budgeted; **measured on staging's real node** (KAV-78, [Lab 45](../labs/lab-45-watching-the-watcher.md)): resident 63–105 MiB each (gateway 72–88, collector 98, executor 81–105, agent 63, poller 63) |
+| Prometheus (trimmed retention) | ~400 MB budgeted; **80–83 MiB resident / 40 MiB working set measured on staging's node** (KAV-78, Lab 45; 33 MiB on k3d), plus a ~63 MiB poller. Staging node with everything running: 1.92 GiB of 4 (50%), no language model on it |
 | Flux | ~100 MB |
 | **Total** | **~2.8 GB** |
 | Headroom | ~1.2 GB |

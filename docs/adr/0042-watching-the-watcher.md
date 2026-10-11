@@ -1,6 +1,6 @@
 # ADR-0042 — Watching the watcher: health numbers, "stopped" alerts, and telling a person
 
-- **Status:** Accepted — built and tested (unit, real Postgres, promtool); live proof in [Lab 45](../labs/lab-45-watching-the-watcher.md)
+- **Status:** Accepted — built, tested (unit, real Postgres, promtool) and proven live on staging (stalled loop, missing pod, Prometheus down); live proof in [Lab 45](../labs/lab-45-watching-the-watcher.md)
 - **Date:** 2026-10-11
 - **Deciders:** Roshan
 - **Story:** `KAV-78` · second slice of Phase 5 (`KAV-10`), part of `KAV-76` (Prometheus on staging, then prod)
@@ -135,7 +135,11 @@ memory the rest of the time.
      split events with prod). The Slack hop is proven by test and in production's first session
      with this enabled; in staging the proof is the signal and incident rows.
   4. **No "recovered" message.** The incident closes itself after 15 quiet minutes; Slack says nothing.
-  5. Thresholds (four intervals, two-minute floor) are provisional until the first game day.
+  5. Thresholds (four intervals, two-minute floor) are provisional until the first game day. Measured on
+     staging: a stalled loop became an incident 4 min 38 s after the stall began; a missing pod 5 min 30 s
+     after it was removed; Prometheus down 2 min 22 s after it was switched off.
+  6. The first quiet-case run found a false alarm (the watchdog check acted on a single miss right after
+     Prometheus started); fixed to need three misses in a row, as the unreachable check does.
 
 ## Observability
 
@@ -145,10 +149,10 @@ each) and by the watchdog.
 
 ## Cost and capacity
 
-No AWS cost. Memory, measured, not guessed: on the local cluster each service's resident memory
-is 62–98 MiB and Prometheus 89 MiB (RSS), the container working set of Prometheus 38 MiB. The
-figure that counts is the one on staging's real 4 GB node, recorded in [Lab 45](../labs/lab-45-watching-the-watcher.md)
-and the [memory budget](../architecture/overview.md#runtime-footprint).
+No AWS cost. Memory, measured on staging's real 4 GB node (not guessed), [Lab 45](../labs/lab-45-watching-the-watcher.md):
+each service's resident memory is 63–105 MiB, Prometheus 80–83 MiB resident (40 MiB working set), the whole
+node 1.92 GiB of 4 (50%) with everything running and no language model. The [memory budget](../architecture/overview.md#runtime-footprint)
+is updated. Prod adds the model (~1.1 GB), so prod's headroom is re-measured at its own rollout (`KAV-83`).
 
 ## Consequences
 
