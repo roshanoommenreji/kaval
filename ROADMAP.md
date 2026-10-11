@@ -150,6 +150,15 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] MTTR measurement and dashboard
 - [ ] Database server monitoring — `postgres_exporter` + `node_exporter` → Prometheus, disk-space alert; SSM Patch Manager schedule; connection and failed-auth logging reviewed (ADR-0008)
 - [ ] Runbooks written for each failure class *(also the agent's RAG corpus)*
+- *Planning-standard additions (2026-10-11), each a checkbox below:*
+- [ ] Chaos tooling decision, as an ADR — build our own CronJobs or adopt Chaos Mesh / LitmusChaos (what most teams use); chaos runs on **staging first**, and whether prod ever gets a supervised game day is decided explicitly
+- [ ] Each chaos run is a game day: a written hypothesis, the steady state it is measured against, abort criteria with a kill switch, and a short blameless post-mortem in `docs/`
+- [ ] Define the service levels Kaval is held to — time to detect, time to restore, and what counts as failing — before charting MTTR
+- [ ] **Watch the watcher:** a heartbeat / dead-man's-switch alert if the collector, agent or Prometheus stops; every Kaval service exposes `/metrics`; one dashboard for Kaval's own health
+- [ ] Alertmanager as a signal source (the pushed half of Prometheus): adopt it or record why not, and the "Prometheus is down" case raised as an incident of its own
+- [ ] Approvals that nobody answers: an expiry and an escalation (a reminder, then a second person or channel), recorded in an ADR — real on-call practice, not an open-ended wait
+- [ ] Alert if the nightly database dump is missing (the timer firing is still unseen) and a restore drill on a schedule, with the recovery time and acceptable data loss written down
+- [ ] Re-measure the 4 GB node's headroom with everything on (model, Prometheus, chaos running) before calling the phase done
 - [ ] `docs/learn/phase-5-chaos-and-proof.md` — flip **Written from** to `experience`
 
 **Exit gate:** five chaos types handled end-to-end, MTTR charted.
@@ -165,6 +174,13 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Waste detection: idle nodes, orphaned volumes, unused snapshots
 - [ ] Cost proposals through the same approve/execute path
 - [ ] Hard-stop Lambda wired to the live ASG
+- *Planning-standard additions (2026-10-11), each a checkbox below:*
+- [ ] A read-only role for the cost reader, separate from the executor's role; the executor's cost actions get an explicit allow-list and a permission boundary
+- [ ] The safe way to remove waste, as practised in industry: tag it, stop it, wait a grace period, snapshot, only then delete; every action reversible or snapshotted first, with a dry-run preview in the proposal
+- [ ] Tag policy enforced (required keys on every resource) and a show-back report by service/environment
+- [ ] Savings tracked: proposed vs realised, so the phase can show money actually saved
+- [ ] Re-do the cost model for "always-on" (the $50 ceiling was set for a parked system): a new ADR and budget-plan update **before** switching the posture
+- [ ] Compare against AWS Cost Anomaly Detection (what most teams switch on first) and record what Kaval adds beyond it
 - [ ] `docs/learn/phase-6-finops.md` — flip **Written from** to `experience`
 
 **Exit gate:** the agent finds real waste in your own account and you approve the fix.
@@ -179,6 +195,11 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Deploy the **identical** Helm chart, unmodified
 - [ ] Screenshot and record everything
 - [ ] `terraform destroy`, verified clean 24 h later
+- *Planning-standard additions (2026-10-11), each a checkbox below:*
+- [ ] A time-to-live on the EKS cluster so it cannot be left running ($73/month for the control plane alone): an automatic destroy, like staging's idle stop
+- [ ] Network policies and Pod Security Standards applied, and the chart's behaviour under them checked (EKS enforces more than k3s)
+- [ ] Observability parity: Prometheus and the poller run from the same chart by values only; the Kubernetes version and upgrade policy are written down
+- [ ] Terraform plan reviewed and recorded before every apply; teardown verified by a tag-based sweep, not by memory
 - [ ] `docs/learn/phase-7-eks-chapter.md` — flip **Written from** to `experience`
 
 **Exit gate:** same chart runs on EKS with zero edits; teardown leaves zero billable resources.
@@ -196,6 +217,13 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Resume bullets written from what actually shipped
 - [ ] Jira retrospective; course outline from `docs/labs/`
 - [ ] Switch the promotion gate to GitHub Environments with required reviewers *(possible now: the repo is public)*
+- *Planning-standard additions (2026-10-11), each a checkbox below:*
+- [ ] Supply chain, as in industry: an SBOM per image, signed images (cosign keyless), build provenance attestations, and signatures **verified before deploy** (an admission policy), not just produced
+- [ ] A threat model (STRIDE) for the whole system, including the agent reading untrusted text; a **prompt-injection test set** added to the evals (OWASP Top 10 for LLM applications)
+- [ ] Public-repo hygiene: `SECURITY.md` (how to report a vulnerability), `CODEOWNERS`, OpenSSF Scorecard checked, dependency updates reviewed (Dependabot already on), secret rotation schedule documented
+- [ ] IAM least-privilege review with IAM Access Analyzer, kept as evidence
+- [ ] Disaster recovery stated and drilled: recovery time and acceptable data loss for each store, one full-restore drill recorded
+- [ ] Ownership page: who is on call for what, how an incident is declared, the escalation path (even if it is one person, written down)
 - [x] Protect `main`: require the CI checks to pass before a pull request merges — done 2026-09-30 when the repo went public early; found enforced and the docs still saying otherwise on 2026-10-08. All ten CI checks are required (`helm`, `image executor`, `image backup` added 2026-10-08, `KAV-62`); `enforce_admins` stays off
 - [x] `docs/learn/release-engineering.md` — flip **Written from** to `experience` (2026-10-10: an assumed-vs-happened table from the labs, stale claims corrected, interview answers from what was built)
 - [ ] `docs/learn/phase-8-harden-and-publish.md` — flip **Written from** to `experience`
@@ -221,6 +249,10 @@ if this phase is actually picked up. See
 - [ ] Screens: Pulse · Inbox · Detail · Timeline · Ask · Settings
 - [ ] Push notifications via Expo
 - [ ] Approve / deny round trip
+- *Planning-standard additions (2026-10-11), each a checkbox below:*
+- [ ] Approvals are privileged actions: a second factor (biometric) on the approve button, tokens in the device's secure store, and the same expiry and escalation rules as Slack
+- [ ] Distribution through an internal test track only (TestFlight / Play internal testing), with a stated update and revocation path
+- [ ] Push reliability measured: what happens if the push never arrives (fall back to Slack)
 - [ ] `docs/learn/phase-9-mobile-app.md` — flip **Written from** to `experience`
 
 **Exit gate:** phone buzzes for a real incident and you approve it from bed.
@@ -238,6 +270,15 @@ See [docs/future-scope.md](docs/future-scope.md).
 
 ---
 
+## Planning standard — how every piece of work is planned
+
+Added 2026-10-11 after Prometheus was built, proven locally and then found to have no rollout
+planned. Every piece of work is planned the way a real company would, not only built. The
+checklist lives in [CLAUDE.md](CLAUDE.md#planning-standard); each future phase above carries the
+lines it produced, marked *Planning-standard additions*.
+
+---
+
 ## Definition of Done — every story
 
 Documentation is a merge gate, not willpower.
@@ -248,4 +289,4 @@ Documentation is a merge gate, not willpower.
 - [ ] Journal entry appended
 - [ ] Cost impact noted in `docs/cost/`
 - [ ] `docs/architecture/architecture.toml` updated if components changed
-- [ ] **Deployed to staging and verified before prod** — never straight to prod
+- [ ] **Deployed to staging and verified before prod** — never straight to prod. A capability built but left off in staging/prod is not finished: it gets a roadmap line and a Jira story for the rollout the same day (the Prometheus lesson, 2026-10-11)
