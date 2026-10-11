@@ -4,6 +4,9 @@
 #   chaos.sh run [oom]   turn the switch on, start the experiment's Job from its suspended
 #                        CronJob, follow it, print its timeline, turn the switch off again.
 #   chaos.sh stop        the stop button: switch off, Jobs deleted, the victim deleted.
+#   chaos.sh propose     staging has no language model: file the diagnosis it would have written
+#                        (chaos_propose.py). The post-mortem says the run used this.
+#   chaos.sh approve ID  the human step: approve a proposed action through the gateway.
 #   chaos.sh status      the switch, the Jobs, the victim.
 #
 # Staging only. It finds the node by its staging name tag and refuses to run if there is none,
@@ -23,6 +26,7 @@ export AWS_REGION="${AWS_REGION:-ap-south-1}"
 PREFIX="kaval-staging"
 NAMESPACE="kaval-staging"
 DEMO_NAMESPACE="kaval-demo-staging"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ASSUME_YES="${ASSUME_YES:-0}"
 WAIT_SECONDS="${WAIT_SECONDS:-960}"   # the Job's own hard limit is 900
 KC="KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/kubectl"
@@ -101,6 +105,44 @@ cmd_stop() {
   echo "stopped: switch off, Jobs and victim deleted."
 }
 
+# A whole script on the node, sent as base64 so no quoting survives to be mangled.
+run_script_on_node() {  # script text on stdin
+  local b64
+  b64="$(base64 -w0 2>/dev/null || base64)"
+  on_node "$NODE" "echo ${b64} | base64 -d | bash 2>&1"
+}
+
+cmd_propose() {
+  need_node
+  local py cj
+  py="$(base64 -w0 "$HERE/chaos_propose.py" 2>/dev/null || base64 "$HERE/chaos_propose.py")"
+  cj="$(find_name cronjob chaos-oom)"
+  [ -n "$cj" ] || { echo "chaos is not deployed in staging" >&2; exit 1; }
+  # A throwaway pod from the executor image, with the AGENT's database role, 256 MiB, deleted after.
+  run_script_on_node <<SCRIPT
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+K=/usr/local/bin/kubectl
+IMG=\$(\$K get cronjob ${cj} -n ${NAMESPACE} -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}')
+AGENT_SECRET=\$(\$K get secret -n ${NAMESPACE} -o name | grep postgres-agent | head -1 | cut -d/ -f2)
+echo ${py} | base64 -d | \$K run chaos-propose -n ${NAMESPACE} -i --rm --restart=Never --quiet --image="\$IMG" \
+  --overrides='{"spec":{"imagePullSecrets":[{"name":"ecr-cred"}],"containers":[{"name":"chaos-propose","image":"'"\$IMG"'","stdin":true,"command":["python","-"],"envFrom":[{"secretRef":{"name":"'"\$AGENT_SECRET"'"}}],"env":[{"name":"CHAOS_TARGET_NAMESPACE","value":"${DEMO_NAMESPACE}"}],"resources":{"limits":{"memory":"256Mi"}}}]}}'
+SCRIPT
+}
+
+cmd_approve() {
+  local id="${1:-}"
+  [ -n "$id" ] || { echo "usage: chaos.sh approve <action-id> (printed by 'make chaos-propose')" >&2; exit 2; }
+  need_node
+  confirm "Approve action ${id} (raise a memory limit on the experiment's victim)?" || { echo "aborted"; exit 1; }
+  run_script_on_node <<SCRIPT
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+K=/usr/local/bin/kubectl
+IP=\$(\$K get svc -n ${NAMESPACE} -o jsonpath='{.items[?(@.spec.ports[0].port==8000)].spec.clusterIP}')
+curl -s -w ' HTTP %{http_code}' -X POST "http://\$IP:8000/v1/actions/${id}/decisions" -H 'Content-Type: application/json' \
+  -d '{"verdict":"approved","actor":"${CHAOS_APPROVER:-roshan}","reason":"game day"}'
+SCRIPT
+}
+
 cmd_run() {
   local experiment="${1:-oom}"
   [ "$experiment" = "oom" ] || { echo "unknown experiment: $experiment (have: oom)" >&2; exit 2; }
@@ -132,9 +174,14 @@ cmd_run() {
   echo "--- how long each stage took: make mttr ---"
 }
 
+# Sourced by a test, nothing runs; executed, it dispatches.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 case "${1:-}" in
   run)    cmd_run "${2:-oom}" ;;
   stop)   cmd_stop ;;
   status) cmd_status ;;
-  *) echo "usage: chaos.sh <run [oom]|stop|status>"; exit 2 ;;
+  propose) cmd_propose ;;
+  approve) cmd_approve "${2:-}" ;;
+  *) echo "usage: chaos.sh <run [oom]|stop|status|propose|approve ID>"; exit 2 ;;
 esac
+fi

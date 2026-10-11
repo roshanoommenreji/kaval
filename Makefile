@@ -260,6 +260,14 @@ chaos-run: ## Game day on staging: cause the failure EXPERIMENT=oom, follow it, 
 chaos-stop: ## The stop button: chaos switch off, Jobs and the victim deleted (staging)
 	@bash scripts/ops/chaos.sh stop
 
+.PHONY: chaos-propose
+chaos-propose: ## Staging has no language model: file the diagnosis it would write for the experiment's incident. Prints the ACTION id
+	@bash scripts/ops/chaos.sh propose
+
+.PHONY: chaos-approve
+chaos-approve: ## The human step: approve the proposed fix. Usage: make chaos-approve ACTION=<id>
+	@bash scripts/ops/chaos.sh approve $(ACTION)
+
 .PHONY: chaos-status
 chaos-status: ## Chaos switch, Jobs and victim on staging
 	@bash scripts/ops/chaos.sh status
