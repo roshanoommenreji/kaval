@@ -165,7 +165,7 @@ chaos:
   # The Job is killed after this long whatever the code is doing. The switch ConfigMap is
   # rendered "false" on every deploy, so a deploy always leaves chaos off; a game day turns it on
   # with `make chaos-run` and back off at the end.
-  hardLimitSeconds: 900
+  hardLimitSeconds: 1500
   resources:
     requests: { cpu: 25m, memory: 64Mi }
     limits: { cpu: 200m, memory: 192Mi }

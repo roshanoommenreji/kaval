@@ -28,7 +28,7 @@ NAMESPACE="kaval-staging"
 DEMO_NAMESPACE="kaval-demo-staging"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ASSUME_YES="${ASSUME_YES:-0}"
-WAIT_SECONDS="${WAIT_SECONDS:-960}"   # the Job's own hard limit is 900
+WAIT_SECONDS="${WAIT_SECONDS:-1560}"   # the Job's own hard limit is 1500
 KC="KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/kubectl"
 
 confirm() {
@@ -118,14 +118,24 @@ cmd_propose() {
   py="$(base64 -w0 "$HERE/chaos_propose.py" 2>/dev/null || base64 "$HERE/chaos_propose.py")"
   cj="$(find_name cronjob chaos-oom)"
   [ -n "$cj" ] || { echo "chaos is not deployed in staging" >&2; exit 1; }
-  # A throwaway pod from the executor image, with the AGENT's database role, 256 MiB, deleted after.
+  # A throwaway pod from the executor image, with the AGENT's database role and 256 MiB. The script
+  # travels in an environment variable (no stdin to attach), the pod is read once it finishes and
+  # always deleted.
   run_script_on_node <<SCRIPT
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 K=/usr/local/bin/kubectl
 IMG=\$(\$K get cronjob ${cj} -n ${NAMESPACE} -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}')
 AGENT_SECRET=\$(\$K get secret -n ${NAMESPACE} -o name | grep postgres-agent | head -1 | cut -d/ -f2)
-echo ${py} | base64 -d | \$K run chaos-propose -n ${NAMESPACE} -i --rm --restart=Never --quiet --image="\$IMG" \
-  --overrides='{"spec":{"imagePullSecrets":[{"name":"ecr-cred"}],"containers":[{"name":"chaos-propose","image":"'"\$IMG"'","stdin":true,"command":["python","-"],"envFrom":[{"secretRef":{"name":"'"\$AGENT_SECRET"'"}}],"env":[{"name":"CHAOS_TARGET_NAMESPACE","value":"${DEMO_NAMESPACE}"}],"resources":{"limits":{"memory":"256Mi"}}}]}}'
+\$K delete pod chaos-propose -n ${NAMESPACE} --ignore-not-found >/dev/null 2>&1
+\$K run chaos-propose -n ${NAMESPACE} --restart=Never --image="\$IMG" \
+  --overrides='{"spec":{"imagePullSecrets":[{"name":"ecr-cred"}],"containers":[{"name":"chaos-propose","image":"'"\$IMG"'","command":["python","-c","import base64,os;exec(base64.b64decode(os.environ[\\"CHAOS_SCRIPT\\"]))"],"envFrom":[{"secretRef":{"name":"'"\$AGENT_SECRET"'"}}],"env":[{"name":"CHAOS_TARGET_NAMESPACE","value":"${DEMO_NAMESPACE}"},{"name":"CHAOS_SCRIPT","value":"${py}"}],"resources":{"limits":{"memory":"256Mi"}}}]}}' >/dev/null
+for i in \$(seq 1 40); do
+  phase=\$(\$K get pod chaos-propose -n ${NAMESPACE} -o jsonpath='{.status.phase}')
+  case "\$phase" in Succeeded|Failed) break ;; esac
+  sleep 3
+done
+\$K logs chaos-propose -n ${NAMESPACE}
+\$K delete pod chaos-propose -n ${NAMESPACE} --ignore-not-found >/dev/null 2>&1
 SCRIPT
 }
 
@@ -151,9 +161,16 @@ cmd_run() {
   echo "Kaval should notice, and you will be asked to approve the fix. Stop button: make chaos-stop"
   confirm "Start?" || { echo "aborted"; exit 1; }
 
-  local cj job
+  local cj job busy
   cj="$(find_name cronjob chaos-${experiment})"
   [ -n "$cj" ] || { echo "No chaos-${experiment} CronJob in ${NAMESPACE}: is chaos deployed to staging?" >&2; exit 1; }
+  # Refuse BEFORE touching the switch: the switch belongs to whatever run is already going, and a
+  # refused second start must not turn it off underneath that run (found live, 2026-10-11).
+  busy="$(on_node "$NODE" "$KC get deployment chaos-oomer -n ${DEMO_NAMESPACE} --ignore-not-found -o name; $KC get jobs -n ${NAMESPACE} -l app.kubernetes.io/name=kaval-chaos-oom --no-headers | grep -i running || true" | tr -d '[:cntrl:]' )"
+  if [ -n "$(echo "$busy" | tr -d '[:space:]')" ]; then
+    echo "A run is already going or left a victim behind ($(echo "$busy" | tr -s '[:space:]' ' ')). Not starting. 'make chaos-status' to look, 'make chaos-stop' to clear." >&2
+    exit 1
+  fi
   job="chaos-${experiment}-$(date +%H%M%S)"
 
   trap 'echo; echo "switching off..."; set_switch false || echo "!! could not turn the switch off: run make chaos-stop"' EXIT
