@@ -1,5 +1,5 @@
 {{- if .Values.chaos.enabled }}
-# Chaos runner (KAV-79, ADR-0044). Everything here exists only where `chaos.enabled` is true
+# Chaos runner (KAV-79, ADR-0044; second experiment KAV-80, ADR-0045). Everything here exists only where `chaos.enabled` is true
 # (staging and local). The runner BREAKS something on purpose; the executor FIXES it. They are
 # different ServiceAccounts with different grants, so the one that can create the damage cannot
 # repair it and the one that repairs cannot create it.
@@ -72,6 +72,13 @@ rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["get", "create", "delete"]
+  # KAV-80: the bad-release experiment ships its second version to ITS victim, which is a patch.
+  # `resourceNames` limits that one write verb to that one Deployment; the executor, which repairs,
+  # can patch any Deployment in this namespace, and the runner still cannot touch anything else.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["chaos-badrelease"]
+    verbs: ["patch"]
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["list"]
@@ -91,14 +98,15 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "kaval.fullname" . }}-chaos-runner
     namespace: {{ .Release.Namespace }}
+{{- range $experiment := list "oom" "badrelease" }}
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ include "kaval.fullname" . }}-chaos-oom
-  namespace: {{ .Release.Namespace }}
+  name: {{ include "kaval.fullname" $ }}-chaos-{{ $experiment }}
+  namespace: {{ $.Release.Namespace }}
   labels:
-    {{- include "kaval.labels" . | nindent 4 }}
+    {{- include "kaval.labels" $ | nindent 4 }}
 spec:
   suspend: true
   schedule: "0 0 1 1 *"
@@ -108,33 +116,34 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 0
-      activeDeadlineSeconds: {{ .Values.chaos.hardLimitSeconds }}
+      activeDeadlineSeconds: {{ $.Values.chaos.hardLimitSeconds }}
       ttlSecondsAfterFinished: 86400
       template:
         metadata:
           labels:
-            app.kubernetes.io/name: kaval-chaos-oom
+            app.kubernetes.io/name: kaval-chaos-{{ $experiment }}
         spec:
-          {{- include "kaval.imagePullSecrets" . | nindent 10 }}
-          serviceAccountName: {{ include "kaval.fullname" . }}-chaos-runner
+          {{- include "kaval.imagePullSecrets" $ | nindent 10 }}
+          serviceAccountName: {{ include "kaval.fullname" $ }}-chaos-runner
           automountServiceAccountToken: true
           restartPolicy: Never
           containers:
             - name: chaos
-              image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.executor.image.repository "tag" .Values.executor.image.tag) }}"
-              imagePullPolicy: {{ .Values.executor.image.pullPolicy }}
-              command: ["python", "-m", "kaval_executor.chaos", "oom"]
+              image: "{{ include "kaval.image" (dict "root" $ "repository" $.Values.executor.image.repository "tag" $.Values.executor.image.tag) }}"
+              imagePullPolicy: {{ $.Values.executor.image.pullPolicy }}
+              command: ["python", "-m", "kaval_executor.chaos", "{{ $experiment }}"]
               env:
                 - name: CHAOS_ENVIRONMENT
-                  value: {{ .Values.chaos.environment | quote }}
+                  value: {{ $.Values.chaos.environment | quote }}
                 - name: CHAOS_TARGET_NAMESPACE
-                  value: {{ .Values.executor.demoNamespace | quote }}
+                  value: {{ $.Values.executor.demoNamespace | quote }}
                 - name: CHAOS_SWITCH
-                  value: "{{ include "kaval.fullname" . }}-chaos-switch"
+                  value: "{{ include "kaval.fullname" $ }}-chaos-switch"
                 - name: POD_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
               resources:
-                {{- toYaml .Values.chaos.resources | nindent 16 }}
+                {{- toYaml $.Values.chaos.resources | nindent 16 }}
+{{- end }}
 {{- end }}

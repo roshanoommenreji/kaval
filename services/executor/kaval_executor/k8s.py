@@ -3,10 +3,11 @@
 One function per supported `action.type` — not a general-purpose client wrapper, because a
 general wrapper invites an action type nobody has reviewed into `SUPPORTED_ACTIONS` by
 accident. Today: `restart_pod`, the flagship `auto`-eligible example `policy/README.md`
-already names, and `increase_memory_limit` (KAV-79). The executor's own RBAC
-(`deploy/charts/kaval/templates/executor.yaml`) is the real enforcement — `get`/`delete` on
-pods, `get`/`patch` on deployments, `get` on replicasets, in the demo namespace only — so a bug
-here that tried to do more would fail at the API server, not just at review time.
+already names, `increase_memory_limit` (KAV-79) and `rollback_deployment` (KAV-80). The
+executor's own RBAC (`deploy/charts/kaval/templates/executor.yaml`) is the real enforcement —
+`get`/`delete` on pods, `get`/`patch` on deployments, `get`/`list` on replicasets, in the demo
+namespace only — so a bug here that tried to do more would fail at the API server, not just at
+review time.
 """
 
 from __future__ import annotations
@@ -101,9 +102,17 @@ MIB = 1024 * 1024
 MEMORY_LIMIT_CEILING_MIB = 512
 
 
-class CannotRaiseLimit(RuntimeError):
-    """The memory limit cannot be raised safely; a person has to look. Becomes a failed,
-    recorded execution carrying this message."""
+class CannotAct(RuntimeError):
+    """An action refuses to act because it cannot be done safely; a person has to look. Becomes a
+    failed, recorded execution carrying the message."""
+
+
+class CannotRaiseLimit(CannotAct):
+    """The memory limit cannot be raised safely."""
+
+
+class CannotRollBack(CannotAct):
+    """The Deployment cannot be rolled back safely."""
 
 
 def next_memory_limit_mib(current_bytes: int) -> int:
@@ -119,19 +128,19 @@ def next_memory_limit_mib(current_bytes: int) -> int:
 
 
 def _deployment_of_pod(apps: client.AppsV1Api, v1: client.CoreV1Api, namespace: str,
-                       pod_name: str) -> str:
+                       pod_name: str, refuse: type[CannotAct] = CannotRaiseLimit) -> str:
     """The deployment that owns a pod, through its ReplicaSet. The incident names a pod
     (`ns/pod-7f9c-x2klp`), the fix belongs on the deployment, so the model may name either."""
     pod = v1.read_namespaced_pod(pod_name, namespace)
     refs = (pod.metadata.owner_references if pod.metadata else None) or []
     rs_name = next((r.name for r in refs if r.kind == "ReplicaSet"), None)
     if rs_name is None:
-        raise CannotRaiseLimit(f"pod {namespace}/{pod_name} is not owned by a ReplicaSet")
+        raise refuse(f"pod {namespace}/{pod_name} is not owned by a ReplicaSet")
     rs = apps.read_namespaced_replica_set(rs_name, namespace)
     rs_refs = (rs.metadata.owner_references if rs.metadata else None) or []
     deployment = next((r.name for r in rs_refs if r.kind == "Deployment"), None)
     if deployment is None:
-        raise CannotRaiseLimit(f"pod {namespace}/{pod_name} does not belong to a Deployment")
+        raise refuse(f"pod {namespace}/{pod_name} does not belong to a Deployment")
     return deployment
 
 
@@ -185,9 +194,122 @@ def increase_memory_limit(target: str) -> tuple[dict[str, Any], dict[str, Any], 
     return before_state, after_state, stdout
 
 
+REVISION_ANNOTATION = "deployment.kubernetes.io/revision"
+HASH_LABEL = "pod-template-hash"
+# Left on a Deployment by a rollback. A rollback makes the old version the NEWEST revision, so a
+# second rollback straight after would go "back" to the broken release we just left. Within this
+# window the action refuses and a person decides.
+ROLLBACK_MARK = "kaval.dev/rolled-back-at"
+ROLLBACK_COOLDOWN_SECONDS = 3600
+
+
+def _revision(obj: Any) -> int:
+    annotations = (obj.metadata.annotations if obj.metadata else None) or {}
+    try:
+        return int(annotations.get(REVISION_ANNOTATION, 0))
+    except ValueError:
+        return 0
+
+
+def _images(template: Any) -> list[str]:
+    containers = (template.spec.containers if template and template.spec else None) or []
+    return [str(c.image) for c in containers]
+
+
+def _refuse_if_just_rolled_back(deployment: str, mark: str) -> None:
+    try:
+        when = datetime.fromisoformat(mark)
+    except ValueError:
+        return  # a mark nobody can read does not block; the other checks still apply
+    age = (datetime.now(UTC) - when).total_seconds()
+    if 0 <= age < ROLLBACK_COOLDOWN_SECONDS:
+        raise CannotRollBack(
+            f"deployment {deployment} was rolled back {int(age)} s ago; rolling back again would "
+            "go forward to the release just left. A person has to look")
+
+
+def rollback_deployment(target: str) -> tuple[dict[str, Any], dict[str, Any], str]:
+    """Put a Deployment back to the version it ran before the current one (KAV-80, ADR-0045).
+
+    The same thing `kubectl rollout undo` does: take the pod template of the previous
+    ReplicaSet and make it the Deployment's template again. A restart cannot fix a bad release
+    (the pod comes back running the same broken version); this can. `target` is a Deployment
+    (`namespace/name`) or one of its pods. Refuses, rather than guesses, when there is no earlier
+    version or the earlier version is identical to the current one (nothing to go back to). It
+    cannot tell whether the earlier version is any good; the outcome check five minutes later
+    does. Reversible: the before-state names the version it left, and rolling forward is the
+    same operation by a person.
+    """
+    namespace, name = _split_target(target)
+    apps = client.AppsV1Api()
+    v1 = client.CoreV1Api()
+    try:
+        deployment = apps.read_namespaced_deployment(name, namespace)
+    except ApiException as exc:
+        if exc.status != 404:
+            raise
+        name = _deployment_of_pod(apps, v1, namespace, name, CannotRollBack)
+        deployment = apps.read_namespaced_deployment(name, namespace)
+
+    annotations = (deployment.metadata.annotations if deployment.metadata else None) or {}
+    if ROLLBACK_MARK in annotations:
+        _refuse_if_just_rolled_back(f"{namespace}/{name}", annotations[ROLLBACK_MARK])
+
+    spec = deployment.spec
+    if spec is None or spec.selector is None:
+        raise CannotRollBack(f"deployment {namespace}/{name} has no selector; not guessing")
+    selector = ",".join(f"{k}={v}" for k, v in sorted((spec.selector.match_labels or {}).items()))
+    owned = [
+        rs for rs in apps.list_namespaced_replica_set(namespace, label_selector=selector).items
+        if any(r.kind == "Deployment" and r.name == name
+               for r in ((rs.metadata.owner_references if rs.metadata else None) or []))
+    ]
+    current = _revision(deployment)
+    earlier = sorted((rs for rs in owned if 0 < _revision(rs) < current), key=_revision)
+    if not earlier:
+        raise CannotRollBack(f"deployment {namespace}/{name} has no earlier version to go back to")
+    previous = earlier[-1]
+    if previous.spec is None or previous.spec.template is None:
+        raise CannotRollBack(f"the earlier version of {namespace}/{name} has no pod template")
+
+    api = client.ApiClient()
+    template: dict[str, Any] = api.sanitize_for_serialization(  # type: ignore[no-untyped-call]
+        previous.spec.template)
+    # The ReplicaSet's own hash label must not be copied into the Deployment (kubectl strips it).
+    ((template.get("metadata") or {}).get("labels") or {}).pop(HASH_LABEL, None)
+    current_template: dict[str, Any] = api.sanitize_for_serialization(  # type: ignore[no-untyped-call]
+        spec.template)
+    ((current_template.get("metadata") or {}).get("labels") or {}).pop(HASH_LABEL, None)
+    if template == current_template:
+        raise CannotRollBack(
+            f"deployment {namespace}/{name}: the earlier version is identical to the current "
+            "one; a rollback would change nothing"
+        )
+
+    # A JSON patch that REPLACES the template, so anything the bad release added (an env var, a
+    # volume) goes too; a merge patch would only overlay the old template onto the new one.
+    now = datetime.now(UTC)
+    apps.patch_namespaced_deployment(name, namespace, [
+        {"op": "replace", "path": "/spec/template", "value": template},
+        # "/" inside a JSON-pointer key is written "~1"; "add" also replaces an existing mark.
+        {"op": "add", "path": "/metadata/annotations/" + ROLLBACK_MARK.replace("/", "~1"),
+         "value": now.isoformat()},
+    ])
+    before_state = {"deployment": f"{namespace}/{name}", "revision": current,
+                    "images": _images(spec.template)}
+    after_state = {"went_back_to_revision": _revision(previous),
+                   "images": _images(previous.spec.template),
+                   "patched_at": now.isoformat(),
+                   "rollout": "the Deployment replaces its pods with the earlier version"}
+    stdout = (f"deployment {namespace}/{name}: rolled back from revision {current} "
+              f"to revision {_revision(previous)}")
+    return before_state, after_state, stdout
+
+
 # The one place `kaval_executor.executor` looks up a handler by `action.type`. An action
 # type with no entry here is refused and recorded as skipped — see `executor.execute_one`.
 SUPPORTED_ACTIONS = {
     "restart_pod": restart_pod,
     "increase_memory_limit": increase_memory_limit,
+    "rollback_deployment": rollback_deployment,
 }

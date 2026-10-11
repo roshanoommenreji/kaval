@@ -23,6 +23,22 @@ test_increase_memory_limit_is_ask if {
 	}
 }
 
+# KAV-80: the rollback starts at ask, at any confidence. "rollback_deployment" contains no never
+# keyword either; a rollback changes a Deployment's template, it deletes nothing.
+test_rollback_deployment_is_ask if {
+	policy.decision == "ask" with input as {
+		"action": {"type": "rollback_deployment", "target": "x/y", "blast_radius": "deployment", "reversible": true},
+		"confidence": 0.99,
+	}
+}
+
+test_rollback_deployment_is_ask_even_when_unsure if {
+	policy.decision == "ask" with input as {
+		"action": {"type": "rollback_deployment", "target": "x/y", "blast_radius": "deployment", "reversible": true},
+		"confidence": 0.1,
+	}
+}
+
 # ── never: action type keywords, case-insensitive ───────────────────────────────────────
 
 test_never_delete_pvc if {

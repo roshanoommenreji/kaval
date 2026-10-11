@@ -16,6 +16,7 @@ from kaval_collector import k8s_events
 from kaval_collector.synthetic import DEMO_NAMESPACE, KUBERNETES
 from kaval_shared.models import Signal
 from kubernetes import client
+from kubernetes.client.exceptions import ApiException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -41,13 +42,36 @@ class _EventList:
 
 
 class _FakeCoreV1Api:
-    """Stands in for `client.CoreV1Api` — `poll()` only ever calls one method on it."""
+    """Stands in for `client.CoreV1Api` — `poll()` calls two methods on it."""
 
-    def __init__(self, events: list[client.CoreV1Event]) -> None:
+    def __init__(self, events: list[client.CoreV1Event],
+                 pods: dict[str, client.V1Pod] | None = None) -> None:
         self._events = events
+        self._pods = pods or {}
+        self.pod_reads: list[str] = []
 
     def list_namespaced_event(self, namespace: str, field_selector: str = "") -> _EventList:
         return _EventList(items=self._events)
+
+    def read_namespaced_pod(self, name: str, namespace: str) -> client.V1Pod:
+        self.pod_reads.append(name)
+        if name not in self._pods:
+            raise ApiException(status=404)
+        return self._pods[name]
+
+
+def _terminated(reason: str, code: int, minute: int = 0) -> client.V1ContainerStateTerminated:
+    return client.V1ContainerStateTerminated(
+        reason=reason, exit_code=code, finished_at=NOW.replace(minute=minute))
+
+
+def _pod(*, last: client.V1ContainerStateTerminated | None = None,
+         now: client.V1ContainerStateTerminated | None = None) -> client.V1Pod:
+    return client.V1Pod(status=client.V1PodStatus(container_statuses=[client.V1ContainerStatus(
+        name="app", image="x", image_id="x", ready=False, restart_count=3,
+        state=client.V1ContainerState(terminated=now),
+        last_state=client.V1ContainerState(terminated=last),
+    )]))
 
 
 def _event(
@@ -136,3 +160,60 @@ def test_poll_writes_the_source_kubernetes_with_the_synthetic_vocabulary(
         select(Signal).where(Signal.target == f"{DEMO_NAMESPACE}/{target_name}")
     )
     assert row is not None and row.source == KUBERNETES
+
+
+# ── KAV-80: a BackOff is labelled by why the container last ended ───────────────────────
+
+def _signal(db_session: Session, name: str) -> Signal:
+    row = db_session.scalar(select(Signal).where(Signal.target == f"{DEMO_NAMESPACE}/{name}"))
+    assert row is not None
+    return row
+
+
+def test_a_back_off_for_a_pod_killed_for_memory_becomes_pod_oom_killed(
+    db_session: Session,
+) -> None:
+    name = f"oomer-{uuid.uuid4().hex[:8]}"
+    api = _FakeCoreV1Api([_event(name=name, reason="BackOff", count=4)],
+                         {name: _pod(last=_terminated("OOMKilled", 137))})
+    lines = k8s_events.poll(db_session, api, DEMO_NAMESPACE, now=NOW)
+    assert "pod_oom_killed" in lines[0]
+    row = _signal(db_session, name)
+    assert row.kind == "pod_oom_killed"
+    # The original event is still all there, plus the reason it was relabelled for.
+    assert row.value["reason"] == "BackOff"
+    assert row.value["last_exit_reason"] == "OOMKilled" and row.value["last_exit_code"] == 137
+
+
+def test_a_back_off_for_a_program_that_crashed_on_its_own_stays_a_back_off(
+    db_session: Session,
+) -> None:
+    name = f"badrelease-{uuid.uuid4().hex[:8]}"
+    api = _FakeCoreV1Api([_event(name=name, reason="BackOff")],
+                         {name: _pod(last=_terminated("Error", 1))})
+    k8s_events.poll(db_session, api, DEMO_NAMESPACE, now=NOW)
+    row = _signal(db_session, name)
+    assert row.kind == "pod_back_off"
+    assert row.value["last_exit_reason"] == "Error" and row.value["last_exit_code"] == 1
+
+
+def test_a_back_off_for_a_pod_that_is_already_gone_is_still_recorded(db_session: Session) -> None:
+    name = f"gone-{uuid.uuid4().hex[:8]}"
+    api = _FakeCoreV1Api([_event(name=name, reason="BackOff")])  # the pod read gives 404
+    k8s_events.poll(db_session, api, DEMO_NAMESPACE, now=NOW)
+    row = _signal(db_session, name)
+    assert row.kind == "pod_back_off" and "last_exit_reason" not in row.value
+
+
+def test_only_a_back_off_costs_a_pod_read(db_session: Session) -> None:
+    name = f"checkout-{uuid.uuid4().hex[:8]}"
+    api = _FakeCoreV1Api([_event(name=name, reason="Unhealthy")])
+    k8s_events.poll(db_session, api, DEMO_NAMESPACE, now=NOW)
+    assert api.pod_reads == []
+
+
+def test_last_exit_takes_the_most_recent_termination() -> None:
+    pod = _pod(last=_terminated("OOMKilled", 137, minute=1), now=_terminated("Error", 1, minute=5))
+    assert k8s_events.last_exit(pod) == ("Error", 1)
+    assert k8s_events.last_exit(_pod()) == (None, None)
+    assert k8s_events.last_exit(client.V1Pod()) == (None, None)

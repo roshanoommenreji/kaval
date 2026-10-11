@@ -29,12 +29,10 @@ Actions that look right and make it worse.
 
 ## Written
 
-- `restore-from-backup.md`, `rollback-prod.md`, `kaval-stopped-reporting.md` (`KAV-78`), `pod-oomkilled.md` (`KAV-79`)
+- `restore-from-backup.md`, `rollback-prod.md`, `kaval-stopped-reporting.md` (`KAV-78`), `pod-oomkilled.md` (`KAV-79`), `pod-crashloop-after-release.md` and `node-lost.md` (`KAV-80`)
 
 ## Planned (Phase 5)
 
-- `pod-crashloop.md`
-- `node-spot-reclaim.md`
 - `disk-pressure.md`
 - `latency-spike.md`
 - `cost-spike.md`

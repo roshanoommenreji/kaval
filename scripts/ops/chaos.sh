@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Game days on staging (KAV-79, ADR-0044). One script, three verbs:
+# Game days on staging (KAV-79, ADR-0044; second experiment KAV-80, ADR-0045). One script, verbs:
 #
-#   chaos.sh run [oom]   turn the switch on, start the experiment's Job from its suspended
+#   chaos.sh run [oom|badrelease]
+#                        turn the switch on, start the experiment's Job from its suspended
 #                        CronJob, follow it, print its timeline, turn the switch off again.
 #   chaos.sh stop        the stop button: switch off, Jobs deleted, the victim deleted.
-#   chaos.sh propose     staging has no language model: file the diagnosis it would have written
+#   chaos.sh propose [oom|badrelease]
+#                        staging has no language model: file the diagnosis it would have written
 #                        (chaos_propose.py). The post-mortem says the run used this.
 #   chaos.sh approve ID  the human step: approve a proposed action through the gateway.
 #   chaos.sh mttr        time to restore by stage, read from staging's database (make chaos-mttr).
@@ -31,6 +33,15 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ASSUME_YES="${ASSUME_YES:-0}"
 WAIT_SECONDS="${WAIT_SECONDS:-1560}"   # the Job's own hard limit is 1500
 KC="KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/kubectl"
+
+# Each experiment has one victim Deployment in the demo namespace, named after what it breaks.
+victim_of() {
+  case "$1" in
+    oom) echo "chaos-oomer" ;;
+    badrelease) echo "chaos-badrelease" ;;
+    *) echo "unknown experiment: $1 (have: oom, badrelease)" >&2; return 2 ;;
+  esac
+}
 
 confirm() {
   [ "$ASSUME_YES" = "1" ] && return 0
@@ -93,17 +104,19 @@ cmd_status() {
   if [ -z "$cm" ]; then echo "chaos is not deployed in staging"; return 0; fi
   echo "switch : $(on_node "$NODE" "$KC get configmap $cm -n ${NAMESPACE} -o jsonpath='{.data.enabled}'")"
   echo "jobs   :"
-  on_node "$NODE" "$KC get jobs -n ${NAMESPACE} -l app.kubernetes.io/name=kaval-chaos-oom --no-headers 2>&1"
-  echo "victim :"
-  on_node "$NODE" "$KC get pods -n ${DEMO_NAMESPACE} -l app=chaos-oomer --no-headers 2>&1"
+  on_node "$NODE" "$KC get jobs -n ${NAMESPACE} --no-headers 2>&1 | grep chaos- || echo none"
+  echo "victims:"
+  on_node "$NODE" "$KC get pods -n ${DEMO_NAMESPACE} -l kaval.dev/chaos=true --no-headers 2>&1"
 }
 
 cmd_stop() {
   need_node
   set_switch false || true
-  on_node "$NODE" "$KC delete jobs -n ${NAMESPACE} -l app.kubernetes.io/name=kaval-chaos-oom --ignore-not-found" || true
-  on_node "$NODE" "$KC delete deployment chaos-oomer -n ${DEMO_NAMESPACE} --ignore-not-found" || true
-  echo "stopped: switch off, Jobs and victim deleted."
+  for e in oom badrelease; do
+    on_node "$NODE" "$KC delete jobs -n ${NAMESPACE} -l app.kubernetes.io/name=kaval-chaos-$e --ignore-not-found" || true
+    on_node "$NODE" "$KC delete deployment $(victim_of $e) -n ${DEMO_NAMESPACE} --ignore-not-found" || true
+  done
+  echo "stopped: switch off, Jobs and victims deleted."
 }
 
 # A whole script on the node, sent as base64 so no quoting survives to be mangled.
@@ -142,8 +155,10 @@ SCRIPT
 # Staging has no language model: file the diagnosis it would write, with the AGENT's database role
 # (the one allowed to write proposals).
 cmd_propose() {
+  local experiment="${1:-oom}"
+  victim_of "$experiment" >/dev/null || exit 2
   need_node
-  pod_run chaos-propose agent "$(b64_of "$HERE/chaos_propose.py")"
+  pod_run chaos-propose agent "$(b64_of "$HERE/chaos_propose.py")" ",{\"name\":\"CHAOS_EXPERIMENT\",\"value\":\"${experiment}\"}"
 }
 
 # How long each stage took, from the outcome rows, with the EXECUTOR's database role.
@@ -161,7 +176,7 @@ cmd_approve() {
   local id="${1:-}"
   [ -n "$id" ] || { echo "usage: chaos.sh approve <action-id> (printed by 'make chaos-propose')" >&2; exit 2; }
   need_node
-  confirm "Approve action ${id} (raise a memory limit on the experiment's victim)?" || { echo "aborted"; exit 1; }
+  confirm "Approve action ${id} (the fix 'make chaos-propose' filed for the experiment's victim)?" || { echo "aborted"; exit 1; }
   run_script_on_node <<SCRIPT
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 K=/usr/local/bin/kubectl
@@ -172,10 +187,10 @@ SCRIPT
 }
 
 cmd_run() {
-  local experiment="${1:-oom}"
-  [ "$experiment" = "oom" ] || { echo "unknown experiment: $experiment (have: oom)" >&2; exit 2; }
+  local experiment="${1:-oom}" victim
+  victim="$(victim_of "$experiment")" || exit 2
   need_node
-  echo "Game day: ${experiment}, on staging only. The victim lives in ${DEMO_NAMESPACE}."
+  echo "Game day: ${experiment}, on staging only. The victim (${victim}) lives in ${DEMO_NAMESPACE}."
   echo "Kaval should notice, and you will be asked to approve the fix. Stop button: make chaos-stop"
   confirm "Start?" || { echo "aborted"; exit 1; }
 
@@ -184,7 +199,8 @@ cmd_run() {
   [ -n "$cj" ] || { echo "No chaos-${experiment} CronJob in ${NAMESPACE}: is chaos deployed to staging?" >&2; exit 1; }
   # Refuse BEFORE touching the switch: the switch belongs to whatever run is already going, and a
   # refused second start must not turn it off underneath that run (found live, 2026-10-11).
-  busy="$(on_node "$NODE" "$KC get deployment chaos-oomer -n ${DEMO_NAMESPACE} --ignore-not-found -o name; $KC get jobs -n ${NAMESPACE} -l app.kubernetes.io/name=kaval-chaos-oom --no-headers | grep -i running || true" | tr -d '[:cntrl:]' )"
+  # Either experiment's victim or Job counts: they share one switch, so only one runs at a time.
+  busy="$(on_node "$NODE" "$KC get deployment chaos-oomer chaos-badrelease -n ${DEMO_NAMESPACE} --ignore-not-found -o name; $KC get jobs -n ${NAMESPACE} --no-headers | grep -i chaos- | grep -i running || true" | tr -d '[:cntrl:]' )"
   if [ -n "$(echo "$busy" | tr -d '[:space:]')" ]; then
     echo "A run is already going or left a victim behind ($(echo "$busy" | tr -s '[:space:]' ' ')). Not starting. 'make chaos-status' to look, 'make chaos-stop' to clear." >&2
     exit 1
@@ -201,7 +217,7 @@ cmd_run() {
     sleep 20
     waited=$((waited + 20))
     state="$(on_node "$NODE" "$KC get job $job -n ${NAMESPACE} -o jsonpath='{.status.succeeded}/{.status.failed}'")"
-    echo "  ${waited}s  job(succeeded/failed)=${state:-?}   victim: $(on_node "$NODE" "$KC get pods -n ${DEMO_NAMESPACE} -l app=chaos-oomer --no-headers | head -1" | tr -s ' ')"
+    echo "  ${waited}s  job(succeeded/failed)=${state:-?}   victim: $(on_node "$NODE" "$KC get pods -n ${DEMO_NAMESPACE} -l app=${victim} --no-headers | head -1" | tr -s ' ')"
     case "$state" in 1/* ) break ;; */1 | */2 ) break ;; esac
   done
   echo "--- the runner's timeline ---"
@@ -215,9 +231,9 @@ case "${1:-}" in
   run)    cmd_run "${2:-oom}" ;;
   stop)   cmd_stop ;;
   status) cmd_status ;;
-  propose) cmd_propose ;;
+  propose) cmd_propose "${2:-oom}" ;;
   mttr)    cmd_mttr ;;
   approve) cmd_approve "${2:-}" ;;
-  *) echo "usage: chaos.sh <run [oom]|stop|status|propose|approve ID|mttr>"; exit 2 ;;
+  *) echo "usage: chaos.sh <run [oom|badrelease]|stop|status|propose [oom|badrelease]|approve ID|mttr>"; exit 2 ;;
 esac
 fi
