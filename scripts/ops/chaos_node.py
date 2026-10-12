@@ -5,7 +5,9 @@ cluster, and Kaval itself, runs on. So it runs from the laptop, with the laptop'
 the guard is in this file instead of in a Kubernetes switch:
 
   * it only ever picks the machine tagged Name=kaval-staging that belongs to the auto-scaling group
-    `kaval-staging`, and refuses on anything else (prod's are named kaval-prod);
+    `kaval-staging`, and refuses on anything else (prod's are named kaval-prod). The group name is
+    the identity: the group passes only the Name and Project tags to its machines, so an Env tag
+    cannot be relied on (the first live attempt, 2026-10-12, refused for expecting one);
   * you must type that machine's id back to start;
   * the machine is ended through the auto-scaling group WITHOUT lowering its wanted size, so the
     group replaces it by itself. That replacement is what is being tested.
@@ -35,7 +37,7 @@ from pathlib import Path
 from typing import Protocol
 
 GROUP = "kaval-staging"
-ENV_TAG = "staging"
+NAME_TAG = "kaval-staging"
 NAMESPACE = "kaval-staging"
 MAX_SECONDS = 30 * 60
 POLL_SECONDS = 15
@@ -53,7 +55,7 @@ class Node:
     instance_id: str
     state: str   # pending | running | shutting-down | terminated ...
     group: str   # the auto-scaling group the machine belongs to
-    env: str     # the Env tag
+    name: str    # the Name tag
 
 
 class Aws(Protocol):
@@ -68,9 +70,9 @@ def guard(node: Node | None) -> Node:
     if node is None:
         raise Refused("staging is not running (no machine tagged Name=kaval-staging). "
                       "Start it with: make staging-up")
-    if node.group != GROUP or node.env != ENV_TAG:
-        raise Refused(f"{node.instance_id} is in group {node.group!r} with Env={node.env!r}; "
-                      f"only group {GROUP!r} with Env={ENV_TAG!r} may be ended")
+    if node.group != GROUP or node.name != NAME_TAG:
+        raise Refused(f"{node.instance_id} is in group {node.group!r} with Name={node.name!r}; "
+                      f"only group {GROUP!r} with Name={NAME_TAG!r} may be ended")
     return node
 
 
@@ -94,8 +96,14 @@ $K get pods -n NAMESPACE --no-headers 2>/dev/null | awk '
   END {print "pods_ready=" ok+0; print "pods_not_ready=" bad+0}'
 IP=$($K get svc -n NAMESPACE -o \
   jsonpath='{.items[?(@.spec.ports[0].port==8000)].spec.clusterIP}' 2>/dev/null)
-echo gateway=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
-  http://$IP:8000/healthz 2>/dev/null)
+# /healthz is 503 on staging by design (it also checks a language model that staging does not
+# have), so "healthy" here is: the gateway answers AND its database check is ok.
+echo gateway=$(curl -s --max-time 5 http://$IP:8000/healthz 2>/dev/null | python3 -c '
+import sys, json
+try:
+    print(200 if json.load(sys.stdin)["postgres"]["ok"] else 503)
+except Exception:
+    print(0)')
 curl -s --max-time 8 "http://$IP:8000/v1/incidents?limit=200" 2>/dev/null | python3 -c '
 import sys, json
 try:
@@ -185,9 +193,15 @@ def run(
         if fresh is not None:
             timeline.new_instance = fresh.instance_id
             timeline.mark("new_machine_running", elapsed)
-            if aws.ssm_online(fresh.instance_id):
-                timeline.mark("session_manager_reachable", elapsed)
+            online = aws.ssm_online(fresh.instance_id)
+            # Stamp each step AFTER the call that saw it returns: a probe on a machine that is
+            # still booting can block for a minute or more, and stamping at the top of the loop
+            # would date every step to before it was seen (checked against the cluster's clocks
+            # on the first live run, 2026-10-12).
+            if online:
+                timeline.mark("session_manager_reachable", clock() - t0)
                 now = probe(aws, fresh.instance_id, newest)
+                elapsed = clock() - t0
                 timeline.after = now
                 if int(now.get("node_ready", "0")) >= 1:
                     timeline.mark("cluster_node_ready", elapsed)
@@ -220,9 +234,9 @@ class CliAws:
             "--query",
             "Reservations[].Instances[].[InstanceId,State.Name,"
             "Tags[?Key=='aws:autoscaling:groupName']|[0].Value,"
-            "Tags[?Key=='Env']|[0].Value]",
+            "Tags[?Key=='Name']|[0].Value]",
             "--output", "json")
-        return [Node(i, s, g or "", e or "") for i, s, g, e in json.loads(out)]
+        return [Node(i, s, g or "", n or "") for i, s, g, n in json.loads(out)]
 
     def end(self, instance_id: str) -> None:
         self._aws("autoscaling", "terminate-instance-in-auto-scaling-group",

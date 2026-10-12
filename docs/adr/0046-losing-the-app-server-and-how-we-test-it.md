@@ -32,7 +32,7 @@ full on a host).
    cannot test its own death from inside.
 2. **The guard lives in the script**, because there is no Kubernetes switch to lean on:
    - it picks only the instance tagged `Name=kaval-staging` that is in the auto-scaling group
-     `kaval-staging` with `Env=staging`, and refuses on anything else (prod's are `kaval-prod`);
+     `kaval-staging` (the group name is the identity; the group passes only `Name` and `Project` to its machines, so an `Env` tag cannot be relied on, which the first live attempt found), and refuses on anything else (prod's are `kaval-prod`);
    - it refuses when more than one staging machine runs, rather than guess;
    - it refuses to start if Kaval on staging is **not healthy to begin with** (the run would measure
      nothing);
