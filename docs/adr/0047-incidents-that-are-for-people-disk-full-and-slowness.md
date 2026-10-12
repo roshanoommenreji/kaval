@@ -115,6 +115,14 @@ path**; every hand-filed action classed `never`; **nothing executed**. A hand-fi
 - Disk and slowness incidents exist, open for as long as the fault lasts, with a runbook each
   ([disk-pressure](../runbooks/disk-pressure.md), [latency-spike](../runbooks/latency-spike.md)).
 - Staging has a lower disk line than prod. A chart test makes that visible and keeps prod at 0.85.
+- **Found by the first slow-service game day (second finding): one incident per program hid the
+  slowness.** The correlator keeps one open incident per program and the first signal names it. A
+  harmless "readiness probe failed at start-up" event opened `unhealthy:...` a few seconds before the
+  slowness signals, which then joined it and the incident kept the harmless name, which the "people
+  only" rule (it reads the name) does not cover and which allows a restart proposal. Fixed: people-only
+  problems have their own lane in the correlator (`_key`): they always form their own incident, named
+  for what they are, and ordinary signals never join one (tests reproduce the live case). Kaval's own
+  health benefits too (an ordinary problem with the same service can no longer rename it).
 - **Found by the first slow-service game day:** staging's live settings are the copy inside its
   HelmRelease, and the new probe target and disk line were only in the environment file, so the
   deployed poller had nothing to probe. Every render and test was green. A test now fails whenever the

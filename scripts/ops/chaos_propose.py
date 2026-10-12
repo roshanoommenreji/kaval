@@ -59,10 +59,14 @@ def main() -> int:
         return 2
     victim, action_type, what, root_cause = EXPERIMENTS[experiment]
     people_only = experiment in ("slow", "disk")
+    # The incident for these two is named for the problem; the program may also have an ordinary
+    # incident (a start-up blip), which is NOT the one under test.
+    cause_prefix = {"slow": "latency_high:", "disk": "disk_pressure:"}.get(experiment, "")
     with Session(get_engine()) as db:
         incident = db.scalars(
             select(Incident)
-            .where(Incident.closed_at.is_(None), Incident.fingerprint.contains(f"/{victim}"))
+            .where(Incident.closed_at.is_(None), Incident.fingerprint.contains(f"/{victim}"),
+                   Incident.fingerprint.startswith(cause_prefix))
             .order_by(Incident.opened_at.desc())
         ).first()
         if incident is None:
