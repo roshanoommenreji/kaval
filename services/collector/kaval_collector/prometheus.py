@@ -24,6 +24,11 @@ itself: a Prometheus that cannot be asked for `UNREACHABLE_AFTER` passes in a ro
 but is not evaluating its rules (the always-firing `KavalWatchdog` is missing), becomes a
 `kaval_*` signal, the one failure no rule inside Prometheus could report.
 
+Third and fourth jobs (KAV-81, ADR-0047): the same poller also notices a nearly full disk (a
+ratio Prometheus is asked for, the query being a setting so the measurement on staging, not a guess,
+decides what it is) and, through `kaval_collector.probe`, a service that has become slow. Both
+become incidents that are for a person, never a proposed fix.
+
 Talks to Prometheus with the standard library, so the collector image gains no dependency.
 It needs no Kubernetes API access at all, which is why the chart runs it as its own Deployment
 with no token mounted (deploy/charts/kaval/templates/prometheus.yaml).
@@ -52,7 +57,7 @@ from kaval_shared.models import Signal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from kaval_collector import __version__
+from kaval_collector import __version__, probe
 from kaval_collector.synthetic import DEMO_NAMESPACE, PROMETHEUS
 
 KIND = "container_memory_near_limit"
@@ -69,6 +74,8 @@ UNREACHABLE_AFTER = 3
 # a little over twice the worst seen. Counted in time, not passes: 3 passes of 30 s sit inside
 # the gap, which is how the first attempt at this fix still raised a false alarm.
 WATCHDOG_GRACE = timedelta(seconds=150)
+DISK_KIND = "disk_near_full"
+DISK_THRESHOLD = 0.85  # fraction of the disk used. Below this the poller says nothing.
 UNREACHABLE = "kaval_prometheus_unreachable"
 WATCHDOG_MISSING = "kaval_watchdog_missing"
 
@@ -195,6 +202,43 @@ def poll(
     return report
 
 
+def disk_over(samples: Sequence[Sample], threshold: float) -> Sample | None:
+    """The fullest series at or above `threshold`, or None. A "used fraction" is between 0 and 1:
+    anything else (NaN from 0/0, +Inf from a division by a missing size, a negative or a ratio
+    above 1) is a broken query, not a full disk, and is ignored rather than paged on."""
+    valid = [s for s in samples if 0.0 < s.value <= 1.0]
+    over = [s for s in valid if s.value >= threshold]
+    return max(over, key=lambda s: s.value) if over else None
+
+
+def poll_disk(
+    session: Session, prom: Prometheus, kaval_namespace: str, query: str, *,
+    threshold: float = DISK_THRESHOLD, renew_seconds: float = RENEW_SECONDS,
+    now: datetime | None = None,
+) -> list[str]:
+    """One pass: if the disk is at or over `threshold`, write a signal unless one was written in
+    the last `renew_seconds` (the same renew-while-it-persists reasoning as the memory signals).
+    `query` must return the used fraction (0 to 1) of whatever disk is being watched; an empty
+    query means the check is off. One signal for the node, naming the fullest mount."""
+    if not query:
+        return []
+    now = now or datetime.now(UTC)
+    found = disk_over(prom.query(query), threshold)
+    if found is None:
+        return []
+    target = f"{kaval_namespace}/node-disk"
+    if _written_since(session, target, DISK_KIND, now - timedelta(seconds=renew_seconds)):
+        return []
+    session.add(Signal(
+        source=PROMETHEUS, kind=DISK_KIND, target=target, observed_at=now,
+        # Our own measurement only: a fraction, the threshold, and a short mount name.
+        value={"used_fraction": round(found.value, 3), "threshold": threshold,
+               "mount": found.labels.get("mountpoint", found.labels.get("device", ""))[:64]},
+    ))
+    session.commit()
+    return [f"{DISK_KIND:28} {target}  {found.value:.0%} used"]
+
+
 def _written_since(session: Session, target: str, kind: str, since: datetime,
                    alertname: str | None = None) -> bool:
     query = select(Signal.id).where(
@@ -287,6 +331,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--renew", type=float, default=RENEW_SECONDS, metavar="SECONDS",
                         help="while a container stays near its limit, write a fresh signal this "
                              "often so its incident stays open (default 300)")
+    parser.add_argument("--disk-query", default=os.environ.get("DISK_QUERY", ""),
+                        help="PromQL returning the used fraction (0 to 1) of the disk to watch; "
+                             "empty (the default) turns the disk check off")
+    parser.add_argument("--disk-threshold", type=float, default=DISK_THRESHOLD,
+                        help="fraction of the disk that counts as nearly full (default 0.85)")
+    parser.add_argument("--probe-targets", default=os.environ.get("PROBE_TARGETS", ""),
+                        help="services to time with one small request each pass, as "
+                             "namespace/name=url,... Settings only; empty turns it off")
+    parser.add_argument("--probe-slow-seconds", type=float, default=probe.SLOW_SECONDS,
+                        help="an answer slower than this counts as slow (default 1)")
     parser.add_argument("--every", type=float, metavar="SECONDS",
                         help="keep running, one pass every SECONDS; default: one pass")
     parser.add_argument("--version", action="version", version=f"kaval-collector {__version__}")
@@ -295,18 +349,37 @@ def main(argv: Sequence[str] | None = None) -> int:
     from kaval_shared.db import get_engine  # only a real run needs the database
 
     prom = HttpPrometheus(args.url)
+    try:
+        probe_targets = probe.parse_targets(args.probe_targets)
+    except ValueError as exc:
+        sys.exit(f"--probe-targets: {exc}")
+    slowness = probe.Slowness()
     if args.every:
         metrics.serve("collector-prometheus", interval=args.every, version=__version__)
     misses = 0
     health = Health()
     try:
         while True:
+            # The slowness probe asks the services directly, not Prometheus, so it runs before and
+            # apart from the Prometheus questions: a Prometheus outage must not blind it.
+            if probe_targets:
+                try:
+                    with Session(get_engine()) as session:
+                        for line in probe.poll(session, probe_targets, slowness,
+                                               slow_seconds=args.probe_slow_seconds,
+                                               renew_seconds=args.renew):
+                            print(line, flush=True)
+                except Exception as exc:  # noqa: BLE001 - one bad pass must not stop the loop
+                    print(f"probe pass failed: {type(exc).__name__}: {exc}",
+                          file=sys.stderr, flush=True)
             try:
                 with Session(get_engine()) as session:
                     lines = poll(session, prom, args.namespace,
                                  threshold=args.threshold, renew_seconds=args.renew)
                     lines += poll_alerts(session, prom, args.kaval_namespace,
                                          renew_seconds=args.renew, health=health)
+                    lines += poll_disk(session, prom, args.kaval_namespace, args.disk_query,
+                                       threshold=args.disk_threshold, renew_seconds=args.renew)
                 for line in report(lines):
                     print(line, flush=True)
                 misses = 0

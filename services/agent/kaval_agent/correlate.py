@@ -129,6 +129,10 @@ def cause_of(signal: Signal, spikes: set[uuid.UUID]) -> Cause | None:
         return Cause(kind, 1, Severity.high)
     if kind == "container_memory_near_limit":
         return Cause("memory_pressure", 4, Severity.low)
+    # KAV-81, ADR-0047: both are for a person (kaval_shared.health); the table names the cause.
+    if kind in health.PEOPLE_ONLY_SIGNALS:
+        name = health.PEOPLE_ONLY_SIGNALS[kind]
+        return Cause(name, 1, Severity.high if name == "disk_pressure" else Severity.medium)
     if kind == "daily_cost":
         return Cause("cost_spike", 1, Severity.medium) if signal.id in spikes else None
     if kind == "volume_unattached":

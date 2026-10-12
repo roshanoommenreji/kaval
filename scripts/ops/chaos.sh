@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Game days on staging (KAV-79, ADR-0044; second experiment KAV-80, ADR-0045). One script, verbs:
 #
-#   chaos.sh run [oom|badrelease]
+#   chaos.sh run [oom|badrelease|slow|disk]
 #                        turn the switch on, start the experiment's Job from its suspended
 #                        CronJob, follow it, print its timeline, turn the switch off again.
 #   chaos.sh stop        the stop button: switch off, Jobs deleted, the victim deleted.
-#   chaos.sh propose [oom|badrelease]
+#   chaos.sh check       after slow or disk: did Kaval tell a person and propose nothing? (KAV-81)
+#   chaos.sh propose [oom|badrelease|slow|disk]
 #                        staging has no language model: file the diagnosis it would have written
 #                        (chaos_propose.py). The post-mortem says the run used this.
 #   chaos.sh approve ID  the human step: approve a proposed action through the gateway.
@@ -39,7 +40,9 @@ victim_of() {
   case "$1" in
     oom) echo "chaos-oomer" ;;
     badrelease) echo "chaos-badrelease" ;;
-    *) echo "unknown experiment: $1 (have: oom, badrelease)" >&2; return 2 ;;
+    slow) echo "chaos-slowpoke" ;;
+    disk) echo "chaos-diskfill" ;;
+    *) echo "unknown experiment: $1 (have: oom, badrelease, slow, disk)" >&2; return 2 ;;
   esac
 }
 
@@ -112,10 +115,11 @@ cmd_status() {
 cmd_stop() {
   need_node
   set_switch false || true
-  for e in oom badrelease; do
+  for e in oom badrelease slow disk; do
     on_node "$NODE" "$KC delete jobs -n ${NAMESPACE} -l app.kubernetes.io/name=kaval-chaos-$e --ignore-not-found" || true
     on_node "$NODE" "$KC delete deployment $(victim_of $e) -n ${DEMO_NAMESPACE} --ignore-not-found" || true
   done
+  on_node "$NODE" "$KC delete service chaos-slowpoke -n ${DEMO_NAMESPACE} --ignore-not-found" || true
   echo "stopped: switch off, Jobs and victims deleted."
 }
 
@@ -191,7 +195,13 @@ cmd_run() {
   victim="$(victim_of "$experiment")" || exit 2
   need_node
   echo "Game day: ${experiment}, on staging only. The victim (${victim}) lives in ${DEMO_NAMESPACE}."
-  echo "Kaval should notice, and you will be asked to approve the fix. Stop button: make chaos-stop"
+  case "$experiment" in
+    slow|disk)
+      echo "Kaval should notice and TELL A PERSON (Slack), and propose no fix: that is the test."
+      echo "It holds the condition for about 12 minutes. Stop button: make chaos-stop" ;;
+    *)
+      echo "Kaval should notice, and you will be asked to approve the fix. Stop button: make chaos-stop" ;;
+  esac
   confirm "Start?" || { echo "aborted"; exit 1; }
 
   local cj job busy
@@ -200,7 +210,7 @@ cmd_run() {
   # Refuse BEFORE touching the switch: the switch belongs to whatever run is already going, and a
   # refused second start must not turn it off underneath that run (found live, 2026-10-11).
   # Either experiment's victim or Job counts: they share one switch, so only one runs at a time.
-  busy="$(on_node "$NODE" "$KC get deployment chaos-oomer chaos-badrelease -n ${DEMO_NAMESPACE} --ignore-not-found -o name; $KC get jobs -n ${NAMESPACE} --no-headers | grep -i chaos- | grep -i running || true" | tr -d '[:cntrl:]' )"
+  busy="$(on_node "$NODE" "$KC get deployment chaos-oomer chaos-badrelease chaos-slowpoke chaos-diskfill -n ${DEMO_NAMESPACE} --ignore-not-found -o name; $KC get jobs -n ${NAMESPACE} --no-headers | grep -i chaos- | grep -i running || true" | tr -d '[:cntrl:]' )"
   if [ -n "$(echo "$busy" | tr -d '[:space:]')" ]; then
     echo "A run is already going or left a victim behind ($(echo "$busy" | tr -s '[:space:]' ' ')). Not starting. 'make chaos-status' to look, 'make chaos-stop' to clear." >&2
     exit 1
@@ -222,18 +232,58 @@ cmd_run() {
   done
   echo "--- the runner's timeline ---"
   on_node "$NODE" "$KC logs job/$job -n ${NAMESPACE} 2>&1 | tail -5"
-  echo "--- how long each stage took: make mttr ---"
+  case "$experiment" in
+    slow|disk) echo "--- what Kaval did about it: make chaos-check ---" ;;
+    *) echo "--- how long each stage took: make mttr ---" ;;
+  esac
+}
+
+# What Kaval did about an escalate-only condition (KAV-81), read from staging's database with the
+# gateway's role (read access to incidents, proposals and notifications, and nothing else needed).
+cmd_check() {
+  need_node
+  pod_run chaos-check gateway "$(b64_of "$HERE/chaos_check.py")"
+}
+
+# KAV-81, ADR-0047: what can staging's own metrics see about the disk? Read-only: it reads `df`,
+# the kubelet's metric pages and `free`, and changes nothing. The answer decides whether disk is
+# watched with what is already there or needs a small measuring agent. Needs staging up.
+cmd_measure() {
+  need_node
+  run_script_on_node <<'SCRIPT'
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+K=/usr/local/bin/kubectl
+NODE=$($K get nodes -o name | head -1 | cut -d/ -f2)
+echo "== the real disk (df) =="
+df -h / /var/lib/rancher 2>&1 | head -5
+echo "== node ephemeral storage, as Kubernetes sees it =="
+$K get node "$NODE" -o jsonpath='capacity={.status.capacity.ephemeral-storage} allocatable={.status.allocatable.ephemeral-storage}'; echo
+echo "== cAdvisor: which fs metrics exist (series count) =="
+$K get --raw "/api/v1/nodes/$NODE/proxy/metrics/cadvisor" 2>&1 | grep -E '^container_fs_(usage|limit|reads|writes)_bytes' | awk -F'{' '{print $1}' | sort | uniq -c
+echo "== cAdvisor: the whole-node rows, if any =="
+$K get --raw "/api/v1/nodes/$NODE/proxy/metrics/cadvisor" 2>&1 | grep -E '^container_fs_(usage|limit)_bytes\{[^}]*id="/"' | cut -c1-260 | head -6
+echo "== cAdvisor: per-container fs usage in the demo and kaval namespaces (first 6) =="
+$K get --raw "/api/v1/nodes/$NODE/proxy/metrics/cadvisor" 2>&1 | grep -E '^container_fs_usage_bytes\{[^}]*namespace="kaval' | cut -c1-260 | head -6
+echo "== kubelet: volume and ephemeral-storage metric names =="
+$K get --raw "/api/v1/nodes/$NODE/proxy/metrics" 2>&1 | grep -E '^kubelet_(volume_stats|ephemeral|node_)' | awk -F'{' '{print $1}' | sort | uniq -c | head -12
+echo "== kubelet summary: the node filesystem =="
+$K get --raw "/api/v1/nodes/$NODE/proxy/stats/summary" 2>&1 | grep -A6 '"fs": {' | head -14
+echo "== node memory now =="
+free -m | head -2
+SCRIPT
 }
 
 # Sourced by a test, nothing runs; executed, it dispatches.
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 case "${1:-}" in
+  measure) cmd_measure ;;
+  check)   cmd_check ;;
   run)    cmd_run "${2:-oom}" ;;
   stop)   cmd_stop ;;
   status) cmd_status ;;
   propose) cmd_propose "${2:-oom}" ;;
   mttr)    cmd_mttr ;;
   approve) cmd_approve "${2:-}" ;;
-  *) echo "usage: chaos.sh <run [oom|badrelease]|stop|status|propose [oom|badrelease]|approve ID|mttr>"; exit 2 ;;
+  *) echo "usage: chaos.sh <run [oom|badrelease]|stop|status|propose [oom|badrelease]|approve ID|mttr|measure|check>"; exit 2 ;;
 esac
 fi

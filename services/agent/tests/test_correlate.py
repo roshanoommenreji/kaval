@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from kaval_agent import correlate as c
 from kaval_collector import synthetic
+from kaval_shared import health
 from kaval_shared.models import Incident, IncidentSignal, Severity, Signal
 from sqlalchemy import Engine, select, text
 from sqlalchemy.orm import Session
@@ -215,3 +216,29 @@ def test_the_pollers_own_unreachable_signal_is_a_high_incident() -> None:
 
     assert cause is not None and cause.name == "kaval_prometheus_unreachable"
     assert cause.severity == Severity.high
+
+
+# -- Disk full and slowness (KAV-81) -----------------------------------------------------------
+
+
+def test_a_nearly_full_disk_is_a_high_incident_for_a_person() -> None:
+    disk = signal("disk_near_full", AT, target="kaval-staging/node-disk", source="prometheus",
+                  used_fraction=0.91)
+
+    cause = c.cause_of(disk, set())
+
+    assert cause is not None and cause.name == "disk_pressure"
+    assert cause.severity == Severity.high
+    assert health.is_people_only_cause(cause.name)
+
+
+def test_a_slow_service_is_a_medium_incident_for_a_person() -> None:
+    slow = signal("service_slow", AT, target="kaval-demo-staging/chaos-slowpoke",
+                  source="prometheus", seconds=3.2)
+
+    cause = c.cause_of(slow, set())
+
+    assert cause is not None and cause.name == "latency_high"
+    assert cause.severity == Severity.medium
+    assert c.subject(slow) == "kaval-demo-staging/chaos-slowpoke"
+    assert health.is_people_only_cause(cause.name)

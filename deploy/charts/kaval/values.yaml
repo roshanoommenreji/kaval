@@ -150,6 +150,23 @@ prometheus:
   # While a container stays near its limit, write a fresh signal this often so its incident
   # stays open (the 15-minute quiet window in kaval_agent.correlate).
   renewSeconds: 300
+  # Disk (KAV-81, ADR-0047). The query returns the used fraction (0 to 1) of the node's root disk:
+  # cAdvisor reports its used and total bytes, and the filter keeps real block devices over 1 GB
+  # (not /dev/shm, /run or the small boot partition). Empty turns the check off.
+  disk:
+    query: >-
+      (container_fs_usage_bytes{id="/",device=~"/dev/(nvme|xvd|sd|vd).*"}
+      / container_fs_limit_bytes{id="/",device=~"/dev/(nvme|xvd|sd|vd).*"})
+      and (container_fs_limit_bytes{id="/"} > 1e9)
+    # A person is told above this fraction. Staging sets it lower on purpose so a bounded test fill
+    # can cross it (docs/adr/0047); prod keeps this one.
+    threshold: 0.85
+  # Slowness (KAV-81): services to time with one small request each pass, as
+  # namespace/name=url,... Empty probes nothing. A request slower than slowSeconds, or none in time,
+  # three passes in a row, is a slow service.
+  probe:
+    targets: ""
+    slowSeconds: 1
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { cpu: 500m, memory: 384Mi }

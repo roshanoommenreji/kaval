@@ -165,3 +165,54 @@ test_never_overrides_a_matching_promotion if {
 		"confidence": 0.99,
 	} with data.auto_promotions as promotions
 }
+
+# ── KAV-81: incidents that are for a person ──────────────────────────────────────────────────
+# An action attached to a disk-full or slowness incident (or to Kaval's own health) is never,
+# whatever the action is and however sure the model sounds. Outside those causes nothing changes.
+
+test_restart_pod_for_a_full_disk_is_never if {
+	policy.decision == "never" with input as {
+		"action": {"type": "restart_pod", "target": "x/y", "blast_radius": "pod", "reversible": true},
+		"confidence": 0.99, "cause": "disk_pressure",
+	}
+}
+
+test_any_action_for_a_slow_service_is_never if {
+	policy.decision == "never" with input as {
+		"action": {"type": "increase_memory_limit", "target": "x/y", "blast_radius": "deployment", "reversible": true},
+		"confidence": 0.99, "cause": "latency_high",
+	}
+}
+
+test_rollback_for_kaval_own_health_is_never if {
+	policy.decision == "never" with input as {
+		"action": {"type": "rollback_deployment", "target": "x/y", "blast_radius": "deployment", "reversible": true},
+		"confidence": 0.99, "cause": "kaval_loop_stalled",
+	}
+}
+
+test_a_promotion_cannot_resurrect_a_people_only_cause if {
+	promotions := [{
+		"action_type": "restart_pod", "blast_radius": "pod",
+		"requires_reversible": true, "min_confidence": 0.9,
+		"adr": "docs/adr/0000-example-promotion.md",
+	}]
+	policy.decision == "never" with input as {
+		"action": {"type": "restart_pod", "target": "x/y", "blast_radius": "pod", "reversible": true},
+		"confidence": 0.99, "cause": "disk_pressure",
+	} with data.auto_promotions as promotions
+}
+
+test_other_causes_are_unchanged if {
+	policy.decision == "ask" with input as {
+		"action": {"type": "restart_pod", "target": "x/y", "blast_radius": "pod", "reversible": true},
+		"confidence": 0.9, "cause": "oom_killed",
+	}
+}
+
+test_no_cause_is_unchanged if {
+	policy.decision == "ask" with input as {
+		"action": {"type": "restart_pod", "target": "x/y", "blast_radius": "pod", "reversible": true},
+		"confidence": 0.9,
+	}
+}

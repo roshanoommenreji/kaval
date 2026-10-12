@@ -75,8 +75,8 @@ rules-test: ## promtool-test Kaval's own-health alert rules with the Prometheus 
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check infra/modules/idle-stop/lambda scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira_release.py scripts/tracking/test_jira_release.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
-	mypy infra/modules/idle-stop/lambda/idle_stop.py scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/release/pin_staging.py scripts/release/staging_smoke.py scripts/release/promote.py scripts/release/rollback.py scripts/release/versions.py scripts/release/change_record.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py scripts/tracking/jira_release.py
+	ruff check infra/modules/idle-stop/lambda scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/ops/chaos_check.py scripts/ops/test_chaos_check.py scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira_release.py scripts/tracking/test_jira_release.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
+	mypy infra/modules/idle-stop/lambda/idle_stop.py scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/ops/chaos_check.py scripts/ops/test_chaos_check.py scripts/release/pin_staging.py scripts/release/staging_smoke.py scripts/release/promote.py scripts/release/rollback.py scripts/release/versions.py scripts/release/change_record.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py scripts/tracking/jira_release.py
 
 .PHONY: lock
 lock: ## Re-resolve uv.lock after editing pyproject.toml's dependencies (then commit both)
@@ -253,7 +253,7 @@ cost-check: ## Fail loudly if MTD spend exceeds the ceiling
 ##@ Chaos and verification
 
 .PHONY: chaos-run
-chaos-run: ## Game day on staging: cause the failure EXPERIMENT=oom|badrelease, follow it, switch off after. Needs staging up and chaos/game-day-template.md
+chaos-run: ## Game day on staging: cause the failure EXPERIMENT=oom|badrelease|slow|disk, follow it, switch off after. Needs staging up and chaos/game-day-template.md
 	@bash scripts/ops/chaos.sh run $(or $(EXPERIMENT),oom)
 
 .PHONY: chaos-stop
@@ -261,7 +261,7 @@ chaos-stop: ## The stop button: chaos switch off, Jobs and the victim deleted (s
 	@bash scripts/ops/chaos.sh stop
 
 .PHONY: chaos-propose
-chaos-propose: ## Staging has no language model: file the diagnosis it would write for the experiment's incident (EXPERIMENT=oom|badrelease). Prints the ACTION id
+chaos-propose: ## Staging has no language model: file the diagnosis it would write for the experiment's incident (EXPERIMENT=oom|badrelease|slow|disk). Prints the ACTION id
 	@bash scripts/ops/chaos.sh propose $(or $(EXPERIMENT),oom)
 
 .PHONY: chaos-approve
@@ -275,6 +275,14 @@ chaos-mttr: ## Time to restore by stage, read from STAGING's database (make mttr
 .PHONY: chaos-node
 chaos-node: ## Game day: END staging's app machine and time the self-heal (laptop-run, asks you to type the machine id). Needs staging up
 	@python scripts/ops/chaos_node.py
+
+.PHONY: staging-measure-disk
+staging-measure-disk: ## Read-only: what can staging's metrics see about the disk? (KAV-81) Needs staging up
+	@bash scripts/ops/chaos.sh measure
+
+.PHONY: chaos-check
+chaos-check: ## After EXPERIMENT=slow|disk: did Kaval tell a person and propose nothing? (read-only, from staging's database)
+	@bash scripts/ops/chaos.sh check
 
 .PHONY: chaos-status
 chaos-status: ## Chaos switch, Jobs and victim on staging

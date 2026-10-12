@@ -102,17 +102,24 @@ def _run_opa(
 
 def classify(
     action_type: str, blast_radius: BlastRadius, reversible: bool, confidence: float, *,
+    cause: str | None = None,
     opa_bin: str = DEFAULT_OPA_BIN, policy_dir: Path | str = DEFAULT_POLICY_DIR,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> PolicyClass:
     """Ask `policy/policy.rego` what class this action belongs to. Pure with respect to the
-    database — the caller (`diagnose.write_proposal`) is the one writing rows."""
-    input_doc = {
+    database — the caller (`diagnose.write_proposal`) is the one writing rows.
+
+    `cause` is the incident's cause (KAV-81, ADR-0047): the policy refuses any action attached to
+    an incident that is for a person (a full disk, a slow service, Kaval's own health). Left out,
+    the answer depends on the action alone, as before."""
+    input_doc: dict[str, object] = {
         "action": {
             "type": action_type, "blast_radius": blast_radius.value, "reversible": reversible,
         },
         "confidence": confidence,
     }
+    if cause:
+        input_doc["cause"] = cause
     try:
         decision = _run_opa(
             input_doc, opa_bin=opa_bin, policy_dir=Path(policy_dir), timeout=timeout,
@@ -137,10 +144,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--blast-radius", required=True, choices=[b.value for b in BlastRadius])
     parser.add_argument("--reversible", action="store_true")
     parser.add_argument("--confidence", required=True, type=float)
+    parser.add_argument("--cause", default=None,
+                        help="the incident's cause, e.g. disk_pressure (KAV-81)")
     args = parser.parse_args(argv)
 
     result = classify(
         args.action_type, BlastRadius(args.blast_radius), args.reversible, args.confidence,
+        cause=args.cause,
     )
     print(result.value)
     return 0

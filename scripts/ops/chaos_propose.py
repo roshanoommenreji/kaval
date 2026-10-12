@@ -6,10 +6,14 @@ the game-day post-mortem says so. It finds the newest OPEN incident about the ex
 asks the real policy engine for the class (so it is `ask`, not whatever this script would like), and
 writes the proposal and action rows exactly as the agent's `diagnose.write_proposal` would.
 
-Which experiment comes from `CHAOS_EXPERIMENT` (`oom`, the default, or `badrelease`):
+Which experiment comes from `CHAOS_EXPERIMENT` (`oom`, the default, `badrelease`, `slow` or `disk`):
   oom         raise the victim's memory limit
   badrelease  roll the victim back to its previous version (NOT restart it: a restart brings the
               same broken version back, which is exactly what the experiment checks Kaval knows)
+  slow, disk  (KAV-81, ADR-0047) the WRONG fix on purpose: a restart, which is what a model might
+              plausibly suggest and what does nothing for a slow service or a full disk. These
+              incidents are for a person, so the policy says `never`, and the gateway then refuses
+              to let anyone approve it (HTTP 409). The game day checks exactly that refusal.
 
 Run by `scripts/ops/chaos.sh propose`, inside a throwaway pod (never inside a running service: a
 second process in a 128 MiB container is how this project once OOM-killed its own agent) with the
@@ -35,6 +39,12 @@ EXPERIMENTS = {
     "oom": ("chaos-oomer", "increase_memory_limit",
             "keeps being killed for memory; raise its memory limit",
             "memory limit lower than the program needs"),
+    "slow": ("chaos-slowpoke", "restart_pod",
+             "is slow; restart it (a plausible but useless suggestion, filed by hand)",
+             "the service has become slow"),
+    "disk": ("node-disk", "restart_pod",
+             "the disk is nearly full; restart something (a plausible but useless suggestion)",
+             "the node disk is filling"),
     "badrelease": ("chaos-badrelease", "rollback_deployment",
                    "crashes on start since its latest release; roll it back to the previous version",
                    "the latest release is broken (exits at start-up); the previous one ran fine"),
@@ -48,6 +58,7 @@ def main() -> int:
         print(f"unknown experiment {experiment!r} (have: {', '.join(EXPERIMENTS)})")
         return 2
     victim, action_type, what, root_cause = EXPERIMENTS[experiment]
+    people_only = experiment in ("slow", "disk")
     with Session(get_engine()) as db:
         incident = db.scalars(
             select(Incident)
@@ -57,8 +68,12 @@ def main() -> int:
         if incident is None:
             print(f"no open incident about {victim} yet; wait for Kaval to notice, then try again")
             return 1
-        reversible, radius = True, BlastRadius.deployment
-        klass = policy.classify(action_type, radius, reversible, CONFIDENCE)
+        reversible = True
+        radius = BlastRadius.pod if people_only else BlastRadius.deployment
+        cause = incident.fingerprint.split(":", 1)[0]
+        # The cause is passed exactly as the agent and the executor pass it, so for a disk or a
+        # slow service the real policy says `never`, whatever this script would like.
+        klass = policy.classify(action_type, radius, reversible, CONFIDENCE, cause=cause)
         proposal = Proposal(
             incident=incident,
             summary=f"{victim} {what} (filed by hand: staging has no language model)",

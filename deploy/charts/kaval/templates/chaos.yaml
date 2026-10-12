@@ -82,6 +82,15 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["list"]
+  # KAV-81: the slow-service experiment gives its program an address. A Service cannot be
+  # limited to one name on create, so create is the namespace's; get and delete are by name.
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["services"]
+    resourceNames: ["chaos-slowpoke"]
+    verbs: ["get", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -98,7 +107,7 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "kaval.fullname" . }}-chaos-runner
     namespace: {{ .Release.Namespace }}
-{{- range $experiment := list "oom" "badrelease" }}
+{{- range $experiment := list "oom" "badrelease" "slow" "disk" }}
 ---
 apiVersion: batch/v1
 kind: CronJob

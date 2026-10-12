@@ -70,7 +70,8 @@ class DiagnosisError(RuntimeError):
 
 
 class HealthIncidentError(RuntimeError):
-    """The incident is about Kaval itself; a person handles it, so no proposal is written."""
+    """The incident is for a person (Kaval's own health, a full disk, a slow service), so no
+    proposal is written. Named for the first such case (KAV-78); the rule is wider (KAV-81)."""
 
 
 @dataclass(frozen=True)
@@ -157,16 +158,18 @@ def write_proposal(
     action. Nothing here is called unless `diagnose()` (or `escalate()`) already returned
     successfully — there is deliberately no path that writes an unvalidated diagnosis.
 
-    **Refuses Kaval's own health incidents** (KAV-78, `kaval_shared.health`): when Kaval has
-    stopped working, the right outcome is a person, never a proposed fix. This is the one place
-    every proposal passes through, so it is the place the rule is enforced.
+    **Refuses the incidents that are for a person** (`kaval_shared.health`): Kaval's own health
+    (KAV-78), and a full disk or a slow service (KAV-81, ADR-0047). The right outcome is a person,
+    never a proposed fix. This is the one place every proposal passes through, so it is the place
+    the rule is enforced. The policy refuses again from the cause (`never`), and so does the
+    executor, so a proposal filed by some other route still cannot run.
 
     `cost_usd` defaults to 0: self-hosted local inference has no metered cost. A Bedrock
     escalation (KAV-44, ADR-0019) passes its real, measured cost instead —
     `kaval_agent.escalate.estimate_cost_usd` — never a guess made in advance."""
-    if health.is_health_fingerprint(incident.fingerprint):
+    if health.is_people_only_fingerprint(incident.fingerprint):
         raise HealthIncidentError(
-            f"{incident.fingerprint} is Kaval's own health: it is for a person, not a proposal"
+            f"{incident.fingerprint} is for a person, not a proposal (no automated fix exists)"
         )
     proposal = Proposal(
         incident_id=incident.id,
@@ -195,7 +198,10 @@ def write_proposal(
             # module already validated (blast_radius, reversible from the action; confidence
             # from the proposal as a whole), whoever produced them — Jev (ADR-0006) can supply
             # the same three fields later without this call changing.
-            policy_class=policy.classify(a.type, blast_radius, a.reversible, diagnosis.confidence),
+            policy_class=policy.classify(
+                a.type, blast_radius, a.reversible, diagnosis.confidence,
+                cause=health.cause_of_fingerprint(incident.fingerprint),
+            ),
         ))
     session.commit()
     return proposal
@@ -232,10 +238,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         incident = session.get(Incident, incident_id)
         if incident is None:
             sys.exit(f"no incident {incident_id}")
-        if health.is_health_fingerprint(incident.fingerprint):
-            sys.exit(f"{incident.fingerprint} is Kaval's own health: it is for a person, "
-                     "so no diagnosis is asked for and no fix proposed "
-                     "(see docs/runbooks/kaval-stopped-reporting.md)")
+        if health.is_people_only_fingerprint(incident.fingerprint):
+            sys.exit(f"{incident.fingerprint} is for a person: no diagnosis is asked for and no "
+                     "fix proposed (see docs/runbooks/, the runbook for this cause)")
         changes = None
         if args.with_changes:
             from kaval_agent import recent_changes as rc

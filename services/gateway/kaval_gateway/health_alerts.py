@@ -1,4 +1,5 @@
-"""Tells a person when Kaval itself has stopped working (KAV-78, ADR-0042).
+"""Tells a person when Kaval itself has stopped working (KAV-78, ADR-0042), and when a disk is
+nearly full or a service has become slow (KAV-81, ADR-0047): the incidents that are for a person.
 
 Prometheus decides that a service has gone quiet, and the collector's Prometheus poller writes
 that as a `signal` row (`alert_firing` for a rule, `kaval_*` kinds for the poller's own checks).
@@ -11,7 +12,9 @@ One message per thing per reminder period. The signals repeat every few minutes 
 lasts (so the incident stays open); a message every few minutes would be noise, so `notification`
 remembers what was sent and a reminder goes out only after `REMINDER`.
 
-No buttons: there is nothing to approve. The message says what stopped, and where the runbook is.
+No buttons: there is nothing to approve. The message says what is wrong, and where the runbook is.
+A fixed sentence per kind and a name taken from the signal's target: no number, word or text from
+the signal itself is copied in (the rows are copied to staging with the rest of the database).
 """
 
 from __future__ import annotations
@@ -31,12 +34,18 @@ REMINDER = timedelta(minutes=30)
 # The rule that is always firing, to prove the rules are being evaluated. Not a fault.
 WATCHDOG = "KavalWatchdog"
 RUNBOOK = "docs/runbooks/kaval-stopped-reporting.md"
+_RUNBOOKS = {
+    "disk_near_full": "docs/runbooks/disk-pressure.md",
+    "service_slow": "docs/runbooks/latency-spike.md",
+}
 
 _WORDS = {
     "KavalLoopStalled": "has stopped finishing its work (it is running, but doing nothing)",
     "KavalTargetDown": "cannot be reached at all",
     "kaval_prometheus_unreachable": "Prometheus cannot be reached, so Kaval cannot see anything",
     "kaval_watchdog_missing": "Prometheus answers, but its alert rules are not running",
+    "disk_near_full": "the app server's disk is nearly full",
+    "service_slow": "is answering slowly (or not in time)",
 }
 
 
@@ -47,11 +56,12 @@ def _name(signal: Signal) -> str:
     return signal.kind
 
 
-def _is_health(signal: Signal) -> bool:
+def _is_for_a_person(signal: Signal) -> bool:
     name = _name(signal)
     if name == WATCHDOG:
         return False
-    return name.startswith("Kaval") or health.is_health_cause(name)
+    return (name.startswith("Kaval") or health.is_health_cause(name)
+            or name in health.PEOPLE_ONLY_SIGNALS)
 
 
 def current(session: Session, now: datetime) -> dict[str, Signal]:
@@ -60,16 +70,23 @@ def current(session: Session, now: datetime) -> dict[str, Signal]:
         select(Signal).where(Signal.source == "prometheus", Signal.observed_at >= now - FRESH)
         .order_by(Signal.observed_at)
     )
-    return {f"{_name(s)}:{s.target}": s for s in rows if _is_health(s)}
+    return {f"{_name(s)}:{s.target}": s for s in rows if _is_for_a_person(s)}
 
 
 def message(signal: Signal) -> str:
-    what = _WORDS.get(_name(signal), "is reporting a problem")
+    name = _name(signal)
+    what = _WORDS.get(name, "is reporting a problem")
     service = signal.target.rsplit("/", 1)[-1]
     # Only a fixed sentence and a service name: this text is stored (notification.message) and
     # copied to staging with the rest of the database, so no signal text may ever go into it.
-    lines = [f":rotating_light: *Kaval's own health:* `{service}` {what}."]
-    lines.append(f"No fix is proposed for this; a person needs to look. Runbook: `{RUNBOOK}`")
+    if name == "disk_near_full":
+        lines = [f":warning: *Needs a person:* {what}."]
+    elif name == "service_slow":
+        lines = [f":warning: *Needs a person:* `{service}` {what}."]
+    else:
+        lines = [f":rotating_light: *Kaval's own health:* `{service}` {what}."]
+    runbook = _RUNBOOKS.get(name, RUNBOOK)
+    lines.append(f"No fix is proposed for this; a person needs to look. Runbook: `{runbook}`")
     return "\n".join(lines)
 
 

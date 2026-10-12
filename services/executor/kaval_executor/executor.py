@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from kaval_agent import policy as policy_mod
-from kaval_shared import metrics
+from kaval_shared import health, metrics
 from kaval_shared.models import Action, Decision, Execution, ExecutionStatus, PolicyClass, Verdict
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -92,6 +92,9 @@ def execute_one(session: Session, action: Action, *, now: datetime | None = None
     now = now or datetime.now(UTC)
     fresh = policy_mod.classify(
         action.type, action.blast_radius, action.reversible, action.proposal.confidence,
+        # KAV-81: an action filed against an incident that is for a person is refused here too,
+        # from the incident itself, however it got into the table.
+        cause=health.cause_of_fingerprint(action.proposal.incident.fingerprint),
     )
     if (reason := _refusal(action, fresh)) is not None:
         return _record(session, action, ExecutionStatus.skipped, f"refused: {reason}",
