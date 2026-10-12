@@ -115,6 +115,10 @@ path**; every hand-filed action classed `never`; **nothing executed**. A hand-fi
 - Disk and slowness incidents exist, open for as long as the fault lasts, with a runbook each
   ([disk-pressure](../runbooks/disk-pressure.md), [latency-spike](../runbooks/latency-spike.md)).
 - Staging has a lower disk line than prod. A chart test makes that visible and keeps prod at 0.85.
+- **Found by the first slow-service game day:** staging's live settings are the copy inside its
+  HelmRelease, and the new probe target and disk line were only in the environment file, so the
+  deployed poller had nothing to probe. Every render and test was green. A test now fails whenever the
+  two copies of an environment's settings differ (`scripts/dev/test_gitops_values_in_sync.py`).
 - **Prod cannot see disk or slowness until Prometheus reaches prod** (`KAV-83`); that roadmap line is
   now explicit about it, with the prod probe targets.
 - The local model's prompt is unaffected: these incidents never reach it.
