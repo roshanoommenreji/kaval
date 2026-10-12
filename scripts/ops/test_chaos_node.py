@@ -6,8 +6,8 @@ from __future__ import annotations
 import chaos_node as cn
 import pytest
 
-OLD = cn.Node("i-old", "running", "kaval-staging", "staging")
-NEW = cn.Node("i-new", "running", "kaval-staging", "staging")
+OLD = cn.Node("i-old", "running", "kaval-staging", "kaval-staging")
+NEW = cn.Node("i-new", "running", "kaval-staging", "kaval-staging")
 NEWEST = "11111111-2222-3333-4444-55555555555a"
 
 HEALTHY = (f"node_ready=1\npods_ready=7\npods_not_ready=0\ngateway=200\nincidents=4\n"
@@ -65,20 +65,20 @@ def _run(aws: FakeAws, *, yes: bool = True, **kw: float) -> tuple[int, cn.Timeli
 def _lists() -> list[list[cn.Node]]:
     return [
         [OLD],                                            # before: the one machine
-        [cn.Node("i-old", "shutting-down", "kaval-staging", "staging")],
-        [cn.Node("i-old", "terminated", "kaval-staging", "staging"),
-         cn.Node("i-new", "pending", "kaval-staging", "staging")],
-        [cn.Node("i-old", "terminated", "kaval-staging", "staging"), NEW],
+        [cn.Node("i-old", "shutting-down", "kaval-staging", "kaval-staging")],
+        [cn.Node("i-old", "terminated", "kaval-staging", "kaval-staging"),
+         cn.Node("i-new", "pending", "kaval-staging", "kaval-staging")],
+        [cn.Node("i-old", "terminated", "kaval-staging", "kaval-staging"), NEW],
     ]
 
 
 # ── refusing ────────────────────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("node", [
-    cn.Node("i-1", "running", "kaval-prod", "prod"),          # prod
-    cn.Node("i-2", "running", "kaval-prod", "staging"),       # right tag, wrong group
-    cn.Node("i-3", "running", "kaval-staging", "prod"),       # right group, wrong tag
-    cn.Node("i-4", "running", "", ""),                        # not in a group at all
+    cn.Node("i-1", "running", "kaval-prod", "kaval-prod"),          # prod
+    cn.Node("i-2", "running", "kaval-prod", "kaval-staging"),       # right name, wrong group
+    cn.Node("i-3", "running", "kaval-staging", "kaval-prod"),       # right group, wrong name
+    cn.Node("i-4", "running", "", ""),                              # not in a group at all
 ])
 def test_refuses_anything_that_is_not_the_staging_machine(node: cn.Node) -> None:
     with pytest.raises(cn.Refused, match="only group"):
@@ -87,7 +87,8 @@ def test_refuses_anything_that_is_not_the_staging_machine(node: cn.Node) -> None
 
 def test_refuses_when_staging_is_not_running() -> None:
     with pytest.raises(cn.Refused, match="not running"):
-        cn.guard(cn.the_running_node([cn.Node("i-x", "terminated", "kaval-staging", "staging")]))
+        gone = cn.Node("i-x", "terminated", "kaval-staging", "kaval-staging")
+        cn.guard(cn.the_running_node([gone]))
 
 
 def test_refuses_to_guess_between_two_running_machines() -> None:
@@ -96,7 +97,7 @@ def test_refuses_to_guess_between_two_running_machines() -> None:
 
 
 def test_a_prod_machine_is_never_ended() -> None:
-    aws = FakeAws([[cn.Node("i-prod", "running", "kaval-prod", "prod")]], [HEALTHY])
+    aws = FakeAws([[cn.Node("i-prod", "running", "kaval-prod", "kaval-prod")]], [HEALTHY])
     with pytest.raises(cn.Refused):
         _run(aws)
     assert aws.ended == []
@@ -157,7 +158,8 @@ def test_lost_data_is_not_recovery() -> None:
 
 
 def test_times_out_when_no_replacement_ever_comes() -> None:
-    aws = FakeAws([[OLD], [cn.Node("i-old", "terminated", "kaval-staging", "staging")]], [HEALTHY])
+    gone = cn.Node("i-old", "terminated", "kaval-staging", "kaval-staging")
+    aws = FakeAws([[OLD], [gone]], [HEALTHY])
     code, timeline = _run(aws, max_seconds=120)
     assert code == cn.EXIT_TIMEOUT
     assert "old_machine_gone" in timeline.events and "new_machine_running" not in timeline.events

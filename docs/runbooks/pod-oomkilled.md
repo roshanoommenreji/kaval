@@ -10,7 +10,7 @@ not help, because it comes back with the same limit. Raising the limit, within r
 - Kubernetes events `BackOff` / `Back-off restarting failed container` for the same pod
 - Kaval's `memory_pressure` signal: a container's working set at or above 90 % of its limit, *before*
   the kill, when memory grows gradually
-- An incident whose cause is memory pressure or an OOM-killed container
+- An incident whose cause is `oom_killed` (since KAV-80 the collector reads the pod's last exit reason, so a real OOM kill is no longer labelled `crashloop`) or memory pressure
 
 ## Likely causes
 

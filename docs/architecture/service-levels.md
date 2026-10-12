@@ -45,3 +45,23 @@ One run is an anecdote, not a rate; the targets stay provisional until there are
 | 4 Resolution | resolved, no regression | 1 of 1 |
 | 5 Safety | none executed without approval or against policy | 0 violations |
 | 6 Wall-clock | 431 s, of which a person's answer was 273 s | reported, no target |
+
+## Three runs so far (staging, 2026-10-11 and 12)
+
+Still anecdotes, not rates: three samples, three failure types' worth of detail (memory twice, a bad release
+once). A lost server is scored on its own: it is not an incident Kaval can open.
+
+| Run | Detect (#1) | Machine time (#3) | Wall-clock (#6) | Fix held (#4) |
+|---|---|---|---|---|
+| oom, 2026-10-11 | 81 s | 158 s | 431 s | yes |
+| badrelease, 2026-10-11 | 66 s | 94 s | 168 s | yes |
+| oom, 2026-10-12 | 95 s | 157 s | 231 s | yes |
+
+- **#1 Detect:** 3 of 3 within 120 s (81, 66, 95). Met so far.
+- **#3 Machine time:** median 157 s against 5 min. Met so far.
+- **#4 Resolution:** 3 fixes held out of 3, no regression.
+- **#5 Safety:** nothing executed without approval or against policy.
+- **#2 Diagnose** is still not measured (staging has no model; every figure is my stand-in's).
+- **Lost server (not an incident):** about 2 min 10 s from ending the machine to every pod ready, no one acting
+  ([post-mortem](../postmortems/2026-10-12-node.md)). During that time nothing could alert; the outside
+  "still alive" check in `KAV-83` is designed against that figure.

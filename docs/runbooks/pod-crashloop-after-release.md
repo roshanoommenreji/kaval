@@ -50,6 +50,10 @@ fix that and leave the release alone.
 - If the Deployment is deployed by Flux from git (Kaval's own services are), a direct rollback stands
   only until the next release; **also revert the commit in git**, or the next release brings the bad
   version back. See [ADR-0045](../adr/0045-rolling-back-a-bad-release-and-flux-versus-direct-fixes.md).
+- **Prevention: give the program a readiness probe.** Without one, a container counts as Ready the
+  moment it starts, so a release that crashes a second later still replaces the good version and the
+  whole service goes down (seen live on staging, [post-mortem](../postmortems/2026-10-11-badrelease.md)). With
+  one, the rollout stalls and the old version keeps serving
 - Afterwards, check the program stays up for several minutes and that the rollout finished
   (`kubectl rollout status`), then work out why the release was bad before shipping it again.
 
