@@ -99,3 +99,36 @@ def test_default_policy_dir_falls_back_to_the_repo_layout_without_the_env_var(
     # the real source tree there, unlike inside a built wheel.
     assert policy._default_policy_dir().name == "policy"
     assert (policy._default_policy_dir() / "policy.rego").is_file()
+
+
+# ── KAV-81: the cause an action is attached to ──────────────────────────────────────────────
+
+@pytest.mark.parametrize("cause", ["disk_pressure", "latency_high", "kaval_loop_stalled"])
+def test_any_action_for_an_incident_that_is_for_a_person_is_never(cause: str) -> None:
+    for action_type in ("restart_pod", "increase_memory_limit", "rollback_deployment"):
+        assert policy.classify(
+            action_type, BlastRadius.pod, True, 0.99, cause=cause,
+        ) == PolicyClass.never
+
+
+def test_the_same_action_for_an_ordinary_cause_is_still_ask() -> None:
+    assert policy.classify(
+        "restart_pod", BlastRadius.pod, True, 0.99, cause="oom_killed",
+    ) == PolicyClass.ask
+    assert policy.classify("restart_pod", BlastRadius.pod, True, 0.99) == PolicyClass.ask
+
+
+def test_the_cause_reaches_opa_as_input_and_is_left_out_when_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: list[dict[str, object]] = []
+
+    def fake(input_doc: dict[str, object], **kw: object) -> str:
+        seen.append(input_doc)
+        return "ask"
+
+    monkeypatch.setattr(policy, "_run_opa", fake)
+    policy.classify("restart_pod", BlastRadius.pod, True, 0.9, cause="disk_pressure")
+    policy.classify("restart_pod", BlastRadius.pod, True, 0.9)
+    assert seen[0]["cause"] == "disk_pressure"
+    assert "cause" not in seen[1]

@@ -276,6 +276,10 @@ chaos-mttr: ## Time to restore by stage, read from STAGING's database (make mttr
 chaos-node: ## Game day: END staging's app machine and time the self-heal (laptop-run, asks you to type the machine id). Needs staging up
 	@python scripts/ops/chaos_node.py
 
+.PHONY: staging-measure-disk
+staging-measure-disk: ## Read-only: what can staging's metrics see about the disk? (KAV-81) Needs staging up
+	@bash scripts/ops/chaos.sh measure
+
 .PHONY: chaos-status
 chaos-status: ## Chaos switch, Jobs and victim on staging
 	@bash scripts/ops/chaos.sh status

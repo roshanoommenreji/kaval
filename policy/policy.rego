@@ -5,7 +5,8 @@
 # input shape:
 #   {
 #     "action":     {"type": "restart_pod", "target": "...", "blast_radius": "pod", "reversible": true},
-#     "confidence": 0.92
+#     "confidence": 0.92,
+#     "cause":      "oom_killed"          (optional: the incident's cause, KAV-81)
 #   }
 # output: data.policy.decision — one of "auto", "ask", "never".
 
@@ -34,6 +35,22 @@ is_never if {
 # whatever the action's type string says.
 is_never if {
 	input.action.blast_radius == "account"
+}
+
+# KAV-81, ADR-0047: some incidents are for a person whatever the model proposes. An action
+# attached to one is refused, so a model that suggests "restart_pod" for a full disk, or a hand-
+# filed proposal, still ends in `never` at the agent and again at the executor's re-check. The
+# causes are Kaval's own health (every name starting `kaval_`) and the two with no automated fix.
+# The list is repeated in kaval_shared/health.py; services/agent/tests/test_policy.py fails if
+# the two differ. `input.cause` is optional: an input without one behaves exactly as before.
+people_only_causes := {"disk_pressure", "latency_high"}
+
+is_never if {
+	input.cause in people_only_causes
+}
+
+is_never if {
+	startswith(input.cause, "kaval_")
 }
 
 decision := "never" if is_never

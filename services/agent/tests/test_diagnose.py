@@ -215,3 +215,41 @@ def test_a_kaval_health_incident_gets_no_proposal_because_it_is_for_a_person(
 
     assert db_session.scalars(
         select(Proposal).where(Proposal.incident_id == incident.id)).first() is None
+
+
+@pytest.mark.parametrize("fingerprint", [
+    "disk_pressure:k8s:kaval-staging/node-disk",
+    "latency_high:k8s:kaval-demo-staging/chaos-slowpoke",
+])
+def test_a_full_disk_or_a_slow_service_gets_no_proposal_either(
+    db_session: Session, fingerprint: str,
+) -> None:
+    """KAV-81: no restart frees a disk or speeds a service up, so these are for a person too.
+    Refused where every proposal is written, with nothing left behind."""
+    from kaval_agent.schema import Diagnosis
+
+    incident = Incident(id=uuid.uuid4(), fingerprint=fingerprint,
+                        severity=Severity.high, opened_at=AT)
+    db_session.add(incident)
+    db_session.flush()
+
+    with pytest.raises(dg.HealthIncidentError):
+        dg.write_proposal(db_session, incident, Diagnosis.model_validate(VALID_DIAGNOSIS),
+                          dg.ModelUsage(tokens_in=1, tokens_out=1), model="m")
+
+    assert db_session.scalars(
+        select(Proposal).where(Proposal.incident_id == incident.id)).first() is None
+
+
+def test_an_ordinary_incident_still_gets_its_proposal(db_session: Session) -> None:
+    """The negative case for the rule above: it must not catch the incidents Kaval can fix."""
+    from kaval_agent.schema import Diagnosis
+
+    incident = Incident(id=uuid.uuid4(), fingerprint="oom_killed:k8s:kaval-demo/checkout",
+                        severity=Severity.high, opened_at=AT)
+    db_session.add(incident)
+    db_session.flush()
+
+    proposal = dg.write_proposal(db_session, incident, Diagnosis.model_validate(VALID_DIAGNOSIS),
+                                 dg.ModelUsage(tokens_in=1, tokens_out=1), model="m")
+    assert proposal.incident_id == incident.id

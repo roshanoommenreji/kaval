@@ -288,3 +288,69 @@ def test_main_raises_unreachable_only_after_three_misses_in_a_row(
 
     # miss, miss, ok (resets the count), miss, miss, miss: only the final miss is the third in a row
     assert written == [KAVAL_NS]
+
+
+# ── the disk (KAV-81, ADR-0047) ─────────────────────────────────────────────────────────────
+
+DISK_Q = "node_filesystem_used_fraction"
+
+
+class _Disk:
+    def __init__(self, *samples: Sample) -> None:
+        self.samples = list(samples)
+        self.asked: list[str] = []
+
+    def query(self, promql: str) -> list[Sample]:
+        self.asked.append(promql)
+        return self.samples
+
+
+def _disk(value: float, mount: str = "/") -> Sample:
+    return Sample(labels={"mountpoint": mount}, value=value)
+
+
+def _disk_signals(session: Session) -> list[Signal]:
+    return list(session.scalars(select(Signal).where(Signal.kind == prometheus.DISK_KIND)))
+
+
+def test_a_disk_at_seventy_percent_stays_silent(db_session: Session) -> None:
+    lines = prometheus.poll_disk(db_session, _Disk(_disk(0.70)), "kaval-staging", DISK_Q, now=NOW)
+    assert lines == [] and _disk_signals(db_session) == []
+
+
+def test_a_disk_over_the_line_writes_one_signal_for_the_node(db_session: Session) -> None:
+    prometheus.poll_disk(db_session, _Disk(_disk(0.62, "/boot"), _disk(0.91, "/")),
+                         "kaval-staging", DISK_Q, now=NOW)
+    [signal] = _disk_signals(db_session)
+    assert signal.target == "kaval-staging/node-disk" and signal.source == PROMETHEUS
+    assert signal.value == {"used_fraction": 0.91, "threshold": 0.85, "mount": "/"}
+
+
+def test_a_disk_that_stays_full_is_renewed_not_flooded(db_session: Session) -> None:
+    prom = _Disk(_disk(0.9))
+    for i in range(20):  # ten minutes at 30 s a pass
+        prometheus.poll_disk(db_session, prom, "kaval-staging", DISK_Q,
+                             now=NOW + timedelta(seconds=30 * i))
+    assert len(_disk_signals(db_session)) == 2
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -0.2, 0.0, 1.7, 85.0])
+def test_a_broken_query_is_not_a_full_disk(db_session: Session, value: float) -> None:
+    """85.0 is the likely mistake: a percentage where a fraction was meant."""
+    assert prometheus.poll_disk(db_session, _Disk(_disk(value)), "kaval-staging", DISK_Q,
+                                now=NOW) == []
+    assert _disk_signals(db_session) == []
+
+
+def test_with_no_query_the_check_is_off_and_nothing_is_asked(db_session: Session) -> None:
+    prom = _Disk(_disk(0.99))
+    assert prometheus.poll_disk(db_session, prom, "kaval-staging", "", now=NOW) == []
+    assert prom.asked == []
+
+
+def test_the_signal_carries_only_our_own_numbers(db_session: Session) -> None:
+    long_mount = "/" + "x" * 500
+    prometheus.poll_disk(db_session, _Disk(_disk(0.9, long_mount)), "kaval-staging", DISK_Q,
+                         now=NOW)
+    [signal] = _disk_signals(db_session)
+    assert len(str(signal.value["mount"])) <= 64

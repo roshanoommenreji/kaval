@@ -225,15 +225,44 @@ cmd_run() {
   echo "--- how long each stage took: make mttr ---"
 }
 
+# KAV-81, ADR-0047: what can staging's own metrics see about the disk? Read-only: it reads `df`,
+# the kubelet's metric pages and `free`, and changes nothing. The answer decides whether disk is
+# watched with what is already there or needs a small measuring agent. Needs staging up.
+cmd_measure() {
+  need_node
+  run_script_on_node <<'SCRIPT'
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+K=/usr/local/bin/kubectl
+NODE=$($K get nodes -o name | head -1 | cut -d/ -f2)
+echo "== the real disk (df) =="
+df -h / /var/lib/rancher 2>&1 | head -5
+echo "== node ephemeral storage, as Kubernetes sees it =="
+$K get node "$NODE" -o jsonpath='capacity={.status.capacity.ephemeral-storage} allocatable={.status.allocatable.ephemeral-storage}'; echo
+echo "== cAdvisor: which fs metrics exist (series count) =="
+$K get --raw "/api/v1/nodes/$NODE/proxy/metrics/cadvisor" 2>&1 | grep -E '^container_fs_(usage|limit|reads|writes)_bytes' | awk -F'{' '{print $1}' | sort | uniq -c
+echo "== cAdvisor: the whole-node rows, if any =="
+$K get --raw "/api/v1/nodes/$NODE/proxy/metrics/cadvisor" 2>&1 | grep -E '^container_fs_(usage|limit)_bytes\{[^}]*id="/"' | cut -c1-260 | head -6
+echo "== cAdvisor: per-container fs usage in the demo and kaval namespaces (first 6) =="
+$K get --raw "/api/v1/nodes/$NODE/proxy/metrics/cadvisor" 2>&1 | grep -E '^container_fs_usage_bytes\{[^}]*namespace="kaval' | cut -c1-260 | head -6
+echo "== kubelet: volume and ephemeral-storage metric names =="
+$K get --raw "/api/v1/nodes/$NODE/proxy/metrics" 2>&1 | grep -E '^kubelet_(volume_stats|ephemeral|node_)' | awk -F'{' '{print $1}' | sort | uniq -c | head -12
+echo "== kubelet summary: the node filesystem =="
+$K get --raw "/api/v1/nodes/$NODE/proxy/stats/summary" 2>&1 | grep -A6 '"fs": {' | head -14
+echo "== node memory now =="
+free -m | head -2
+SCRIPT
+}
+
 # Sourced by a test, nothing runs; executed, it dispatches.
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 case "${1:-}" in
+  measure) cmd_measure ;;
   run)    cmd_run "${2:-oom}" ;;
   stop)   cmd_stop ;;
   status) cmd_status ;;
   propose) cmd_propose "${2:-oom}" ;;
   mttr)    cmd_mttr ;;
   approve) cmd_approve "${2:-}" ;;
-  *) echo "usage: chaos.sh <run [oom|badrelease]|stop|status|propose [oom|badrelease]|approve ID|mttr>"; exit 2 ;;
+  *) echo "usage: chaos.sh <run [oom|badrelease]|stop|status|propose [oom|badrelease]|approve ID|mttr|measure>"; exit 2 ;;
 esac
 fi

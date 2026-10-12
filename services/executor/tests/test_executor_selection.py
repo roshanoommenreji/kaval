@@ -234,3 +234,63 @@ def test_run_once_is_idempotent(
     assert len(first) >= 1
     assert all(r.action_type != "restart_pod" or r.action_id not in {f.action_id for f in first}
               for r in second)
+
+
+# ── KAV-81: an action filed against an incident that is for a person ──────────────────────
+
+def _action_for(db: Session, fingerprint: str) -> Action:
+    action = _action(db, policy_class=PolicyClass.ask, verdict=Verdict.approved)
+    action.proposal.incident.fingerprint = fingerprint
+    db.flush()
+    return action
+
+
+def _stand_in_policy(*a: object, cause: str | None = None, **kw: object) -> PolicyClass:
+    """Applies the one rule these tests are about; the real rule is proven in policy_test.rego
+    and test_policy.py."""
+    from kaval_shared import health
+    return (PolicyClass.never if cause and health.is_people_only_cause(cause)
+            else PolicyClass.ask)
+
+
+def test_execute_one_hands_the_incident_cause_to_the_policy_check(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    def fake(*a: object, **kw: object) -> PolicyClass:
+        seen.update(kw)
+        return PolicyClass.never
+
+    monkeypatch.setattr(policy_mod, "classify", fake)
+    action = _action_for(db_session, "disk_pressure:k8s:kaval-staging/node-disk")
+    executor.execute_one(db_session, action)
+    assert seen["cause"] == "disk_pressure"
+
+
+def test_a_human_approved_restart_against_a_disk_incident_is_still_refused(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Refused and recorded, and the cluster is never called."""
+    def must_not_run(target: str) -> tuple[dict[str, object], dict[str, object], str]:
+        raise AssertionError("the cluster must not be touched")
+
+    monkeypatch.setattr(policy_mod, "classify", _stand_in_policy)
+    monkeypatch.setattr(k8s, "SUPPORTED_ACTIONS", {"restart_pod": must_not_run})
+    action = _action_for(db_session, "disk_pressure:k8s:kaval-staging/node-disk")
+    result = executor.execute_one(db_session, action)
+    assert result.status == ExecutionStatus.skipped
+    db_session.refresh(action)
+    assert action.execution is not None and "never" in (action.execution.stdout or "")
+
+
+def test_the_same_approved_restart_against_an_oom_incident_still_runs(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(policy_mod, "classify", _stand_in_policy)
+    monkeypatch.setattr(
+        k8s, "SUPPORTED_ACTIONS",
+        {"restart_pod": lambda target: ({"found": True}, {"deleted": True}, "deleted")},
+    )
+    action = _action_for(db_session, "oom_killed:k8s:kaval-demo/checkout")
+    assert executor.execute_one(db_session, action).status == ExecutionStatus.success

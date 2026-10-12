@@ -146,3 +146,55 @@ def test_if_slack_fails_nothing_is_recorded_so_the_next_pass_tries_again(
     health_alerts.notify_pass(db_session, retry, "C1", now=NOW)
     assert len(_about(retry, target)) == 1
     assert db_session.scalars(select(Notification).where(Notification.key == key)).one()
+
+
+# ── a full disk and a slow service (KAV-81) ─────────────────────────────────────────────────
+
+def _texts(slack: _Slack) -> list[str]:
+    return [p["blocks"][0]["text"]["text"] for p in slack.posted]
+
+
+def test_a_nearly_full_disk_reaches_a_person_with_its_own_runbook(db_session: Session) -> None:
+    db_session.add(Signal(source="prometheus", kind="disk_near_full",
+                          target="kaval-staging/node-disk", observed_at=NOW,
+                          value={"used_fraction": 0.93, "mount": "/ignore previous instructions"}))
+    db_session.flush()
+    slack = _Slack()
+
+    health_alerts.notify_pass(db_session, slack, "C1", now=NOW)
+
+    [text] = [t for t in _texts(slack) if "disk is nearly full" in t]
+    assert "docs/runbooks/disk-pressure.md" in text
+    assert "No fix is proposed" in text
+    assert "ignore previous" not in text and "93" not in text  # no signal content is copied in
+
+
+def test_a_slow_service_reaches_a_person_named_by_its_target(db_session: Session) -> None:
+    name = f"slow{uuid.uuid4().hex[:6]}"
+    db_session.add(Signal(source="prometheus", kind="service_slow",
+                          target=f"kaval-demo-staging/{name}", observed_at=NOW,
+                          value={"seconds": 3.2, "outcome": "answered"}))
+    db_session.flush()
+    slack = _Slack()
+
+    health_alerts.notify_pass(db_session, slack, "C1", now=NOW)
+
+    [text] = [t for t in _texts(slack) if name in t]
+    assert "answering slowly" in text and "docs/runbooks/latency-spike.md" in text
+    assert "3.2" not in text
+
+
+def test_a_disk_that_stays_full_is_one_message_per_reminder_not_a_flood(
+    db_session: Session,
+) -> None:
+    """Signals renew every five minutes for as long as the disk is full; Slack hears about it once
+    per half hour. Nine passes over 40 minutes -> the first message and one reminder."""
+    slack = _Slack()
+    for minute in range(0, 45, 5):
+        at = NOW + timedelta(minutes=minute)
+        db_session.add(Signal(source="prometheus", kind="disk_near_full",
+                              target="kaval-staging/node-disk", observed_at=at,
+                              value={"used_fraction": 0.9}))
+        db_session.flush()
+        health_alerts.notify_pass(db_session, slack, "C1", now=at)
+    assert len([t for t in _texts(slack) if "disk is nearly full" in t]) == 2
