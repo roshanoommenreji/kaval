@@ -204,6 +204,7 @@ class _Track:
     domain: str
     subject: str
     last_seen: datetime
+    people_only: bool = False
     existing: uuid.UUID | None = None
     signals: list[Signal] = field(default_factory=list)
     causes: list[Cause] = field(default_factory=list)
@@ -214,9 +215,15 @@ class _Track:
         self.last_seen = max(self.last_seen, signal.observed_at)
 
 
-def _key(fingerprint: str) -> tuple[str, str]:
-    _, domain, subj = fingerprint.split(":", 2)
-    return domain, subj
+def _key(fingerprint: str) -> tuple[str, str, bool]:
+    """(domain, subject, people_only): the third part is the "lane" (KAV-81, ADR-0047). An incident
+    that is for a person (a full disk, a slow service, Kaval's own health) must keep that name for
+    its whole life, because the rule that no fix is proposed reads it. If it shared an incident with
+    ordinary problems about the same thing, whichever signal came first would name the incident,
+    and a harmless "readiness probe failed at start-up" could hide a slow service behind a name
+    that allows a restart. Found live on the first slow-service game day. So the two never mix."""
+    cause, domain, subj = fingerprint.split(":", 2)
+    return domain, subj, health.is_people_only_cause(cause)
 
 
 def plan(new: Sequence[Signal], open_incidents: Sequence[OpenIncident], now: datetime,
@@ -227,10 +234,10 @@ def plan(new: Sequence[Signal], open_incidents: Sequence[OpenIncident], now: dat
     so a spike has a baseline. Pure, so every rule above is unit-tested without Postgres.
     """
     spikes = cost_spikes([*cost_history, *new])
-    tracks: dict[tuple[str, str], _Track] = {}
+    tracks: dict[tuple[str, str, bool], _Track] = {}
     for inc in open_incidents:
-        domain, subj = _key(inc.fingerprint)
-        tracks[(domain, subj)] = _Track(domain, subj, inc.last_seen, existing=inc.id)
+        domain, subj, lane = _key(inc.fingerprint)
+        tracks[(domain, subj, lane)] = _Track(domain, subj, inc.last_seen, lane, existing=inc.id)
     finished: list[_Track] = []
 
     for signal in sorted(new, key=lambda s: s.observed_at):
@@ -238,14 +245,14 @@ def plan(new: Sequence[Signal], open_incidents: Sequence[OpenIncident], now: dat
         cause = cause_of(signal, spikes)
         if cause is None:
             continue
-        key = (domain, subject(signal))
+        key = (domain, subject(signal), health.is_people_only_cause(cause.name))
         track = tracks.get(key)
         quiet = QUIET.get(domain, QUIET["k8s"])
         if track is not None and signal.observed_at - track.last_seen > quiet:
             finished.append(track)  # the old run went quiet before this signal: it's over
             track = None
         if track is None:
-            track = tracks[key] = _Track(domain, key[1], signal.observed_at)
+            track = tracks[key] = _Track(domain, key[1], signal.observed_at, key[2])
         track.add(signal, cause)
 
     out = Plan()

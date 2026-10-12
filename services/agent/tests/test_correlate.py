@@ -242,3 +242,71 @@ def test_a_slow_service_is_a_medium_incident_for_a_person() -> None:
     assert cause.severity == Severity.medium
     assert c.subject(slow) == "kaval-demo-staging/chaos-slowpoke"
     assert health.is_people_only_cause(cause.name)
+
+
+# -- The people-only lane (KAV-81): found live on the first slow-service game day ---------------
+
+SUBJECT = "kaval-demo-staging/chaos-slowpoke"
+POD = f"{SUBJECT}-77bd4bd9c9-9rnpc"
+
+
+def _open(fingerprint: str, last_seen: datetime) -> c.OpenIncident:
+    return c.OpenIncident(uuid.uuid4(), fingerprint, last_seen)
+
+
+def test_a_slow_service_is_not_hidden_behind_an_older_harmless_incident() -> None:
+    """The live case: a readiness blip at start-up opened `unhealthy:...` first. The later slowness
+    signals used to join it and the incident kept the harmless name (which allows a restart
+    proposal). Now the slowness is an incident of its own, named for what it is."""
+    old = _open(f"unhealthy:k8s:{SUBJECT}", AT)
+    slow = signal("service_slow", AT + timedelta(minutes=3), target=SUBJECT, source="prometheus",
+                  seconds=3.1)
+
+    plan = c.plan([slow], [old], AT + timedelta(minutes=5))
+
+    assert old.id not in plan.attached
+    assert only(plan).fingerprint == f"latency_high:k8s:{SUBJECT}"
+    assert health.is_people_only_fingerprint(only(plan).fingerprint)
+
+
+def test_ordinary_signals_do_not_join_an_incident_that_is_for_a_person() -> None:
+    mine = _open(f"latency_high:k8s:{SUBJECT}", AT)
+    crash = signal("pod_back_off", AT + timedelta(minutes=2), target=POD)
+
+    plan = c.plan([crash], [mine], AT + timedelta(minutes=5))
+
+    assert mine.id not in plan.attached
+    assert only(plan).fingerprint == f"crashloop:k8s:{SUBJECT}"
+
+
+def test_signals_of_the_same_people_only_kind_still_group_into_one_incident() -> None:
+    first = signal("service_slow", AT, target=SUBJECT, source="prometheus")
+    later = signal("service_slow", AT + timedelta(minutes=5), target=SUBJECT, source="prometheus")
+
+    plan = c.plan([first, later], [], AT + timedelta(minutes=6))
+
+    assert len(only(plan).signals) == 2
+    # and once open, the renewals attach to it rather than opening another
+    open_one = _open(only(plan).fingerprint, AT + timedelta(minutes=5))
+    renewal = signal("service_slow", AT + timedelta(minutes=10), target=SUBJECT,
+                     source="prometheus")
+    again = c.plan([renewal], [open_one], AT + timedelta(minutes=11))
+    assert again.opened == [] and again.attached[open_one.id] == [renewal]
+
+
+def test_kaval_own_health_is_not_renamed_by_an_ordinary_problem_with_the_same_service() -> None:
+    stalled = signal("alert_firing", AT, target="kaval-staging/executor", source="prometheus",
+                     alertname="KavalLoopStalled", severity="critical", service="executor")
+    killed = signal("pod_oom_killed", AT, target="kaval-staging/executor-bcdfg-hjklm")
+
+    plan = c.plan([stalled, killed], [], AT + timedelta(minutes=2))
+
+    assert {n.fingerprint for n in plan.opened} == {
+        "kaval_loop_stalled:k8s:kaval-staging/executor", "oom_killed:k8s:kaval-staging/executor"}
+
+
+def test_disk_pressure_is_its_own_incident_with_a_stable_subject() -> None:
+    disk = signal("disk_near_full", AT, target="kaval-staging/node-disk", source="prometheus",
+                  used_fraction=0.9)
+    plan = c.plan([disk], [], AT + timedelta(minutes=2))
+    assert only(plan).fingerprint == "disk_pressure:k8s:kaval-staging/node-disk"
