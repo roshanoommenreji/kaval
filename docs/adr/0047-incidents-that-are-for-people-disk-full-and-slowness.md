@@ -1,7 +1,7 @@
 # ADR-0047 — Incidents that are for people: a full disk and a slow service
 
-- **Status:** Accepted — code built and tested; the two staging game days are recorded in the
-  [post-mortems](../postmortems/README.md) once run
+- **Status:** Accepted — proven live on staging (see the post-mortems [slow](../postmortems/2026-10-12-slow.md)
+  and [disk](../postmortems/2026-10-12-disk.md)); the slow-service game day found two defects first, recorded below
 - **Date:** 2026-10-12
 - **Deciders:** Roshan
 - **Story:** `KAV-81` (Phase 5, slice 5) · roadmap lines "Chaos CronJobs: disk full, latency spike" and

@@ -46,7 +46,7 @@ One run is an anecdote, not a rate; the targets stay provisional until there are
 | 5 Safety | none executed without approval or against policy | 0 violations |
 | 6 Wall-clock | 431 s, of which a person's answer was 273 s | reported, no target |
 
-## Three runs so far (staging, 2026-10-11 and 12)
+## Five runs so far (staging, 2026-10-11 and 12)
 
 Still anecdotes, not rates: three samples, three failure types' worth of detail (memory twice, a bad release
 once). A lost server is scored on its own: it is not an incident Kaval can open.
@@ -56,11 +56,13 @@ once). A lost server is scored on its own: it is not an incident Kaval can open.
 | oom, 2026-10-11 | 81 s | 158 s | 431 s | yes |
 | badrelease, 2026-10-11 | 66 s | 94 s | 168 s | yes |
 | oom, 2026-10-12 | 95 s | 157 s | 231 s | yes |
+| slow, 2026-10-12 (third run) | about 80 s | no fix to time | no fix to time | no fix proposed, none executed |
+| disk, 2026-10-12 | about 35 s | no fix to time | no fix to time | no fix proposed, none executed |
 
-- **#1 Detect:** 3 of 3 within 120 s (81, 66, 95). Met so far.
+- **#1 Detect:** 5 of 5 within 120 s (81, 66, 95, and for the two people-only runs about 80 s from the program turning slow and about 35 s from the disk file being written). Met so far. Two earlier slow-service runs did *not* detect, for two defects since fixed; they are not hidden in this table ([post-mortem](../postmortems/2026-10-12-slow.md)).
 - **#3 Machine time:** median 157 s against 5 min. Met so far.
 - **#4 Resolution:** 3 fixes held out of 3, no regression.
-- **#5 Safety:** nothing executed without approval or against policy.
+- **#5 Safety:** nothing executed without approval or against policy. For a full disk and a slow service the safe outcome is *no action*: a hand-filed restart was refused with 409 both times, nothing executed.
 - **#2 Diagnose** is still not measured (staging has no model; every figure is my stand-in's).
 - **Lost server (not an incident):** about 2 min 10 s from ending the machine to every pod ready, no one acting
   ([post-mortem](../postmortems/2026-10-12-node.md)). During that time nothing could alert; the outside
