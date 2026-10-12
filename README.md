@@ -101,7 +101,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | [deploy/](deploy/) | Helm charts, per-environment values, Flux GitOps |
 | [infra/](infra/) | Terraform modules and environments (`dev`, `staging`, `prod`, `lab-eks`) |
 | [policy/](policy/) | Rego action policies — what the agent may and may not do |
-| [chaos/](chaos/) | Failure injection experiments (game days on staging: memory, a bad release, a lost server); write-ups in [docs/postmortems/](docs/postmortems/) |
+| [chaos/](chaos/) | Failure injection experiments (game days on staging: memory, a bad release, a lost server, a slow service, a full disk); write-ups in [docs/postmortems/](docs/postmortems/) |
 | [evals/](evals/) | LLM eval harness and golden incident set |
 | [scripts/ops/](scripts/ops/) | Operating AWS and the database — backup, restore, anonymise, cost report |
 | [scripts/tracking/](scripts/tracking/) | Keeping Jira, Confluence and the dashboard in step with the repo |

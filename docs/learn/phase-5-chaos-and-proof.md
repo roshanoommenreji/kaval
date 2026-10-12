@@ -3,7 +3,7 @@
 > **Written from:** theory
 > **Lab:** to be written
 > **Cost:** no change — posture still **paused between sessions**
-> **Built so far:** slice 4 (`KAV-80`) — a bad release rolled back on approval and a lost server that replaces itself, both run live on staging, plus an out-of-memory kill now labelled correctly ([ADR-0045](../adr/0045-rolling-back-a-bad-release-and-flux-versus-direct-fixes.md), [ADR-0046](../adr/0046-losing-the-app-server-and-how-we-test-it.md), [Lab 47](../labs/lab-47-chaos-bad-release-and-lost-server.md), post-mortems [bad release](../postmortems/2026-10-11-badrelease.md) and [lost server](../postmortems/2026-10-12-node.md)). Slice 3 (`KAV-79`) — the chaos framework and the memory experiment: our own small jobs, a failure maker that cannot repair and an executor that cannot break, a switch, a clock and a stop button, and one real game day on staging whose fix held ([ADR-0044](../adr/0044-chaos-with-our-own-jobs-and-a-bounded-memory-fix.md), [Lab 46](../labs/lab-46-chaos-and-the-memory-game-day.md), [post-mortem](../postmortems/2026-10-11-oom.md)). Slice 2 (`KAV-78`) — every service shows its own health, Prometheus judges it with three tested rules, and a person is told straight from the signals when Kaval itself stops ([ADR-0042](../adr/0042-watching-the-watcher.md), [Lab 45](../labs/lab-45-watching-the-watcher.md)). Slice 1 (`KAV-77`) — [service levels](../architecture/service-levels.md), the executor recording whether each fix held, and `make mttr` ([ADR-0041](../adr/0041-service-levels-and-recording-whether-a-fix-held.md), [Lab 44](../labs/lab-44-recording-whether-a-fix-held.md)). The rest is still theory, so this page stays marked as written from theory
+> **Built so far:** slice 5 (`KAV-81`) — a full disk and a slow service, both of which end in "a person is told and nothing is proposed", run live on staging ([ADR-0047](../adr/0047-incidents-that-are-for-people-disk-full-and-slowness.md), [Lab 48](../labs/lab-48-chaos-disk-full-and-a-slow-service.md), post-mortems [slow](../postmortems/2026-10-12-slow.md) and [disk](../postmortems/2026-10-12-disk.md)). Slice 4 (`KAV-80`) — a bad release rolled back on approval and a lost server that replaces itself, both run live on staging, plus an out-of-memory kill now labelled correctly ([ADR-0045](../adr/0045-rolling-back-a-bad-release-and-flux-versus-direct-fixes.md), [ADR-0046](../adr/0046-losing-the-app-server-and-how-we-test-it.md), [Lab 47](../labs/lab-47-chaos-bad-release-and-lost-server.md), post-mortems [bad release](../postmortems/2026-10-11-badrelease.md) and [lost server](../postmortems/2026-10-12-node.md)). Slice 3 (`KAV-79`) — the chaos framework and the memory experiment: our own small jobs, a failure maker that cannot repair and an executor that cannot break, a switch, a clock and a stop button, and one real game day on staging whose fix held ([ADR-0044](../adr/0044-chaos-with-our-own-jobs-and-a-bounded-memory-fix.md), [Lab 46](../labs/lab-46-chaos-and-the-memory-game-day.md), [post-mortem](../postmortems/2026-10-11-oom.md)). Slice 2 (`KAV-78`) — every service shows its own health, Prometheus judges it with three tested rules, and a person is told straight from the signals when Kaval itself stops ([ADR-0042](../adr/0042-watching-the-watcher.md), [Lab 45](../labs/lab-45-watching-the-watcher.md)). Slice 1 (`KAV-77`) — [service levels](../architecture/service-levels.md), the executor recording whether each fix held, and `make mttr` ([ADR-0041](../adr/0041-service-levels-and-recording-whether-a-fix-held.md), [Lab 44](../labs/lab-44-recording-whether-a-fix-held.md)). The rest is still theory, so this page stays marked as written from theory
 
 ## What the first game day showed (2026-10-11)
 
@@ -17,6 +17,12 @@ The hypothesis held: Kaval noticed in 81 s and, once a person approved, raised t
 
 **The label.** Kubernetes never sends an "out of memory" event, only a generic back-off, so a real memory kill had been called a crash loop. Reading the pod's last exit reason fixed it, and a memory re-run on staging showed the incident named correctly.
 
+## What the fourth and fifth game days showed (2026-10-12)
+
+**Two failures where the right answer is "tell a person".** A restart frees no disk and speeds nothing up, so for a nearly full disk and a slow service Kaval must notice, tell a person, and propose nothing. The rule is enforced four times (the agent writes no proposal, the policy marks any attached action `never`, the executor asks the policy again, the gateway refuses to approve it), and a hand-filed restart against each incident was refused with an HTTP 409. The disk game day wrote a bounded 3 GiB and the reading went from 30 % to 45 %; the incident opened about 35 s after the file was written.
+
+**The slow-service game day took three runs, and the two failures are the result.** The first run found nothing: a staging setting existed only in one of two copies, and the copy Flux actually deploys lacked it (every test was green). The second run found the signal but attached it to an older incident named `unhealthy`, opened a few seconds earlier by a harmless start-up event, so the incident kept a name that still allowed a restart proposal. That was a real safety hole, and the fix is that problems for a person always get their own incident. The third run passed. Lesson: a rule that depends on a name is only as safe as whatever decides the name.
+
 ## Where this sits
 
 Phases 1–4 built a system that *should* detect, diagnose, propose and remediate — approval now
@@ -29,7 +35,7 @@ failure classes," which is a different kind of sentence.
 
 ## What we're doing
 
-- Chaos jobs injecting five failure classes into the demo namespace on staging only, one done so far (out of memory)
+- Chaos jobs injecting five failure classes into the demo namespace on staging only, five done so far (out of memory, a bad release, a lost server, a slow service, a full disk)
 - Blast-radius containment, tested before the experiments are trusted
 - MTTR measured from signal to verified resolution
 - A **runbook per failure class** — which is also the agent's retrieval corpus

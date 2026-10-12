@@ -39,8 +39,8 @@ make staging-down
 | `oom` | A program needing ~96 MiB started with a 64 MiB limit | OOMKilled → proposal to raise the memory limit → approval → fixed and holding | Slice 3 (`KAV-79`) |
 | `badrelease` | A healthy program, then a new version that crashes at start-up | CrashLoopBackOff → proposal to **roll back** (not restart) → approval → previous version back and holding | Slice 4 (`KAV-80`, [ADR-0045](../docs/adr/0045-rolling-back-a-bad-release-and-flux-versus-direct-fixes.md)) |
 | `node` (`make chaos-node`) | The app server is ended; the auto-scaling group replaces it | Nothing inside Kaval can notice (it ran on that machine); the run times the self-heal and checks no data was lost | Slice 4 (`KAV-80`, [ADR-0046](../docs/adr/0046-losing-the-app-server-and-how-we-test-it.md)) |
-| `disk-fill` | A volume filled to 95 % | DiskPressure → **alert to a person, no automated action** | Slice 5 (`KAV-81`) |
-| `latency` | Injected slowness | SLO breach → investigation, **no automated action** | Slice 5 (`KAV-81`) |
+| `disk` | A program writes a bounded 3 GiB into a capped volume (staging's disk line is 0.38, so 30 % to 45 % crosses it) | `disk_pressure` incident of its own → **a person is told, no automated action**; a hand-filed restart is refused | Slice 5 (`KAV-81`, [ADR-0047](../docs/adr/0047-incidents-that-are-for-people-disk-full-and-slowness.md)) |
+| `slow` | A web program that answers fast, then takes 3 s per answer | `latency_high` incident of its own → **a person is told, no automated action**; a hand-filed restart is refused | Slice 5 (`KAV-81`); read the result afterwards with `make chaos-check` |
 
 Each experiment is only complete when a matching runbook exists in `docs/runbooks/` — the agent needs
 something to retrieve, and writing it is how you find out whether you understand the failure. The
