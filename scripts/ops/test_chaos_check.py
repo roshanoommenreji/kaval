@@ -13,7 +13,7 @@ from chaos_check import Report  # noqa: E402
 
 
 def _good() -> Report:
-    return Report(incidents=["disk_pressure:k8s:kaval-staging/node-disk"], messages_to_a_person=1,
+    return Report(incidents=["disk_pressure:k8s:kaval-staging/node-disk"], messages_prepared=1,
                   by_hand_proposals=1)
 
 
@@ -29,7 +29,7 @@ def test_a_hand_filed_never_action_that_was_refused_still_passes() -> None:
 
 def test_silence_fails() -> None:
     report = _good()
-    report.messages_to_a_person = 0
+    report.messages_sent = report.messages_prepared = 0
     assert any("no message" in p for p in chaos_check.judge(report))
 
 

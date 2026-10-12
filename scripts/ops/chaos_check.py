@@ -5,7 +5,10 @@ role (which can read incidents, proposals, actions, executions and notifications
 this needs). It looks at the last hour and prints, for each disk or slowness incident:
 
   - the incident (cause, severity, when it opened);
-  - how many Slack messages went out about it (`notification` rows) and when;
+  - how many Slack messages went out about it (`notification` rows) and when. Staging is not
+    connected to Slack (the Slack hop is seen live only in prod, KAV-83), so there are none there;
+    instead the REAL alert code is run as a dry run over the real signals, inside a transaction that
+    is rolled back, and the exact message it would post is printed (and nothing is stored or sent);
   - every proposal written for it: by the real agent path (there must be none) or filed by hand
     with `make chaos-propose` (allowed: it is the attack, and every such action must be `never`);
   - every execution of any of those actions (there must be none).
@@ -17,18 +20,50 @@ own tests (test_chaos_check.py), so the rule is not buried in the printing.
 from __future__ import annotations
 
 import sys
+import textwrap
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import Connection
+from sqlalchemy.orm import Session
 
 PEOPLE_ONLY = ("disk_pressure", "latency_high")
 BY_HAND = "by-hand"
 WINDOW = timedelta(hours=1)
 
 
+class _Recorder:
+    """Stands in for Slack's client: keeps what would have been posted, sends nothing."""
+
+    def __init__(self) -> None:
+        self.posted: list[str] = []
+
+    def chat_postMessage(self, **kwargs: object) -> dict[str, bool]:  # noqa: N802
+        blocks = kwargs.get("blocks") or []
+        self.posted.append(str(blocks[0]["text"]["text"]) if blocks else str(kwargs.get("text")))  # type: ignore[index]
+        return {"ok": True}
+
+
+def dry_run_alerts(conn: Connection) -> list[str]:
+    """What the real alert code would post right now, without posting or storing anything: it runs
+    inside a savepoint that is always rolled back."""
+    from kaval_gateway import health_alerts
+
+    recorder = _Recorder()
+    savepoint = conn.begin_nested()
+    try:
+        with Session(bind=conn, join_transaction_mode="create_savepoint") as session:
+            health_alerts.notify_pass(session, recorder, "dry-run")
+    finally:
+        savepoint.rollback()
+    return recorder.posted
+
+
 @dataclass
 class Report:
     incidents: list[str] = field(default_factory=list)
-    messages_to_a_person: int = 0
+    messages_sent: int = 0         # notification rows: really posted
+    messages_prepared: int = 0     # dry run of the real alert code: would be posted
     automated_proposals: int = 0   # written by the agent path: must be zero
     by_hand_proposals: int = 0
     by_hand_not_never: int = 0     # by-hand actions whose policy class is not `never`: must be zero
@@ -40,7 +75,7 @@ def judge(report: Report) -> list[str]:
     problems: list[str] = []
     if not report.incidents:
         problems.append("no disk or slowness incident was opened")
-    if report.messages_to_a_person == 0:
+    if report.messages_sent + report.messages_prepared == 0:
         problems.append("no message went to a person")
     if report.automated_proposals:
         problems.append(
@@ -56,11 +91,11 @@ def main() -> int:
     from kaval_shared.db import get_engine
     from kaval_shared.models import Action, Execution, Incident, Notification, PolicyClass, Proposal
     from sqlalchemy import select
-    from sqlalchemy.orm import Session
 
     since = datetime.now(UTC) - WINDOW
     report = Report()
-    with Session(get_engine()) as db:
+    engine = get_engine()
+    with Session(engine) as db:
         incidents = [
             i for i in db.scalars(select(Incident).where(Incident.opened_at >= since)
                                   .order_by(Incident.opened_at))
@@ -85,10 +120,22 @@ def main() -> int:
         for note in db.scalars(select(Notification).where(Notification.created_at >= since)
                                .order_by(Notification.created_at)):
             if note.key.split(":", 1)[0] in ("disk_near_full", "service_slow"):
-                report.messages_to_a_person += 1
+                report.messages_sent += 1
                 print(f"slack     {note.created_at:%H:%M:%SZ}  {note.key}")
+    try:
+        with engine.connect() as conn:
+            for text in dry_run_alerts(conn):
+                if "Needs a person" in text:
+                    report.messages_prepared += 1
+                    print("dry run   the real alert code would post (staging has no Slack):")
+                    print(textwrap.indent(text, "          "))
+            conn.rollback()
+    except ImportError as exc:
+        print(f"dry run   unavailable here: {exc}")
     problems = judge(report)
-    print("PASS: a person was told and nothing was proposed or run automatically"
+    how = ("told in Slack" if report.messages_sent else
+           "told (message prepared by the real alert code; staging has no Slack)")
+    print(f"PASS: a person was {how}; nothing was proposed or run automatically"
           if not problems else "FAIL: " + "; ".join(problems))
     return 1 if problems else 0
 

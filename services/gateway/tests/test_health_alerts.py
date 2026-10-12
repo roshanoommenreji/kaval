@@ -198,3 +198,25 @@ def test_a_disk_that_stays_full_is_one_message_per_reminder_not_a_flood(
         db_session.flush()
         health_alerts.notify_pass(db_session, slack, "C1", now=at)
     assert len([t for t in _texts(slack) if "disk is nearly full" in t]) == 2
+
+
+# ── the game-day check's dry run (KAV-81): staging has no Slack ───────────────────────────────
+
+def test_the_chaos_check_dry_run_shows_the_message_and_stores_nothing(
+    db_session: Session,
+) -> None:
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "ops"))
+    import chaos_check
+
+    db_session.add(Signal(source="prometheus", kind="disk_near_full",
+                          target="kaval-staging/node-disk", observed_at=datetime.now(UTC),
+                          value={"used_fraction": 0.43}))
+    db_session.flush()
+
+    posted = chaos_check.dry_run_alerts(db_session.connection())
+
+    assert any("disk is nearly full" in text for text in posted)
+    assert db_session.scalars(select(Notification)).first() is None  # nothing was stored
