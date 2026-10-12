@@ -54,6 +54,15 @@ collector:
 # (KAV-83). Everything else is the chart's default; see `prometheus:` in values.yaml.
 prometheus:
   enabled: true
+  disk:
+    # Lower than the chart's 0.85 so the game day's bounded 3 GiB fill (about 14 points of this
+    # 20 GB disk, from about 29 percent) crosses it. Same code path; only the number differs, and
+    # the staging disk is nowhere near 38 percent otherwise (ADR-0047).
+    threshold: 0.38
+  probe:
+    # The game day's slow program, when it exists. Nothing is listening here otherwise, which the
+    # probe treats as "down", not "slow", so it stays silent.
+    targets: "kaval-demo-staging/chaos-slowpoke=http://chaos-slowpoke.kaval-demo-staging.svc.cluster.local:8080/"
 
 # Chaos experiments run here, never in prod (KAV-79, ADR-0044). The switch inside stays off
 # until a game day turns it on (`make chaos-run`).

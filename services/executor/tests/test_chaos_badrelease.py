@@ -183,8 +183,8 @@ def test_the_victims_are_pinned_and_unprivileged() -> None:
         assert c["securityContext"]["runAsNonRoot"] is True
 
 
-def test_the_registry_knows_both_experiments() -> None:
-    assert set(chaos.EXPERIMENTS) == {"oom", "badrelease"}
+def test_the_registry_knows_all_the_experiments() -> None:
+    assert set(chaos.EXPERIMENTS) == {"oom", "badrelease", "slow", "disk"}
     assert set(chaos.CLUSTERS) == set(chaos.EXPERIMENTS)
 
 

@@ -19,7 +19,9 @@ def _sh(snippet: str) -> subprocess.CompletedProcess[str]:
 
 
 @pytest.mark.parametrize(("experiment", "victim"), [("oom", "chaos-oomer"),
-                                                    ("badrelease", "chaos-badrelease")])
+                                                    ("badrelease", "chaos-badrelease"),
+                                                    ("slow", "chaos-slowpoke"),
+                                                    ("disk", "chaos-diskfill")])
 def test_each_experiment_has_its_own_victim(experiment: str, victim: str) -> None:
     out = _sh(f"victim_of {experiment}")
     assert out.returncode == 0 and out.stdout.strip() == victim
@@ -40,3 +42,5 @@ def test_the_victims_match_the_runner() -> None:
     from kaval_executor import chaos
     assert _sh("victim_of oom").stdout.strip() == chaos.VICTIM_NAME
     assert _sh("victim_of badrelease").stdout.strip() == chaos.RELEASE_VICTIM_NAME
+    assert _sh("victim_of slow").stdout.strip() == chaos.SLOW_VICTIM_NAME
+    assert _sh("victim_of disk").stdout.strip() == chaos.DISK_VICTIM_NAME

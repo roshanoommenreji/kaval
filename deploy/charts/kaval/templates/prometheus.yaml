@@ -100,7 +100,9 @@ data:
         # is stored, which is most of what keeps this inside its memory budget (ADR-0040).
         metric_relabel_configs:
           - source_labels: [__name__]
-            regex: container_memory_working_set_bytes|container_spec_memory_limit_bytes
+            # container_fs_*: the node disk's used and total bytes (KAV-81, ADR-0047: measured on
+            # staging, cAdvisor already reports them for the root disk, so no extra agent).
+            regex: container_memory_working_set_bytes|container_spec_memory_limit_bytes|container_fs_usage_bytes|container_fs_limit_bytes
             action: keep
 ---
 {{ $prom := "prometheus" }}
@@ -223,7 +225,17 @@ spec:
             - {{ .Values.prometheus.renewSeconds | quote }}
             - "--every"
             - {{ .Values.prometheus.pollEverySeconds | quote }}
+            # KAV-81: the disk check (off when the query is empty) and the slowness probe.
+            - "--disk-query"
+            - {{ .Values.prometheus.disk.query | quote }}
+            - "--disk-threshold"
+            - {{ .Values.prometheus.disk.threshold | quote }}
+            - "--probe-slow-seconds"
+            - {{ .Values.prometheus.probe.slowSeconds | quote }}
           env:
+            # Which services to time, as namespace/name=url,... Settings only: nothing in the
+            # database or a model's answer can add a target. Empty (the default) probes nothing.
+            - { name: PROBE_TARGETS, value: {{ .Values.prometheus.probe.targets | quote }} }
             # Where Kaval's own services run: the poller names health alerts after it.
             - { name: KAVAL_NAMESPACE, value: {{ .Release.Namespace | quote }} }
           envFrom:

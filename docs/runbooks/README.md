@@ -29,10 +29,8 @@ Actions that look right and make it worse.
 
 ## Written
 
-- `restore-from-backup.md`, `rollback-prod.md`, `kaval-stopped-reporting.md` (`KAV-78`), `pod-oomkilled.md` (`KAV-79`), `pod-crashloop-after-release.md` and `node-lost.md` (`KAV-80`)
+- `restore-from-backup.md`, `rollback-prod.md`, `kaval-stopped-reporting.md` (`KAV-78`), `pod-oomkilled.md` (`KAV-79`), `pod-crashloop-after-release.md` and `node-lost.md` (`KAV-80`), `disk-pressure.md` and `latency-spike.md` (`KAV-81`; both are for a person: no fix is proposed)
 
 ## Planned (Phase 5)
 
-- `disk-pressure.md`
-- `latency-spike.md`
 - `cost-spike.md`

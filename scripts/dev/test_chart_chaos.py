@@ -43,7 +43,7 @@ def test_the_switch_is_rendered_off(env: str) -> None:
     assert re.search(r'(?m)^\s+enabled: "false"$', cm)
 
 
-@pytest.mark.parametrize("experiment", ["oom", "badrelease"])
+@pytest.mark.parametrize("experiment", ["oom", "badrelease", "slow", "disk"])
 @pytest.mark.parametrize("env", ["staging", "local"])
 def test_the_cronjob_is_suspended_with_a_hard_limit(env: str, experiment: str) -> None:
     cj = _find(_render(env), "CronJob", f"chaos-{experiment}")
@@ -84,3 +84,33 @@ def test_the_collector_may_read_a_pod_but_not_list_or_change_one() -> None:
     assert 'resources: ["events"]\n    verbs: ["list", "watch"]' in role
     for verb in ("create", "patch", "update", "delete"):
         assert f'"{verb}"' not in role
+
+
+def test_the_runner_may_create_a_service_but_delete_only_its_own() -> None:
+    role = _find(_render("staging"), "Role", "chaos-runner")
+    assert 'resources: ["services"]\n    verbs: ["create"]' in role
+    assert ('resources: ["services"]\n    resourceNames: ["chaos-slowpoke"]\n'
+            '    verbs: ["get", "delete"]') in role
+
+
+def _poller_render(env: str, *extra: str) -> str:
+    return subprocess.run(
+        ["helm", "template", f"kaval-{env}", str(CHART), "-f",
+         str(ROOT / "deploy" / "environments" / env / "values.yaml"), *extra],
+        check=True, capture_output=True, text=True, encoding="utf-8",
+    ).stdout
+
+
+def test_staging_watches_the_disk_at_a_lower_line_than_the_chart_default() -> None:
+    out = _poller_render("staging")
+    assert '- "--disk-threshold"\n            - "0.38"' in out
+    assert "container_fs_usage_bytes" in out
+
+
+def test_prod_would_get_the_real_line_and_probe_nothing_when_prometheus_reaches_it() -> None:
+    """Prometheus is off in prod today (KAV-83 turns it on). When it is, the disk line must be the
+    chart's 0.85, nothing in the render may mention chaos, and no service is probed."""
+    out = _poller_render("prod", "--set", "prometheus.enabled=true")
+    assert '- "--disk-threshold"\n            - "0.85"' in out
+    assert "chaos" not in out.lower()
+    assert 'name: PROBE_TARGETS, value: ""' in out
