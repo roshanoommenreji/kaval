@@ -61,6 +61,8 @@ spec:
         enabled: true
       probe:
         targets: "kaval-demo-staging/chaos-slowpoke=http://chaos-slowpoke.kaval-demo-staging.svc.cluster.local:8080/"
+      heartbeat:
+        secretName: kaval-heartbeat
     approvals:
       reminderMinutes: 3
       escalateMinutes: 7

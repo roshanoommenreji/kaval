@@ -67,6 +67,10 @@ prometheus:
     # The game day's slow program, when it exists. Nothing is listening here otherwise, which the
     # probe treats as "down", not "slow", so it stays silent.
     targets: "kaval-demo-staging/chaos-slowpoke=http://chaos-slowpoke.kaval-demo-staging.svc.cluster.local:8080/"
+  # The outside "still alive" ping (KAV-83, ADR-0052), to staging's own check, so a test can stop the
+  # poller and watch the alarm arrive without touching production's check.
+  heartbeat:
+    secretName: kaval-heartbeat
 
 # Approvals that nobody answers (KAV-82, ADR-0048). Short on purpose, so a test can watch a request
 # be reminded, escalated and expire in 15 minutes instead of 4 hours; prod keeps the chart's

@@ -94,6 +94,18 @@ resource "aws_ssm_parameter" "slack" {
   }
 }
 
+# The outside "still alive" ping address for staging's own check (KAV-83, ADR-0052). Set with
+# `scripts/ops/set-heartbeat.sh staging`; the placeholder means the poller sends nothing.
+resource "aws_ssm_parameter" "heartbeat_url" {
+  name  = "/kaval/${local.name_prefix}/heartbeat/url"
+  type  = "SecureString"
+  value = "REPLACE_ME"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
 module "iam" {
   source = "../../modules/iam"
 
@@ -103,6 +115,7 @@ module "iam" {
   secret_parameter_arns = concat(
     module.database.ssm_parameter_arns,
     [for p in aws_ssm_parameter.slack : p.arn],
+    [aws_ssm_parameter.heartbeat_url.arn],
   )
 }
 

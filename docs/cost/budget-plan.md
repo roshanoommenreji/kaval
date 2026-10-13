@@ -95,6 +95,8 @@ actual, not projected. One addition not in the table above: an S3 bucket for the
 to the figures already here, and the free S3 gateway VPC endpoint means it never crosses a
 metered data-transfer path.
 
+**The outside "still alive" check (`KAV-83`, [ADR-0052](../adr/0052-the-outside-still-alive-check.md), 2026-10-13) adds no spend:** the monitoring service's free tier (20 checks; Kaval uses two), a free IAM role, one more SSM parameter per environment (Standard parameters are free), a GitHub job every five minutes (free on a public repository), and one small web request every two minutes from a poller that already runs.
+
 **The nightly dump itself (`KAV-74`, [ADR-0038](../adr/0038-nightly-dump-is-taken-by-the-app-node.md), 2026-10-10)
 adds no spend:** it is a systemd timer on the app node that is already running, writing into the bucket above.
 The dump of the current schema is about 20 KB and 14 days are kept, so storage stays within the S3 line (0.05).

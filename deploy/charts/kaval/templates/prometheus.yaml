@@ -291,6 +291,16 @@ spec:
             - { name: PROBE_TARGETS, value: {{ .Values.prometheus.probe.targets | quote }} }
             # Where Kaval's own services run: the poller names health alerts after it.
             - { name: KAVAL_NAMESPACE, value: {{ .Release.Namespace | quote }} }
+            {{- if .Values.prometheus.heartbeat.secretName }}
+            # KAV-83: the outside "still alive" address, from a Secret and never from a value. Optional,
+            # so the poller starts (and does everything else) even if the Secret is not there yet.
+            - name: HEARTBEAT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.prometheus.heartbeat.secretName | quote }}
+                  key: HEARTBEAT_URL
+                  optional: true
+            {{- end }}
           envFrom:
             - secretRef:
                 name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "collector") }}

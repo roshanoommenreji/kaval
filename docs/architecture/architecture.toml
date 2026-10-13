@@ -347,6 +347,18 @@ outputs = ["One GitHub issue and a red run when a dump owed for a running night 
 note = "KAV-82, ADR-0049. Runs daily from GitHub, not from inside AWS, so it works when AWS is parked or broken. The rule: a dump is owed only for a 19:30 UTC at which the app server was running, so a parked production is silent. Assumes a separate role (infra/modules/backup-watch), trusted for this repository on main only. make restore-drill restores the newest dump into a throwaway Postgres on the laptop and writes a dated record; the first drill (2026-10-13) passed, with production holding no rows yet."
 
 [[system.node]]
+id = "still-alive"
+label = "still-alive check (outside)"
+kind = "external"
+phase = 5
+col = 3
+row = 10
+credentials = "ping address only (a secret, never in git or chat); no management key; the GitHub cover's role can only describe auto-scaling groups"
+inputs = ["A small https ping from the Prometheus poller after every pass that fully worked (at most one per 2 minutes)", "The same ping from a GitHub job every 5 minutes, sent only while the app-server group is clearly parked"]
+outputs = ["An e-mail from the service when the pings stop for about 25 minutes (10 minutes expected + 15 grace)"]
+note = "KAV-83, ADR-0052. A free dead-man's-switch service (healthchecks.io): silence is the alarm, so it needs nothing from the system that has died and no public address on production. The poller (kaval_collector.heartbeat) pings only after a good pass, never raises, never prints the address, and refuses http and redirects. While production is parked, .github/workflows/still-alive.yml pings for it, but only on a positive 'wants 0 servers and has none' (scripts/ops/still_alive.py, tested); running or unsure sends nothing. Its role (infra/modules/still-alive) is read-only, trusted for this repository on main. The address lives in SSM (/kaval/<env>/heartbeat/url), becomes the Secret kaval-heartbeat at node start-up (never stopping it if missing), and is set by the owner with scripts/ops/set-heartbeat.sh. Free."
+
+[[system.node]]
 id = "guardrail"
 label = "budget guardrail"
 kind = "platform"
@@ -535,6 +547,18 @@ kind = "platform"
 # ═══════════════════════════════════════════════════════════════════════
 # JOURNEY VIEW — one incident, every branch
 # ═══════════════════════════════════════════════════════════════════════
+
+[[system.edge]]
+from = "collector"
+to = "still-alive"
+label = "ping after a good pass"
+kind = "platform"
+
+[[system.edge]]
+from = "node"
+to = "still-alive"
+label = "parked: GitHub pings for it"
+kind = "platform"
 
 [[system.edge]]
 from = "s3"

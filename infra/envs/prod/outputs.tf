@@ -41,6 +41,11 @@ output "ci_publish_role_arn" {
   value       = module.ci_publish.role_arn
 }
 
+output "still_alive_role_arn" {
+  description = "For the repository variable AWS_STILL_ALIVE_ROLE_ARN (gh variable set); setting it switches the still-alive job on. Contains the account id, so it lives in GitHub, never in a file."
+  value       = module.still_alive.role_arn
+}
+
 output "backup_watch_role_arn" {
   description = "For the repository variable AWS_BACKUP_WATCH_ROLE_ARN (gh variable set). Contains the account id, so it lives in GitHub, never in a file."
   value       = module.backup_watch.role_arn

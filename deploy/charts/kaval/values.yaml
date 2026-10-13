@@ -195,6 +195,13 @@ prometheus:
   probe:
     targets: ""
     slowSeconds: 1
+  # The outside "still alive" ping (KAV-83, ADR-0052). The poller pings an outside dead-man's-switch
+  # after every pass that fully worked; the service raises the alarm when the pings stop. The
+  # ADDRESS is a secret, so it is never a value here: this is only the NAME of the Secret that holds
+  # it (key HEARTBEAT_URL), which the node's start-up script creates from SSM. Empty turns it off.
+  # The reference is optional, so a missing Secret never stops the poller from starting.
+  heartbeat:
+    secretName: ""
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { cpu: 500m, memory: 384Mi }
