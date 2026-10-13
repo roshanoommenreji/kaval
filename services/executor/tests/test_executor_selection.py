@@ -12,7 +12,7 @@ disagrees with an action's stored `policy_class`.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -54,7 +54,8 @@ def _action(
     db.add_all([incident, proposal, action])
     db.flush()
     if verdict is not None:
-        db.add(Decision(action_id=action.id, verdict=verdict, actor="test", decided_at=NOW))
+        db.add(Decision(action_id=action.id, verdict=verdict, actor="test",
+                        decided_at=datetime.now(UTC)))
         db.flush()
     if with_execution:
         db.add(Execution(action_id=action.id, status=ExecutionStatus.success,
@@ -74,27 +75,27 @@ def _bare(policy_class: PolicyClass, decision: Decision | None) -> Action:
 
 
 def test_refusal_none_when_fresh_check_says_auto() -> None:
-    assert executor._refusal(_bare(PolicyClass.auto, None), PolicyClass.auto) is None
+    assert executor._refusal(_bare(PolicyClass.auto, None), PolicyClass.auto, NOW) is None
 
 
 def test_refusal_set_when_fresh_check_says_never_even_if_stored_auto() -> None:
-    reason = executor._refusal(_bare(PolicyClass.auto, None), PolicyClass.never)
+    reason = executor._refusal(_bare(PolicyClass.auto, None), PolicyClass.never, NOW)
     assert reason is not None and "never" in reason
 
 
 def test_refusal_none_when_fresh_says_ask_but_a_human_approved() -> None:
     decision = Decision(verdict=Verdict.approved, actor="roshan", decided_at=NOW)
-    assert executor._refusal(_bare(PolicyClass.ask, decision), PolicyClass.ask) is None
+    assert executor._refusal(_bare(PolicyClass.ask, decision), PolicyClass.ask, NOW) is None
 
 
 def test_refusal_none_when_fresh_says_ask_and_verdict_is_auto_approved() -> None:
     decision = Decision(verdict=Verdict.auto_approved, actor="policy-engine", decided_at=NOW)
-    assert executor._refusal(_bare(PolicyClass.auto, decision), PolicyClass.ask) is None
+    assert executor._refusal(_bare(PolicyClass.auto, decision), PolicyClass.ask, NOW) is None
 
 
 def test_refusal_set_when_fresh_says_ask_and_a_human_denied() -> None:
     decision = Decision(verdict=Verdict.denied, actor="roshan", decided_at=NOW)
-    reason = executor._refusal(_bare(PolicyClass.ask, decision), PolicyClass.ask)
+    reason = executor._refusal(_bare(PolicyClass.ask, decision), PolicyClass.ask, NOW)
     assert reason is not None and "no human approval" in reason
 
 
@@ -102,8 +103,42 @@ def test_refusal_set_when_stored_auto_but_fresh_check_now_disagrees_and_says_ask
     # The drift case: promotions.json changed (or the stored class was simply wrong) between
     # proposal time and now. No decision exists, because the action was never meant to need
     # one — which is exactly why this must refuse rather than fall through to acting.
-    reason = executor._refusal(_bare(PolicyClass.auto, None), PolicyClass.ask)
+    reason = executor._refusal(_bare(PolicyClass.auto, None), PolicyClass.ask, NOW)
     assert reason is not None and "ask" in reason
+
+
+def test_refusal_set_when_a_human_approval_is_older_than_the_limit() -> None:
+    # KAV-82: an approval is permission for now. Approved at NOW, looked at 61 minutes later.
+    decision = Decision(verdict=Verdict.approved, actor="roshan", decided_at=NOW)
+    reason = executor._refusal(
+        _bare(PolicyClass.ask, decision), PolicyClass.ask, NOW + timedelta(minutes=61),
+    )
+    assert reason is not None and "61 minutes old" in reason and "60-minute limit" in reason
+
+
+def test_refusal_none_when_a_human_approval_is_just_inside_the_limit() -> None:
+    decision = Decision(verdict=Verdict.approved, actor="roshan", decided_at=NOW)
+    assert executor._refusal(
+        _bare(PolicyClass.ask, decision), PolicyClass.ask, NOW + timedelta(minutes=59),
+    ) is None
+
+
+def test_the_approval_age_limit_can_be_set_and_falls_back_when_unusable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("EXECUTOR_APPROVAL_MAX_AGE_MINUTES", "5")
+    assert executor.approval_max_age() == timedelta(minutes=5)
+    for bad in ("", "soon", "0", "-3", "nan", "inf"):
+        monkeypatch.setenv("EXECUTOR_APPROVAL_MAX_AGE_MINUTES", bad)
+        assert executor.approval_max_age() == timedelta(minutes=60), bad
+
+
+def test_an_auto_approval_never_goes_stale() -> None:
+    # Promoted-to-auto actions are decided by the policy engine at the moment of acting.
+    decision = Decision(verdict=Verdict.auto_approved, actor="policy-engine", decided_at=NOW)
+    assert executor._refusal(
+        _bare(PolicyClass.auto, decision), PolicyClass.ask, NOW + timedelta(days=3),
+    ) is None
 
 
 # ── execute_one, with policy_mod.classify monkeypatched: deterministic, no opa needed ──────

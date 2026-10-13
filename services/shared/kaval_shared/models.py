@@ -203,6 +203,9 @@ class Action(Base):
     # action can be undecided and already notified, which decision.is_(None) alone can't
     # distinguish).
     slack_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Slack's timestamp for that message (KAV-82): the handle needed to take the buttons off it
+    # when the request expires.
+    slack_ts: Mapped[str | None] = mapped_column(Text)
 
     proposal: Mapped[Proposal] = relationship(back_populates="actions")
     decision: Mapped[Decision | None] = relationship(back_populates="action")

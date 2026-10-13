@@ -37,6 +37,13 @@ spec:
               value: {{ .Values.gateway.localModel | quote }}
             - name: LOG_LEVEL
               value: {{ .Values.gateway.logLevel | quote }}
+            # Approvals nobody answers (KAV-82, ADR-0048); see values.yaml's `approvals`.
+            - name: APPROVAL_REMINDER_MINUTES
+              value: {{ .Values.approvals.reminderMinutes | quote }}
+            - name: APPROVAL_ESCALATE_MINUTES
+              value: {{ .Values.approvals.escalateMinutes | quote }}
+            - name: APPROVAL_EXPIRE_MINUTES
+              value: {{ .Values.approvals.expireMinutes | quote }}
           ports:
             - containerPort: {{ .Values.gateway.port }}
             - { name: metrics, containerPort: 9100 }

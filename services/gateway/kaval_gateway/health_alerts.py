@@ -31,6 +31,12 @@ from sqlalchemy.orm import Session
 FRESH = timedelta(minutes=15)
 # A fault that lasts is mentioned again after this long, not every five minutes.
 REMINDER = timedelta(minutes=30)
+# A fault still being reported after this long gets one louder message (KAV-82, ADR-0048). There
+# is no Acknowledge button on these messages, so "nobody answered" is read from "still firing".
+ESCALATE_AFTER = timedelta(hours=2)
+# Reminders go out every REMINDER; a gap longer than this between two of them means the fault
+# went away and came back, which is a new episode with a new clock.
+EPISODE_GAP = 2 * REMINDER
 # The rule that is always firing, to prove the rules are being evaluated. Not a fault.
 WATCHDOG = "KavalWatchdog"
 RUNBOOK = "docs/runbooks/kaval-stopped-reporting.md"
@@ -73,31 +79,83 @@ def current(session: Session, now: datetime) -> dict[str, Signal]:
     return {f"{_name(s)}:{s.target}": s for s in rows if _is_for_a_person(s)}
 
 
-def message(signal: Signal) -> str:
+def _headline(signal: Signal) -> tuple[str, str]:
+    """(emoji, sentence) for one signal. Only a fixed sentence and a service name: the text is
+    stored (notification.message) and copied to staging with the rest of the database, so no
+    signal text may ever go into it."""
     name = _name(signal)
     what = _WORDS.get(name, "is reporting a problem")
     service = signal.target.rsplit("/", 1)[-1]
-    # Only a fixed sentence and a service name: this text is stored (notification.message) and
-    # copied to staging with the rest of the database, so no signal text may ever go into it.
     if name == "disk_near_full":
-        lines = [f":warning: *Needs a person:* {what}."]
-    elif name == "service_slow":
-        lines = [f":warning: *Needs a person:* `{service}` {what}."]
-    else:
-        lines = [f":rotating_light: *Kaval's own health:* `{service}` {what}."]
+        return ":warning:", f"*Needs a person:* {what}."
+    if name == "service_slow":
+        return ":warning:", f"*Needs a person:* `{service}` {what}."
+    return ":rotating_light:", f"*Kaval's own health:* `{service}` {what}."
+
+
+def message(signal: Signal) -> str:
+    name = _name(signal)
+    emoji, sentence = _headline(signal)
+    lines = [f"{emoji} {sentence}"]
     runbook = _RUNBOOKS.get(name, RUNBOOK)
     lines.append(f"No fix is proposed for this; a person needs to look. Runbook: `{runbook}`")
     return "\n".join(lines)
 
 
+def _episode_start(session: Session, key: str, now: datetime) -> datetime | None:
+    """When the current run of reminders for `key` began: walk back through its messages until
+    two are further apart than `EPISODE_GAP`."""
+    times = list(session.scalars(
+        select(Notification.created_at).where(Notification.key == key)
+        .order_by(Notification.created_at.desc())
+    ))
+    if not times or now - times[0] >= EPISODE_GAP:
+        return None
+    start = times[0]
+    for earlier in times[1:]:
+        if start - earlier >= EPISODE_GAP:
+            break
+        start = earlier
+    return start
+
+
+def _escalate(
+    session: Session, web_client: Any, key: str, signal: Signal, escalation_channel: str,
+    now: datetime,
+) -> bool:
+    """One louder message per episode, once the fault has been reported for `ESCALATE_AFTER`."""
+    started = _episode_start(session, key, now)
+    if started is None or now - started < ESCALATE_AFTER:
+        return False
+    marker = f"{key}#escalated"
+    done = session.scalar(
+        select(Notification.created_at).where(Notification.key == marker)
+        .order_by(Notification.created_at.desc()).limit(1)
+    )
+    if done is not None and done >= started:
+        return False
+    hours = int((now - started).total_seconds() // 3600)
+    text = (f":rotating_light: <!here> Still not fixed after {hours} hours. "
+            f"{_headline(signal)[1]} Runbook: `{_RUNBOOKS.get(_name(signal), RUNBOOK)}`")
+    web_client.chat_postMessage(channel=escalation_channel, text=text)
+    session.add(Notification(key=marker, message=text, created_at=now))
+    session.commit()
+    return True
+
+
 def notify_pass(
-    session: Session, web_client: Any, channel: str, now: datetime | None = None,
+    session: Session, web_client: Any, channel: str, escalation_channel: str | None = None,
+    now: datetime | None = None,
 ) -> int:
-    """One pass: post each fresh fault that was not already mentioned within `REMINDER`.
+    """One pass: post each fresh fault that was not already mentioned within `REMINDER`, and
+    escalate the ones that have lasted `ESCALATE_AFTER`.
     Session-injectable, like `slack_chatops.notify_pass`: a test needs no Slack and no thread."""
     now = now or datetime.now(UTC)
+    escalation_channel = escalation_channel or channel
     sent = 0
     for key, signal in current(session, now).items():
+        if _escalate(session, web_client, key, signal, escalation_channel, now):
+            sent += 1
         last = session.scalar(
             select(Notification.created_at).where(Notification.key == key)
             .order_by(Notification.created_at.desc()).limit(1)

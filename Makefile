@@ -75,8 +75,8 @@ rules-test: ## promtool-test Kaval's own-health alert rules with the Prometheus 
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check infra/modules/idle-stop/lambda scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/ops/chaos_check.py scripts/ops/test_chaos_check.py scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira_release.py scripts/tracking/test_jira_release.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
-	mypy infra/modules/idle-stop/lambda/idle_stop.py scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/ops/chaos_check.py scripts/ops/test_chaos_check.py scripts/release/pin_staging.py scripts/release/staging_smoke.py scripts/release/promote.py scripts/release/rollback.py scripts/release/versions.py scripts/release/change_record.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py scripts/tracking/jira_release.py
+	ruff check infra/modules/idle-stop/lambda scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/ops/chaos_check.py scripts/ops/test_chaos_check.py scripts/ops/approvals_drill.py scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira_release.py scripts/tracking/test_jira_release.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
+	mypy infra/modules/idle-stop/lambda/idle_stop.py scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/ops/chaos_check.py scripts/ops/test_chaos_check.py scripts/ops/approvals_drill.py scripts/release/pin_staging.py scripts/release/staging_smoke.py scripts/release/promote.py scripts/release/rollback.py scripts/release/versions.py scripts/release/change_record.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py scripts/tracking/jira_release.py
 
 .PHONY: lock
 lock: ## Re-resolve uv.lock after editing pyproject.toml's dependencies (then commit both)
@@ -283,6 +283,14 @@ staging-measure-disk: ## Read-only: what can staging's metrics see about the dis
 .PHONY: chaos-check
 chaos-check: ## After EXPERIMENT=slow|disk: did Kaval tell a person and propose nothing? (read-only, from staging's database)
 	@bash scripts/ops/chaos.sh check
+
+.PHONY: approvals-file
+approvals-file: ## Staging: file one harmless approval request to rehearse an unanswered approval (KAV-82)
+	@bash scripts/ops/chaos.sh approval-file
+
+.PHONY: approvals-report
+approvals-report: ## Staging: its age, and the exact messages the real notifier would send now (read-only, KAV-82)
+	@bash scripts/ops/chaos.sh approval-report
 
 .PHONY: chaos-status
 chaos-status: ## Chaos switch, Jobs and victim on staging

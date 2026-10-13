@@ -64,6 +64,14 @@ prometheus:
     # probe treats as "down", not "slow", so it stays silent.
     targets: "kaval-demo-staging/chaos-slowpoke=http://chaos-slowpoke.kaval-demo-staging.svc.cluster.local:8080/"
 
+# Approvals that nobody answers (KAV-82, ADR-0048). Short on purpose, so a test can watch a request
+# be reminded, escalated and expire in 15 minutes instead of 4 hours; prod keeps the chart's
+# 15 / 30 / 240. A game day approves within a few minutes, well inside 15.
+approvals:
+  reminderMinutes: 3
+  escalateMinutes: 7
+  expireMinutes: 15
+
 # Chaos experiments run here, never in prod (KAV-79, ADR-0044). The switch inside stays off
 # until a game day turns it on (`make chaos-run`).
 chaos:

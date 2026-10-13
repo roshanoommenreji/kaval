@@ -245,6 +245,27 @@ cmd_check() {
   pod_run chaos-check gateway "$(b64_of "$HERE/chaos_check.py")"
 }
 
+# KAV-82, ADR-0048: rehearse an approval nobody answers. `approval-file` writes one harmless request
+# (AGENT's database role, as a language model's proposal would be); `approval-report` shows its age
+# and the exact messages the real notifier would send now (GATEWAY's role, read-only, rolled back).
+# The report uses the timings the running gateway was given, so it shows what staging really does.
+cmd_approval_file() {
+  need_node
+  pod_run approval-drill-file agent "$(b64_of "$HERE/approvals_drill.py")" ",{\"name\":\"DRILL_MODE\",\"value\":\"file\"}"
+}
+
+cmd_approval_report() {
+  need_node
+  local gw var val extra=""
+  gw="$(find_name deployment gateway)"
+  [ -n "$gw" ] || { echo "no gateway deployment found in ${NAMESPACE}" >&2; exit 1; }
+  for var in APPROVAL_REMINDER_MINUTES APPROVAL_ESCALATE_MINUTES APPROVAL_EXPIRE_MINUTES; do
+    val="$(on_node "$NODE" "$KC get deployment $gw -n ${NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name==\"${var}\")].value}'" | tr -d '\r\n')"
+    [ -n "$val" ] && extra="${extra},{\"name\":\"${var}\",\"value\":\"${val}\"}"
+  done
+  pod_run approval-drill-report gateway "$(b64_of "$HERE/approvals_drill.py")" ",{\"name\":\"DRILL_MODE\",\"value\":\"report\"}${extra}"
+}
+
 # KAV-81, ADR-0047: what can staging's own metrics see about the disk? Read-only: it reads `df`,
 # the kubelet's metric pages and `free`, and changes nothing. The answer decides whether disk is
 # watched with what is already there or needs a small measuring agent. Needs staging up.
@@ -278,12 +299,14 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 case "${1:-}" in
   measure) cmd_measure ;;
   check)   cmd_check ;;
+  approval-file)   cmd_approval_file ;;
+  approval-report) cmd_approval_report ;;
   run)    cmd_run "${2:-oom}" ;;
   stop)   cmd_stop ;;
   status) cmd_status ;;
   propose) cmd_propose "${2:-oom}" ;;
   mttr)    cmd_mttr ;;
   approve) cmd_approve "${2:-}" ;;
-  *) echo "usage: chaos.sh <run [oom|badrelease]|stop|status|propose [oom|badrelease]|approve ID|mttr|measure|check>"; exit 2 ;;
+  *) echo "usage: chaos.sh <run [oom|badrelease]|stop|status|propose [oom|badrelease]|approve ID|mttr|measure|check|approval-file|approval-report>"; exit 2 ;;
 esac
 fi

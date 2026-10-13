@@ -13,12 +13,15 @@ from enum import Enum
 from kaval_shared.models import Action, Decision, PolicyClass, Verdict
 from sqlalchemy.orm import Session
 
+from kaval_gateway import approvals
+
 
 class DecisionOutcome(Enum):
     recorded = "recorded"
     not_found = "not_found"
     never_class = "never_class"
     already_decided = "already_decided"
+    expired = "expired"
 
 
 def record_decision(
@@ -39,6 +42,10 @@ def record_decision(
         return DecisionOutcome.never_class, None
     if action.decision is not None:
         return DecisionOutcome.already_decided, None
+    # KAV-82, ADR-0048: a request nobody answered in time is final, for approve and deny alike.
+    # Computed from the action's own age, so it holds even when the notifier is down.
+    if approvals.is_expired(action):
+        return DecisionOutcome.expired, None
     decision = Decision(
         action_id=action.id, verdict=verdict, actor=actor, reason=reason,
         decided_at=datetime.now(UTC),

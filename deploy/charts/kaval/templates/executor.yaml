@@ -116,6 +116,10 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "executor") }}
+          env:
+            # An approval older than this is not acted on (KAV-82, ADR-0048).
+            - name: EXECUTOR_APPROVAL_MAX_AGE_MINUTES
+              value: {{ .Values.approvals.executorMaxAgeMinutes | quote }}
           ports:
             - { name: metrics, containerPort: 9100 }
           resources:

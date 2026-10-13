@@ -177,3 +177,20 @@ def test_start_is_a_noop_without_slack_env_vars(monkeypatch: Any) -> None:
         monkeypatch.delenv(var, raising=False)
     assert slack_chatops.configured() is False
     assert slack_chatops.start() is None
+
+
+def test_the_slack_message_handle_is_kept_so_the_buttons_can_be_removed_later(
+    db_session: Session,
+) -> None:
+    class _WithTs(_FakeWebClient):
+        def chat_postMessage(  # type: ignore[override]
+            self, **kwargs: Any
+        ) -> dict[str, Any]:
+            super().chat_postMessage(**kwargs)
+            return {"ok": True, "ts": "1760000000.000100"}
+
+    action = _action(db_session)
+
+    slack_chatops.notify_pass(db_session, _WithTs(), "C_TEST")
+
+    assert action.slack_ts == "1760000000.000100"

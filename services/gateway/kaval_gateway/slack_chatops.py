@@ -34,7 +34,7 @@ from slack_sdk.web import WebClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from kaval_gateway import health_alerts
+from kaval_gateway import approvals, health_alerts
 from kaval_gateway.decisions import DecisionOutcome, record_decision
 
 logger = logging.getLogger("kaval_gateway.slack_chatops")
@@ -102,22 +102,28 @@ def notify_pass(session: Session, web_client: WebClient, channel: str) -> int:
     background thread or a real Slack connection — see `tests/test_slack_chatops.py`."""
     actions = pending_actions(session)
     for action in actions:
-        web_client.chat_postMessage(
+        posted = web_client.chat_postMessage(
             channel=channel,
             text=f"Approval needed: {action.type} on {action.target}",
             blocks=_blocks(action),
         )
         action.slack_notified_at = datetime.now(UTC)
+        # The handle for taking the buttons off if the request expires (KAV-82).
+        action.slack_ts = posted.get("ts")
     session.commit()
     return len(actions)
 
 
-def _notify_loop(web_client: WebClient, channel: str, stop: threading.Event) -> None:
+def _notify_loop(
+    web_client: WebClient, channel: str, stop: threading.Event,
+    escalation_channel: str | None = None,
+) -> None:
     while not stop.is_set():
         try:
             with Session(get_engine()) as session:
                 notify_pass(session, web_client, channel)
-                health_alerts.notify_pass(session, web_client, channel)
+                approvals.notify_pass(session, web_client, channel, escalation_channel)
+                health_alerts.notify_pass(session, web_client, channel, escalation_channel)
         except Exception:
             logger.exception("slack_chatops: notify loop failed this pass")
         stop.wait(POLL_SECONDS)
@@ -169,6 +175,9 @@ def start() -> threading.Event | None:
 
     bot_token = os.environ["SLACK_BOT_TOKEN"]
     channel = os.environ["SLACK_CHANNEL_ID"]
+    # Optional second place for the louder "nobody answered" message (KAV-82); unset means the
+    # same channel, with an @here.
+    escalation_channel = os.environ.get("SLACK_ESCALATION_CHANNEL_ID") or None
     web_client = WebClient(token=bot_token)
     socket_client = SocketModeClient(
         app_token=os.environ["SLACK_APP_TOKEN"], web_client=web_client
@@ -178,7 +187,7 @@ def start() -> threading.Event | None:
 
     stop = threading.Event()
     threading.Thread(
-        target=_notify_loop, args=(web_client, channel, stop), daemon=True,
+        target=_notify_loop, args=(web_client, channel, stop, escalation_channel), daemon=True,
         name="slack-chatops-notify",
     ).start()
     logger.info("slack_chatops: connected, notifying #%s every %ss", channel, POLL_SECONDS)

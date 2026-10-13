@@ -87,6 +87,11 @@ GRANT SELECT ON signal, incident, incident_signal, proposal TO kaval_executor;
 
 -- gateway: the human-facing API. Reads broadly across the pipeline, writes decisions.
 GRANT SELECT ON incident, proposal, action, execution, outcome TO kaval_gateway;
+-- The Slack notifier marks which message carries an action's buttons (KAV-55, KAV-82). Two
+-- columns only, not the table: the gateway still cannot change what an action *is*. Without this
+-- line the post succeeded and the bookkeeping update was refused, so the same approval would have
+-- been posted again every 30 seconds (found by running this file against a scratch database).
+GRANT UPDATE (slack_notified_at, slack_ts) ON action TO kaval_gateway;
 GRANT SELECT, INSERT, UPDATE ON decision TO kaval_gateway;
 -- signal and incident_signal: /v1/signals and /v1/incidents read them. alembic_version: /healthz
 -- runs `SELECT version_num FROM alembic_version`. All three were missing, so on the deployed
