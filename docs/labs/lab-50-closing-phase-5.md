@@ -57,12 +57,34 @@ says which run no longer adds up. Reading it: the person's wait is the orange ba
 run, 63 percent of the whole; the machine's own time is the same size in every fix (about two and a half
 minutes); a lost server heals with nobody acting in about two minutes ten.
 
-### Step 4 — the staging proof (after this part is merged and released to staging)
+### Step 4 — the staging proof: a release that dies a few seconds after it starts
 
-*Filled in after the run.* The plan: bring staging up on the released version, run the bad-release game
-day again and then break one of the background programs on purpose with a release that dies on
-start-up. Expected: the old pod stays `1/1 Running`, the new pod stays `0/1`, no incident for a stopped
-service, and `kubectl rollout undo` puts it right.
+```bash
+AWS_PROFILE=kaval make staging-up           # answers its prompt with ASSUME_YES=1 when scripted
+# on the node (Session Manager), for the agent, once "with" and once "without" the check:
+bash badrelease.sh with       # patch the Deployment's command to: sleep 20; exit 1   (a program that starts, then dies)
+bash badrelease.sh without    # the same, with the readiness check removed in the same patch
+```
+
+The "release" is a command override that runs for 20 seconds and exits, which is the nasty case: the
+container looks healthy for a moment. Run on 2026-10-13, staging on `sha-e13d854`, chart from `main`:
+
+| | With the readiness check | Without it (control) |
+|---|---|---|
+| 10 s after the release | old pod `1/1 Running`, new pod `0/1` | new pod `1/1 Running`, **old pod `Terminating`** |
+| 40 s | old `1/1 Running`, new `0/1` (restarting) | **old pod gone**; only the new pod left |
+| 80 s | old `1/1 Running`; new `0/1 Error`, 2 restarts | only the new pod, `0/1 Error`: **nothing serving** |
+| `kubectl rollout status` | times out (stuck, not an outage) | times out |
+| `kubectl rollout undo` | rolled out; old pod never left | rolled out; a new good pod had to start |
+
+So the check does what the game day said it would: the working copy keeps working while a bad release
+sits at `0/1`. Without it the good copy was removed within 10 to 40 seconds of the release. Both runs
+were undone with `rollout undo` and ended with one good pod, `restarts=0`.
+
+Everything else on the node, with all six pods ready and the checks on: **1,407 MiB used, 2,231 MiB of
+3,829 MiB available**; pods 39 to 81 MiB each (Prometheus 39 MiB six minutes after it started; 86 MiB
+was its figure after a long run in Lab 45). This is the steady state with chaos installed but switched
+off. Production's own number is taken when production runs (Part 3).
 
 ## Done when
 
@@ -70,4 +92,4 @@ service, and `kubectl rollout undo` puts it right.
 - [x] Production's settings turn Prometheus, the database exporters and a gateway check on (tests)
 - [x] The time-to-restore chart and its arithmetic test
 - [x] The disk-trend decision recorded with its trigger (ADR-0051)
-- [ ] The staging proof of Step 4
+- [x] The staging proof of Step 4 (2026-10-13): the old copy kept serving with the check; was removed within 40 s without it

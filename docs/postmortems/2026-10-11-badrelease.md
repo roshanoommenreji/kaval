@@ -86,3 +86,12 @@ The diagnose figure (12 s) is again the stand-in's, not a measurement of Kaval.
 Second real sample against [service levels](../architecture/service-levels.md): detect 66 s (target 95 %
 within 120 s: met, two samples of two); machine time to restore 94 s (target median 5 minutes: met);
 two fixes held out of two; no unsafe action. Two runs are still not a rate: the targets stay provisional.
+
+## Follow-up, 2026-10-13: the finding is closed
+
+Item 2 above (Kaval's own background programs had no readiness check, so a bad release of one of them
+would take the working copy down too) was fixed in `KAV-83` ([ADR-0051](../adr/0051-closing-phase-5-readiness-checks-prod-prometheus-and-the-disk-trend.md)).
+Proof on staging, the same agent released twice as a program that starts, runs 20 seconds and dies: with the
+check the old pod stayed `1/1 Running` for the whole 80 seconds and the new one stayed `0/1`; without it
+the old pod was removed within 10 to 40 seconds and nothing was left serving. Details and timeline in
+[Lab 50](../labs/lab-50-closing-phase-5.md).
