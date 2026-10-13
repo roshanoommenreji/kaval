@@ -97,6 +97,16 @@ module "ci_publish" {
   ecr_repository_arns = module.ecr.repository_arns
 }
 
+# What the daily backup check borrows (KAV-82, ADR-0049): OIDC, this repo's main branch, can only
+# list the dump folder and read the app server's launch history.
+module "backup_watch" {
+  source = "../../modules/backup-watch"
+
+  name_prefix       = "kaval"
+  github_repo_claim = "roshanoommenreji@37763145/kaval@1388844431"
+  backup_bucket_arn = module.backups.bucket_arn
+}
+
 module "iam" {
   source = "../../modules/iam"
 

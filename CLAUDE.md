@@ -180,6 +180,7 @@ make mttr [LAST=n] # time to restore by stage, machine time and wall-clock, from
 make chaos-run [EXPERIMENT=oom|badrelease|slow|disk] # game day on staging (needs staging up): switch on, cause the failure, follow, switch off
 make chaos-propose [EXPERIMENT=] / chaos-approve ACTION=<id> / chaos-mttr / chaos-check (after slow|disk) / chaos-status / chaos-stop  # the rest of a staging game day; stop = the stop button
 make staging-measure-disk  # read-only: what can staging's metrics see about the disk (needs staging up)
+make restore-drill  # restore production's newest dump into a throwaway Postgres, time it, write docs/drills/restore-<date>.md (read-only on AWS, needs Docker; monthly)
 make approvals-file / approvals-report  # staging: rehearse an approval nobody answers (file one request; see its age and the messages the real notifier would send)
 make chaos-node    # game day: END staging's app server (laptop-run, you type the machine id) and time the self-heal
 make sync          # install exactly what uv.lock pins into .venv
