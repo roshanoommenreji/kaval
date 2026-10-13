@@ -76,6 +76,10 @@ UNREACHABLE_AFTER = 3
 WATCHDOG_GRACE = timedelta(seconds=150)
 DISK_KIND = "disk_near_full"
 DISK_THRESHOLD = 0.85  # fraction of the disk used. Below this the poller says nothing.
+# What the disk signal's target is named for: the app server's own disk, or the database server's
+# (KAV-82, ADR-0050). Same kind, same incident cause, same lane; only the subject differs.
+NODE_DISK = "node-disk"
+DATABASE_DISK = "database-disk"
 UNREACHABLE = "kaval_prometheus_unreachable"
 WATCHDOG_MISSING = "kaval_watchdog_missing"
 
@@ -214,7 +218,7 @@ def disk_over(samples: Sequence[Sample], threshold: float) -> Sample | None:
 def poll_disk(
     session: Session, prom: Prometheus, kaval_namespace: str, query: str, *,
     threshold: float = DISK_THRESHOLD, renew_seconds: float = RENEW_SECONDS,
-    now: datetime | None = None,
+    now: datetime | None = None, subject: str = NODE_DISK,
 ) -> list[str]:
     """One pass: if the disk is at or over `threshold`, write a signal unless one was written in
     the last `renew_seconds` (the same renew-while-it-persists reasoning as the memory signals).
@@ -226,7 +230,7 @@ def poll_disk(
     found = disk_over(prom.query(query), threshold)
     if found is None:
         return []
-    target = f"{kaval_namespace}/node-disk"
+    target = f"{kaval_namespace}/{subject}"
     if _written_since(session, target, DISK_KIND, now - timedelta(seconds=renew_seconds)):
         return []
     session.add(Signal(
@@ -336,6 +340,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                              "empty (the default) turns the disk check off")
     parser.add_argument("--disk-threshold", type=float, default=DISK_THRESHOLD,
                         help="fraction of the disk that counts as nearly full (default 0.85)")
+    parser.add_argument("--database-disk-query",
+                        default=os.environ.get("DATABASE_DISK_QUERY", ""),
+                        help="the same, for the database server's disks (KAV-82); empty (the "
+                             "default) turns that check off")
+    parser.add_argument("--database-disk-threshold", type=float, default=DISK_THRESHOLD,
+                        help="fraction of the database server's disk that counts as nearly full")
     parser.add_argument("--probe-targets", default=os.environ.get("PROBE_TARGETS", ""),
                         help="services to time with one small request each pass, as "
                              "namespace/name=url,... Settings only; empty turns it off")
@@ -380,6 +390,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                                          renew_seconds=args.renew, health=health)
                     lines += poll_disk(session, prom, args.kaval_namespace, args.disk_query,
                                        threshold=args.disk_threshold, renew_seconds=args.renew)
+                    lines += poll_disk(session, prom, args.kaval_namespace,
+                                       args.database_disk_query,
+                                       threshold=args.database_disk_threshold,
+                                       renew_seconds=args.renew, subject=DATABASE_DISK)
                 for line in report(lines):
                     print(line, flush=True)
                 misses = 0

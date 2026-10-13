@@ -284,3 +284,31 @@ def test_without_a_second_channel_the_escalation_uses_the_first(db_session: Sess
 
     assert sum("<!here>" in p["text"] for p in slack.posted) == 1
     assert all(p["channel"] == "C1" for p in slack.posted)
+
+
+def test_the_database_servers_disk_is_named_as_such_not_as_the_app_servers(
+    db_session: Session,
+) -> None:
+    db_session.add(Signal(source="prometheus", kind="disk_near_full",
+                          target="kaval-staging/database-disk", observed_at=NOW,
+                          value={"used_fraction": 0.93, "mount": "/data"}))
+    db_session.flush()
+    slack = _Slack()
+
+    health_alerts.notify_pass(db_session, slack, "C1", now=NOW)
+
+    [text] = [t for t in _texts(slack) if "database server's disk" in t]
+    assert "app server" not in text and "docs/runbooks/disk-pressure.md" in text
+
+
+def test_a_database_that_stops_answering_reaches_a_person_in_plain_words(
+    db_session: Session,
+) -> None:
+    target = f"kaval-staging/database{uuid.uuid4().hex[:4]}"
+    _alert(db_session, "KavalDatabaseDown", target)
+    slack = _Slack()
+
+    health_alerts.notify_pass(db_session, slack, "C1", now=NOW)
+
+    [text] = [t for t in _texts(slack) if "Postgres is not answering" in t]
+    assert "Kaval's own health" in text and "kaval-stopped-reporting.md" in text

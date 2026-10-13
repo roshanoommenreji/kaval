@@ -65,6 +65,30 @@ Do the safe, reversible things first, and look at the number after each:
 - Do not ignore the reminder: a disk at 100 percent stops the database writes and the whole node
   with it
 
+## If it is the DATABASE server's disk
+
+The message says "the database server's disk is nearly full" and the incident is
+`disk_pressure:k8s:<namespace>/database-disk` ([ADR-0050](../adr/0050-monitoring-and-patching-the-database-server.md)).
+That server has two disks: a small root disk (8 GB: the system, Docker's logs) and the data volume
+(`/data`, where Postgres keeps the database). Find out which, over Session Manager on the database
+server (`aws ssm start-session --target <database-instance-id>`):
+
+```bash
+df -h / /data
+sudo du -xh --max-depth=2 /var/lib/docker /var/log 2>/dev/null | sort -h | tail -10   # root disk
+sudo du -xh --max-depth=2 /data 2>/dev/null | sort -h | tail -10                       # data volume
+sudo docker exec postgres psql -U kaval -d kaval -c "SELECT pg_size_pretty(pg_database_size('kaval'))"
+```
+
+- **Root disk full of container logs:** Docker keeps a container's log without limit unless told. The monitoring
+  script sets a default cap that applies from the next Docker start; `sudo journalctl --vacuum-size=200M`
+  and truncating the biggest `/var/lib/docker/containers/*/*-json.log` frees space now
+- **Data volume full because the database really grew:** that is legitimate growth, and the fix is more
+  disk. Grow the EBS volume (`data_disk_gb` in `infra/envs/<env>`, plan shown first, **prod only when you
+  decide**), then `sudo resize2fs` on the device. A snapshot first (`make db-restore-snapshot` documents the
+  names); do not shrink or delete under `/data/pgdata`
+- **Do not** `rm` anything under `/data/pgdata` or delete WAL files by hand: that destroys the database
+
 ## After
 
 - Check the incident closes by itself (about 15 minutes after the last signal)

@@ -354,3 +354,36 @@ def test_the_signal_carries_only_our_own_numbers(db_session: Session) -> None:
                          now=NOW)
     [signal] = _disk_signals(db_session)
     assert len(str(signal.value["mount"])) <= 64
+
+
+# ── the database server's own disk (KAV-82, ADR-0050) ───────────────────────────────────────
+
+def test_the_database_servers_disk_is_its_own_subject_and_does_not_hide_the_nodes(
+    db_session: Session,
+) -> None:
+    prometheus.poll_disk(db_session, _Disk(_disk(0.91, "/data")), "kaval-staging", DISK_Q,
+                         now=NOW, subject=prometheus.DATABASE_DISK)
+    prometheus.poll_disk(db_session, _Disk(_disk(0.90, "/")), "kaval-staging", DISK_Q, now=NOW)
+
+    targets = sorted(s.target for s in _disk_signals(db_session))
+    assert targets == ["kaval-staging/database-disk", "kaval-staging/node-disk"]
+
+
+def test_a_database_disk_at_seventy_percent_stays_silent(db_session: Session) -> None:
+    lines = prometheus.poll_disk(db_session, _Disk(_disk(0.70, "/data")), "kaval-staging",
+                                 DISK_Q, now=NOW, subject=prometheus.DATABASE_DISK)
+    assert lines == [] and _disk_signals(db_session) == []
+
+
+def test_the_database_disk_is_renewed_on_its_own_clock(db_session: Session) -> None:
+    prom = _Disk(_disk(0.92, "/data"))
+    for minutes in (0, 2, 6):
+        prometheus.poll_disk(db_session, prom, "kaval-staging", DISK_Q,
+                             now=NOW + timedelta(minutes=minutes), subject=prometheus.DATABASE_DISK)
+
+    assert len(_disk_signals(db_session)) == 2   # first, then one after the 5 minute renewal
+
+
+def test_an_empty_database_query_turns_that_check_off(db_session: Session) -> None:
+    assert prometheus.poll_disk(db_session, _Disk(_disk(0.99)), "kaval-staging", "", now=NOW,
+                                subject=prometheus.DATABASE_DISK) == []

@@ -57,6 +57,8 @@ spec:
       enabled: true
       disk:
         threshold: 0.38
+      database:
+        enabled: true
       probe:
         targets: "kaval-demo-staging/chaos-slowpoke=http://chaos-slowpoke.kaval-demo-staging.svc.cluster.local:8080/"
     approvals:

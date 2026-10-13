@@ -59,6 +59,10 @@ prometheus:
     # 20 GB disk, from about 29 percent) crosses it. Same code path; only the number differs, and
     # the staging disk is nowhere near 38 percent otherwise (ADR-0047).
     threshold: 0.38
+  # The database server's exporters (KAV-82, ADR-0050). Staging's database server is created with
+  # them, so this is on here first; prod follows with Prometheus itself (KAV-83).
+  database:
+    enabled: true
   probe:
     # The game day's slow program, when it exists. Nothing is listening here otherwise, which the
     # probe treats as "down", not "slow", so it stays silent.

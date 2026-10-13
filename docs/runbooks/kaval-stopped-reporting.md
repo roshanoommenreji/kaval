@@ -12,6 +12,14 @@ Design: [ADR-0042](../adr/0042-watching-the-watcher.md).
 - An incident whose fingerprint starts `kaval_` (`kaval_loop_stalled:k8s:kaval-staging/executor`,
   `kaval_target_down:k8s:...`, `kaval_prometheus_unreachable:k8s:.../prometheus`,
   `kaval_watchdog_missing:...`), always high severity
+- **The database server** ([ADR-0050](../adr/0050-monitoring-and-patching-the-database-server.md)): "`database`
+  cannot be reached, or Postgres is not answering" (`KavalDatabaseDown`: Postgres is down, or the server is
+  stopped while the app is running), or "`database-monitor` is not answering, so the database server's
+  disk is not watched" (`KavalDatabaseMonitorDown`: the exporters stopped). The first is an outage: see
+  [restore-from-backup](restore-from-backup.md) to tell "stopped" from "lost" before doing anything. The
+  second is a blind spot: on the database server (`aws ssm start-session`), `systemctl status
+  kaval-node-exporter kaval-postgres-exporter`; the monitoring association re-applies daily and when the
+  server returns from a stop
 - `make mttr` or `outcome` rows stop growing while problems are known to exist
 - **No news is not good news here.** If this whole page is the *only* way you would find out and
   Slack is silent, remember that the gateway is the messenger: see "The messenger itself" below
