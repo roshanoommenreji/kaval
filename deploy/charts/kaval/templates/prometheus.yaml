@@ -86,6 +86,19 @@ data:
             port: 9100
             refresh_interval: 30s
       {{- end }}
+      {{- if .Values.prometheus.database.enabled }}
+      # The database server's two exporters (KAV-82, ADR-0050). The address is not known when the
+      # chart is rendered (it is the server's own, in the Secret every service already reads), so
+      # an init container writes it into these files before Prometheus starts.
+      - job_name: database-node
+        file_sd_configs:
+          - files: ["/targets/database-node.json"]
+            refresh_interval: 1m
+      - job_name: database-postgres
+        file_sd_configs:
+          - files: ["/targets/database-postgres.json"]
+            refresh_interval: 1m
+      {{- end }}
       - job_name: cadvisor
         scheme: https
         metrics_path: /metrics/cadvisor
@@ -133,6 +146,34 @@ spec:
         runAsNonRoot: true
         runAsUser: 65534
         fsGroup: 65534
+      {{- if .Values.prometheus.database.enabled }}
+      initContainers:
+        # Writes the database server's address into the two target files. The address comes from the
+        # Secret the services already use (POSTGRES_HOST); nothing else from it is read, and the
+        # value is refused unless it looks like a host name or an address.
+        - name: database-targets
+          image: {{ .Values.prometheus.image | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              case "$POSTGRES_HOST" in
+                ""|*[!0-9A-Za-z.-]*) echo "POSTGRES_HOST is empty or not a plain address" >&2; exit 1 ;;
+              esac
+              printf '[{"targets":["%s:9100"],"labels":{"server":"database"}}]' "$POSTGRES_HOST" > /targets/database-node.json
+              printf '[{"targets":["%s:9187"],"labels":{"server":"database"}}]' "$POSTGRES_HOST" > /targets/database-postgres.json
+          env:
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "collector") }}
+                  key: POSTGRES_HOST
+          volumeMounts:
+            - { name: targets, mountPath: /targets }
+          resources:
+            requests: { cpu: 10m, memory: 8Mi }
+            limits: { cpu: 50m, memory: 32Mi }
+      {{- end }}
       containers:
         - name: prometheus
           image: {{ .Values.prometheus.image | quote }}
@@ -149,6 +190,9 @@ spec:
           volumeMounts:
             - { name: config, mountPath: /etc/prometheus, readOnly: true }
             - { name: data, mountPath: /prometheus }
+            {{- if .Values.prometheus.database.enabled }}
+            - { name: targets, mountPath: /targets, readOnly: true }
+            {{- end }}
           resources:
             {{- toYaml .Values.prometheus.resources | nindent 12 }}
       volumes:
@@ -157,6 +201,10 @@ spec:
             name: {{ include "kaval.fullname" . }}-prometheus
         - name: data
           emptyDir: {}
+        {{- if .Values.prometheus.database.enabled }}
+        - name: targets
+          emptyDir: {}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -232,6 +280,11 @@ spec:
             - {{ .Values.prometheus.disk.threshold | quote }}
             - "--probe-slow-seconds"
             - {{ .Values.prometheus.probe.slowSeconds | quote }}
+            # KAV-82: the database server's own disk (off unless database monitoring is on).
+            - "--database-disk-query"
+            - {{ ternary .Values.prometheus.database.diskQuery "" .Values.prometheus.database.enabled | quote }}
+            - "--database-disk-threshold"
+            - {{ .Values.prometheus.database.diskThreshold | quote }}
           env:
             # Which services to time, as namespace/name=url,... Settings only: nothing in the
             # database or a model's answer can add a target. Empty (the default) probes nothing.

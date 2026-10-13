@@ -44,6 +44,24 @@ resource "aws_security_group" "database" {
     security_groups = [var.app_node_security_group_id]
   }
 
+  # KAV-82, ADR-0050: the two exporters, read by Prometheus running on the app node. Same source
+  # as Postgres: the app node's security group and nothing else.
+  ingress {
+    description     = "node_exporter, from the app node only"
+    from_port       = 9100
+    to_port         = 9100
+    protocol        = "tcp"
+    security_groups = [var.app_node_security_group_id]
+  }
+
+  ingress {
+    description     = "postgres_exporter, from the app node only"
+    from_port       = 9187
+    to_port         = 9187
+    protocol        = "tcp"
+    security_groups = [var.app_node_security_group_id]
+  }
+
   egress {
     description      = "Package installs, image pulls, SSM"
     from_port        = 0

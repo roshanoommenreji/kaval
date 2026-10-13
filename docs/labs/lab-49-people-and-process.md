@@ -94,6 +94,37 @@ gh workflow run backup-watch               # then read the run
 Expect `OK` while production is parked. To see it raise, run the same script with a history in which production
 was up and no dump followed (the unit tests do exactly this).
 
+## Part C — the database server is watched and patched
+
+Decisions: [ADR-0050](../adr/0050-monitoring-and-patching-the-database-server.md). Runbook sections:
+[`disk-pressure.md`](../runbooks/disk-pressure.md) ("If it is the DATABASE server's disk") and
+[`kaval-stopped-reporting.md`](../runbooks/kaval-stopped-reporting.md).
+
+### Step 7 — the checks that need no server
+
+```bash
+pytest services/collector/tests/test_prometheus.py services/gateway/tests/test_health_alerts.py -q
+make rules-test                                   # promtool, Docker: the two new rules, healthy and parked included
+helm template k deploy/charts/kaval -f deploy/environments/staging/values.yaml | grep database-node
+(cd infra/envs/prod && terraform validate)        # and: terraform plan, read it, do NOT apply to prod unasked
+```
+
+Read the negative tests first: a database disk at 70 % is silent; a database with no series at all (parked, or
+not monitored) is not an alert; a database that answers never alerts.
+
+### Step 8 — staging: the whole path
+
+```bash
+AWS_PROFILE=kaval make staging-up                 # creates the database server, its association and the exporters
+AWS_PROFILE=kaval make staging-status
+```
+
+Then check, over `make staging-status` or Session Manager: the association ran (`aws ssm list-associations`),
+both exporters answer, Prometheus lists the two new targets as up, and the poller log is quiet. To see the
+database disk alert fire, start the poller once with a very low line (for example `--database-disk-threshold 0.01`)
+and watch an incident `disk_pressure:k8s:<namespace>/database-disk` open, then `make chaos-check`-style
+reading of the message.
+
 ## What went wrong
 
 - *(filled in with the staging proof)*
@@ -106,4 +137,5 @@ was up and no dump followed (the unit tests do exactly this).
 - [ ] The staging proof: a request left to expire, refused with 409 by the deployed gateway
 - [x] Part B built: the rules (tests), the read-only role (validated), `make restore-drill` run for real and recorded
 - [ ] Part B live: the role applied to production, the two repository variables set, the daily check's first run
-- [ ] Part C: database server monitoring
+- [x] Part C built: exporters, role, scrape, disk alert, two rules (promtool), patching, logging (validated, not yet run on a server)
+- [ ] Part C live on staging: the association ran, both exporters answered, Prometheus shows them up, the disk alert fired when forced
