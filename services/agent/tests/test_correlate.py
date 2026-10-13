@@ -232,6 +232,16 @@ def test_a_nearly_full_disk_is_a_high_incident_for_a_person() -> None:
     assert health.is_people_only_cause(cause.name)
 
 
+def test_the_database_servers_disk_is_the_same_kind_of_incident_for_a_person() -> None:
+    disk = signal("disk_near_full", AT, target="kaval-staging/database-disk", source="prometheus",
+                  used_fraction=0.9)
+
+    cause = c.cause_of(disk, set())
+
+    assert cause is not None and cause.name == "disk_pressure"
+    assert health.is_people_only_cause(cause.name)
+
+
 def test_a_slow_service_is_a_medium_incident_for_a_person() -> None:
     slow = signal("service_slow", AT, target="kaval-demo-staging/chaos-slowpoke",
                   source="prometheus", seconds=3.2)

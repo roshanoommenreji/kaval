@@ -127,3 +127,64 @@ tests:
           - exp_labels: { severity: none }
             exp_annotations:
               summary: Always firing. Its absence means Prometheus is not evaluating its rules.
+
+  - name: a database that answers never alerts, and a parked one (no series at all) stays silent
+    interval: 30s
+    input_series:
+      - series: 'up{job="database-postgres",server="database"}'
+        values: "1+0x40"
+      - series: 'pg_up{server="database"}'
+        values: "1+0x40"
+      - series: 'up{job="database-node",server="database"}'
+        values: "1+0x40"
+    alert_rule_test:
+      - { eval_time: 15m, alertname: KavalDatabaseDown, exp_alerts: [] }
+      - { eval_time: 15m, alertname: KavalDatabaseMonitorDown, exp_alerts: [] }
+
+  - name: no database series at all (not monitored, or parked) is not an alert
+    interval: 30s
+    input_series:
+      - series: 'up{job="kaval-gateway"}'
+        values: "1+0x40"
+    alert_rule_test:
+      - { eval_time: 15m, alertname: KavalDatabaseDown, exp_alerts: [] }
+      - { eval_time: 15m, alertname: KavalDatabaseMonitorDown, exp_alerts: [] }
+
+  - name: postgres reporting itself down alerts after five minutes
+    interval: 30s
+    input_series:
+      - series: 'up{job="database-postgres",server="database"}'
+        values: "1+0x40"
+      # the exporter answers, but Postgres is down from the 5th minute
+      - series: 'pg_up{server="database"}'
+        values: "1+0x9 0+0x40"
+    alert_rule_test:
+      - { eval_time: 8m, alertname: KavalDatabaseDown, exp_alerts: [] }
+      - eval_time: 12m
+        alertname: KavalDatabaseDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: database
+              server: database
+            exp_annotations:
+              summary: The database server cannot be reached, or Postgres is not answering.
+
+  - name: an exporter that stops answering alerts as the monitor, not as the database
+    interval: 30s
+    input_series:
+      - series: 'up{job="database-node",server="database"}'
+        values: "1+0x4 0+0x40"
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: KavalDatabaseMonitorDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: database-monitor
+              job: database-node
+              server: database
+            exp_annotations:
+              summary: The database server's machine monitor is not answering.
