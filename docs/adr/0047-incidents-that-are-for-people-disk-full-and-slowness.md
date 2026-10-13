@@ -54,7 +54,9 @@ used fraction of real block devices over 1 GB (not `/dev/shm`, `/run`, or the 10
   near 85 percent, so Kaval should speak before the machine does.
 - **A trend (`predict_linear`) is not built.** Prometheus keeps two hours (ADR-0040), too little to
   predict a slow fill, and a threshold is enough to prove the chain. A longer retention or a node
-  agent is the upgrade when a real slow fill is a worry; recorded, not hidden.
+  agent is the upgrade when a real slow fill is a worry; recorded, not hidden. Decided in
+  [ADR-0051](0051-closing-phase-5-readiness-checks-prod-prometheus-and-the-disk-trend.md): still not built,
+  with the trigger written down (the database data volume past half full).
 - **Staging's line is 0.38**, on purpose: the game day cannot fill 11 GB of a 20 GB disk, so staging
   sets a lower number in its own values file (the one allowed difference between environments). The
   code path is identical; a chart test keeps prod at 0.85.

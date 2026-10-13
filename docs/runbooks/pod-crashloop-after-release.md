@@ -53,7 +53,13 @@ fix that and leave the release alone.
 - **Prevention: give the program a readiness probe.** Without one, a container counts as Ready the
   moment it starts, so a release that crashes a second later still replaces the good version and the
   whole service goes down (seen live on staging, [post-mortem](../postmortems/2026-10-11-badrelease.md)). With
-  one, the rollout stalls and the old version keeps serving
+  one, the rollout stalls and the old version keeps serving. Kaval's own four background programs
+  (agent, executor, collector, the Prometheus poller) have one since `KAV-83`
+  ([ADR-0051](../adr/0051-closing-phase-5-readiness-checks-prod-prometheus-and-the-disk-trend.md)), so a bad
+  release of one of them looks like this: **the old pod `1/1 Running`, the new pod `0/1` and restarting,
+  `kubectl rollout status` waiting.** That is the safe shape, not an outage: the program is still doing
+  its job on the old version. Fix it by going back (above) or by shipping a fixed version, never by
+  deleting the old pod
 - Afterwards, check the program stays up for several minutes and that the rollout finished
   (`kubectl rollout status`), then work out why the release was bad before shipping it again.
 

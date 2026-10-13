@@ -122,5 +122,6 @@ spec:
               value: {{ .Values.approvals.executorMaxAgeMinutes | quote }}
           ports:
             - { name: metrics, containerPort: 9100 }
+          {{- include "kaval.workerReadiness" . | nindent 10 }}
           resources:
             {{- toYaml .Values.executor.resources | nindent 12 }}

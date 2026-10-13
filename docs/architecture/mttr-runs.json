@@ -1,0 +1,12 @@
+{
+  "about": "Every chaos run that has a time to restore, copied from its post-mortem (docs/postmortems/). Seconds. 'stages' are in order: detect, diagnose, human, queue, execute. A run with no fix has only 'detect' (a person is told, nothing is changed). Edit this file when a game day adds a row; scripts/dev/mttr_chart.py redraws docs/architecture/mttr.svg and its test checks the totals.",
+  "stage_names": ["detect", "diagnose", "human", "queue", "execute"],
+  "runs": [
+    {"name": "oom, run 1", "date": "2026-10-11", "kind": "fix", "stages": [81, 52, 273, 13, 12], "machine_s": 158, "wall_s": 431, "held": true, "source": "docs/postmortems/2026-10-11-oom.md"},
+    {"name": "oom, run 2", "date": "2026-10-12", "kind": "fix", "stages": [95, 31, 74, 19, 12], "machine_s": 157, "wall_s": 231, "held": true, "source": "docs/postmortems/2026-10-11-oom.md"},
+    {"name": "bad release", "date": "2026-10-11", "kind": "fix", "stages": [66, 12, 74, 4, 12], "machine_s": 94, "wall_s": 168, "held": true, "source": "docs/postmortems/2026-10-11-badrelease.md"},
+    {"name": "lost server", "date": "2026-10-12", "kind": "selfheal", "stages": [], "machine_s": 130, "wall_s": 130, "held": true, "source": "docs/postmortems/2026-10-12-node.md"},
+    {"name": "slow service", "date": "2026-10-12", "kind": "alert", "stages": [85], "machine_s": null, "wall_s": null, "held": null, "source": "docs/postmortems/2026-10-12-slow.md"},
+    {"name": "disk full", "date": "2026-10-12", "kind": "alert", "stages": [35], "machine_s": null, "wall_s": null, "held": null, "source": "docs/postmortems/2026-10-12-disk.md"}
+  ]
+}
