@@ -191,7 +191,7 @@ def get_incident(incident_id: uuid.UUID, db: DB) -> IncidentDetail:
     tags=["actions"],
     responses={
         404: {"description": "No such action"},
-        409: {"description": "Already decided, or policy class 'never'"},
+        409: {"description": "Already decided, expired, or policy class 'never'"},
     },
 )
 def decide(action_id: uuid.UUID, body: DecisionIn, db: WriteDB) -> DecisionOut:
@@ -213,5 +213,10 @@ def decide(action_id: uuid.UUID, body: DecisionIn, db: WriteDB) -> DecisionOut:
         )
     if outcome is DecisionOutcome.already_decided:
         raise HTTPException(status_code=409, detail="action already has a decision")
+    if outcome is DecisionOutcome.expired:
+        raise HTTPException(
+            status_code=409,
+            detail="approval request expired with no answer — a new proposal is needed",
+        )
     assert decision is not None  # DecisionOutcome.recorded always carries one
     return DecisionOut.model_validate(decision)

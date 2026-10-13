@@ -59,6 +59,10 @@ spec:
         threshold: 0.38
       probe:
         targets: "kaval-demo-staging/chaos-slowpoke=http://chaos-slowpoke.kaval-demo-staging.svc.cluster.local:8080/"
+    approvals:
+      reminderMinutes: 3
+      escalateMinutes: 7
+      expireMinutes: 15
     chaos:
       enabled: true
       environment: staging

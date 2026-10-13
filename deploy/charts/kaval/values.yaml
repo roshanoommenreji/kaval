@@ -81,10 +81,26 @@ gateway:
   # Secret is created out of band (same posture as global.imagePullSecretName/ecr-cred, not
   # something this chart generates), with SLACK_BOT_TOKEN, SLACK_APP_TOKEN and
   # SLACK_CHANNEL_ID as its keys.
+  #
+  # The same Secret may also carry SLACK_ESCALATION_CHANNEL_ID (KAV-82): a second channel for
+  # the louder "nobody answered" message. Optional; without it the message goes to the first
+  # channel with an @here.
   slackSecretName: ""
   resources:
     requests: { cpu: 50m, memory: 64Mi }
     limits: { cpu: 250m, memory: 256Mi }
+
+# Approvals that nobody answers (KAV-82, ADR-0048). A proposal waiting on a person gets a
+# reminder, then a louder second message, then expires: a request this old is no longer trusted
+# and a late click is refused. Minutes since the proposal was filed; must satisfy
+# 0 < reminder < escalate < expire or the gateway uses 15 / 30 / 240. The executor also refuses
+# to act on an approval older than executorMaxAgeMinutes (production is parked most nights, so an
+# approval can outlive the moment it was given for).
+approvals:
+  reminderMinutes: 15
+  escalateMinutes: 30
+  expireMinutes: 240
+  executorMaxAgeMinutes: 60
 
 agent:
   image:

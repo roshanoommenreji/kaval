@@ -68,6 +68,7 @@ NOT_FREE_FORM = {
     "signal.kind": "controlled vocabulary written by the collector",
     "proposal.model": "model name",
     "action.type": "action class from the policy catalogue",
+    "action.slack_ts": "Slack's message timestamp (digits and a dot); staging has no Slack",
     "runbook_chunk.path": "public runbook file name",
     "runbook_chunk.heading": "public runbook text",
     "runbook_chunk.content": "public runbook text",

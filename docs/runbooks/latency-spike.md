@@ -8,7 +8,7 @@ the evidence ([ADR-0047](../adr/0047-incidents-that-are-for-people-disk-full-and
 ## Signals
 
 - Slack: ":warning: Needs a person: `<service>` is answering slowly (or not in time)", with this
-  runbook; a reminder every 30 minutes while it lasts
+  runbook; a reminder every 30 minutes while it lasts, and one louder `@here` message after 2 hours
 - An incident `latency_high:k8s:<namespace>/<service>`, severity medium
 - The service still answers, and its pods are Ready: this is not a crash, a restart loop or an
   out-of-memory kill (those have their own incidents and runbooks)

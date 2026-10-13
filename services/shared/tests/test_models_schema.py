@@ -90,6 +90,7 @@ def test_nothing_but_incident_closed_at_and_execution_finished_at_is_nullable_by
         # Set later, once a Slack message has actually been posted (KAV-55) — not every
         # `ask`-class action goes through ChatOps at all if Slack isn't configured.
         ("action", "slack_notified_at"),
+        ("action", "slack_ts"),
     }
     for table_name, table in TABLES.items():
         for column in table.columns:

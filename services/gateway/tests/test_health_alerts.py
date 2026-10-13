@@ -220,3 +220,67 @@ def test_the_chaos_check_dry_run_shows_the_message_and_stores_nothing(
 
     assert any("disk is nearly full" in text for text in posted)
     assert db_session.scalars(select(Notification)).first() is None  # nothing was stored
+
+
+# ── a fault that lasts gets one louder message (KAV-82, ADR-0048) ────────────────────────────
+
+def _lasting_disk_fault(db: Session, slack: _Slack, minutes: int, escalation: str | None = "C2",
+                        ) -> str:
+    """The disk signal renewed and the notifier run every 5 minutes for `minutes` minutes."""
+    target = _target()
+    for m in range(0, minutes + 1, 5):
+        now = NOW + timedelta(minutes=m)
+        db.add(Signal(source="prometheus", kind="disk_near_full", target=target,
+                      observed_at=now, value={}))
+        db.flush()
+        health_alerts.notify_pass(db, slack, "C1", escalation, now=now)
+    return target
+
+
+def test_a_disk_still_full_after_two_hours_is_escalated_once(db_session: Session) -> None:
+    slack = _Slack()
+
+    target = _lasting_disk_fault(db_session, slack, minutes=300)
+
+    loud = [p for p in slack.posted if p["channel"] == "C2"]
+    assert len(loud) == 1
+    assert "<!here>" in loud[0]["text"] and "Still not fixed after 2 hours" in loud[0]["text"]
+    assert "disk-pressure.md" in loud[0]["text"]
+    quiet = [p for p in slack.posted if p["channel"] == "C1"]
+    assert len(quiet) == 1 + 300 // 30  # the first message, then a reminder every half hour
+    assert target  # (the loop's signals are real rows)
+
+
+def test_a_fault_gone_before_two_hours_is_never_escalated(db_session: Session) -> None:
+    slack = _Slack()
+
+    _lasting_disk_fault(db_session, slack, minutes=100)
+
+    assert [p for p in slack.posted if p["channel"] == "C2"] == []
+
+
+def test_a_fault_that_goes_away_and_returns_starts_a_new_clock(db_session: Session) -> None:
+    slack = _Slack()
+    target = _target()
+
+    def run(start: int, minutes: int) -> None:
+        for m in range(start, start + minutes + 1, 5):
+            now = NOW + timedelta(minutes=m)
+            db_session.add(Signal(source="prometheus", kind="disk_near_full", target=target,
+                                  observed_at=now, value={}))
+            db_session.flush()
+            health_alerts.notify_pass(db_session, slack, "C1", "C2", now=now)
+
+    run(0, 100)       # 100 minutes, then it clears
+    run(400, 100)     # hours later it is back: a new episode, not a 8-hour one
+
+    assert [p for p in slack.posted if p["channel"] == "C2"] == []
+
+
+def test_without_a_second_channel_the_escalation_uses_the_first(db_session: Session) -> None:
+    slack = _Slack()
+
+    _lasting_disk_fault(db_session, slack, minutes=130, escalation=None)
+
+    assert sum("<!here>" in p["text"] for p in slack.posted) == 1
+    assert all(p["channel"] == "C1" for p in slack.posted)

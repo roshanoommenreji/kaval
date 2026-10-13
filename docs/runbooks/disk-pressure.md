@@ -9,7 +9,7 @@ incident, something is wrong; do not approve it (the system will refuse anyway).
 ## Signals
 
 - Slack: ":warning: Needs a person: the app server's disk is nearly full", with this runbook; a
-  reminder every 30 minutes while it stays above the line
+  reminder every 30 minutes while it stays above the line, and one louder `@here` message after 2 hours
 - An incident `disk_pressure:k8s:<namespace>/node-disk`, severity high
 - On the machine: `df -h /` above the line
 - Pods being evicted with "DiskPressure" or images failing to pull ("no space left on device") means it

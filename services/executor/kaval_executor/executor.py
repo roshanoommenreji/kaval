@@ -26,11 +26,12 @@ changed between proposal time and now, or if the stored `policy_class` was ever 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from kaval_agent import policy as policy_mod
 from kaval_shared import health, metrics
@@ -43,6 +44,18 @@ from kaval_executor import __version__, k8s, verify
 from kaval_executor.redact import redact
 
 _APPROVED_VERDICTS = {Verdict.approved, Verdict.auto_approved}
+
+
+def approval_max_age() -> timedelta:
+    """How old a human approval may be and still be acted on (KAV-82, ADR-0048). An approval is
+    permission for *now*: if the executor was stopped (production is parked most nights) and
+    starts a day later, acting on it would apply a judgement to a cluster nobody looked at.
+    `EXECUTOR_APPROVAL_MAX_AGE_MINUTES`, default 60; anything unusable gives the default."""
+    try:
+        minutes = float(os.environ.get("EXECUTOR_APPROVAL_MAX_AGE_MINUTES", ""))
+    except ValueError:
+        return timedelta(minutes=60)
+    return timedelta(minutes=minutes) if 0 < minutes < float("inf") else timedelta(minutes=60)
 
 
 @dataclass(frozen=True)
@@ -69,7 +82,7 @@ def _ready_actions(session: Session) -> list[Action]:
     ))
 
 
-def _refusal(action: Action, fresh: PolicyClass) -> str | None:
+def _refusal(action: Action, fresh: PolicyClass, now: datetime) -> str | None:
     """`None` if the fresh classification actually authorizes acting now; otherwise the
     reason it doesn't. Trusts only `fresh` and `action.decision` — never
     `action.policy_class`, which is exactly the field this whole check exists not to trust."""
@@ -83,6 +96,11 @@ def _refusal(action: Action, fresh: PolicyClass) -> str | None:
     # means the stored class (auto) and today's policy disagree — drift worth refusing and
     # recording, not silently acting on.
     if action.decision is not None and action.decision.verdict in _APPROVED_VERDICTS:
+        age = now - action.decision.decided_at
+        if action.decision.verdict == Verdict.approved and age > approval_max_age():
+            return (f"the approval is {int(age.total_seconds() // 60)} minutes old, past the "
+                    f"{int(approval_max_age().total_seconds() // 60)}-minute limit; a new "
+                    "proposal and approval are needed")
         return None
     return (f"policy re-check says 'ask' and there is no human approval (stored class was "
             f"{action.policy_class.value})")
@@ -96,7 +114,7 @@ def execute_one(session: Session, action: Action, *, now: datetime | None = None
         # from the incident itself, however it got into the table.
         cause=health.cause_of_fingerprint(action.proposal.incident.fingerprint),
     )
-    if (reason := _refusal(action, fresh)) is not None:
+    if (reason := _refusal(action, fresh, now)) is not None:
         return _record(session, action, ExecutionStatus.skipped, f"refused: {reason}",
                        started=now, finished=now)
 
