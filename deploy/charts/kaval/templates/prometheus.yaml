@@ -296,6 +296,7 @@ spec:
                 name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "collector") }}
           ports:
             - { name: metrics, containerPort: 9100 }
+          {{- include "kaval.workerReadiness" . | nindent 10 }}
           resources:
             {{- toYaml .Values.collector.resources | nindent 12 }}
 {{- end }}

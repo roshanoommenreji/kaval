@@ -52,6 +52,8 @@ One run is an anecdote, not a rate; the targets stay provisional until there are
 Still anecdotes, not rates: three samples, three failure types' worth of detail (memory twice, a bad release
 once). A lost server is scored on its own: it is not an incident Kaval can open.
 
+The same runs as a picture, by stage: [mttr.svg](mttr.svg) (data in `mttr-runs.json`).
+
 | Run | Detect (#1) | Machine time (#3) | Wall-clock (#6) | Fix held (#4) |
 |---|---|---|---|---|
 | oom, 2026-10-11 | 81 s | 158 s | 431 s | yes |

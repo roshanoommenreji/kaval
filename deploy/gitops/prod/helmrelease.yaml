@@ -75,6 +75,14 @@ spec:
       watchEverySeconds: 30
       image:
         tag: sha-2459417
+    # Prometheus, the database server's exporters and a check on Kaval's own gateway (KAV-83,
+    # ADR-0051) - hand-kept copy of deploy/environments/prod/values.yaml's own comment block.
+    prometheus:
+      enabled: true
+      database:
+        enabled: true
+      probe:
+        targets: "kaval-prod/gateway=http://kaval-prod-gateway.kaval-prod.svc.cluster.local:8000/healthz"
   valuesFrom:
     # targetPath entries overwrite everything before them, including the inline `values:`
     # above (Flux's own documented precedence) — the registry injection always wins.

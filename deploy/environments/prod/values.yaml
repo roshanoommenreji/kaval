@@ -68,3 +68,18 @@ collector:
   watchEverySeconds: 30
   image:
     tag: sha-2459417
+
+# Prometheus, the database server's exporters and a check on Kaval's own gateway (KAV-83, ADR-0051).
+# Staging ran all three first (KAV-78, KAV-81, KAV-82) and the real memory was measured there. The
+# disk line stays at the chart's 0.85 (staging lowers it only so a bounded test fill can cross it).
+# Needs the database-monitoring Terraform applied in infra/envs/prod first (it adds the exporters'
+# firewall ports and the script that starts them); until then the two database targets show as down
+# and KavalDatabaseMonitorDown says so.
+prometheus:
+  enabled: true
+  database:
+    enabled: true
+  probe:
+    # Kaval's own gateway first: a request that a person's browser or Slack would also make. Any
+    # prompt answer counts as not slow, even an error page; "down" is the other alerts' job.
+    targets: "kaval-prod/gateway=http://kaval-prod-gateway.kaval-prod.svc.cluster.local:8000/healthz"

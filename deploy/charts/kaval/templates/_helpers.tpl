@@ -92,3 +92,23 @@ then. A JSON list because a Helm helper can only return text.
 {{- if .Values.prometheus.enabled -}}{{- $c = append $c "collector-prometheus" -}}{{- end -}}
 {{- toJson $c -}}
 {{- end -}}
+
+{{/*
+Readiness for a background program (KAV-83, ADR-0051). Each one opens its health page on :9100 only
+after it has started up and reached its loop (kaval_shared/metrics.py: the page is opened after
+the database and cluster set-up), so "the page answers" means "this copy got as far as working".
+Without a check, Kubernetes counts a copy ready the moment its process exists, so a bad release
+that dies a few seconds later has already replaced the good copy: the bad-release game day found
+this. With it, a rollout waits for the new copy and the old one keeps working until it is ready.
+Readiness only, deliberately no liveness check: a restart because of a slow database would make
+a bad hour worse, and a stalled loop is the alert's job (KavalLoopStalled), not the pod's.
+Needs `KAVAL_METRICS_PORT` left at its default; the chart never sets it.
+*/}}
+{{- define "kaval.workerReadiness" -}}
+readinessProbe:
+  tcpSocket:
+    port: metrics
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  failureThreshold: 3
+{{- end -}}

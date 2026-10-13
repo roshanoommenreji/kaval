@@ -107,10 +107,12 @@ def test_staging_watches_the_disk_at_a_lower_line_than_the_chart_default() -> No
     assert "container_fs_usage_bytes" in out
 
 
-def test_prod_would_get_the_real_line_and_probe_nothing_when_prometheus_reaches_it() -> None:
-    """Prometheus is off in prod today (KAV-83 turns it on). When it is, the disk line must be the
-    chart's 0.85, nothing in the render may mention chaos, and no service is probed."""
-    out = _poller_render("prod", "--set", "prometheus.enabled=true")
+def test_prod_watches_the_disk_at_the_real_line_and_probes_only_its_own_gateway() -> None:
+    """Prometheus is on in prod (KAV-83, ADR-0051). The disk line must be the chart's 0.85, nothing
+    in the render may mention chaos, and the only service timed is Kaval's own gateway."""
+    out = _poller_render("prod")
     assert '- "--disk-threshold"\n            - "0.85"' in out
     assert "chaos" not in out.lower()
-    assert 'name: PROBE_TARGETS, value: ""' in out
+    assert ('name: PROBE_TARGETS, value: "kaval-prod/gateway='
+            'http://kaval-prod-gateway.kaval-prod.svc.cluster.local:8000/healthz"') in out
+    assert out.count("PROBE_TARGETS") == 1  # one poller, one list, no hidden extra target
