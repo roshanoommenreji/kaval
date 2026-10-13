@@ -38,3 +38,26 @@ groups:
         labels: { severity: critical, kaval_health: "true" }
         annotations:
           summary: "{{ $labels.service }} cannot be reached."
+
+  # The database server's two exporters (KAV-82, ADR-0050). Only meaningful where
+  # `prometheus.database.enabled` is on; elsewhere the jobs do not exist and nothing matches.
+  # No `absent()` here, deliberately: a parked server has no series and must not page anyone.
+  - name: kaval-database
+    rules:
+      # Postgres itself: the exporter cannot reach it, or reaches it and it says it is down.
+      - alert: KavalDatabaseDown
+        expr: >-
+          label_replace(up{job="database-postgres"} == 0, "service", "database", "", "")
+          or label_replace(pg_up == 0, "service", "database", "", "")
+        for: 5m
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: The database server cannot be reached, or Postgres is not answering.
+
+      # The machine monitor: while it is silent the database server's disk cannot be watched.
+      - alert: KavalDatabaseMonitorDown
+        expr: label_replace(up{job="database-node"} == 0, "service", "database-monitor", "", "")
+        for: 5m
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: The database server's machine monitor is not answering.

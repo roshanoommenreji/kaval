@@ -1,0 +1,94 @@
+# The daily backup check (KAV-82, ADR-0049): is the nightly database dump being taken, and has a
+# restore been drilled lately?
+#
+# It runs from GitHub, not from inside AWS, on purpose: it must keep working when AWS is parked or
+# broken, which is exactly when a silent backup failure would otherwise go unnoticed. The rule it
+# applies is in scripts/ops/backup_watch.py (tested): a dump is owed only for a night the app
+# server was running at 19:30 UTC, so a parked production is silent.
+#
+# Two jobs with different powers, as in promote.yml and rollback.yml, and no job has both:
+#   - `check` can reach AWS (read-only: it lists the dump folder and reads the server's launch
+#     history; infra/modules/backup-watch) and cannot write to the repository or open issues.
+#   - `tell` can open or update one GitHub issue and has no AWS access.
+# A person is told by that issue (GitHub e-mails it) and by the run turning red. If the check
+# itself cannot run, `check` fails and `tell` says so; silence is never read as "all fine".
+#
+# Needs two repository variables (not secrets, not files in git): AWS_BACKUP_WATCH_ROLE_ARN and
+# PROD_BACKUP_BUCKET. Every third-party action is pinned to a full commit SHA, as in ci.yml.
+
+name: backup-watch
+
+on:
+  schedule:
+    - cron: "30 7 * * *"   # 07:30 UTC; the rule looks back two nights, so the exact time does not matter
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write   # to ask AWS for the one-hour read-only pass
+      contents: read
+    outputs:
+      problems: ${{ steps.run.outputs.problems }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_BACKUP_WATCH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: backup-watch-${{ github.run_id }}
+      - id: run
+        env:
+          BUCKET: ${{ vars.PROD_BACKUP_BUCKET }}
+        run: |
+          set +e
+          python3 scripts/ops/backup_watch.py "$BUCKET" kaval-prod docs/drills | tee watch.txt
+          code=${PIPESTATUS[0]}
+          set -e
+          # 0 = fine, 1 = problems to tell a person about, anything else = the check itself broke
+          if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then exit "$code"; fi
+          {
+            echo 'problems<<END_OF_PROBLEMS'
+            grep '^PROBLEM:' watch.txt | sed 's/^PROBLEM: //' || true
+            echo 'END_OF_PROBLEMS'
+          } >> "$GITHUB_OUTPUT"
+
+  tell:
+    needs: check
+    if: ${{ always() && (needs.check.result != 'success' || needs.check.outputs.problems != '') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: open or update the one backup-watch issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CHECK_RESULT: ${{ needs.check.result }}
+          PROBLEMS: ${{ needs.check.outputs.problems }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$CHECK_RESULT" != "success" ]; then
+            body="The daily backup check could not run (it ended as: ${CHECK_RESULT}). That means nobody knows whether last night's dump exists. See ${RUN_URL}"
+          else
+            body="$(printf 'The daily backup check found:\n\n%s\n\nRun: %s' "$(printf '%s' "$PROBLEMS" | sed 's/^/- /')" "$RUN_URL")"
+          fi
+          gh label create backup-watch --color D93F0B --description "Raised by the daily backup check" --force >/dev/null
+          existing="$(gh issue list --label backup-watch --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --label backup-watch --title "Backup check needs a person" --body "$body"
+          fi
+          # Turn the run red as well, so GitHub's own failed-run e-mail is a second way to be told.
+          exit 1

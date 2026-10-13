@@ -296,7 +296,7 @@ row = 8
 credentials = "instance role (SSM only) · no SSH"
 inputs = ["Postgres connections on 5432, only from the app node's security group", "Admin sessions via SSM Session Manager"]
 outputs = ["Postgres 16 + pgvector over TLS", "Daily EBS snapshots and a snapshot before every stop"]
-note = "ADR-0008. On-demand, never spot: a database must not be reclaimable at two minutes' notice. ~$14.40/month always-on. Termination protection on; passwords in SSM Parameter Store. No idle stop, because its user is the app: it stops only with make down (scripts/ops/pause-database.sh, live since 2026-10-05 -- previously make down didn't touch the database at all, a real gap closed in Lab 24) or the $48 hard stop, each taking a snapshot first. The third stop path, a paused-posture nightly auto-stop, is still a ROADMAP.md line, not built. Staging gets its own from the same module."
+note = "ADR-0008. On-demand, never spot: a database must not be reclaimable at two minutes' notice. ~$14.40/month always-on. Termination protection on; passwords in SSM Parameter Store. No idle stop, because its user is the app: it stops only with make down (scripts/ops/pause-database.sh, live since 2026-10-05 -- previously make down didn't touch the database at all, a real gap closed in Lab 24) or the $48 hard stop, each taking a snapshot first. The third stop path, a paused-posture nightly auto-stop, is still a ROADMAP.md line, not built. Staging gets its own from the same module. Since KAV-82 (ADR-0050) it also runs two small exporters (machine and Postgres, 64 MiB each, reachable only from the app node), a read-only monitoring role, connection and failed-login logging and weekly no-reboot patching, all put there by SSM State Manager rather than boot-time user_data (which this server ignores after creation). Staging first; production with Prometheus (KAV-83)."
 
 [[system.node]]
 id = "ebs"
@@ -333,6 +333,18 @@ credentials = "scoped write"
 inputs = ["Nightly pg_dump"]
 outputs = ["Restorable database snapshots"]
 note = "Nightly pg_dump, taken by a systemd timer on the app node (19:30 UTC, before the 20:30 UTC auto-stop) using the node's own instance role, so no key is stored anywhere (ADR-0038). The dump is checked readable before it is uploaded. RPO is 24 hours while production is running — a decision, not a default (ADR-0005); parked days rely on the EBS snapshots. Built and proven locally, not yet run on AWS. Seeding staging from this dump is ADR-0037 / KAV-73: designed and the scrub proven, the live restore not yet run (so today staging still starts empty)."
+
+[[system.node]]
+id = "backup-watch"
+label = "backup watch (GitHub)"
+kind = "platform"
+phase = 5
+col = 3
+row = 9
+credentials = "read-only: list the dump folder + read the app server's launch history; no GetObject, no writes"
+inputs = ["S3 listing of the dump folder", "Auto-scaling group history (when the app server was running)", "docs/drills/ record dates"]
+outputs = ["One GitHub issue and a red run when a dump owed for a running night is missing, truncated or shrunk, or no restore drill is recorded in 35 days"]
+note = "KAV-82, ADR-0049. Runs daily from GitHub, not from inside AWS, so it works when AWS is parked or broken. The rule: a dump is owed only for a 19:30 UTC at which the app server was running, so a parked production is silent. Assumes a separate role (infra/modules/backup-watch), trusted for this repository on main only. make restore-drill restores the newest dump into a throwaway Postgres on the laptop and writes a dated record; the first drill (2026-10-13) passed, with production holding no rows yet."
 
 [[system.node]]
 id = "guardrail"
@@ -523,6 +535,24 @@ kind = "platform"
 # ═══════════════════════════════════════════════════════════════════════
 # JOURNEY VIEW — one incident, every branch
 # ═══════════════════════════════════════════════════════════════════════
+
+[[system.edge]]
+from = "s3"
+to = "backup-watch"
+label = "list dumps (read-only)"
+kind = "platform"
+
+[[system.edge]]
+from = "node"
+to = "backup-watch"
+label = "launch history: was it up at 19:30?"
+kind = "platform"
+
+[[system.edge]]
+from = "prometheus"
+to = "db-host"
+label = "scrape the two exporters"
+kind = "platform"
 
 [[system.edge]]
 from = "staging-idle"

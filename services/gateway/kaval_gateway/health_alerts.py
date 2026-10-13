@@ -50,6 +50,8 @@ _WORDS = {
     "KavalTargetDown": "cannot be reached at all",
     "kaval_prometheus_unreachable": "Prometheus cannot be reached, so Kaval cannot see anything",
     "kaval_watchdog_missing": "Prometheus answers, but its alert rules are not running",
+    "KavalDatabaseDown": "cannot be reached, or Postgres is not answering",
+    "KavalDatabaseMonitorDown": "is not answering, so the database server's disk is not watched",
     "disk_near_full": "the app server's disk is nearly full",
     "service_slow": "is answering slowly (or not in time)",
 }
@@ -87,6 +89,8 @@ def _headline(signal: Signal) -> tuple[str, str]:
     what = _WORDS.get(name, "is reporting a problem")
     service = signal.target.rsplit("/", 1)[-1]
     if name == "disk_near_full":
+        if signal.target.endswith("/database-disk"):
+            return ":warning:", "*Needs a person:* the database server's disk is nearly full."
         return ":warning:", f"*Needs a person:* {what}."
     if name == "service_slow":
         return ":warning:", f"*Needs a person:* `{service}` {what}."
