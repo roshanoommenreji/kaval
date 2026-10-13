@@ -154,6 +154,6 @@ Found by the staging proof on 2026-10-13 (both fixed in the same pull request as
 - [x] A fault that is only for a person escalates after two hours (tests)
 - [x] The staging proof: a request left to expire, refused with 409 by the deployed gateway (2026-10-13)
 - [x] Part B built: the rules (tests), the read-only role (validated), `make restore-drill` run for real and recorded
-- [ ] Part B live: the role applied to production, the two repository variables set, the daily check's first run
+- [x] Part B live: the role applied to production (2 added, 0 changed, 0 destroyed), the two repository variables set, the daily check's first run passed (2026-10-13: `OK`, 1 dump seen, newest 2026-10-10 13:49Z)
 - [x] Part C built: exporters, role, scrape, disk alert, two rules (promtool), patching, logging
 - [x] Part C live on staging: the association ran, both exporters answered, Prometheus shows them up, the disk alert fired when forced (2026-10-13; the incident read "the database server's disk is nearly full", nothing proposed)
