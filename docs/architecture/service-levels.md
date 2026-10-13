@@ -69,4 +69,6 @@ The same runs as a picture, by stage: [mttr.svg](mttr.svg) (data in `mttr-runs.j
 - **#2 Diagnose** is still not measured (staging has no model; every figure is my stand-in's).
 - **Lost server (not an incident):** about 2 min 10 s from ending the machine to every pod ready, no one acting
   ([post-mortem](../postmortems/2026-10-12-node.md)). During that time nothing could alert; the outside
-  "still alive" check in `KAV-83` is designed against that figure.
+  "still alive" check ([ADR-0052](../adr/0052-the-outside-still-alive-check.md)) is built against that figure: it
+  raises an alarm after about 25 minutes of silence, so a self-heal this short never trips it, and a server that
+  does not come back always does.

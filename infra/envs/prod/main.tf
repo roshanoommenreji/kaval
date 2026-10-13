@@ -107,6 +107,15 @@ module "backup_watch" {
   backup_bucket_arn = module.backups.bucket_arn
 }
 
+# What the "still alive" job borrows (KAV-83, ADR-0052): OIDC, this repo's main branch, can only
+# describe auto-scaling groups. It pings the outside check for a PARKED production.
+module "still_alive" {
+  source = "../../modules/still-alive"
+
+  name_prefix       = "kaval"
+  github_repo_claim = "roshanoommenreji@37763145/kaval@1388844431"
+}
+
 module "iam" {
   source = "../../modules/iam"
 
@@ -126,6 +135,7 @@ module "iam" {
       aws_ssm_parameter.slack_bot_token.arn,
       aws_ssm_parameter.slack_app_token.arn,
       aws_ssm_parameter.slack_channel_id.arn,
+      aws_ssm_parameter.heartbeat_url.arn,
     ]
   )
 }
@@ -218,6 +228,25 @@ resource "aws_ssm_parameter" "slack_app_token" {
 resource "aws_ssm_parameter" "slack_channel_id" {
   name  = "/kaval/kaval-prod/slack/channel-id"
   type  = "String" # not sensitive, kept alongside the other two so one script reads all three as a unit
+  value = "REPLACE_ME"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+# ─────────────────────────────────────────────────────────────
+# The outside "still alive" ping address (KAV-83, ADR-0052). The address is a secret (anyone who has
+# it can keep a dead system looking alive), made on the monitoring service's own site, so there is
+# nothing for Terraform to generate. Roshan sets the real value once with
+# `scripts/ops/set-heartbeat.sh prod`, which reads it hidden -- never pasted to an assistant. The
+# node's bootstrap script turns it into the `kaval-heartbeat` Secret on every boot; while it is
+# still the placeholder the Secret is empty and the poller sends nothing.
+# ─────────────────────────────────────────────────────────────
+
+resource "aws_ssm_parameter" "heartbeat_url" {
+  name  = "/kaval/kaval-prod/heartbeat/url"
+  type  = "SecureString"
   value = "REPLACE_ME"
 
   lifecycle {

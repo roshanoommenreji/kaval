@@ -2,7 +2,8 @@
 
 - **Status:** Accepted — Part 1 (readiness checks, production settings, the chart and the disk-trend
   decision) built and tested; the staging proof and the production roll-out are recorded in
-  [Lab 50](../labs/lab-50-closing-phase-5.md). The outside "still alive" check is decided in Part 2.
+  [Lab 50](../labs/lab-50-closing-phase-5.md). The outside "still alive" check is
+  [ADR-0052](0052-the-outside-still-alive-check.md) (Part 2).
 - **Date:** 2026-10-13
 - **Deciders:** Roshan
 - **Story:** `KAV-83` (Phase 5, slice 7) · umbrella `KAV-76`

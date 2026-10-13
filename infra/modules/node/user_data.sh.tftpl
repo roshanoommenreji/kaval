@@ -288,6 +288,20 @@ kubectl create secret generic kaval-slack -n ${name_prefix} \
   --dry-run=client -o yaml | kubectl apply -f -
 unset SLACK_BOT_TOKEN SLACK_APP_TOKEN SLACK_CHANNEL_ID
 
+# The outside "still alive" ping address (KAV-83, ADR-0052). Unlike the Slack values above this one
+# may be missing or still the REPLACE_ME placeholder, and that must never stop the node coming up:
+# an address that is absent, unreadable or not https:// gives an EMPTY value, which the poller reads
+# as "send no pings". The Secret always exists, so the chart's reference to it never dangles.
+HEARTBEAT_URL=""
+if HB_VALUE=$(aws ssm get-parameter --region "$REGION" --with-decryption \
+    --name "/kaval/${name_prefix}/heartbeat/url" --query Parameter.Value --output text 2>/dev/null); then
+  case "$HB_VALUE" in https://*) HEARTBEAT_URL="$HB_VALUE" ;; esac
+fi
+kubectl create secret generic kaval-heartbeat -n ${name_prefix} \
+  --from-literal=HEARTBEAT_URL="$HEARTBEAT_URL" \
+  --dry-run=client -o yaml | kubectl apply -f -
+unset HEARTBEAT_URL HB_VALUE
+
 %{ if seed_database ~}
 # Staging: fill an empty database from the cleaned copy BEFORE Flux is told about the release
 # (the two lines below), so nothing is connected to the database while it is restored and

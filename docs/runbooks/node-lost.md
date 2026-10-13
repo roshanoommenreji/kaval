@@ -13,8 +13,9 @@ database lives on a separate server and is unaffected. Design and test:
   `aws ec2 describe-instances --filters Name=tag:Name,Values=kaval-prod`), or an interruption notice
   for a spot instance
 - Session Manager shows the instance missing or offline
-- (Planned, `KAV-83`) an outside "still alive" ping stops arriving: that is the alarm that will end
-  this section's first bullet
+- An e-mail from the outside "still alive" check (`KAV-83`, [ADR-0052](../adr/0052-the-outside-still-alive-check.md),
+  [runbook](still-alive-alarm.md)): no sign of life for about 25 minutes. This ends this section's first
+  bullet: silence no longer depends on someone noticing it
 
 ## Likely causes
 

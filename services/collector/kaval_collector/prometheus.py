@@ -29,6 +29,10 @@ ratio Prometheus is asked for, the query being a setting so the measurement on s
 decides what it is) and, through `kaval_collector.probe`, a service that has become slow. Both
 become incidents that are for a person, never a proposed fix.
 
+Fifth job (KAV-83, ADR-0052): after a pass that fully worked, send the outside "still alive" ping
+(`kaval_collector.heartbeat`). A pass that failed sends nothing, so a poller that is up but not
+working goes quiet and an outside service notices.
+
 Talks to Prometheus with the standard library, so the collector image gains no dependency.
 It needs no Kubernetes API access at all, which is why the chart runs it as its own Deployment
 with no token mounted (deploy/charts/kaval/templates/prometheus.yaml).
@@ -57,7 +61,7 @@ from kaval_shared.models import Signal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from kaval_collector import __version__, probe
+from kaval_collector import __version__, heartbeat, probe
 from kaval_collector.synthetic import DEMO_NAMESPACE, PROMETHEUS
 
 KIND = "container_memory_near_limit"
@@ -351,6 +355,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                              "namespace/name=url,... Settings only; empty turns it off")
     parser.add_argument("--probe-slow-seconds", type=float, default=probe.SLOW_SECONDS,
                         help="an answer slower than this counts as slow (default 1)")
+    parser.add_argument("--heartbeat-url", default=os.environ.get("HEARTBEAT_URL", ""),
+                        help="an https address to ping after every pass that fully worked, for an "
+                             "outside dead-man's-switch. A secret: settings only, never printed. "
+                             "Empty (the default) turns it off")
     parser.add_argument("--every", type=float, metavar="SECONDS",
                         help="keep running, one pass every SECONDS; default: one pass")
     parser.add_argument("--version", action="version", version=f"kaval-collector {__version__}")
@@ -363,6 +371,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         probe_targets = probe.parse_targets(args.probe_targets)
     except ValueError as exc:
         sys.exit(f"--probe-targets: {exc}")
+    try:
+        beat = heartbeat.Heartbeat(args.heartbeat_url)
+    except ValueError as exc:
+        sys.exit(f"--heartbeat-url: {exc}")
     slowness = probe.Slowness()
     if args.every:
         metrics.serve("collector-prometheus", interval=args.every, version=__version__)
@@ -372,6 +384,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         while True:
             # The slowness probe asks the services directly, not Prometheus, so it runs before and
             # apart from the Prometheus questions: a Prometheus outage must not blind it.
+            pass_ok = True
             if probe_targets:
                 try:
                     with Session(get_engine()) as session:
@@ -380,6 +393,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                                                renew_seconds=args.renew):
                             print(line, flush=True)
                 except Exception as exc:  # noqa: BLE001 - one bad pass must not stop the loop
+                    pass_ok = False
                     print(f"probe pass failed: {type(exc).__name__}: {exc}",
                           file=sys.stderr, flush=True)
             try:
@@ -398,6 +412,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     print(line, flush=True)
                 misses = 0
                 metrics.pass_ok("collector-prometheus")
+                if pass_ok:
+                    for line in beat.beat():
+                        print(line, flush=True)
             except PrometheusError as exc:
                 # A Prometheus that is down must be visible, and must not stop the loop: the
                 # next pass may find it back. A single pass has nothing to wait for, so it fails.
