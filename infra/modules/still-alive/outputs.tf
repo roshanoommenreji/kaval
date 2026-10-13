@@ -1,4 +1,9 @@
-output "role_arn" {
-  description = "Goes into the repository variable AWS_STILL_ALIVE_ROLE_ARN (a variable, not a secret and not a file in git: the ARN contains the account id). Setting it is what switches the job on."
-  value       = aws_iam_role.still_alive.arn
+output "alarm_name" {
+  description = "The alarm. Read its state with: aws cloudwatch describe-alarms --alarm-names <name>."
+  value       = aws_cloudwatch_metric_alarm.still_alive.alarm_name
+}
+
+output "topic_arn" {
+  description = "The SNS topic the alarm publishes to (alarm and back-to-normal)."
+  value       = aws_sns_topic.still_alive.arn
 }

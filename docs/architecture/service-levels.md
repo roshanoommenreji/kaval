@@ -68,7 +68,7 @@ The same runs as a picture, by stage: [mttr.svg](mttr.svg) (data in `mttr-runs.j
 - **#5 Safety:** nothing executed without approval or against policy. For a full disk and a slow service the safe outcome is *no action*: a hand-filed restart was refused with 409 both times, nothing executed.
 - **#2 Diagnose** is still not measured (staging has no model; every figure is my stand-in's).
 - **Lost server (not an incident):** about 2 min 10 s from ending the machine to every pod ready, no one acting
-  ([post-mortem](../postmortems/2026-10-12-node.md)). During that time nothing could alert; the outside
-  "still alive" check ([ADR-0052](../adr/0052-the-outside-still-alive-check.md)) is built against that figure: it
-  raises an alarm after about 25 minutes of silence, so a self-heal this short never trips it, and a server that
-  does not come back always does.
+  ([post-mortem](../postmortems/2026-10-12-node.md)). During that time nothing could alert; the "still
+  alive" alarm ([ADR-0053](../adr/0053-the-still-alive-alarm-lives-in-aws.md)) is built against that figure: it rings
+  after 25 minutes of silence while a server is wanted, so a self-heal this short never trips it, and a server
+  that does not come back always does.

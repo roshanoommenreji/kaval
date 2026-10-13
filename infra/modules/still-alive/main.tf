@@ -1,20 +1,31 @@
-# The role the "still alive" job borrows from GitHub (KAV-83, ADR-0052).
+# The "still alive" alarm (KAV-83, ADR-0053).
 #
-# `.github/workflows/still-alive.yml` asks one question every five minutes: does the app-server
-# group want a server, or have one? While production is parked the answer is no, and the job sends
-# the outside "still alive" ping on production's behalf (no poller is running to send it). It runs
-# from GitHub, not from inside AWS, so it keeps working when AWS is parked or broken. This is the
-# pass it carries, and it can only LOOK:
-#   - the trust policy is the same as the other two roles': only a job from this repository on this
-#     branch (a scheduled run counts as the default branch), nothing else;
-#   - it may describe auto-scaling groups. That API has no resource-level permission, so the
-#     resource is "*"; it is read-only and names servers, not data. It cannot change a group, start
-#     or stop anything, or read a bucket, a secret or a parameter.
+# Everything Kaval does to notice trouble runs inside the system it watches, so a lost server is
+# silent. This is the one watcher that is not inside it: a CloudWatch alarm that emails when the
+# server's two-minute "still alive" datapoints (put by the node itself, infra/modules/node) stop
+# while the server is meant to be running.
 #
-# Separate from the backup check's role on purpose: the two checks answer different questions, and a
-# role that can do less is worth the few lines it costs.
+# One alarm, one rule, in plain words: ALARM when, for five five-minute periods in a row (25
+# minutes), the app-server group WANTS a server and no datapoint arrived.
 #
-# Cost: IAM roles are free.
+#     IF( FILL(wanted, 1) > 0  AND  FILL(heartbeat, 0) < 1 , 1 , 0 )
+#
+#   - a PARKED production (the group wants 0) is 0, so it is silent: no cover job, no ping from
+#     anywhere, no stored address. This is why the group's own size is read instead of asking
+#     whether anything is running: "wants a server and is quiet" covers a server that died, one
+#     that never launched, and a poller that stopped, and "wants nothing" is the only way to be quiet.
+#   - the FILL(...) calls decide what a MISSING reading means, on purpose. A missing heartbeat is
+#     "0 beats" (silent), and a missing group size is "1" (wants a server), so if either reading
+#     ever disappears the alarm leans toward ringing, never toward quiet. Tried against real, empty
+#     CloudWatch data before it was written (Lab 50): parked 0, wants-and-silent 1, both missing 1.
+#   - five periods in a row ride out the 2 min 10 s self-heal and the 5 to 8 minute bring-up.
+#
+# It shares AWS's own failure points (an outage of this region or of this account takes the alarm
+# down with the server): that is the price of having no outside company, recorded in ADR-0053.
+#
+# Cost (ap-south-1 list prices, AWS Price List API 2026-10-13): one custom metric $0.30, the alarm's
+# two metrics $0.20, the node's one PutMetricData call every two minutes about $0.22: about $0.72 a
+# month, and probably $0 inside CloudWatch's always-free allowance. SNS e-mail is free at this size.
 
 terraform {
   required_version = ">= 1.5"
@@ -23,54 +34,64 @@ terraform {
   }
 }
 
-data "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
+resource "aws_sns_topic" "still_alive" {
+  name = "${var.name_prefix}-still-alive"
+  tags = var.tags
 }
 
-data "aws_iam_policy_document" "trust" {
-  statement {
-    sid     = "OnlyThisRepoOnThisBranch"
-    effect  = "Allow"
-    actions = ["sts:AssumeRoleWithWebIdentity"]
+# Staging passes no address: a new subscription needs a click on a confirmation e-mail, and staging
+# is rebuilt often. Its alarm state is read with `aws cloudwatch describe-alarms` instead.
+resource "aws_sns_topic_subscription" "email" {
+  count     = var.alert_email == "" ? 0 : 1
+  topic_arn = aws_sns_topic.still_alive.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+}
 
-    principals {
-      type        = "Federated"
-      identifiers = [data.aws_iam_openid_connect_provider.github.arn]
-    }
+resource "aws_cloudwatch_metric_alarm" "still_alive" {
+  alarm_name        = "${var.name_prefix}-still-alive"
+  alarm_description = "The app-server group wants a server but Kaval's still-alive datapoints have stopped for ${var.silent_periods * var.period_seconds / 60} minutes. Runbook: docs/runbooks/still-alive-alarm.md"
 
-    condition {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:aud"
-      values   = ["sts.amazonaws.com"]
-    }
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 1
+  evaluation_periods  = var.silent_periods
+  datapoints_to_alarm = var.silent_periods
+  # Both readings are filled, so there is always an answer; "breaching" is belt and braces for the
+  # case where CloudWatch returns no series at all.
+  treat_missing_data = "breaching"
 
-    # StringEquals, not StringLike: no wildcard, so no other branch, tag or pull request matches.
-    condition {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo_claim}:ref:refs/heads/${var.branch}"]
+  metric_query {
+    id          = "heartbeat"
+    return_data = false
+    metric {
+      namespace   = "Kaval/Heartbeat"
+      metric_name = "StillAlive"
+      period      = var.period_seconds
+      stat        = "Sum"
+      dimensions  = { Environment = var.name_prefix }
     }
   }
-}
 
-resource "aws_iam_role" "still_alive" {
-  name                 = "${var.name_prefix}-still-alive"
-  assume_role_policy   = data.aws_iam_policy_document.trust.json
-  max_session_duration = 3600
-  tags                 = var.tags
-}
-
-data "aws_iam_policy_document" "look" {
-  statement {
-    sid       = "SeeWhetherTheServerGroupIsRunning"
-    effect    = "Allow"
-    actions   = ["autoscaling:DescribeAutoScalingGroups"]
-    resources = ["*"]
+  metric_query {
+    id          = "wanted"
+    return_data = false
+    metric {
+      namespace   = "AWS/AutoScaling"
+      metric_name = "GroupDesiredCapacity"
+      period      = var.period_seconds
+      stat        = "Maximum"
+      dimensions  = { AutoScalingGroupName = var.asg_name }
+    }
   }
-}
 
-resource "aws_iam_role_policy" "look" {
-  name   = "look-at-the-server-group"
-  role   = aws_iam_role.still_alive.id
-  policy = data.aws_iam_policy_document.look.json
+  metric_query {
+    id          = "silent_while_wanted"
+    expression  = "IF(FILL(wanted, 1) > 0 AND FILL(heartbeat, 0) < 1, 1, 0)"
+    label       = "Wants a server and silent"
+    return_data = true
+  }
+
+  alarm_actions = [aws_sns_topic.still_alive.arn]
+  ok_actions    = [aws_sns_topic.still_alive.arn]
+  tags          = var.tags
 }

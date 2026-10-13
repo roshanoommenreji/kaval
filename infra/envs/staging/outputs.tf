@@ -29,3 +29,8 @@ output "idle_stop_function_name" {
   description = "Invoke by hand to see its verdict: aws lambda invoke --function-name <this> out.json"
   value       = module.idle_stop.function_name
 }
+
+output "still_alive_alarm_name" {
+  description = "The still-alive alarm; read its state with: aws cloudwatch describe-alarms --alarm-names <name>."
+  value       = module.still_alive.alarm_name
+}

@@ -83,6 +83,3 @@ prometheus:
     # Kaval's own gateway first: a request that a person's browser or Slack would also make. Any
     # prompt answer counts as not slow, even an error page; "down" is the other alerts' job.
     targets: "kaval-prod/gateway=http://kaval-prod-gateway.kaval-prod.svc.cluster.local:8000/healthz"
-  # The outside "still alive" ping (KAV-83, ADR-0052): the name of the Secret holding the address.
-  heartbeat:
-    secretName: kaval-heartbeat

@@ -109,6 +109,12 @@ resource "aws_autoscaling_group" "node" {
   vpc_zone_identifier = var.subnet_ids
   health_check_type   = "EC2" # no load balancer target to check against
 
+  # The group's desired size, once a minute, so the still-alive alarm (infra/modules/still-alive)
+  # can tell "parked on purpose" (wants 0) from "should be running". Free: group metrics at
+  # one-minute granularity are not charged.
+  enabled_metrics     = ["GroupDesiredCapacity"]
+  metrics_granularity = "1Minute"
+
   launch_template {
     id      = aws_launch_template.node.id
     version = aws_launch_template.node.latest_version

@@ -95,7 +95,7 @@ actual, not projected. One addition not in the table above: an S3 bucket for the
 to the figures already here, and the free S3 gateway VPC endpoint means it never crosses a
 metered data-transfer path.
 
-**The outside "still alive" check (`KAV-83`, [ADR-0052](../adr/0052-the-outside-still-alive-check.md), 2026-10-13) adds no spend:** the monitoring service's free tier (20 checks; Kaval uses two), a free IAM role, one more SSM parameter per environment (Standard parameters are free), a GitHub job every five minutes (free on a public repository), and one small web request every two minutes from a poller that already runs.
+**The "still alive" alarm (`KAV-83`, [ADR-0053](../adr/0053-the-still-alive-alarm-lives-in-aws.md), 2026-10-13) adds about $0.72 a month at list price, probably $0:** one CloudWatch custom metric $0.30, the alarm's two metrics $0.20, about 21,600 `PutMetricData` calls a month $0.22 (ap-south-1 prices from the AWS Price List API, 2026-10-13); the group metric and the SNS e-mails are free at this size; CloudWatch's always-free allowance (10 metrics, 10 alarms, 1 million requests) probably covers it all, not verified for this account. Worst-case total above becomes about $41.50. (An always-on watcher server would have been about $7 to $9 a month and was not chosen.)
 
 **The nightly dump itself (`KAV-74`, [ADR-0038](../adr/0038-nightly-dump-is-taken-by-the-app-node.md), 2026-10-10)
 adds no spend:** it is a systemd timer on the app node that is already running, writing into the bucket above.

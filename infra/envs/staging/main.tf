@@ -94,16 +94,18 @@ resource "aws_ssm_parameter" "slack" {
   }
 }
 
-# The outside "still alive" ping address for staging's own check (KAV-83, ADR-0052). Set with
-# `scripts/ops/set-heartbeat.sh staging`; the placeholder means the poller sends nothing.
-resource "aws_ssm_parameter" "heartbeat_url" {
-  name  = "/kaval/${local.name_prefix}/heartbeat/url"
-  type  = "SecureString"
-  value = "REPLACE_ME"
+# The "still alive" alarm for staging's own proof (KAV-83, ADR-0053). No e-mail address: a new
+# subscription needs a confirmation click and staging is rebuilt often; its state is read with
+# `aws cloudwatch describe-alarms`. The e-mail path is proven in production's roll-out.
+module "still_alive" {
+  source = "../../modules/still-alive"
 
-  lifecycle {
-    ignore_changes = [value]
-  }
+  name_prefix = local.name_prefix
+  asg_name    = local.name_prefix
+  # Two quiet readings (10 minutes) instead of production's five (25), so the proof can wait for the
+  # alarm to ring. Same rule and same code; only the number differs (the precedent is staging's
+  # lower disk line, ADR-0047).
+  silent_periods = 2
 }
 
 module "iam" {
@@ -115,7 +117,6 @@ module "iam" {
   secret_parameter_arns = concat(
     module.database.ssm_parameter_arns,
     [for p in aws_ssm_parameter.slack : p.arn],
-    [aws_ssm_parameter.heartbeat_url.arn],
   )
 }
 

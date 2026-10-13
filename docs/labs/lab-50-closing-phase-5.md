@@ -1,15 +1,16 @@
-# Lab 50 — Closing Phase 5: readiness checks, the time-to-restore chart, the outside check, and Prometheus in production
+# Lab 50 — Closing Phase 5: readiness checks, the time-to-restore chart, the still-alive alarm, and Prometheus in production
 
 **Phase:** 5, slice 7 · **Cost:** Part 1 about $0 (tests only) plus about 30 minutes of staging (~$0.03);
-Part 2 $0 recurring (a free monitoring service, a free IAM role, a free GitHub job) plus an hour of
-staging; the production roll-out is a few hours of production (about 5 cents an hour) and nothing recurring
+Part 2 about $0.72 a month at most (probably $0) plus about an hour of staging; the production roll-out is a few
+hours of production (about 5 cents an hour) and nothing else recurring
 
 Slices 1 to 6 proved Kaval on staging. This slice closes the phase: the last open findings, a chart of
 what the game days measured, and then, only on your say-so, production. It grows in three parts, one
 pull request each; the parts built so far are below.
 
 Decisions: [ADR-0051](../adr/0051-closing-phase-5-readiness-checks-prod-prometheus-and-the-disk-trend.md)
-(Part 1 and the roll-out order), [ADR-0052](../adr/0052-the-outside-still-alive-check.md) (Part 2).
+(Part 1 and the roll-out order), [ADR-0053](../adr/0053-the-still-alive-alarm-lives-in-aws.md) (Part 2;
+it replaced [ADR-0052](../adr/0052-the-outside-still-alive-check.md), which was built and merged first).
 
 ## Prerequisites
 
@@ -88,80 +89,76 @@ Everything else on the node, with all six pods ready and the checks on: **1,407 
 was its figure after a long run in Lab 45). This is the steady state with chaos installed but switched
 off. Production's own number is taken when production runs (Part 3).
 
-## Part 2 — the outside "still alive" check
+## Part 2 — the "still alive" alarm
 
-Everything Kaval does to notice trouble runs inside the system it watches. If the server is gone,
-nothing inside can say so. The fix is a small outside service that expects a ping every few minutes
-and e-mails you when the pings **stop** ([ADR-0052](../adr/0052-the-outside-still-alive-check.md)).
+Everything Kaval does to notice trouble runs inside the system it watches. If the server is gone, nothing
+inside can say so. The fix is an alarm that is not inside the server: the node puts a small "still alive"
+datapoint into CloudWatch every two minutes, and one alarm e-mails you when they stop while the server is
+meant to be running ([ADR-0053](../adr/0053-the-still-alive-alarm-lives-in-aws.md)).
 
 ### Step 1 — the pieces, tested
 
 ```bash
-pytest services/collector/tests/test_heartbeat.py -q               # the ping: throttle, retry, no redirect, never raises
-pytest scripts/ops/test_still_alive.py -q                          # the parked cover: when it pings, and when it must not
-pytest scripts/dev/test_chart_heartbeat.py scripts/dev/test_node_heartbeat_secret.py -q   # the Secret wiring
+pytest scripts/dev/test_node_heartbeat.py -q       # the node script: every unclear case sends nothing
+pytest scripts/dev/test_still_alive_alarm.py -q    # the alarm's rule, fills, 5 x 5 minutes, both e-mails, the fence
+terraform -chdir=infra/envs/staging validate && terraform fmt -check -recursive infra
 ```
 
-Read the negative tests first: an `http://` address is refused, a redirect is not followed, a timeout
-or a refused connection is a plain reason and never an exception, the address never appears in any
-message, a poller whose Prometheus did not answer sends nothing, and the cover pings only for a
-group that **wants 0 servers and has none** (anything unclear is "unknown" and sends nothing). The
-node-start-up test runs the real step with a pretend `aws` that fails: the script carries on and the
-Secret is empty. To see one fail for the right reason, change `if HB_VALUE=$(aws ...); then` in
-`infra/modules/node/user_data.sh.tftpl` to a bare assignment: the two failing-`aws` cases go red.
+Read the negative tests first: the poller's page unreachable, no finish time, a stale one, one from the future,
+`NaN`, or another service's fresh line must all send nothing. To see two fail for the right reason, change `-gt 150`
+in the script to `-gt 150000`, or delete `&& $1 ~ /collector-prometheus/`, and run the file again.
 
-### Step 2 — make the checks on the service (you, once, about 5 minutes)
+### Step 2 — try the rule against real data before trusting it (read-only)
 
-1. Sign up at healthchecks.io (free tier: 20 checks; Kaval uses two).
-2. Create a check named **kaval-prod**: schedule **Simple**, period **10 minutes**, grace **15 minutes**.
-3. Create a second check named **kaval-staging**: for the proof, the smallest period and grace the page
-   allows (a few minutes), so the alarm arrives while you watch. Raise it afterwards.
-4. Check that the e-mail integration is on for both (it is by default). Slack is deliberately not used.
-5. Do not create an API key. Kaval never needs one (ADR-0052, Decision 4).
-6. Each check shows a ping address. **Do not paste it into chat.** Store each with the script below.
+The rule is a CloudWatch expression, so its odd cases were tried against real, empty data first (a query only;
+nothing is created):
 
 ```bash
-AWS_PROFILE=kaval scripts/ops/set-heartbeat.sh staging    # hidden prompt; staging check's address
-AWS_PROFILE=kaval scripts/ops/set-heartbeat.sh prod       # later, in Part 3: also needs `gh auth login`
+# m1 = a heartbeat metric that has never existed; m2 = a real series. Expression:
+#   IF(FILL(m2, 1) > 0 AND FILL(m1, 0) < 1, 1, 0)
+aws cloudwatch get-metric-data --metric-data-queries file://q.json --start-time ... --end-time ...
 ```
 
-### Step 3 — the staging proof (an image release, then a real stop)
+| Group size (m2) | Heartbeat (m1) | Result | Meaning |
+|---|---|---|---|
+| a real series above 0 | never existed | 1, every period | wants a server and silent: rings |
+| a real series of 0 | never existed | 0, every period | parked: quiet |
+| missing entirely | missing entirely | 1, every period | no reading at all: leans toward ringing |
 
-The poller's new code ships in the collector image, so it goes through the normal release path first:
-merge the pull request, merge the release pull request that pins staging's new tag, then
-`make staging-up`. Terraform for staging adds the parameter and one IAM line; apply it only after
-reading the plan. The running server was started before this change and does not have the new
-start-up step, so end it once and let the group replace it (the same move as the lost-server game
-day), or `make staging-down` and `staging-up`.
+(Run 2026-10-13 with `AWS/EC2` series standing in for the group size.)
 
-1. Store the staging address with `set-heartbeat.sh staging` **before** the server (re)starts.
-2. On the node, once the pods are ready: the poller's log shows `heartbeat: first ping sent`:
-   `kubectl logs -n kaval-staging deploy/kaval-staging-collector-prometheus | grep heartbeat`.
-3. On the service, **kaval-staging** turns green ("up") and its log shows a ping about every 2 minutes.
-4. The negative proof, the point of the whole feature: stop the poller on staging
-   (`kubectl scale deploy/kaval-staging-collector-prometheus --replicas=0 -n kaval-staging`), start a
-   stopwatch, and wait. Expect the check to go late, then **down**, then an e-mail. Note the minutes.
-5. Scale it back to 1: the check returns to up, and the poller logs nothing new (recovery is silent on its
-   side; the service sends its own "up" e-mail).
-6. Check the other negative: with the Secret deleted
-   (`kubectl delete secret kaval-heartbeat -n kaval-staging`) and the poller restarted, the poller still
-   starts and does all its other work, and prints no ping lines (the reference is optional).
+### Step 3 — the staging proof
+
+```bash
+cd infra/envs/staging && terraform plan -out=p && terraform apply p   # read the plan first
+```
+
+The running server was started before this change and does not have the new script, so end it once and let
+the group replace it (the same move as the lost-server game day). Staging's alarm rings after 10 minutes of
+silence, not 25 (`silent_periods = 2`: same rule, only the number differs). Then:
+
+1. Datapoints arrive: `aws cloudwatch get-metric-statistics --namespace Kaval/Heartbeat --metric-name StillAlive --dimensions Name=Environment,Value=kaval-staging --start-time <15 min ago> --end-time <now> --period 120 --statistics Sum --profile kaval`
+2. The group's size metric exists: the same with `--namespace AWS/AutoScaling --metric-name GroupDesiredCapacity --dimensions Name=AutoScalingGroupName,Value=kaval-staging --statistics Maximum`
+3. The alarm is quiet: `aws cloudwatch describe-alarms --alarm-names kaval-staging-still-alive --query 'MetricAlarms[0].StateValue'` says `OK`
+4. The point of the whole feature: stop the poller (`kubectl scale deploy/kaval-staging-collector-prometheus --replicas=0 -n kaval-staging`), start a stopwatch. Expect `ALARM` about 10 to 15 minutes later
+5. Scale it back to 1: the datapoints return and the alarm goes back to `OK`
+6. The other negative, a parked server stays quiet: park staging (`aws autoscaling set-desired-capacity --auto-scaling-group-name kaval-staging --desired-capacity 0 --profile kaval`), wait more than 10 minutes with no datapoints, and confirm the alarm is **not** in `ALARM` and the group-size metric shows 0
 
 | | Result |
 |---|---|
-| First ping from the poller | (fill in from the run) |
-| Stopped poller -> down e-mail | (fill in: minutes) |
-| Recovery after scaling back | (fill in) |
-| Poller memory with the ping on | (fill in from the metrics page) |
+| First datapoint after the replaced server booted | (fill in) |
+| Alarm while datapoints arrive | (fill in) |
+| Poller stopped -> ALARM after | (fill in: minutes) |
+| Back to OK after scaling back | (fill in) |
+| Parked staging for more than 10 minutes | (fill in: state, and the group-size reading) |
 
 ### Step 4 — production (Part 3)
 
-Nothing here touches production. In Part 3, after the production plan is read and approved: apply
-(the `kaval-still-alive` role, the parameter), store the address with `set-heartbeat.sh prod`, set the
-repository variable `AWS_STILL_ALIVE_ROLE_ARN` (the output `still_alive_role_arn`), and run the
-`still-alive` workflow once by hand. Production is parked, so the run pings for it and **kaval-prod**
-turns green. That is also how you know the cover works. Then bring production up and watch the poller's
-pings take over, the workflow going quiet.
+Nothing here touches production. In Part 3, after the production plan is read and approved: apply (the alarm,
+the topic and your e-mail subscription, the node's permission, the group metric), **click the confirmation link
+AWS e-mails you**, then test the whole chain without waiting: `aws cloudwatch set-alarm-state ... --state-value
+ALARM`, see the e-mail, then `--state-value OK`. Production is parked, so the alarm stays quiet until it is
+brought up, and then the datapoints begin about 3 minutes after the server boots.
 
 ## Done when
 
@@ -170,5 +167,5 @@ pings take over, the workflow going quiet.
 - [x] The time-to-restore chart and its arithmetic test
 - [x] The disk-trend decision recorded with its trigger (ADR-0051)
 - [x] The staging proof of Step 4 (2026-10-13): the old copy kept serving with the check; was removed within 40 s without it
-- [x] Part 2 built and tested: the ping, the parked cover, the role, the Secret wiring (ADR-0052)
+- [x] Part 2 built and tested: the node script, the alarm, the permission, the group metric (ADR-0053)
 - [ ] Part 2 proven live on staging (Step 3 table filled in)
