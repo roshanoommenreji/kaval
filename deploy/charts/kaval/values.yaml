@@ -182,10 +182,12 @@ prometheus:
   # database server runs the exporters. Prod gets it with Prometheus itself (KAV-83).
   database:
     enabled: false
-    # The used fraction (0 to 1) of the database server's real disks (root and data volume).
+    # The used fraction (0 to 1) of the database server's real disks (root and data volume). The
+    # exporter runs in a container, so it also lists the container's own /etc/hosts and
+    # /etc/hostname (the same root disk again); they are left out so an alert names a real mount.
     diskQuery: >-
-      max by (mountpoint) (1 - node_filesystem_avail_bytes{job="database-node",fstype=~"ext4|xfs"}
-      / node_filesystem_size_bytes{job="database-node",fstype=~"ext4|xfs"})
+      max by (mountpoint) (1 - node_filesystem_avail_bytes{job="database-node",fstype=~"ext4|xfs",mountpoint!~"/etc/.*"}
+      / node_filesystem_size_bytes{job="database-node",fstype=~"ext4|xfs",mountpoint!~"/etc/.*"})
     diskThreshold: 0.85
   # Slowness (KAV-81): services to time with one small request each pass, as
   # namespace/name=url,... Empty probes nothing. A request slower than slowSeconds, or none in time,

@@ -25,7 +25,8 @@ Notes:
 - #5 is the only one that is not a percentage. It must never regress, and it is not about speed.
 - #6 has no target on purpose. Quoting a target for the human's part would be inventing it; the
   honest figure is machine time next to wall-clock time. How fast a person is *expected* to
-  answer is a separate rule, approval expiry and escalation (`KAV-82`).
+  answer is a separate rule, approval expiry and escalation ([ADR-0048](../adr/0048-approvals-nobody-answers-expiry-and-escalation.md)):
+  a reminder at 15 minutes, a louder message at 30, expiry at 4 hours (staging 3/7/15).
 - The `latency` and `disk-fill` experiments have a different pass condition: the right outcome is
   an alert to a human and **no automated action**. Those runs are scored on #5 and on the incident
   being opened and escalated, not on #3 and #4.

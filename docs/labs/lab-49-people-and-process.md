@@ -46,7 +46,7 @@ Remove the line `GRANT UPDATE (slack_notified_at, slack_ts) ON action TO kaval_g
 AWS_PROFILE=kaval make staging-up
 AWS_PROFILE=kaval make approvals-file        # files one harmless request; prints ACTION <id>
 AWS_PROFILE=kaval make approvals-report      # now, ~4 min in, ~8 min in, and after 15 minutes
-AWS_PROFILE=kaval make chaos-approve ACTION=<the code it printed>   # after 15 minutes: expect HTTP 409 "expired"
+AWS_PROFILE=kaval make chaos-approve ACTION=<the code it printed>   # after 16+ minutes (a minute past the expiry): expect HTTP 409 "expired"
 ```
 
 Staging has no Slack, so `approvals-report` runs the real notifier as a dry run inside a transaction it rolls back:
@@ -127,15 +127,33 @@ reading of the message.
 
 ## What went wrong
 
-- *(filled in with the staging proof)*
+Found by the staging proof on 2026-10-13 (both fixed in the same pull request as this note):
+
+- **The report script could not read staging's own timings.** `make approvals-report` asks the gateway
+  for its three timings, and its quoting broke the request to Session Manager (invalid JSON), so the
+  report silently fell back to production's 15/30/240 minutes and said "nothing to send" at 12 minutes
+  when staging's 3/7/15 would already have escalated. The script never errored; it printed plausible
+  wrong numbers. Fixed the quoting; the next run printed `reminder 0:03:00, escalate 0:07:00,
+  expire 0:15:00` and the `@here` message at 13 minutes.
+- **The first late approval was not late.** It was sent at 14 min 44 s, 16 seconds before the 15-minute
+  expiry, so the gateway rightly accepted it (HTTP 201). The drill action then failed harmlessly with
+  "not found" (its target does not exist, by design). A second request, approved at 16 min 40 s, was
+  refused with HTTP 409. Do the late attempt a full minute after the expiry, not at it.
+- **The database disk query listed the exporter container's own `/etc/hosts` and `/etc/hostname`** as
+  disks, the same root disk again. The alert was right but could name the wrong mount; the query now
+  leaves `/etc/.*` out.
+- Memory on the 2 GB database server: each exporter used about 7 MiB of its 64 MiB limit; 1.4 GB stayed
+  available. On the app node Prometheus used 86 MiB and 2.2 GB of 3.8 GB stayed available.
+- The weekly patching association ran too (`kaval-staging-database-patching`: Success). A real patch
+  cycle on a Sunday, and the timer firing on its own overnight, are still unseen.
 
 ## Done when
 
 - [x] A reminder, a louder message and an expiry exist, with the refusal enforced where the decision is written (tests)
 - [x] The executor refuses a stale approval (tests)
 - [x] A fault that is only for a person escalates after two hours (tests)
-- [ ] The staging proof: a request left to expire, refused with 409 by the deployed gateway
+- [x] The staging proof: a request left to expire, refused with 409 by the deployed gateway (2026-10-13)
 - [x] Part B built: the rules (tests), the read-only role (validated), `make restore-drill` run for real and recorded
 - [ ] Part B live: the role applied to production, the two repository variables set, the daily check's first run
-- [x] Part C built: exporters, role, scrape, disk alert, two rules (promtool), patching, logging (validated, not yet run on a server)
-- [ ] Part C live on staging: the association ran, both exporters answered, Prometheus shows them up, the disk alert fired when forced
+- [x] Part C built: exporters, role, scrape, disk alert, two rules (promtool), patching, logging
+- [x] Part C live on staging: the association ran, both exporters answered, Prometheus shows them up, the disk alert fired when forced (2026-10-13; the incident read "the database server's disk is nearly full", nothing proposed)
