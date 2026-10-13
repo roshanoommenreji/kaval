@@ -99,7 +99,7 @@ snapshot) and **RTO 30 minutes**, with the measured pieces. The drill is judged 
 
 - One more thing runs every day, at zero cost (GitHub Actions on a public repository, free; a few S3
   list calls).
-- The first live run of the daily check, and the production role, depend on a Terraform apply and two
-  repository variables (`AWS_BACKUP_WATCH_ROLE_ARN`, `PROD_BACKUP_BUCKET`).
+- The production role was applied and the two repository variables (`AWS_BACKUP_WATCH_ROLE_ARN`,
+  `PROD_BACKUP_BUCKET`) were set on 2026-10-13; the daily check's first live run passed.
 - Not built: a Slack message for a missing dump (production's Slack is the only one); a dump at park
   time; a drill with real data (needs real data).
