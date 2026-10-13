@@ -106,7 +106,8 @@ def read_adrs(d: Path) -> list[dict]:
 
 def read_labs(d: Path) -> list[dict]:
     title_re = re.compile(r"^# Lab (\d+) — (.+)", re.M)
-    meta_re = re.compile(r"^\*\*Phase:\*\* (\S+).*?\*\*Cost:\*\* (\S+)", re.M)
+    phase_re = re.compile(r"^\*\*Phase:\*\* (\S+)", re.M)
+    cost_re = re.compile(r"\*\*Cost:\*\* (\S+)")
 
     out = []
     for f in sorted(d.glob("lab-*.md")):
@@ -114,19 +115,42 @@ def read_labs(d: Path) -> list[dict]:
         t = title_re.search(text)
         if not t:
             continue
-        meta = meta_re.search(text)
+        phase, cost = phase_re.search(text), cost_re.search(text)
         done = len(re.findall(r"^- \[x\]", text, re.M))
         total = done + len(re.findall(r"^- \[ \]", text, re.M))
         out.append({
             "id": f"Lab {t[1]}",
             "title": t[2].strip(),
-            "phase": meta[1] if meta else "?",
-            "cost": meta[2] if meta else "?",
+            "phase": phase[1] if phase else "?",
+            "cost": cost[1] if cost else "?",
             "done": done,
             "total": total,
             "file": f.name,
         })
     return out
+
+
+def lab_chips(labs: list[dict], phase: int, already: set[str], repo_url: str) -> list[dict]:
+    """The labs of `phase` that have no hand-written link, as {label, url} chips. A lab's phase is
+    the first number of its `**Phase:**` line ("5, slice 7" -> 5, "3 (closes it)" -> 3)."""
+    chips = []
+    for lab in labs:
+        found = re.match(r"\d+", lab["phase"])
+        if not found or int(found.group()) != phase or lab["id"] in already:
+            continue
+        chips.append({"label": lab["id"], "url": f"{repo_url}/blob/main/docs/labs/{lab['file']}"})
+    return chips
+
+
+# What each run posture means, shown when you hover its pill. "paused" says nothing about the
+# work: it is how AWS is run while that phase is being built (switched off between sessions).
+POSTURE_TIPS = {
+    "local": "Run posture: everything runs on the laptop. No AWS spend.",
+    "dev-server": "Run posture: the AWS dev server, which stops itself after an idle hour.",
+    "paused": "Run posture: AWS is switched off between sessions and started only when needed. "
+              "This is about cost, not about whether the phase is finished.",
+    "always-on": "Run posture: running all the time.",
+}
 
 
 def read_journal(d: Path) -> tuple[list[dict], list[str]]:
@@ -913,6 +937,8 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
     proj = cfg["project"]
     cost = cfg["cost"]
     posture = cfg.get("posture", {})
+    repo_url = next((l["url"] for l in cfg.get("links", []) if l.get("label") == "GitHub repository"),
+                    "https://github.com/roshanoommenreji/kaval").rstrip("/")
 
     today = date.today()
     started = date.fromisoformat(proj["started"])
@@ -1031,6 +1057,11 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
             lnk += f' <a class="learn-link" href="{e(plinks["jira"])}" target="_blank" rel="noopener">Jira</a>'
         for c in plinks.get("confluence", []):
             lnk += f' <a class="learn-link" href="{e(c["url"])}" target="_blank" rel="noopener">{e(c["label"])}</a>'
+        # Every other lab of this phase links to its file in the repo, so a new lab appears here by
+        # itself instead of waiting for someone to type it into dashboard.toml (KAV-83).
+        for c in lab_chips(labs, p.num, {c["label"] for c in plinks.get("confluence", [])},
+                           repo_url):
+            lnk += f' <a class="learn-link" href="{e(c["url"])}" target="_blank" rel="noopener">{e(c["label"])}</a>'
         tasks = "\n".join(
             f'      <li class="{"ok" if ok else ""}"><span class="box">{"[x]" if ok else "[ ]"}</span>'
             f"<span>{md_inline(t)}</span></li>"
@@ -1042,7 +1073,7 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
     <div class="pnum">{p.num}</div>
     <div>
       <div class="pname">{e(p.title)}</div>
-      <div class="pmeta">weeks {e(p.weeks)} · <span class="pill {pill_cls}">{e(pill)}</span> {e(pst.get("cost",""))}{lnk}</div>
+      <div class="pmeta">weeks {e(p.weeks)} · <span class="pill {pill_cls}" title="{e(POSTURE_TIPS.get(pill, ""))}">{e("aws parked" if pill == "paused" else pill)}</span> {e(pst.get("cost",""))}{lnk}</div>
     </div>
     <div class="barwrap"><div class="bar"><span style="width:{p.pct}%"></span></div></div>
     <div class="ptally">{p.done}/{p.total}</div>
