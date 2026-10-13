@@ -260,7 +260,7 @@ cmd_approval_report() {
   gw="$(find_name deployment gateway)"
   [ -n "$gw" ] || { echo "no gateway deployment found in ${NAMESPACE}" >&2; exit 1; }
   for var in APPROVAL_REMINDER_MINUTES APPROVAL_ESCALATE_MINUTES APPROVAL_EXPIRE_MINUTES; do
-    val="$(on_node "$NODE" "$KC get deployment $gw -n ${NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name==\"${var}\")].value}'" | tr -d '\r\n')"
+    val="$(on_node "$NODE" "$KC get deployment $gw -n ${NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name==\\\"${var}\\\")].value}'" | tr -d '\r\n')"
     [ -n "$val" ] && extra="${extra},{\"name\":\"${var}\",\"value\":\"${val}\"}"
   done
   pod_run approval-drill-report gateway "$(b64_of "$HERE/approvals_drill.py")" ",{\"name\":\"DRILL_MODE\",\"value\":\"report\"}${extra}"
