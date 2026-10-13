@@ -288,20 +288,6 @@ kubectl create secret generic kaval-slack -n ${name_prefix} \
   --dry-run=client -o yaml | kubectl apply -f -
 unset SLACK_BOT_TOKEN SLACK_APP_TOKEN SLACK_CHANNEL_ID
 
-# The outside "still alive" ping address (KAV-83, ADR-0052). Unlike the Slack values above this one
-# may be missing or still the REPLACE_ME placeholder, and that must never stop the node coming up:
-# an address that is absent, unreadable or not https:// gives an EMPTY value, which the poller reads
-# as "send no pings". The Secret always exists, so the chart's reference to it never dangles.
-HEARTBEAT_URL=""
-if HB_VALUE=$(aws ssm get-parameter --region "$REGION" --with-decryption \
-    --name "/kaval/${name_prefix}/heartbeat/url" --query Parameter.Value --output text 2>/dev/null); then
-  case "$HB_VALUE" in https://*) HEARTBEAT_URL="$HB_VALUE" ;; esac
-fi
-kubectl create secret generic kaval-heartbeat -n ${name_prefix} \
-  --from-literal=HEARTBEAT_URL="$HEARTBEAT_URL" \
-  --dry-run=client -o yaml | kubectl apply -f -
-unset HEARTBEAT_URL HB_VALUE
-
 %{ if seed_database ~}
 # Staging: fill an empty database from the cleaned copy BEFORE Flux is told about the release
 # (the two lines below), so nothing is connected to the database while it is restored and
@@ -404,6 +390,67 @@ UNIT
 
 systemctl daemon-reload
 systemctl enable --now kaval-gitops-bootstrap.timer
+
+# ── "Still alive" for the outside check (KAV-83, ADR-0053) ─────────────────────────────────
+# Every two minutes: if the Prometheus poller finished a pass in the last 150 seconds, put one
+# datapoint into CloudWatch (Kaval/Heartbeat, StillAlive). A CloudWatch alarm
+# (infra/modules/still-alive) emails when those datapoints stop while this server is meant to be
+# running. It is the HOST that sends it, using the node's own instance role, and not the poller:
+# a pod cannot reach the instance role (that is deliberate, ADR-0021), so the poller keeps no AWS
+# credentials at all and is only READ here, from the health page every service already serves.
+# The poller's own pass-finished time is the evidence: nothing new is measured or trusted.
+#
+# Anything unclear sends NOTHING (page unreachable, no number, an old number, a number from the
+# future): silence is what the alarm is built to notice, so a doubt must never look like health.
+# Nothing is printed when all is well, so the journal holds only the reasons for a missing beat.
+cat > /usr/local/sbin/kaval-heartbeat <<'HBSCRIPT'
+#!/bin/bash
+set -euo pipefail
+NS="${name_prefix}"
+IMDS_TOKEN=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 300')
+AWS_DEFAULT_REGION=$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
+export AWS_DEFAULT_REGION
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+if ! PAGE=$(kubectl get --raw "/api/v1/namespaces/$NS/services/$NS-collector-prometheus-metrics:metrics/proxy/metrics" --request-timeout=10s); then
+  echo "no heartbeat: the poller's health page could not be read" >&2
+  exit 1
+fi
+LAST=$(printf '%s\n' "$PAGE" | awk '$1 ~ /^kaval_loop_last_success_timestamp_seconds/ && $1 ~ /collector-prometheus/ {print $2; exit}')
+case "$LAST" in
+  ""|*[!0-9.eE+-]*) echo "no heartbeat: the poller reports no finish time" >&2; exit 1 ;;
+esac
+AGE=$(awk -v now="$(date +%s)" -v last="$LAST" 'BEGIN { printf "%d", now - last }')
+if [ "$AGE" -gt 150 ] || [ "$AGE" -lt -60 ]; then
+  echo "no heartbeat: the poller's last finished pass was $AGE seconds ago" >&2
+  exit 1
+fi
+aws cloudwatch put-metric-data --namespace Kaval/Heartbeat --metric-name StillAlive \
+  --dimensions "Environment=$NS" --unit Count --value 1
+HBSCRIPT
+chmod +x /usr/local/sbin/kaval-heartbeat
+
+cat > /etc/systemd/system/kaval-heartbeat.service <<'UNIT'
+[Unit]
+Description=Tell CloudWatch the Kaval poller is still finishing its passes
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kaval-heartbeat
+UNIT
+
+cat > /etc/systemd/system/kaval-heartbeat.timer <<'UNIT'
+[Unit]
+Description=Kaval still-alive datapoint, every 2 minutes
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+[Install]
+WantedBy=timers.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now kaval-heartbeat.timer
 
 %{ if backup_bucket_name != "" ~}
 # ── Nightly database dump (KAV-74, ADR-0038) ─────────────────────────────────────────────

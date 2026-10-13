@@ -117,6 +117,29 @@ resource "aws_iam_role_policy" "read_app_secrets" {
   })
 }
 
+# The node's own "still alive" datapoint (KAV-83, ADR-0053): one namespace, one verb. PutMetricData
+# has no resource-level permission, so the only fence is the namespace condition; it cannot read
+# metrics, change an alarm or write to any other namespace.
+resource "aws_iam_role_policy" "heartbeat" {
+  name = "still-alive-heartbeat"
+  role = aws_iam_role.node.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "PutOnlyTheStillAliveMetric"
+        Effect   = "Allow"
+        Action   = ["cloudwatch:PutMetricData"]
+        Resource = "*"
+        Condition = {
+          StringEquals = { "cloudwatch:namespace" = "Kaval/Heartbeat" }
+        }
+      }
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "node" {
   name = "${var.name_prefix}-node"
   role = aws_iam_role.node.name

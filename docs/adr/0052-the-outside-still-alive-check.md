@@ -1,7 +1,9 @@
 # ADR-0052 — The outside "still alive" check
 
-- **Status:** Accepted — built and tested (Part 2 of `KAV-83`); the staging proof and the switch-on in
-  production are recorded in [Lab 50](../labs/lab-50-closing-phase-5.md).
+- **Status:** **Superseded by [ADR-0053](0053-the-still-alive-alarm-lives-in-aws.md)** the same day. This
+  version (a ping to healthchecks.io, with a GitHub job covering a parked production) was built, tested and
+  merged (PR #155), then replaced before it ran anywhere, because Roshan chose "no outside company at all".
+  Kept as the record of what was weighed; its code, role, workflow and secret handling are removed.
 - **Date:** 2026-10-13
 - **Deciders:** Roshan
 - **Story:** `KAV-83` (Phase 5, slice 7) · umbrella `KAV-76`
