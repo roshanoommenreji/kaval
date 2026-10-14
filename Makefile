@@ -338,6 +338,10 @@ context: pull-embed-model ## Print the context built for one incident. Usage: ma
 	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<uuid>" && exit 1)
 	@python -m kaval_agent.context $(INCIDENT) --with-changes
 
+.PHONY: diagnoser-once
+diagnoser-once: pull-embed-model ## One pass of the diagnosis worker the cluster runs (KAV-87): diagnose the oldest waiting incident, if any. Needs make dev-tunnel
+	@KAVAL_RUNBOOKS_DIR=docs/runbooks python -m kaval_agent.diagnoser
+
 .PHONY: diagnose
 diagnose: pull-embed-model ## Diagnose one incident with the local model and write a proposal (KAV-41). Usage: make diagnose INCIDENT=<uuid> [DRY_RUN=1] [ESCALATE=1]
 	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<uuid>" && exit 1)

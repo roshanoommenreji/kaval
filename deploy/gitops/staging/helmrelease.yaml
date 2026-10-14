@@ -68,6 +68,10 @@ spec:
     chaos:
       enabled: true
       environment: staging
+    ollama:
+      enabled: true
+    diagnoser:
+      enabled: true
   valuesFrom:
     - kind: ConfigMap
       name: kaval-registry

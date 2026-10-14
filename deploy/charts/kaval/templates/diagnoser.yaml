@@ -1,0 +1,84 @@
+{{- if .Values.diagnoser.enabled }}
+{{- if not .Values.ollama.enabled }}
+{{- fail "diagnoser.enabled needs ollama.enabled: the worker has no model to ask otherwise" }}
+{{- end }}
+# The diagnosis worker (KAV-87, ADR-0055): the agent image run with a different command. It picks
+# the oldest open incident that has no proposal, asks the model, and writes the proposal. A
+# separate Deployment from the correlator on purpose: a diagnosis takes a minute and the model
+# may be down, and neither may ever stop incidents from being found.
+#
+# Read-only by construction, like the agent: no ServiceAccount token is mounted, so it has no
+# Kubernetes or AWS credentials to misuse. It talks to two things: the database (the `agent`
+# role: reads incidents and signals, writes proposals, actions and the runbook index) and the
+# model's Service. A confused or misled model can change the words of a proposal, never what the
+# proposal may do: the fix and its target are chosen by code (ADR-0054), policy classifies the
+# action, and a person approves it.
+
+{{ $component := "diagnoser" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaval.fullname" . }}-diagnoser
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+    {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 4 }}
+spec:
+  replicas: 1
+  # One copy at a time. A second copy would only be told "another diagnoser holds the lock", but
+  # a rollout that briefly runs two is still two copies of a pod that may hold a model call open.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
+    spec:
+      {{- include "kaval.imagePullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: false
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.postgres.image }}
+          envFrom:
+            - secretRef:
+                name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "agent") }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT"; do
+                echo "waiting for postgres..."; sleep 2
+              done
+      containers:
+        - name: diagnoser
+          image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.agent.image.repository "tag" .Values.agent.image.tag) }}"
+          imagePullPolicy: {{ .Values.agent.image.pullPolicy }}
+          command: ["python", "-m", "kaval_agent.diagnoser"]
+          args: ["--every", {{ .Values.diagnoser.everySeconds | quote }}]
+          envFrom:
+            - secretRef:
+                name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "agent") }}
+          env:
+            - name: OLLAMA_BASE_URL
+              value: "http://{{ include "kaval.fullname" . }}-ollama:11434"
+            - name: LOCAL_MODEL
+              value: {{ .Values.ollama.model | quote }}
+            - name: EMBED_MODEL
+              value: {{ .Values.ollama.embedModel | quote }}
+            - name: DIAGNOSE_MAX_PER_HOUR
+              value: {{ .Values.diagnoser.maxPerHour | quote }}
+            - name: DIAGNOSE_MAX_AGE_HOURS
+              value: {{ .Values.diagnoser.maxAgeHours | quote }}
+            - name: DIAGNOSE_TIMEOUT_SECONDS
+              value: {{ .Values.diagnoser.timeoutSeconds | quote }}
+          ports:
+            - { name: metrics, containerPort: 9100 }
+          {{- include "kaval.workerReadiness" . | nindent 10 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            {{- toYaml .Values.diagnoser.resources | nindent 12 }}
+{{- end }}

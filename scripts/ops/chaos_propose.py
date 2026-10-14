@@ -1,8 +1,12 @@
 """File the proposal a language model would write, for a chaos experiment (KAV-79, KAV-80).
 
-Staging has no language model (it does not fit the 4 GB node). Detection, approval, execution and
-verification are all real on staging; only the diagnosis step is stood in for, by this script, and
-the game-day post-mortem says so. It finds the newest OPEN incident about the experiment's victim,
+Until KAV-87 staging had no language model, and this script stood in for the diagnosis step. Now the
+diagnosis worker files the proposal itself (ADR-0055), so for `oom` and `badrelease` this script
+FINDS that proposal and prints its action instead of filing a second one (two proposals for one
+incident would be two approvals for one fix). `CHAOS_BY_HAND=1` files one by hand anyway, for a
+run with the model switched off; the post-mortem says which was used.
+
+It finds the newest OPEN incident about the experiment's victim,
 asks the real policy engine for the class (so it is `ask`, not whatever this script would like), and
 writes the proposal and action rows exactly as the agent's `diagnose.write_proposal` would.
 
@@ -51,6 +55,14 @@ EXPERIMENTS = {
 }
 
 
+def worker_action(proposals: list[Proposal]) -> tuple[Proposal, Action] | None:
+    """The first action of a proposal the diagnosis worker filed (not by hand), if there is one."""
+    for proposal in proposals:
+        if proposal.model != "by-hand" and proposal.actions:
+            return proposal, proposal.actions[0]
+    return None
+
+
 def main() -> int:
     namespace = os.environ["CHAOS_TARGET_NAMESPACE"]
     experiment = os.environ.get("CHAOS_EXPERIMENT", "oom")
@@ -71,6 +83,22 @@ def main() -> int:
         ).first()
         if incident is None:
             print(f"no open incident about {victim} yet; wait for Kaval to notice, then try again")
+            return 1
+        if not people_only and os.environ.get("CHAOS_BY_HAND") != "1":
+            found = worker_action(list(incident.proposals))
+            if found is not None:
+                proposal, action = found
+                print(f"incident {incident.fingerprint}")
+                print(f"Kaval diagnosed this itself ({proposal.model}): {proposal.summary}")
+                print(f"policy class: {action.policy_class.value}")
+                print(f"ACTION {action.id}")
+                return 0
+            if incident.proposals:
+                print("the diagnosis worker answered with no fix for this incident; "
+                      "CHAOS_BY_HAND=1 files one by hand")
+                return 1
+            print("the diagnosis worker has not proposed anything yet (it runs every 30 s and "
+                  "may be waiting for the model); try again, or CHAOS_BY_HAND=1 to file by hand")
             return 1
         reversible = True
         radius = BlastRadius.pod if people_only else BlastRadius.deployment

@@ -81,3 +81,12 @@ approvals:
 chaos:
   enabled: true
   environment: staging
+
+# The language model and the worker that asks it about every new incident, by itself (KAV-87,
+# ADR-0055). On here first: staging is where the model's real memory on the 4 GB node is measured
+# and where "the model is down" is proven before prod turns it on. Everything else is the chart's
+# default; see `ollama:` and `diagnoser:` in values.yaml.
+ollama:
+  enabled: true
+diagnoser:
+  enabled: true

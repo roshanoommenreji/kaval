@@ -144,6 +144,43 @@ collector:
     requests: { cpu: 25m, memory: 32Mi }
     limits: { cpu: 100m, memory: 128Mi }
 
+# The language model, run in the cluster (KAV-87, ADR-0055). Off here; an environment switches it
+# on from its own values file, staging first. It shares the 4 GB app node with everything else, so
+# the model is unloaded after `keepAlive` idle and the container has a memory limit: if it ever
+# grows, the kernel stops the model, not a neighbour. The files live in an emptyDir, so a new pod
+# downloads them again (about a minute); the init step refuses a model whose id is not the pinned
+# one, so a model changed upstream cannot get in unnoticed. Nothing is exposed outside the cluster.
+ollama:
+  enabled: false
+  # Docker Hub; pinned by digest (the multi-architecture index of 0.34.4, checked 2026-10-14).
+  image: ollama/ollama:0.34.4@sha256:8262851b2846b87c649eddf3e76beb270c52f4d1bc94559f47efde16b0841551
+  model: gemma3:1b-it-qat
+  # The id `ollama list` shows for it (the first 12 characters of its content hash).
+  modelId: b491bd3989c6
+  embedModel: all-minilm
+  embedModelId: 1b226e2802db
+  keepAlive: 5m
+  contextLength: 4096
+  storageLimit: 4Gi
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+    limits: { cpu: 1500m, memory: 1536Mi }
+
+# The diagnosis worker (KAV-87, ADR-0055): asks the model about each new incident and files the
+# proposal, with nobody running a command. It is the agent image with a different command. It
+# needs `ollama.enabled`. No ServiceAccount token: it reads and writes the database and nothing else.
+diagnoser:
+  enabled: false
+  everySeconds: 30
+  # The speed limit: proposals an hour, and how old an incident may be and still be diagnosed.
+  maxPerHour: 6
+  maxAgeHours: 4
+  # One model call may take this long (the cluster's two vCPUs are slower than a laptop).
+  timeoutSeconds: 90
+  resources:
+    requests: { cpu: 25m, memory: 96Mi }
+    limits: { cpu: 250m, memory: 256Mi }
+
 # Prometheus, and the collector poller that turns it into signals (KAV-75, ADR-0040).
 # Off here; an environment switches it on from its own values file. The memory limit below is
 # a first guess until Lab 43 measures it, and staging/prod stay off until it is measured on a

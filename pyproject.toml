@@ -43,6 +43,13 @@ agent = [
     "anthropic>=1.11.0",
     "boto3>=1.43.108",
 ]
+diagnoser = [
+    # The diagnosis worker that runs in the agent image (KAV-87, ADR-0055): it calls Ollama for
+    # embeddings and chat. Its own extra, not `agent`, so the image does not also carry anthropic
+    # and boto3: the worker has no Bedrock path and no AWS credentials, and a library it cannot
+    # use is only more to patch.
+    "httpx>=0.27",
+]
 executor = [
     # The only client the executor needs (KAV-47): it talks to the Kubernetes API, not to
     # AWS directly — cost actions (Phase 7) will add boto3 then, scoped the same way. Core,

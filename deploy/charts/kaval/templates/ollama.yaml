@@ -1,0 +1,136 @@
+{{- if .Values.ollama.enabled }}
+# The language model, in the cluster (KAV-87, ADR-0055). Off unless an environment turns it on.
+#
+# What makes this safe to put on the 4 GB app node:
+# - A memory limit below what is left on the node. The model needs about 1.1 GB while it is
+#   loaded; if it ever grew, the kernel stops this container, not a neighbour. It is unloaded after
+#   `keepAlive` idle, so most of the time it costs almost nothing.
+# - `Recreate`, not a rolling update: two copies of this pod would be two models in memory.
+# - No ServiceAccount token, no Secret, a read-only filesystem, no capabilities, not root. It can
+#   generate text and nothing else; it cannot reach the database (it has no credentials) or the
+#   Kubernetes API (no token).
+# - The files live in an emptyDir. A new pod downloads them again (about a minute), then the
+#   init step REFUSES any model whose id is not the pinned one. The model is a supply-chain input
+#   like an image, so its identity is checked, not trusted by tag.
+# - Nothing outside the cluster can reach it: a ClusterIP Service. (The cluster's network cannot
+#   stop another pod calling it; the worst that does is spend this pod's processor.)
+{{ $component := "ollama" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaval.fullname" . }}-ollama
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+    {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile: { type: RuntimeDefault }
+      initContainers:
+        - name: fetch-model
+          image: {{ .Values.ollama.image | quote }}
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              mkdir -p "$HOME" "$OLLAMA_MODELS"
+              ollama serve >/tmp/serve.log 2>&1 &
+              pid=$!
+              i=0
+              until ollama list >/dev/null 2>&1; do
+                i=$((i + 1))
+                if [ "$i" -gt 60 ]; then echo "ollama did not start"; cat /tmp/serve.log; exit 1; fi
+                sleep 1
+              done
+              id_of() { ollama list | awk -v m="$1" '$1 == m || $1 == m ":latest" { print $2 }'; }
+              for pair in "$CHAT_MODEL=$CHAT_ID" "$EMBED_MODEL=$EMBED_ID"; do
+                name=${pair%%=*}
+                want=${pair#*=}
+                have=$(id_of "$name")
+                if [ -z "$have" ]; then ollama pull "$name"; have=$(id_of "$name"); fi
+                if [ "$have" != "$want" ]; then
+                  echo "REFUSING: $name has id '$have', the pinned id is '$want'"
+                  exit 1
+                fi
+                echo "ok: $name $have"
+              done
+              kill "$pid"
+              wait "$pid" || true
+          env:
+            - { name: HOME, value: /models/home }
+            - { name: OLLAMA_MODELS, value: /models/blobs }
+            - { name: OLLAMA_HOST, value: "127.0.0.1:11434" }
+            - { name: CHAT_MODEL, value: {{ .Values.ollama.model | quote }} }
+            - { name: CHAT_ID, value: {{ .Values.ollama.modelId | quote }} }
+            - { name: EMBED_MODEL, value: {{ .Values.ollama.embedModel | quote }} }
+            - { name: EMBED_ID, value: {{ .Values.ollama.embedModelId | quote }} }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: models, mountPath: /models }
+            - { name: tmp, mountPath: /tmp }
+      containers:
+        - name: ollama
+          image: {{ .Values.ollama.image | quote }}
+          command: ["ollama", "serve"]
+          env:
+            - { name: HOME, value: /models/home }
+            - { name: OLLAMA_MODELS, value: /models/blobs }
+            - { name: OLLAMA_HOST, value: "0.0.0.0:11434" }
+            # The chat model and the small embedding model stay loaded together while in use
+            # (about 60 MB more); one at a time would swap them in and out on every diagnosis.
+            - { name: OLLAMA_MAX_LOADED_MODELS, value: "2" }
+            - { name: OLLAMA_NUM_PARALLEL, value: "1" }
+            - { name: OLLAMA_CONTEXT_LENGTH, value: {{ .Values.ollama.contextLength | quote }} }
+            - { name: OLLAMA_KEEP_ALIVE, value: {{ .Values.ollama.keepAlive | quote }} }
+          ports:
+            - { name: http, containerPort: 11434 }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          resources:
+            {{- toYaml .Values.ollama.resources | nindent 12 }}
+          volumeMounts:
+            - { name: models, mountPath: /models }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: models
+          emptyDir: { sizeLimit: {{ .Values.ollama.storageLimit | quote }} }
+        - name: tmp
+          emptyDir: { sizeLimit: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kaval.fullname" . }}-ollama
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 4 }}
+  ports:
+    - { name: http, port: 11434, targetPort: http }
+{{- end }}

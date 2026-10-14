@@ -8,6 +8,7 @@
 !services/
 !migrations/
 !policy/
+!docs/runbooks/
 !scripts/ops/
 
 # ...and within those, nothing generated or test-only.

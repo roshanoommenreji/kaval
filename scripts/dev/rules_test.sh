@@ -11,4 +11,4 @@ image=$(sed -n 's|^  image: \(quay.io/prometheus/prometheus:[^ ]*\).*|\1|p' depl
 # `pwd -W` is the Windows path under Git Bash, which Docker Desktop needs; plain `pwd` elsewhere.
 here=$(pwd -W 2>/dev/null || pwd)
 MSYS_NO_PATHCONV=1 docker run --rm -v "${here}/deploy/charts/kaval:/work" -w /work/tests \
-  --entrypoint promtool "$image" test rules kaval-alerts.test.yaml
+  --entrypoint promtool "$image" test rules kaval-alerts.test.yaml kaval-diagnoser.test.yaml
