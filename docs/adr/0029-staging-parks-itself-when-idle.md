@@ -93,3 +93,20 @@ minutes; the 08:08 check left it alone at 728 s idle; the 08:23 check parked it 
 database stopped, pre-stop snapshot completed). `make staging-up` on the parked staging planned 0 to
 add, 2 to change and was ready in 282 s; `make staging-down` destroyed 55 resources and left nothing
 tagged `Env=staging` in 206 s. Prod was untouched throughout.
+
+## Amendment, 2026-10-14 — the nightly 02:00 IST stop stays as it is for staging
+
+**Decision (Roshan, taking the recommendation).** Leave it. The account-wide nightly stop (ADR-0008) keeps stopping
+staging's database server but not its app node. Staging is not exempted with a tag.
+
+**Why.** Staging parks itself after four idle hours (this ADR), and the still-alive alarm now says when staging's
+node is running but silent ([ADR-0053](0053-the-still-alive-alarm-lives-in-aws.md), seen for real on 2026-10-13: the
+database was stopped at 20:30 UTC, the poller could not finish passes, the alarm rang at 20:43). A staging left running
+past 02:00 IST is a forgotten session, and the cost of losing its database for the rest of the night is nothing:
+`make staging-up` starts a stopped database before it applies and waits (`scripts/ops/staging.sh up`), so recovery is one
+command. An exemption tag would add a second rule to keep in step with the nightly rule for no saving.
+
+**Revisit if** it bites twice (a game day or a drill is cut off by the 02:00 stop), or a long unattended staging run
+becomes routine. The option then is a tag the nightly rule skips.
+
+**Rejected:** exempting staging's database from the nightly rule now.
