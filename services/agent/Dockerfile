@@ -4,11 +4,12 @@
 #   make correlate                                   # one pass
 #   python -m kaval_agent.correlate --every 30       # a loop, for when it's deployed
 # Context assembly (KAV-40) and diagnosis (KAV-41, ADR-0016) ship in this image too — the
-# whole kaval_agent package is copied below — but run as laptop-invoked tools for now
-# (`make index-runbooks`, `make context`, `make diagnose`; see Lab 10, Lab 11), not as part
-# of the entrypoint's own loop: no orchestration decision for "run diagnosis automatically
-# after every correlation pass" has been made yet, and the `agent` extra (httpx) isn't
-# installed here, so an unattended run would fail loudly rather than silently doing nothing.
+# whole kaval_agent package is copied below. They run two ways: as laptop-invoked tools
+# (`make index-runbooks`, `make context`, `make diagnose`; Lab 10, Lab 11), and, since KAV-87
+# (ADR-0055), unattended in the cluster as the *diagnoser* Deployment, which runs
+#   python -m kaval_agent.diagnoser --every 30
+# from this same image (a different command, not a different image). That is why httpx is
+# installed here (the `diagnoser` extra) and docs/runbooks is copied in.
 # Build context is the REPO ROOT, like the other images (compose.yaml sets it), and the
 # root .dockerignore allowlist decides what leaves the laptop.
 #
@@ -32,7 +33,7 @@ FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903c
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
 COPY pyproject.toml uv.lock ./
-RUN uv export --frozen --no-dev --no-emit-project -o /requirements.txt
+RUN uv export --frozen --no-dev --no-emit-project --extra diagnoser -o /requirements.txt
 
 # ── Stage 1b: the opa binary, downloaded and checksum-verified like gitleaks/Trivy in CI ────
 # (ci.yml installs the linux_amd64 build the same way, for the runner that runs `opa test`
@@ -67,7 +68,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    KAVAL_POLICY_DIR=/app/policy
+    KAVAL_POLICY_DIR=/app/policy \
+    KAVAL_RUNBOOKS_DIR=/app/runbooks
 
 WORKDIR /app
 
@@ -81,6 +83,9 @@ COPY services/collector/kaval_collector services/collector/kaval_collector
 COPY services/agent/kaval_agent services/agent/kaval_agent
 COPY --from=opa /opa /usr/local/bin/opa
 COPY policy policy
+# The runbooks the diagnosis worker indexes at start (KAV-87, ADR-0055): versioned with the image,
+# so the model reads the same runbooks the people did at that release.
+COPY docs/runbooks runbooks
 # Then drop the packaging tools the base image ships: nothing runs them after this line,
 # and setuptools vendors old copies of jaraco.context and wheel that Trivy flags HIGH
 # (CVE-2026-23949, CVE-2026-24049; found by the first CI run, KAV-24). pip goes too: the

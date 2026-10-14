@@ -1,0 +1,78 @@
+# promtool unit tests for kaval-diagnoser.rules.yaml (KAV-87). `make rules-test` runs them.
+# As always the quiet cases matter as much as the loud ones.
+rule_files:
+  - ../files/kaval-diagnoser.rules.yaml
+evaluation_interval: 30s
+
+tests:
+  - name: nothing waiting is quiet
+    interval: 30s
+    input_series:
+      - series: 'kaval_diagnosis_oldest_wait_seconds{job="kaval-diagnoser"}'
+        values: "0+0x60"
+      - series: 'up{job="kaval-diagnoser"}'
+        values: "1+0x60"
+    alert_rule_test:
+      - { eval_time: 25m, alertname: KavalDiagnosisBacklog, exp_alerts: [] }
+      - { eval_time: 25m, alertname: KavalDiagnoserMissing, exp_alerts: [] }
+
+  - name: a short wait, a normal diagnosis, never alerts
+    interval: 30s
+    input_series:
+      # waits grow to 5 minutes, then the diagnosis lands and the queue is empty
+      - series: 'kaval_diagnosis_oldest_wait_seconds{job="kaval-diagnoser"}'
+        values: "0+30x10 0+0x50"
+      - series: 'up{job="kaval-diagnoser"}'
+        values: "1+0x60"
+    alert_rule_test:
+      - { eval_time: 5m, alertname: KavalDiagnosisBacklog, exp_alerts: [] }
+      - { eval_time: 25m, alertname: KavalDiagnosisBacklog, exp_alerts: [] }
+
+  - name: an incident waiting over fifteen minutes alerts after the two-minute hold
+    interval: 30s
+    input_series:
+      # one incident waiting since t=0, growing one second per second
+      - series: 'kaval_diagnosis_oldest_wait_seconds{job="kaval-diagnoser"}'
+        values: "0+30x80"
+      - series: 'up{job="kaval-diagnoser"}'
+        values: "1+0x80"
+    alert_rule_test:
+      # 14 minutes: still under the limit
+      - { eval_time: 14m, alertname: KavalDiagnosisBacklog, exp_alerts: [] }
+      # 16 minutes: over, but not yet for the 2-minute hold
+      - { eval_time: 16m, alertname: KavalDiagnosisBacklog, exp_alerts: [] }
+      - eval_time: 18m
+        alertname: KavalDiagnosisBacklog
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: diagnoser
+              job: kaval-diagnoser
+            exp_annotations:
+              summary: An incident has waited over 15 minutes for a diagnosis.
+
+  - name: a worker with no pod at all alerts, because a dead pod has no numbers
+    interval: 30s
+    input_series:
+      # the series exist for 2 minutes, then the pod is gone
+      - series: 'up{job="kaval-diagnoser"}'
+        values: "1+0x4"
+      - series: 'kaval_diagnosis_oldest_wait_seconds{job="kaval-diagnoser"}'
+        values: "0+0x4"
+    alert_rule_test:
+      # the last sample is still within Prometheus's five-minute look-back, so not yet missing
+      - { eval_time: 3m, alertname: KavalDiagnoserMissing, exp_alerts: [] }
+      - { eval_time: 7m, alertname: KavalDiagnoserMissing, exp_alerts: [] }
+      - eval_time: 10m
+        alertname: KavalDiagnoserMissing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: diagnoser
+              job: kaval-diagnoser
+            exp_annotations:
+              summary: The diagnosis worker is not running.
+      # and the backlog alert cannot speak: its series is gone too
+      - { eval_time: 10m, alertname: KavalDiagnosisBacklog, exp_alerts: [] }

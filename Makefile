@@ -261,7 +261,7 @@ chaos-stop: ## The stop button: chaos switch off, Jobs and the victim deleted (s
 	@bash scripts/ops/chaos.sh stop
 
 .PHONY: chaos-propose
-chaos-propose: ## Staging has no language model: file the diagnosis it would write for the experiment's incident (EXPERIMENT=oom|badrelease|slow|disk). Prints the ACTION id
+chaos-propose: ## Find the proposal Kaval's diagnosis worker filed for the experiment's incident (EXPERIMENT=oom|badrelease|slow|disk); CHAOS_BY_HAND=1 files one by hand. Prints the ACTION id
 	@bash scripts/ops/chaos.sh propose $(or $(EXPERIMENT),oom)
 
 .PHONY: chaos-approve
@@ -337,6 +337,10 @@ index-runbooks: pull-embed-model ## Sync docs/runbooks/*.md into runbook_chunk (
 context: pull-embed-model ## Print the context built for one incident. Usage: make context INCIDENT=<uuid>
 	@test -n "$(INCIDENT)" || (echo "set INCIDENT=<uuid>" && exit 1)
 	@python -m kaval_agent.context $(INCIDENT) --with-changes
+
+.PHONY: diagnoser-once
+diagnoser-once: pull-embed-model ## One pass of the diagnosis worker the cluster runs (KAV-87): diagnose the oldest waiting incident, if any. Needs make dev-tunnel
+	@KAVAL_RUNBOOKS_DIR=docs/runbooks python -m kaval_agent.diagnoser
 
 .PHONY: diagnose
 diagnose: pull-embed-model ## Diagnose one incident with the local model and write a proposal (KAV-41). Usage: make diagnose INCIDENT=<uuid> [DRY_RUN=1] [ESCALATE=1]

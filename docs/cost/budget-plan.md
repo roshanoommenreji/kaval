@@ -161,6 +161,13 @@ Measured, 2026-10-14 (`KAV-84`, Lab 51): about two to two and a half hours of th
 before-and-after eval passes (about 200 diagnoses) and the probes in between cost about 6 cents of server and address time. The surplus-CPU line
 above is the part not yet read off the bill; the model runs the CPU flat out, so up to about 8 cents an hour is possible.
 
+**The model in the cluster (KAV-87, [ADR-0055](../adr/0055-the-model-runs-in-the-cluster-and-diagnoses-new-incidents.md)).**
+Recurring AWS cost: **$0**. It runs on the app node and uses its existing root disk (about 1.1 GB of the 20 GB); no
+new machine, volume or address. The only variable cost is surplus CPU: a diagnosis uses up to 1.5 vCPUs for 10 to 60
+seconds, the speed limit is 6 an hour, so the worst case (one workload flapping every hour all month) is about 109
+vCPU-hours, **at most about $4.40 a month**, and only if the node's earned credits ran out. Memory is the real
+cost: about 1.1 GB while loaded, unloaded after 5 idle minutes; measured on staging's node in Lab 52.
+
 **CPU credits, verified 2026-09-27 (KAV-23).** A `t4g.medium` earns CPU credits for 20% of its
 2 vCPUs. In *unlimited* mode, going above that isn't throttled; the extra is billed at $0.04 per
 vCPU-hour. The balance starts near zero after every start, so image builds and model runs early in

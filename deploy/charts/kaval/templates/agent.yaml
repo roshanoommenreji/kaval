@@ -1,6 +1,7 @@
 # Runs kaval_agent.correlate as a loop (--every), the one piece of the agent loop ADR-0016
-# has actually decided how to trigger continuously — context assembly, diagnosis and
-# escalation stay laptop-run tools (see Lab 10, Lab 11, Lab 14) until that design lands.
+# has actually decided how to trigger continuously. Diagnosis runs unattended since KAV-87, but
+# in its own Deployment (diagnoser.yaml, ADR-0055) so a slow or missing model can never stop this
+# loop; escalation to Bedrock stays a laptop-run tool (Lab 14) until KAV-44 unblocks it.
 # Read-only by construction: this container never gets Kubernetes API credentials, because
 # correlate() only reads and writes Postgres rows — no ServiceAccount token is mounted
 # (automountServiceAccountToken: false), so there is nothing here to scope with RBAC yet.

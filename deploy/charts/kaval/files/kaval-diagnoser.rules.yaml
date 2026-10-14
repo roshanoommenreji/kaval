@@ -1,0 +1,29 @@
+# Prometheus rules for the diagnosis worker (KAV-87, ADR-0055). A second rules file on purpose:
+# it is only loaded where `diagnoser.enabled` is on, because `absent()` below would otherwise
+# page in every environment that does not run the worker. Like the first file, the collector's
+# poller turns a firing alert into a signal, and a person is told straight from it.
+# Tested with promtool: deploy/charts/kaval/tests/kaval-diagnoser.test.yaml (make rules-test).
+groups:
+  - name: kaval-diagnosis
+    rules:
+      # An incident that should be diagnosed has waited over 15 minutes: the model is down or too
+      # slow, the worker is stuck, or the hourly limit is holding it back. Either way nothing is
+      # proposing a fix, and a person should look. Only incidents the worker would diagnose
+      # count (it excludes the ones for a person and the old ones), so this is not noise.
+      - alert: KavalDiagnosisBacklog
+        expr: >-
+          label_replace(kaval_diagnosis_oldest_wait_seconds > 900,
+                        "service", "diagnoser", "", "")
+        for: 2m
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: An incident has waited over 15 minutes for a diagnosis.
+
+      # No worker at all: no pod, so no numbers to be large. A dead pod's gauges vanish with it,
+      # which is exactly when the alert above cannot speak.
+      - alert: KavalDiagnoserMissing
+        expr: label_replace(absent(up{job="kaval-diagnoser"}), "service", "diagnoser", "", "")
+        for: 2m
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: The diagnosis worker is not running.

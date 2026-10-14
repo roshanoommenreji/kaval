@@ -48,8 +48,9 @@ spec:
             - containerPort: {{ .Values.gateway.port }}
             - { name: metrics, containerPort: 9100 }
           # NOT wired to /healthz: that endpoint also checks Ollama reachability
-          # (kaval_gateway/main.py's check_ollama()), and no environment's chart deploys Ollama
-          # yet — ollamaBaseUrl is empty by default, so /healthz would report unhealthy and a
+          # (kaval_gateway/main.py's check_ollama()), and the gateway is not pointed at the model
+          # (the in-cluster one since KAV-87 is the diagnoser's, not the gateway's) — ollamaBaseUrl
+          # is empty by default, so /healthz would report unhealthy and a
           # probe pointed at it would crash-loop a gateway that is, in every way that matters
           # to the agent loop running in this chart, actually fine. A TCP check on the app
           # port is an honest "is it up and accepting connections", not a false claim of full

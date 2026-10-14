@@ -64,12 +64,20 @@ data:
   # The rules are a file of their own, so promtool can test them (deploy/charts/kaval/tests/).
   kaval-alerts.rules.yaml: |
     {{- .Files.Get "files/kaval-alerts.rules.yaml" | nindent 4 }}
+  {{- if .Values.diagnoser.enabled }}
+  # Only where the diagnosis worker runs (KAV-87): its `absent()` rule would page everywhere else.
+  kaval-diagnoser.rules.yaml: |
+    {{- .Files.Get "files/kaval-diagnoser.rules.yaml" | nindent 4 }}
+  {{- end }}
   prometheus.yml: |
     global:
       scrape_interval: {{ .Values.prometheus.scrapeIntervalSeconds }}s
       evaluation_interval: {{ .Values.prometheus.scrapeIntervalSeconds }}s
     rule_files:
       - /etc/prometheus/kaval-alerts.rules.yaml
+      {{- if .Values.diagnoser.enabled }}
+      - /etc/prometheus/kaval-diagnoser.rules.yaml
+      {{- end }}
     scrape_configs:
       # Prometheus's own numbers: its real memory is what the staging measurement reads.
       - job_name: prometheus
@@ -138,7 +146,7 @@ spec:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $prom) | nindent 8 }}
       annotations:
         # A changed scrape setting restarts Prometheus, so a values change is never half-applied.
-        checksum/config: {{ list (toJson .Values.prometheus) (.Files.Get "files/kaval-alerts.rules.yaml") | toJson | sha256sum }}
+        checksum/config: {{ list (toJson .Values.prometheus) (.Files.Get "files/kaval-alerts.rules.yaml") (toJson .Values.diagnoser.enabled) (.Files.Get "files/kaval-diagnoser.rules.yaml") | toJson | sha256sum }}
     spec:
       serviceAccountName: {{ include "kaval.fullname" . }}-prometheus
       automountServiceAccountToken: true

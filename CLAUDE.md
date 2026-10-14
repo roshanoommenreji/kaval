@@ -170,6 +170,7 @@ make correlate       # group signals not yet in an incident into incidents, one 
 make index-runbooks  # sync docs/runbooks/ into the pgvector retrieval index
 make context INCIDENT=<uuid>  # print the context (runbooks, history, changes) built for one incident
 make diagnose INCIDENT=<uuid> # ask the local model to diagnose it; writes a proposal, or nothing at all
+make diagnoser-once  # one pass of the diagnosis worker the cluster runs (KAV-87): diagnose the oldest waiting incident
 make policy-check TYPE= BLAST_RADIUS= CONFIDENCE= [REVERSIBLE=1]  # classify one hypothetical action against policy/, no database
 make evals [ONLY=name] [JSON=path] [PROMPT=before|after|both]  # score the 20 golden incidents against the real pipeline; PROMPT=both is a before-and-after of the model prompt (KAV-84)
 make bench         # measure the local model shortlist
@@ -178,7 +179,7 @@ make lint          # ruff + mypy, the same target CI runs
 make rules-test    # promtool-test Kaval's own-health alert rules (needs Docker; CI runs it)
 make mttr [LAST=n] # time to restore by stage, machine time and wall-clock, from the outcome rows
 make chaos-run [EXPERIMENT=oom|badrelease|slow|disk] # game day on staging (needs staging up): switch on, cause the failure, follow, switch off
-make chaos-propose [EXPERIMENT=] / chaos-approve ACTION=<id> / chaos-mttr / chaos-check (after slow|disk) / chaos-status / chaos-stop  # the rest of a staging game day; stop = the stop button
+make chaos-propose [EXPERIMENT=] (finds the proposal the diagnosis worker filed; CHAOS_BY_HAND=1 files one by hand) / chaos-approve ACTION=<id> / chaos-mttr / chaos-check (after slow|disk) / chaos-status / chaos-stop  # the rest of a staging game day; stop = the stop button
 make staging-measure-disk  # read-only: what can staging's metrics see about the disk (needs staging up)
 make restore-drill  # restore production's newest dump into a throwaway Postgres, time it, write docs/drills/restore-<date>.md (read-only on AWS, needs Docker; monthly)
 make approvals-file / approvals-report  # staging: rehearse an approval nobody answers (file one request; see its age and the messages the real notifier would send)

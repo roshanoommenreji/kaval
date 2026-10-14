@@ -1,6 +1,7 @@
 """Staging proof for approval expiry and escalation (KAV-82, ADR-0048).
 
-Staging has no Slack and no language model, so this stands in for both, and says so:
+Staging has no Slack, and the drill needs a request that can never act on anything, so it stands
+in for both by hand, and says so:
 
   DRILL_MODE=file    (AGENT's database role, the one allowed to write proposals)
       Files one harmless approval request by hand: an `ask`-class memory-limit change aimed at
@@ -67,7 +68,7 @@ def file_request() -> int:
                             severity=Severity.low, opened_at=stamp)
         proposal = Proposal(
             incident=incident, summary="approval drill: raise a limit on a workload that does "
-            "not exist (filed by hand; staging has no language model)",
+            "not exist (filed by hand; the drill needs a request that cannot act)",
             root_cause="a rehearsal of an unanswered approval", confidence=CONFIDENCE,
             risk=RiskLevel.low, model="by-hand", tokens_in=0, tokens_out=0, cost_usd=Decimal("0"),
         )
