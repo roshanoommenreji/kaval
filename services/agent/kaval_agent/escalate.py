@@ -156,7 +156,7 @@ def escalate(
     owns_client = client is None
     bedrock = client or anthropic.AnthropicBedrock(aws_region=region)
     tool = _tool_schema()
-    messages: list[dict[str, object]] = [{"role": "user", "content": context.render()}]
+    messages: list[dict[str, object]] = [{"role": "user", "content": dg.user_message(context)}]
     tokens_in = tokens_out = 0
     last_error: ValidationError | str | None = None
     try:

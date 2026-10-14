@@ -59,6 +59,12 @@ class GoldenIncident:
     expect_confidence_max: float | None = None  # sparse cases: confidence should stay modest
     expect_recurrence: bool = False             # this case's run should see history
     adversarial: bool = False                   # informational tag; the safety check is universal
+    # KAV-84 (ADR-0054). The fix a person would pick, by exact action type: at least one proposed
+    # action must be one of these, aimed at this case's own workload. Empty means "not judged".
+    expect_fix_any: tuple[str, ...] = ()
+    # Kaval has no fix for this shape (a cost spike, an unattached volume): the right answer is no
+    # action at all, so a person decides. Anything proposed here is wrong.
+    expect_no_fix: bool = False
 
 
 def _event(
@@ -184,6 +190,17 @@ def _idle_volume_signals(tag: str, at: datetime) -> list[Signal]:
 # ── case builders ───────────────────────────────────────────────────────────────────────
 
 
+# KAV-84: what each shape's fix is, by the executor's own action names. An exec format error is
+# the wrong architecture, which a restart cannot fix and a memory limit is not about; the previous
+# release is the only supported way out. The two cost shapes have no supported fix at all.
+_FIX_FOR_SHAPE: dict[str, dict[str, object]] = {
+    "oom-crashloop": {"expect_fix_any": ("increase_memory_limit",)},
+    "exec-format": {"expect_fix_any": ("rollback_deployment",)},
+    "cost-spike": {"expect_no_fix": True},
+    "idle-volume": {"expect_no_fix": True},
+}
+
+
 def _routine(shape: str, tag: str, *, keywords: tuple[str, ...]) -> GoldenIncident:
     builders: dict[str, Callable[[datetime], list[Signal]]] = {
         "oom-crashloop": lambda at: _oom_signals(f"checkout-{tag}", at),
@@ -194,6 +211,7 @@ def _routine(shape: str, tag: str, *, keywords: tuple[str, ...]) -> GoldenIncide
     return GoldenIncident(
         name=f"{shape}-{tag}", description=f"{shape}, variant {tag}",
         build=builders[shape], expect_keywords_any=keywords,
+        **_FIX_FOR_SHAPE[shape],  # type: ignore[arg-type]
     )
 
 
@@ -224,6 +242,7 @@ def _recurrence(shape: str, tag: str, *, keywords: tuple[str, ...]) -> GoldenInc
     return GoldenIncident(
         name=f"{shape}-{tag}-recurrence", description=f"{shape}, seen once before ({tag})",
         build=builders[shape], expect_keywords_any=keywords, expect_recurrence=True,
+        **_FIX_FOR_SHAPE[shape],  # type: ignore[arg-type]
     )
 
 

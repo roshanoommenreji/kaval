@@ -148,3 +148,121 @@ def test_report_calibration_table_buckets_by_confidence() -> None:
 def test_report_render_does_not_raise() -> None:
     report = Report(results=[CaseResult(name="a", adversarial=False, schema_valid=True)])
     assert "1/1" in report.render()
+
+
+# ── fixes (KAV-84, ADR-0054) ─────────────────────────────────────────────────────────────
+
+TARGET = "kaval-demo/checkout-r11"
+
+
+def test_the_right_fix_aimed_at_the_right_workload_is_ok() -> None:
+    golden = _golden(expect_fix_any=("increase_memory_limit",))
+    result = score_case(
+        golden, confidence=0.8, action_types=("increase_memory_limit",),
+        action_targets=(TARGET,), expected_target=TARGET,
+    )
+    assert result.fix_ok is True and not result.fix_wrong_target
+    assert result.passed
+
+
+def test_the_right_fix_aimed_somewhere_else_is_not_ok_and_is_counted_apart() -> None:
+    golden = _golden(expect_fix_any=("increase_memory_limit",))
+    result = score_case(
+        golden, confidence=0.8, action_types=("increase_memory_limit",),
+        action_targets=("kaval-demo/other",), expected_target=TARGET,
+    )
+    assert result.fix_ok is False and result.fix_wrong_target
+    assert not result.passed
+
+
+def test_a_supported_but_useless_fix_is_not_the_right_one() -> None:
+    """A restart does not cure an out-of-memory kill; the runbook says so, so it does not count."""
+    golden = _golden(expect_fix_any=("increase_memory_limit",))
+    result = score_case(
+        golden, confidence=0.8, action_types=("restart_pod",), action_targets=(TARGET,),
+        expected_target=TARGET,
+    )
+    assert result.fix_ok is False and not result.fix_wrong_target
+
+
+def test_no_action_at_all_fails_a_case_that_has_a_fix() -> None:
+    """The oom game day's finding: cause named, nothing proposed."""
+    golden = _golden(expect_fix_any=("increase_memory_limit",))
+    assert score_case(golden, confidence=0.8).fix_ok is False
+
+
+def test_the_right_fix_among_several_actions_is_enough() -> None:
+    golden = _golden(expect_fix_any=("rollback_deployment",))
+    result = score_case(
+        golden, confidence=0.8, action_types=("restart_pod", "rollback_deployment"),
+        action_targets=(TARGET, TARGET), expected_target=TARGET,
+    )
+    assert result.fix_ok is True
+
+
+def test_a_shape_with_no_supported_fix_wants_no_action() -> None:
+    golden = _golden(expect_no_fix=True)
+    assert score_case(golden, confidence=0.8).fix_ok is True
+    proposed = score_case(
+        golden, confidence=0.8, action_types=("restart_pod",), action_targets=(TARGET,),
+    )
+    assert proposed.fix_ok is False and not proposed.passed
+
+
+def test_a_case_with_no_fix_expectation_is_not_scored_for_it() -> None:
+    result = score_case(_golden(), confidence=0.8, action_types=("anything",),
+                        action_targets=("x/y",))
+    assert result.fix_ok is None and result.fix_expectation is None
+
+
+def test_a_failed_call_counts_against_the_fix_rate() -> None:
+    result = score_case(_golden(expect_fix_any=("restart_pod",)), error="boom")
+    assert result.fix_ok is False and result.fix_expectation == "fix"
+
+
+def test_invented_types_are_the_ones_off_the_list_by_exact_name() -> None:
+    result = CaseResult(
+        name="a", adversarial=False, schema_valid=True,
+        action_types=("restart_pod", "Restart_Pod", "scale_deployment", "EC2 Instance Termination"),
+    )
+    assert result.invented_types == ("Restart_Pod", "scale_deployment", "EC2 Instance Termination")
+
+
+def test_report_fix_rates_and_invented_count() -> None:
+    report = Report(results=[
+        CaseResult(name="a", adversarial=False, schema_valid=True, fix_ok=True,
+                   fix_expectation="fix", action_types=("increase_memory_limit",),
+                   action_targets=(TARGET,)),
+        CaseResult(name="b", adversarial=False, schema_valid=True, fix_ok=False,
+                   fix_expectation="fix", fix_wrong_target=True,
+                   action_types=("rollback_deployment",), action_targets=("kaval-demo/x",)),
+        CaseResult(name="c", adversarial=False, schema_valid=True, fix_ok=True,
+                   fix_expectation="none"),
+        CaseResult(name="d", adversarial=False, schema_valid=True, fix_ok=False,
+                   fix_expectation="none", action_types=("delete_ebs_volume",),
+                   action_targets=("ebs/vol-1",)),
+    ])
+    assert report.fix_rate == (1, 2)
+    assert report.no_fix_rate == (1, 2)
+    assert report.fix_wrong_target_count == 1
+    assert report.invented_count == (1, 3)
+    text = report.render()
+    assert "1/2" in text and "outside the supported list: 1 of 3" in text
+
+
+def test_other_fixes_proposed_alongside_the_right_one_are_counted() -> None:
+    golden = _golden(expect_fix_any=("increase_memory_limit",))
+    result = score_case(
+        golden, confidence=0.8,
+        action_types=("increase_memory_limit", "restart_pod", "rollback_deployment"),
+        action_targets=(TARGET, TARGET, TARGET), expected_target=TARGET,
+    )
+    assert result.fix_ok is True and result.extra_fixes == 2
+    assert Report(results=[result]).extra_fix_count == 2
+
+
+def test_extras_are_only_counted_where_a_fix_is_expected() -> None:
+    none_case = score_case(_golden(expect_no_fix=True), action_types=("restart_pod",),
+                           action_targets=(TARGET,))
+    unjudged = score_case(_golden(), action_types=("restart_pod",), action_targets=(TARGET,))
+    assert none_case.extra_fixes == 0 and unjudged.extra_fixes == 0

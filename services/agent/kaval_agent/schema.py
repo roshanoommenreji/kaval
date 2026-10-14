@@ -17,6 +17,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from kaval_agent import fixes
+
 # Mirrors kaval_shared.models.BlastRadius / RiskLevel exactly. Not imported from there:
 # kaval_shared.models is a SQLAlchemy module (it would pull the ORM and Postgres driver
 # into anything that only wants the schema), and Literal gives Ollama's structured-output
@@ -37,8 +39,10 @@ class DiagnosisAction(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    type: str = Field(min_length=1, description="e.g. restart_pod, increase_memory_limit, "
-                      "rollback_deployment, scale_deployment")
+    # Free text on purpose, not a Literal of the supported types (KAV-84, ADR-0054): policy's
+    # `never` keywords rely on seeing what the model actually wrote ("EC2 Instance Termination"),
+    # and an enum would silently turn a refused idea into one of the three allowed ones.
+    type: str = Field(min_length=1, description=fixes.type_hint())
     target: str = Field(min_length=1, description="the concrete resource, e.g. "
                          "kaval-demo/checkout")
     params: dict[str, object] = Field(default_factory=dict)
@@ -59,4 +63,7 @@ class Diagnosis(BaseModel):
     risk: RiskValue
     # A cap, not just a floor: an ungrounded model asked for "actions" can free-associate a
     # long list. Five is already more than a human would want to triage for one incident.
-    actions: list[DiagnosisAction] = Field(default_factory=list, max_length=5)
+    # Required, not defaulted (KAV-84, ADR-0054): a field with a default is optional in the JSON
+    # Schema Ollama decodes against, and the 1B model then leaves it out every time, so it never
+    # proposed anything. "No action" is still allowed, as an explicit empty list.
+    actions: list[DiagnosisAction] = Field(max_length=5)

@@ -350,8 +350,8 @@ escalate: ## Force one incident straight to Bedrock (KAV-44), bypassing the loca
 	@python -m kaval_agent.escalate $(INCIDENT) $(if $(DRY_RUN),--dry-run,)
 
 .PHONY: evals
-evals: pull-embed-model ## Run the 20 golden incidents through the real pipeline and score them (KAV-43). Usage: make evals [ONLY=name] [JSON=path]
-	@python -m evals.run $(if $(ONLY),--only $(ONLY),) $(if $(JSON),--json $(JSON),)
+evals: pull-embed-model ## Run the 20 golden incidents through the real pipeline and score them (KAV-43). Usage: make evals [ONLY=name] [JSON=path] [PROMPT=before|after|both]
+	@python -m evals.run $(if $(ONLY),--only $(ONLY),) $(if $(JSON),--json $(JSON),) $(if $(PROMPT),--prompt $(PROMPT),)
 
 .PHONY: policy-check
 policy-check: ## Classify one hypothetical action against policy/ (KAV-42), no database. Usage: make policy-check TYPE=restart_pod BLAST_RADIUS=pod CONFIDENCE=0.95 [REVERSIBLE=1]

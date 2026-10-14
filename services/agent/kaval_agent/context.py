@@ -53,6 +53,13 @@ def _cause_domain(fingerprint: str) -> tuple[str, str]:
     return cause, domain
 
 
+def fix_target_of(fingerprint: str) -> str | None:
+    """`namespace/name` for a Kubernetes incident, else None: a cost spike or an unattached volume
+    has no workload a supported fix could be aimed at (KAV-84)."""
+    _cause, domain, subject = fingerprint.split(":", 2)
+    return subject if domain == "k8s" and subject.count("/") == 1 else None
+
+
 def _signal_text(signal: Signal) -> str | None:
     for key in ("message", "reason", "alertname"):
         value = signal.value.get(key)
@@ -166,6 +173,13 @@ class Context:
     runbooks: list[RunbookMatch]
     history: list[PastIncident]
     changes: RecentChanges | None  # None: not checked (the default; see module docstring)
+    # The incident's `namespace/name` when it is about a Kubernetes workload, else None. Not part
+    # of `render()` (that is what a person reads); the diagnosis step hands it to the model next to
+    # the list of fixes, so the target of an action is copied rather than guessed (KAV-84).
+    fix_target: str | None = None
+    # The incident's cause, named by the correlator (the first part of its fingerprint). It decides
+    # which fixes the model is shown (`kaval_agent.fixes.fixes_for`); None shows them all.
+    fix_cause: str | None = None
 
     def render(self) -> str:
         lines = [f"INCIDENT: {self.query_text}", "", "RUNBOOKS:"]
@@ -212,6 +226,8 @@ def build_context(
 ) -> Context:
     text = query_text_for(incident, incident.signals)
     return Context(
+        fix_target=fix_target_of(incident.fingerprint),
+        fix_cause=incident.fingerprint.split(":", 1)[0],
         incident_id=incident.id, query_text=text,
         runbooks=matching_runbooks(session, embed_fn(text), limit=runbook_limit),
         history=similar_incidents(session, incident, limit=history_limit),

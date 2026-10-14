@@ -48,11 +48,11 @@ from kaval_shared.models import Action, BlastRadius, Incident, Proposal, RiskLev
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from kaval_agent import policy
+from kaval_agent import fixes, policy
 from kaval_agent.context import Context, build_context
 from kaval_agent.schema import Diagnosis
 
-DEFAULT_SYSTEM_PROMPT = (
+BASE_SYSTEM_PROMPT = (
     "You are Kaval, an on-call diagnostic assistant for a Kubernetes cluster and its AWS "
     "bill. You are given context for one incident: retrieved runbook sections, similar past "
     "incidents with their outcomes, and recent code changes. Diagnose the root cause and "
@@ -63,6 +63,23 @@ DEFAULT_SYSTEM_PROMPT = (
     "confidence low — do not invent one. confidence is a fraction between 0 and 1 (e.g. "
     "0.8), never a percentage and never a number above 1."
 )
+
+# KAV-84, ADR-0054: the model is told which fixes exist. Before this it was not, and it named the
+# cause and then proposed nothing (or something the executor could not do). The list itself is in
+# `kaval_agent.fixes` and is added to the END of the message, after the incident (`user_message`),
+# because a 1B model follows what it read last; this sentence only tells it to look there.
+DEFAULT_SYSTEM_PROMPT = (
+    BASE_SYSTEM_PROMPT + " The message ends with the list of fixes you may propose, and the exact "
+    "target to use. Follow it."
+)
+
+
+def user_message(context: Context) -> str:
+    """What the model reads for one incident: the context, then the fixes it may propose. Shared
+    by the local model (`diagnose`) and the Bedrock escalation (`escalate`), so both are told the
+    same."""
+    section = fixes.render_for_prompt(context.fix_target, context.fix_cause)
+    return context.render() + "\n\n" + section
 
 
 class DiagnosisError(RuntimeError):
@@ -84,25 +101,38 @@ def diagnose(
     context: Context, *,
     base_url: str | None = None, model: str | None = None, timeout: float = 60.0,
     client: httpx.Client | None = None, max_attempts: int = 2,
+    system_prompt: str | None = None, diagnosis_model: type[Diagnosis] | None = None,
+    user_message_override: str | None = None, narrow_to_incident: bool = True,
 ) -> tuple[Diagnosis, ModelUsage]:
     """Ask the model to diagnose `context`. Pure with respect to the database — takes a
     already-built `Context`, returns a validated `Diagnosis`; writing it is `write_proposal`'s
     job. `client` is the same test-injection point `embeddings.embed` uses: an `httpx.Client`
-    over `httpx.MockTransport`, so this is testable without a real Ollama."""
+    over `httpx.MockTransport`, so this is testable without a real Ollama.
+
+    `system_prompt`, `diagnosis_model` and `user_message_override` default to the current ones.
+    `narrow_to_incident=False` sends the plain schema. Only the eval harness passes others: it
+    keeps the pre-KAV-84 prompt as a frozen baseline so a before-and-after is measured in one
+    run, on the same database state (`evals/baseline.py`)."""
     base_url = base_url or os.environ.get("OLLAMA_BASE_URL", "http://ollama:11434")
     model = model or os.environ.get("LOCAL_MODEL", "")
     if not model:
         raise DiagnosisError("no model given and LOCAL_MODEL is not set")
 
+    user_message_text = user_message_override or user_message(context)
     messages: list[dict[str, str]] = [
-        {"role": "system", "content": DEFAULT_SYSTEM_PROMPT},
-        {"role": "user", "content": context.render()},
+        {"role": "system", "content": system_prompt or DEFAULT_SYSTEM_PROMPT},
+        {"role": "user", "content": user_message_text},
     ]
-    schema = Diagnosis.model_json_schema()
+    model_cls = diagnosis_model or Diagnosis
+    schema = model_cls.model_json_schema()
+    cause = context.fix_cause if narrow_to_incident else None
+    if narrow_to_incident:
+        schema = fixes.narrow_schema(schema, cause, context.fix_target)
     owns_client = client is None
     http = client or httpx.Client()
     tokens_in = tokens_out = 0
     last_error: ValidationError | None = None
+    last_problem: str | None = None
     try:
         for _attempt in range(max_attempts):
             try:
@@ -129,9 +159,10 @@ def diagnose(
             tokens_out += int(body.get("eval_count", 0))
 
             try:
-                diagnosis = Diagnosis.model_validate_json(content)
+                diagnosis = model_cls.model_validate_json(content)
             except ValidationError as exc:
                 last_error = exc
+                last_problem = None
                 messages.append({"role": "assistant", "content": content})
                 messages.append({
                     "role": "user",
@@ -141,12 +172,25 @@ def diagnose(
                                 "No prose, no markdown fences.",
                 })
                 continue
+            problem = fixes.violations(diagnosis, cause, context.fix_target)
+            if problem is not None:
+                last_error = None
+                last_problem = problem
+                messages.append({"role": "assistant", "content": content})
+                messages.append({
+                    "role": "user",
+                    "content": f"That reply broke a rule: {problem}.\n"
+                                "Reply again with corrected JSON only, matching the schema. "
+                                "No prose, no markdown fences.",
+                })
+                continue
             return diagnosis, ModelUsage(tokens_in=tokens_in, tokens_out=tokens_out)
     finally:
         if owns_client:
             http.close()
     raise DiagnosisError(
-        f"{model} did not return a valid diagnosis after {max_attempts} attempt(s): {last_error}"
+        f"{model} did not return a valid diagnosis after {max_attempts} attempt(s): "
+        f"{last_problem or last_error}"
     ) from last_error
 
 

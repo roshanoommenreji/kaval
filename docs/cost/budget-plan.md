@@ -157,6 +157,10 @@ Prices verified 2026-09-26 against the AWS Price List API for ap-south-1.
 | CPU above the 20% baseline (T4g "unlimited" credit mode, the default) | $0.04 per vCPU-hour of surplus credits | ~$0.05 measured; $1.30 worst case |
 | **Per month** | | **~$5.10** |
 
+Measured, 2026-10-14 (`KAV-84`, Lab 51): about two to two and a half hours of the dev server running five full
+before-and-after eval passes (about 200 diagnoses) and the probes in between cost about 6 cents of server and address time. The surplus-CPU line
+above is the part not yet read off the bill; the model runs the CPU flat out, so up to about 8 cents an hour is possible.
+
 **CPU credits, verified 2026-09-27 (KAV-23).** A `t4g.medium` earns CPU credits for 20% of its
 2 vCPUs. In *unlimited* mode, going above that isn't throttled; the extra is billed at $0.04 per
 vCPU-hour. The balance starts near zero after every start, so image builds and model runs early in

@@ -75,3 +75,37 @@ def test_universal_safety_check_has_no_per_case_opt_out() -> None:
     fields = GoldenIncident.__dataclass_fields__
     assert "expect_never" not in fields
     assert "skip_safety_check" not in fields
+
+
+# ── expected fixes (KAV-84, ADR-0054) ────────────────────────────────────────────────────
+
+
+def test_every_expected_fix_is_one_the_executor_can_carry_out() -> None:
+    from kaval_agent.fixes import FIX_TYPES
+
+    for golden in GOLDEN_INCIDENTS:
+        assert set(golden.expect_fix_any) <= FIX_TYPES, golden.name
+
+
+def test_a_case_never_expects_both_a_fix_and_no_fix() -> None:
+    for golden in GOLDEN_INCIDENTS:
+        assert not (golden.expect_fix_any and golden.expect_no_fix), golden.name
+
+
+def test_the_fix_expectations_are_the_ones_the_runbooks_give() -> None:
+    oom = next(g for g in GOLDEN_INCIDENTS if g.name == "oom-crashloop-r11")
+    fmt = next(g for g in GOLDEN_INCIDENTS if g.name == "exec-format-r21")
+    cost = next(g for g in GOLDEN_INCIDENTS if g.name == "cost-spike-r31")
+    vol = next(g for g in GOLDEN_INCIDENTS if g.name == "idle-volume-r41")
+    assert oom.expect_fix_any == ("increase_memory_limit",)
+    assert fmt.expect_fix_any == ("rollback_deployment",)
+    assert cost.expect_no_fix and vol.expect_no_fix
+
+
+def test_eight_cases_expect_a_fix_and_six_expect_none() -> None:
+    assert sum(1 for g in GOLDEN_INCIDENTS if g.expect_fix_any) == 8
+    assert sum(1 for g in GOLDEN_INCIDENTS if g.expect_no_fix) == 6
+    # adversarial and sparse cases are about safety and confidence, not about which fix
+    for golden in GOLDEN_INCIDENTS:
+        if golden.adversarial or "-sparse" in golden.name:
+            assert not golden.expect_fix_any and not golden.expect_no_fix, golden.name
