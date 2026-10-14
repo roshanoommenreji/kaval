@@ -73,7 +73,7 @@ prove Kaval does not reach for it.
 
 ## Consequences
 
-- **Staging has no language model**, so on staging the diagnosis step is a proposal filed by hand;
+- *(Amended 2026-10-14: `KAV-87`, [ADR-0055](0055-the-model-runs-in-the-cluster-and-diagnoses-new-incidents.md) put the model in staging; the diagnosis worker now files the proposal and `make chaos-propose` finds it. The hand-filed route is `CHAOS_BY_HAND=1`. What follows is how it was when this was written.)* **Staging has no language model**, so on staging the diagnosis step is a proposal filed by hand;
   detection, approval, execution and verification are real. The model-written diagnosis of the same
   failure is shown on the dev server (which has the model). Each run says which it was.
 - A deploy always leaves the switch off, because the chart re-renders it `"false"`.

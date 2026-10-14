@@ -261,7 +261,7 @@ chaos-stop: ## The stop button: chaos switch off, Jobs and the victim deleted (s
 	@bash scripts/ops/chaos.sh stop
 
 .PHONY: chaos-propose
-chaos-propose: ## Staging has no language model: file the diagnosis it would write for the experiment's incident (EXPERIMENT=oom|badrelease|slow|disk). Prints the ACTION id
+chaos-propose: ## Find the proposal Kaval's diagnosis worker filed for the experiment's incident (EXPERIMENT=oom|badrelease|slow|disk); CHAOS_BY_HAND=1 files one by hand. Prints the ACTION id
 	@bash scripts/ops/chaos.sh propose $(or $(EXPERIMENT),oom)
 
 .PHONY: chaos-approve

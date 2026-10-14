@@ -113,7 +113,7 @@ row = 3
 credentials = "none"
 inputs = ["Prompt with retrieved context, OpenAI-compatible API"]
 outputs = ["Completion tokens, token counts"]
-note = "Measured on the 4 GB Graviton dev server (KAV-22, docs/architecture/model-shortlist.md): 1.1–1.9 GB loaded, 11–21 tokens/sec, 9–12 s per diagnosis. Called schema-constrained, which made every shortlisted model produce valid proposals. Shortlist for the Phase 2 evals: gemma3:1b-it-qat (dev default), llama3.2:1b, qwen3:1.7b. Viable because diagnosis is asynchronous — nobody is watching a cursor blink."
+note = "Measured on the 4 GB Graviton dev server (KAV-22, docs/architecture/model-shortlist.md): 1.1–1.9 GB loaded, 11–21 tokens/sec, 9–12 s per diagnosis. Called schema-constrained, which made every shortlisted model produce valid proposals. Shortlist for the Phase 2 evals: gemma3:1b-it-qat (dev default), llama3.2:1b, qwen3:1.7b. Viable because diagnosis is asynchronous — nobody is watching a cursor blink. Since KAV-87 (ADR-0055) it also runs in the cluster: an Ollama Deployment on the same 4 GB app node (staging first, prod after), unloaded after 5 idle minutes, memory-limited to 1.5 GiB so the kernel stops the model before a neighbour, and its files checked against a pinned id before it starts."
 
 [[system.node]]
 id = "agent"
@@ -130,7 +130,20 @@ inputs = [
 ]
 outputs = ["proposal rows — INSERT only. This is its ONLY possible output."]
 tables = ["signal", "incident", "proposal", "action"]
-note = "Correlation (make correlate, KAV-39): signals in, incident rows out. Context assembly (make context, KAV-40): runbook RAG + past incidents + recent changes. Diagnosis (make diagnose, KAV-41): calls the local model schema-constrained, re-validates with Pydantic regardless, writes proposal + action rows. Escalation to Bedrock (make diagnose --escalate / make escalate, KAV-44, ADR-0019) on a local failure, no retrieved evidence, or low confidence. Each action's policy_class (KAV-42, ADR-0017) comes from the policy node, not the model, whichever model wrote the proposal. The component that thinks has no hands. Even fully compromised, it can only write a suggestion into a table — which is the mitigation for prompt injection through telemetry, the primary threat to this system. Correlation now also runs as a real Kubernetes Deployment, continuously, via the Helm chart (KAV-46, ADR-0020) — no ServiceAccount token mounted, since it only reads and writes Postgres today."
+note = "Correlation (make correlate, KAV-39): signals in, incident rows out. Context assembly (make context, KAV-40): runbook RAG + past incidents + recent changes. Diagnosis (make diagnose, KAV-41): calls the local model schema-constrained, re-validates with Pydantic regardless, writes proposal + action rows. Escalation to Bedrock (make diagnose --escalate / make escalate, KAV-44, ADR-0019) on a local failure, no retrieved evidence, or low confidence. Each action's policy_class (KAV-42, ADR-0017) comes from the policy node, not the model, whichever model wrote the proposal. The component that thinks has no hands. Even fully compromised, it can only write a suggestion into a table — which is the mitigation for prompt injection through telemetry, the primary threat to this system. Diagnosis now also runs unattended in the cluster as its own Deployment, the diagnoser (KAV-87). Correlation now also runs as a real Kubernetes Deployment, continuously, via the Helm chart (KAV-46, ADR-0020) — no ServiceAccount token mounted, since it only reads and writes Postgres today."
+
+[[system.node]]
+id = "diagnoser"
+label = "diagnosis worker"
+kind = "service"
+phase = 5
+col = 0
+row = 4
+credentials = "READ-ONLY on the cluster: no ServiceAccount token. Database role: the agent's (reads incidents, writes proposals)"
+inputs = ["Open incidents with no proposal, oldest first", "The model's reply, validated and checked a second time"]
+outputs = ["proposal + action rows — INSERT only, one proposal per incident"]
+tables = ["incident", "signal", "proposal", "action", "runbook_chunk"]
+note = "KAV-87, ADR-0055. The agent image with a different command (python -m kaval_agent.diagnoser), its own Deployment so a slow or missing model can never stop incidents from being found. Each pass: take a lock, pick the oldest open, recent incident that is not for a person and has no proposal, build its context, ask the model, write the proposal. One diagnosis per incident; at most 6 an hour; a pause (30 s doubling to 10 min) after a model failure. Indexes the runbooks shipped in its image at start. Exports waiting count, oldest wait and outcome counts on :9100; two alerts (an incident waiting over 15 minutes, no worker at all) tell a person. Switched off by one values-file line."
 
 [[system.node]]
 id = "bedrock"
@@ -234,7 +247,7 @@ row = 6
 credentials = "its own ServiceAccount: create/delete Deployments and list pods in the demo namespace only, and patch ONE named Deployment (the bad-release victim); reads one named ConfigMap (the switch). No database, no policy, nothing in Kaval's own namespace"
 inputs = ["A person's make chaos-run: a Job made from a suspended CronJob, only while the switch is on"]
 outputs = ["One injected fault (a memory-starved program, or a healthy program then a release that crashes at start-up), then a timeline and clean-up"]
-note = "The breaker is not the fixer: the executor can patch a Deployment but not create one, the runner can create but may patch only its own named victim. Off in prod (the chart renders none of it; a test and a CI step check), refuses any environment but local/staging, stops on the switch, its own 20-minute clock, a 25-minute hard limit or make chaos-stop. Built and run on staging in KAV-79 (ADR-0044, Lab 46, post-mortem 2026-10-11): oom experiment, noticed in 81 s, fixed after approval, held. KAV-80 (ADR-0045, ADR-0046, Lab 47) added the badrelease experiment (noticed in 66 s, rolled back on approval, held) and a laptop-run lose-the-app-server game day, scripts/ops/chaos_node.py (make chaos-node: ends staging's machine through its auto-scaling group, replaced by itself, everything back in about 2 min 10 s, data intact; it refuses anything not in the group kaval-staging). KAV-81 (ADR-0047, Lab 48) added two experiments with no fix to test, slow (a web program that turns slow after two minutes) and disk (a bounded 3 GiB write in a capped volume): the right outcome is a person told and nothing proposed, read afterwards with make chaos-check (a dry run of the real alert code, since staging has no Slack); a hand-filed restart against either incident is classed never and the gateway refuses to approve it (409). Staging has no language model, so make chaos-propose files the diagnosis by hand and the post-mortem says so."
+note = "The breaker is not the fixer: the executor can patch a Deployment but not create one, the runner can create but may patch only its own named victim. Off in prod (the chart renders none of it; a test and a CI step check), refuses any environment but local/staging, stops on the switch, its own 20-minute clock, a 25-minute hard limit or make chaos-stop. Built and run on staging in KAV-79 (ADR-0044, Lab 46, post-mortem 2026-10-11): oom experiment, noticed in 81 s, fixed after approval, held. KAV-80 (ADR-0045, ADR-0046, Lab 47) added the badrelease experiment (noticed in 66 s, rolled back on approval, held) and a laptop-run lose-the-app-server game day, scripts/ops/chaos_node.py (make chaos-node: ends staging's machine through its auto-scaling group, replaced by itself, everything back in about 2 min 10 s, data intact; it refuses anything not in the group kaval-staging). KAV-81 (ADR-0047, Lab 48) added two experiments with no fix to test, slow (a web program that turns slow after two minutes) and disk (a bounded 3 GiB write in a capped volume): the right outcome is a person told and nothing proposed, read afterwards with make chaos-check (a dry run of the real alert code, since staging has no Slack); a hand-filed restart against either incident is classed never and the gateway refuses to approve it (409). Until KAV-87 staging had no language model, so make chaos-propose filed the diagnosis by hand and the post-mortem says so; now the diagnosis worker files it, and make chaos-propose finds that proposal (CHAOS_BY_HAND=1 files one by hand)."
 
 [[system.node]]
 id = "cluster"
@@ -419,6 +432,27 @@ from = "agent"
 to = "inference"
 label = "prompt"
 kind = "call"
+
+[[system.edge]]
+from = "db"
+to = "diagnoser"
+label = "open incidents, no proposal yet"
+
+[[system.edge]]
+from = "diagnoser"
+to = "inference"
+label = "prompt"
+kind = "call"
+
+[[system.edge]]
+from = "diagnoser"
+to = "policy"
+label = "classify actions"
+
+[[system.edge]]
+from = "diagnoser"
+to = "db"
+label = "INSERT proposal + class"
 
 [[system.edge]]
 from = "agent"
@@ -988,7 +1022,7 @@ kind = "decision"
 phase = 4
 col = 2
 row = 9
-note = "Does the loop actually work on a real cluster, and does OPA still refuse every never-class action? Built in part (KAV-62, ADR-0031): make staging-smoke checks pods, no crash loop, the running digest against ECR, the gateway database and migration revision, and the REST reads, then records the pass in deploy/promotion/passed-staging.json. Not yet covered: the model and agent diagnosis (no model is deployed anywhere), and OPA never-class refusal on a real cluster."
+note = "Does the loop actually work on a real cluster, and does OPA still refuse every never-class action? Built in part (KAV-62, ADR-0031): make staging-smoke checks pods, no crash loop, the running digest against ECR, the gateway database and migration revision, and the REST reads, then records the pass in deploy/promotion/passed-staging.json. Not yet covered: OPA never-class refusal on a real cluster. The model and the diagnosis worker run in staging since KAV-87 (ADR-0055)."
 
 [[delivery.node]]
 id = "d-stgfail"

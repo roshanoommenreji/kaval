@@ -117,7 +117,7 @@ surplus-CPU charge while the model ran flat out (up to about 8 cents an hour; no
 
 ## What this does not do
 
-- **Nothing in the cluster calls the model today.** The agent only groups signals; the diagnosis step runs by hand
+- **Nothing in the cluster calls the model today** *(resolved by `KAV-87`, [ADR-0055](0055-the-model-runs-in-the-cluster-and-diagnoses-new-incidents.md))*. The agent only groups signals; the diagnosis step runs by hand
   or from the evals, and staging's game days file proposals by hand. This story improves what that step suggests.
   Running it for every new incident is its own story: `KAV-87`.
 - **The Bedrock escalation path** (`kaval_agent.escalate`) is told the same thing (same message), but its reply is

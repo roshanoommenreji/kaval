@@ -7,8 +7,9 @@
 #   chaos.sh stop        the stop button: switch off, Jobs deleted, the victim deleted.
 #   chaos.sh check       after slow or disk: did Kaval tell a person and propose nothing? (KAV-81)
 #   chaos.sh propose [oom|badrelease|slow|disk]
-#                        staging has no language model: file the diagnosis it would have written
-#                        (chaos_propose.py). The post-mortem says the run used this.
+#                        find the proposal Kaval's diagnosis worker filed for the experiment (KAV-87),
+#                        or, with CHAOS_BY_HAND=1 and for slow/disk, file the one a model might
+#                        have written (chaos_propose.py). The post-mortem says which was used.
 #   chaos.sh approve ID  the human step: approve a proposed action through the gateway.
 #   chaos.sh mttr        time to restore by stage, read from staging's database (make chaos-mttr).
 #   chaos.sh status      the switch, the Jobs, the victim.
@@ -156,8 +157,8 @@ done
 SCRIPT
 }
 
-# Staging has no language model: file the diagnosis it would write, with the AGENT's database role
-# (the one allowed to write proposals).
+# Find the diagnosis Kaval filed itself (KAV-87), or file the one a model might write, with the
+# AGENT's database role (the one allowed to write proposals).
 cmd_propose() {
   local experiment="${1:-oom}"
   victim_of "$experiment" >/dev/null || exit 2

@@ -69,9 +69,9 @@ gateway:
   replicas: 1
   port: 8000
   # Reached by the gateway's own /healthz check (kaval_gateway/main.py's check_ollama()).
-  # Empty by default: no environment's chart deploys Ollama yet (ADR-0016's deployed-agent
-  # trigger design is still unresolved, and diagnose.py/escalate.py stay laptop-run tools) —
-  # see Lab 15 for what that means for this check in a local k3d deployment.
+  # Empty by default: the gateway does not use the model, and is not pointed at the in-cluster
+  # one that the diagnosis worker uses (`ollama:` below, KAV-87) — so /healthz reports it as
+  # unreachable. See Lab 15 for what that means for this check in a local k3d deployment.
   ollamaBaseUrl: ""
   localModel: ""
   logLevel: INFO
