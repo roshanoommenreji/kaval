@@ -60,7 +60,9 @@ def test_finds_the_record_with_or_without_the_v(tmp_path: Path) -> None:
 
 
 def test_the_real_baseline_record_still_parses() -> None:
+    # The baseline file by name: a later promotion of the same product version adds a second
+    # v0.1.0 record, and find_record rightly returns the newest of them.
     root = Path(__file__).resolve().parents[2] / "docs" / "releases"
-    rec = jr.parse(jr.find_record(root, "0.1.0").read_text(encoding="utf-8"))
+    rec = jr.parse((root / "2026-10-09-v0.1.0.md").read_text(encoding="utf-8"))
     assert rec.name == "Kaval 0.1.0"
     assert "KAV-32" in rec.issues
