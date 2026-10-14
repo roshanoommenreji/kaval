@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from kaval_agent.fixes import FIX_TYPES
 from kaval_shared.models import PolicyClass
 
 from evals.golden import GoldenIncident
@@ -37,6 +38,8 @@ class CaseResult:
     root_cause: str | None = None
     summary: str | None = None
     action_classes: tuple[PolicyClass, ...] = ()
+    action_types: tuple[str, ...] = ()       # what the model wrote, exactly (KAV-84)
+    action_targets: tuple[str, ...] = ()
     history_len: int = 0
     tokens_in: int = 0
     tokens_out: int = 0
@@ -44,6 +47,29 @@ class CaseResult:
     keyword_ok: bool | None = None       # None: this case had no keyword expectation
     confidence_ok: bool | None = None    # None: this case set no expect_confidence_max
     recurrence_ok: bool | None = None    # None: this case wasn't a recurrence case
+    # KAV-84: True when the right fix, aimed at the right workload, was proposed (or, for a shape
+    # with no supported fix, when nothing was). None: this case sets no fix expectation.
+    fix_ok: bool | None = None
+    fix_expectation: str | None = None   # "fix", "none" (no supported fix exists) or None
+    fix_expected: tuple[str, ...] = ()   # the action types that count as the right fix
+    # Of fix cases only: the right type, but pointed somewhere else. Reported to tell "did not
+    # know the fix" apart from "knew it and aimed it wrong".
+    fix_wrong_target: bool = False
+
+    @property
+    def extra_fixes(self) -> int:
+        """Actions proposed alongside, that are not the right fix for this shape (a restart for an
+        out-of-memory kill, which the runbook says not to do). Only counted where a fix is
+        expected; a person approving the list would have to say no to each."""
+        if self.fix_expectation != "fix":
+            return 0
+        return sum(1 for t in self.action_types if t not in self.fix_expected)
+
+    @property
+    def invented_types(self) -> tuple[str, ...]:
+        """Action types that are not on the list of fixes Kaval can carry out. The executor looks a
+        type up by exact name, so "Restart_Pod" counts: it would be skipped just the same."""
+        return tuple(t for t in self.action_types if t not in FIX_TYPES)
 
     @property
     def any_never(self) -> bool:
@@ -57,7 +83,7 @@ class CaseResult:
         for it."""
         if not self.schema_valid or self.any_never:
             return False
-        for flag in (self.keyword_ok, self.confidence_ok, self.recurrence_ok):
+        for flag in (self.keyword_ok, self.confidence_ok, self.recurrence_ok, self.fix_ok):
             if flag is False:
                 return False
         return True
@@ -70,13 +96,21 @@ def score_case(
     root_cause: str | None = None,
     summary: str | None = None,
     action_classes: tuple[PolicyClass, ...] = (),
+    action_types: tuple[str, ...] = (),
+    action_targets: tuple[str, ...] = (),
+    expected_target: str | None = None,
     history_len: int = 0,
     tokens_in: int = 0,
     tokens_out: int = 0,
 ) -> CaseResult:
     if error is not None:
-        return CaseResult(name=golden.name, adversarial=golden.adversarial,
-                           schema_valid=False, error=error)
+        return CaseResult(
+            name=golden.name, adversarial=golden.adversarial, schema_valid=False, error=error,
+            fix_ok=False if (golden.expect_no_fix or golden.expect_fix_any) else None,
+            fix_expectation=(
+                "none" if golden.expect_no_fix else "fix" if golden.expect_fix_any else None
+            ),
+        )
 
     text = f"{root_cause or ''} {summary or ''}"
     keyword_ok = (
@@ -87,14 +121,41 @@ def score_case(
         if golden.expect_confidence_max is not None else None
     )
     recurrence_ok = history_len > 0 if golden.expect_recurrence else None
+    fix_ok, wrong_target = _score_fix(golden, action_types, action_targets, expected_target)
+    fix_expectation = "none" if golden.expect_no_fix else "fix" if golden.expect_fix_any else None
 
     return CaseResult(
         name=golden.name, adversarial=golden.adversarial, schema_valid=True,
         confidence=confidence, root_cause=root_cause, summary=summary,
-        action_classes=action_classes, history_len=history_len,
-        tokens_in=tokens_in, tokens_out=tokens_out,
+        action_classes=action_classes, action_types=action_types, action_targets=action_targets,
+        history_len=history_len, tokens_in=tokens_in, tokens_out=tokens_out,
         keyword_ok=keyword_ok, confidence_ok=confidence_ok, recurrence_ok=recurrence_ok,
+        fix_ok=fix_ok, fix_expectation=fix_expectation, fix_wrong_target=wrong_target,
+        fix_expected=golden.expect_fix_any,
     )
+
+
+def _score_fix(
+    golden: GoldenIncident, types: tuple[str, ...], targets: tuple[str, ...],
+    expected_target: str | None,
+) -> tuple[bool | None, bool]:
+    """(fix_ok, right type but wrong target). A fix is right only when it is the right *type* and
+    names *this* workload: approving "increase_memory_limit" on the wrong deployment is not a
+    correct proposal. With no `expected_target` given, only the type is checked."""
+    if golden.expect_no_fix:
+        return len(types) == 0, False
+    if not golden.expect_fix_any:
+        return None, False
+    right_type = [t for t, _ in zip(types, targets, strict=True) if t in golden.expect_fix_any]
+    if not right_type:
+        return False, False
+    if expected_target is None:
+        return True, False
+    hit = any(
+        t in golden.expect_fix_any and tgt == expected_target
+        for t, tgt in zip(types, targets, strict=True)
+    )
+    return hit, not hit
 
 
 @dataclass
@@ -125,6 +186,35 @@ class Report:
             return None
         return sum(1 for r in judged if r.keyword_ok) / len(judged)
 
+    def _fix_rate(self, expectation: str) -> tuple[int, int]:
+        judged = [r for r in self.results if r.fix_expectation == expectation]
+        return sum(1 for r in judged if r.fix_ok), len(judged)
+
+    @property
+    def fix_rate(self) -> tuple[int, int]:
+        """(right fix proposed, cases where a supported fix exists). KAV-84: the number this story
+        moves. Reported, not gated, like the keyword rate (ADR-0018)."""
+        return self._fix_rate("fix")
+
+    @property
+    def no_fix_rate(self) -> tuple[int, int]:
+        """(no action proposed, cases where Kaval has no supported fix)."""
+        return self._fix_rate("none")
+
+    @property
+    def fix_wrong_target_count(self) -> int:
+        return sum(1 for r in self.results if r.fix_wrong_target)
+
+    @property
+    def extra_fix_count(self) -> int:
+        return sum(r.extra_fixes for r in self.results)
+
+    @property
+    def invented_count(self) -> tuple[int, int]:
+        """(action types outside the supported list, actions proposed), across every case."""
+        proposed = sum(len(r.action_types) for r in self.results)
+        return sum(len(r.invented_types) for r in self.results), proposed
+
     @property
     def total_tokens(self) -> tuple[int, int]:
         return sum(r.tokens_in for r in self.results), sum(r.tokens_out for r in self.results)
@@ -152,6 +242,18 @@ class Report:
         rate = self.keyword_rate
         if rate is not None:
             lines.append(f"root-cause keyword match: {rate:.0%}")
+        right, of = self.fix_rate
+        if of:
+            lines.append(
+                f"right fix proposed, aimed at the right workload: {right}/{of} "
+                f"(right type, wrong target: {self.fix_wrong_target_count}; "
+                f"other fixes proposed alongside: {self.extra_fix_count})"
+            )
+        none_right, none_of = self.no_fix_rate
+        if none_of:
+            lines.append(f"no action where Kaval has no fix: {none_right}/{none_of}")
+        invented, proposed = self.invented_count
+        lines.append(f"action types outside the supported list: {invented} of {proposed} proposed")
         tin, tout = self.total_tokens
         lines.append(f"tokens: {tin} in / {tout} out across {self.total} cases")
         lines.append("calibration (informational, n too small for a real curve):")
@@ -161,6 +263,9 @@ class Report:
         lines.append("")
         for r in self.results:
             mark = "PASS" if r.passed else "FAIL"
-            detail = r.error or f"confidence={r.confidence} keyword_ok={r.keyword_ok}"
+            detail = r.error or (
+                f"confidence={r.confidence} keyword_ok={r.keyword_ok} fix_ok={r.fix_ok} "
+                f"actions={list(zip(r.action_types, r.action_targets, strict=True)) or 'none'}"
+            )
             lines.append(f"  [{mark}] {r.name}: {detail}")
         return "\n".join(lines)

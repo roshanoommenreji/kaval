@@ -171,7 +171,7 @@ make index-runbooks  # sync docs/runbooks/ into the pgvector retrieval index
 make context INCIDENT=<uuid>  # print the context (runbooks, history, changes) built for one incident
 make diagnose INCIDENT=<uuid> # ask the local model to diagnose it; writes a proposal, or nothing at all
 make policy-check TYPE= BLAST_RADIUS= CONFIDENCE= [REVERSIBLE=1]  # classify one hypothetical action against policy/, no database
-make evals [ONLY=name] [JSON=path]  # score the 20 golden incidents against the real pipeline
+make evals [ONLY=name] [JSON=path] [PROMPT=before|after|both]  # score the 20 golden incidents against the real pipeline; PROMPT=both is a before-and-after of the model prompt (KAV-84)
 make bench         # measure the local model shortlist
 make test          # unit + policy tests
 make lint          # ruff + mypy, the same target CI runs
