@@ -144,13 +144,29 @@ silence, not 25 (`silent_periods = 2`: same rule, only the number differs). Then
 5. Scale it back to 1: the datapoints return and the alarm goes back to `OK`
 6. The other negative, a parked server stays quiet: park staging (`aws autoscaling set-desired-capacity --auto-scaling-group-name kaval-staging --desired-capacity 0 --profile kaval`), wait more than 10 minutes with no datapoints, and confirm the alarm is **not** in `ALARM` and the group-size metric shows 0
 
+What actually happened (staging, 2026-10-13 to 14; alarm history and metrics read back from CloudWatch). The
+replaced server launched at 18:48:38 UTC. The planned stop-the-poller test was overtaken by a real stop, below,
+which exercised the same rule.
+
 | | Result |
 |---|---|
-| First datapoint after the replaced server booted | (fill in) |
-| Alarm while datapoints arrive | (fill in) |
-| Poller stopped -> ALARM after | (fill in: minutes) |
-| Back to OK after scaling back | (fill in) |
-| Parked staging for more than 10 minutes | (fill in: state, and the group-size reading) |
+| First datapoint after the replaced server booted | 18:50 bucket; the alarm went `ALARM` to `OK` at 18:53 (it started in `ALARM` because the old server, which had no script, had been silent) |
+| Alarm while datapoints arrive | `OK` from 18:53 to 20:43, with 2 to 3 datapoints in every 5-minute reading (the node sends every 2 minutes) |
+| The poller stopped finishing passes -> ALARM | **`ALARM` at 20:43:17**, about 10 minutes after the last full reading, as set for staging (see "Found live") |
+| Datapoints return -> back to OK | `OK` at 21:47 after a datapoint at 21:45; two more brief rings and returns followed, with only single datapoints at 21:45 and 22:00 |
+| Parked staging with no datapoints | Staging was parked at 23:01 (the group's size metric read **0** from 23:00). The alarm went to `OK` at 23:06 and **stayed `OK` for 5.5 hours** with no datapoint at all, which is the parked-is-quiet case, checked against real data |
+
+**Found live: the nightly stop took staging's database but not its server.** At 20:30:08 UTC (02:00 IST) the
+budget guard's nightly rule (`kaval-budget-hard-stop`, "stop every running `Project=kaval` server outside an
+auto-scaling group", [ADR-0028](../adr/0028-prod-app-node-on-demand-and-ceiling-50.md) and the budget module)
+stopped staging's database server ("User initiated (2026-10-13 20:30:08 GMT)"; its Lambda log reads
+`stop_instances=True tag=Project=kaval`). It scales only `kaval-prod`'s group, so staging's server kept running with
+no database. The poller could no longer finish passes (the server's outbound traffic fell by about 60 percent at
+20:30), the datapoints stopped, and the alarm rang: a real failure caught from outside, which is what it is for.
+This is an old quirk, not new: it only shows when staging is left up across 02:00 IST, and staging parks itself
+after four idle hours. Not changed here; the options (tag-exempt staging's database from the nightly rule, or
+accept it) are recorded in the journal. For production the same rule scales the group to 0 and stops the
+database together, so the alarm reads "parked" and stays quiet.
 
 ### Step 4 — production (Part 3)
 
@@ -168,4 +184,4 @@ brought up, and then the datapoints begin about 3 minutes after the server boots
 - [x] The disk-trend decision recorded with its trigger (ADR-0051)
 - [x] The staging proof of Step 4 (2026-10-13): the old copy kept serving with the check; was removed within 40 s without it
 - [x] Part 2 built and tested: the node script, the alarm, the permission, the group metric (ADR-0053)
-- [ ] Part 2 proven live on staging (Step 3 table filled in)
+- [x] Part 2 proven live on staging (2026-10-13): datapoints arrive, the alarm goes OK, rings when the poller cannot finish passes, and stays OK through 5.5 hours of parked staging. Still to do in Part 3: the production apply and the real e-mail test
