@@ -170,11 +170,55 @@ database together, so the alarm reads "parked" and stays quiet.
 
 ### Step 4 — production (Part 3)
 
-Nothing here touches production. In Part 3, after the production plan is read and approved: apply (the alarm,
-the topic and your e-mail subscription, the node's permission, the group metric), **click the confirmation link
-AWS e-mails you**, then test the whole chain without waiting: `aws cloudwatch set-alarm-state ... --state-value
-ALARM`, see the e-mail, then `--state-value OK`. Production is parked, so the alarm stays quiet until it is
-brought up, and then the datapoints begin about 3 minutes after the server boots.
+Read, then approved, then applied, in this order (2026-10-14). Production was parked throughout until step 8.
+
+1. **Plan, read-only:** `terraform plan` in `infra/envs/prod` showed 10 to add, 3 to change, 0 to destroy: the alarm,
+   its topic and e-mail subscription, the node's permission, the database server's monitoring parts, two firewall
+   ports from the app server only, the group's size metric and a new boot script. Nothing touched the database
+   server or its volume. The newest copy of the data volume was 03:17 UTC that day; the server was stopped, so
+   nothing had changed since.
+2. **Apply** the saved plan, then a fresh plan: **No changes**. **Click the confirmation link AWS e-mails you.**
+3. **Test the chain:** `aws cloudwatch set-alarm-state --alarm-name kaval-prod-still-alive --state-value ALARM`.
+   Two alarm e-mails arrived (the ring, then the alarm put itself back to `OK` 20 seconds later, because a parked
+   group wants no server).
+4. **Staging first:** `make staging-up`, `make staging-smoke` (7 of 7 passed for `sha-0904d5c`), the record committed
+   by pull request (#161), staging parked by hand (`min 0, desired 0`, database stopped).
+5. **Promote, before production comes up:** `gh workflow run promote.yml -f tag=sha-0904d5c` opened the promotion
+   pull request (#162). Its first run failed one test (a second `v0.1.0` change record made `find_record` return
+   the newer file; the baseline test now reads its own dated file, #163). Merged.
+6. **A snapshot of the data volume** while the database was stopped (the release carried a migration).
+7. **Bring up:** database first (`resume-database.sh`), then the plan (one change, group 0 to 1), then the apply,
+   each shown and approved. Full steps and timings in [the runbook](../runbooks/prod-rollout.md).
+8. **Park:** the plan (group 1 to 0), the apply, `pause-database.sh` (snapshot, then stop). Both groups at 0, both
+   databases stopped, the alarm `OK`.
+
+What production showed (the first time it ran this version):
+
+| | Result |
+|---|---|
+| Services | gateway (2), agent, collector, Prometheus poller, Prometheus: `1/1`; the **executor crash-looped** until fix b below |
+| Prometheus targets | **10 of 10 up, no errors**: the six services, Prometheus itself, the kubelet's container metrics, and the database server's `node_exporter` (9100) and `postgres_exporter` (9187), which also proves the firewall change and the monitoring install |
+| Memory, production's own server | **1,576 MB used, 2,062 MB available of 3,829 MB** (52 percent); services 45 to 81 MiB each. Staging with chaos installed but off: 1,407 used, 2,231 available |
+| "Still alive" alarm | datapoints every 2 minutes from about 4 minutes after the apply; `OK` for about 45 minutes while production ran; quiet after parking |
+| Fresh dump | `kaval-<stamp>.dump`, 25 KB, taken by the node's own timer unit on demand and checked with `pg_restore --list` |
+| Real Slack post | **not seen**: production has no incident to announce. The notifier ran without errors after fix c |
+
+**Found live: two ordering gaps** (`KAV-85`; neither could show on staging, whose database was already migrated):
+
+a. **The install waits on a migration that waits on the install.** The chart runs the migration as a Helm
+   `post-install` hook, and the install first waits for every Deployment to be ready. The new executor needs the
+   new column (`action.slack_ts`), so it crash-looped, the install timed out (`RetriesExceeded`), and the hook never
+   ran. The database was at `a1c4f9b0e3d2`; head is `c3e8a1d7f402`.
+b. **Fixed by hand:** the same `alembic upgrade head`, from the same image and secret, as one Job (runbook step 5).
+   Two migrations ran; the executor recovered on its next restart (kubelet back-off, at most 5 minutes).
+c. **Permissions applied before the table existed.** `db-roles.sql` waits for the schema, not for head, so the
+   `notification` table the migration added had no `GRANT`; the gateway's Slack notifier failed every 30 seconds
+   with `permission denied`. Fixed by starting the node's own bootstrap unit again (runbook step 6); the errors
+   stopped within a minute.
+
+One process finding: the Claude Code auto-mode classifier blocked each change to production's live database or
+services (the migration Job, the bootstrap unit, the backup unit) even after Roshan said to go ahead, so those three
+were written as scripts and run by Roshan; every read-only check, and the plan/apply steps shown first, ran as normal.
 
 ## Done when
 
@@ -184,4 +228,6 @@ brought up, and then the datapoints begin about 3 minutes after the server boots
 - [x] The disk-trend decision recorded with its trigger (ADR-0051)
 - [x] The staging proof of Step 4 (2026-10-13): the old copy kept serving with the check; was removed within 40 s without it
 - [x] Part 2 built and tested: the node script, the alarm, the permission, the group metric (ADR-0053)
-- [x] Part 2 proven live on staging (2026-10-13): datapoints arrive, the alarm goes OK, rings when the poller cannot finish passes, and stays OK through 5.5 hours of parked staging. Still to do in Part 3: the production apply and the real e-mail test
+- [x] Part 2 proven live on staging (2026-10-13): datapoints arrive, the alarm goes OK, rings when the poller cannot finish passes, and stays OK through 5.5 hours of parked staging
+- [x] Part 3, production (2026-10-14): applied, the pretend ring e-mailed, promoted before bring-up, brought up, 10 of 10 targets up, memory measured, a fresh dump, parked. Two ordering gaps found and fixed by hand (`KAV-85`)
+- [ ] Not seen live: a real Slack post (no incident to announce in production)

@@ -5,6 +5,10 @@ An e-mail from AWS says the alarm **kaval-prod-still-alive** (or **kaval-staging
 25 minutes (10 on staging). Design: [ADR-0053](../adr/0053-the-still-alive-alarm-lives-in-aws.md). This alarm is
 not inside the server on purpose, so when it rings, nothing inside Kaval may be able to tell you the same thing.
 
+Proven in production on 2026-10-14 (`KAV-83` Part 3): a pretend ring (`set-alarm-state`) e-mailed the owner, real
+datapoints began about 4 minutes after the server booted and arrived every two minutes, the alarm stayed `OK` for
+about 45 minutes, and a parked production was quiet. Procedure: [prod-rollout.md](prod-rollout.md).
+
 ## Signals
 
 - An e-mail "ALARM: kaval-prod-still-alive" from AWS Notifications (and later "OK: ..." when it clears)
