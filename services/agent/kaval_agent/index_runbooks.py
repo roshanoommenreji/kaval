@@ -3,11 +3,12 @@
     make index-runbooks
     python -m kaval_agent.index_runbooks
 
-Two ways to run it. As a **laptop tool** (`make index-runbooks`), like `scripts/tracking/jira-sync.py`:
-it reads the repo checkout and needs `make dev-tunnel` for Postgres and Ollama (Lab 10). And, since
-KAV-87 (ADR-0055), in the cluster: `docs/runbooks/` is copied into the agent image at `/app/runbooks`
-and the diagnosis worker calls `sync_runbooks` when it starts, so the model reads the runbooks of the
-release that is running. A runbook edit takes effect when a new image is built, like a code change.
+Two ways to run it. As a **laptop tool** (`make index-runbooks`), like
+`scripts/tracking/jira-sync.py`: it reads the repo checkout and needs `make dev-tunnel` for
+Postgres and Ollama (Lab 10). And, since KAV-87 (ADR-0055), in the cluster: `docs/runbooks/` is
+copied into the agent image at `/app/runbooks` and the diagnosis worker calls `sync_runbooks`
+when it starts, so the model reads the runbooks of the release that is running. A runbook edit
+takes effect when a new image is built, like a code change.
 
 Idempotent, matched by `(path, heading)`: a second run with no doc changes re-embeds nothing
 and reports every chunk `unchanged`. An edited heading re-embeds only that chunk. A removed
