@@ -113,6 +113,12 @@ recurring spend and no resource: the cleaned file is about 20 KB in staging's ow
 $0.045/hour for one to two hours, so roughly 10 cents (the "$1-2" first estimated was an upper bound, not the expected cost).
 Measured, 2026-10-10: about 25 minutes of staging, a few cents; the seed file and staging's bucket were destroyed with it.
 
+**The first run of production on the finished Phase 5 (`KAV-83` Part 3, 2026-10-14)** added the "still alive" alarm and
+its topic (about $0.72 a month at most, already in the table above) and cost one ordinary session: production's two
+servers for about an hour and a quarter (the app server $0.0224 plus the database server $0.0112 plus two public
+addresses at $0.005, about $0.045 an hour together) and staging for about 20 minutes: **roughly 7 cents**. Two
+snapshots of the 20 GB data volume add a few cents a month while they are kept.
+
 Paused, the same account costs **~$4.80/month**: storage only, the app node's ~$2.20 plus the
 database server's two disks (~$2.55).
 
