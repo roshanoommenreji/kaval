@@ -38,30 +38,32 @@ def _find(docs: list[str], kind: str, name: str) -> str:
     raise AssertionError(f"no {kind} named {name}")
 
 
-@pytest.mark.parametrize("env", ["prod", "local"])
-def test_where_it_is_not_switched_on_nothing_of_it_is_rendered(env: str) -> None:
-    text = "\n".join(_render(env))
+def test_where_it_is_not_switched_on_nothing_of_it_is_rendered() -> None:
+    text = "\n".join(_render("local"))
     assert "-ollama" not in text and "-diagnoser" not in text
     assert "kaval-diagnoser.rules" not in text
 
 
-def test_staging_runs_the_model_and_the_worker() -> None:
-    docs = _render("staging")
-    _find(docs, "Deployment", "kaval-staging-ollama")
-    _find(docs, "Deployment", "kaval-staging-diagnoser")
-    _find(docs, "Service", "kaval-staging-ollama")
+@pytest.mark.parametrize("env", ["staging", "prod"])
+def test_staging_and_prod_run_the_model_and_the_worker(env: str) -> None:
+    docs = _render(env)
+    _find(docs, "Deployment", f"kaval-{env}-ollama")
+    _find(docs, "Deployment", f"kaval-{env}-diagnoser")
+    _find(docs, "Service", f"kaval-{env}-ollama")
 
 
-def test_neither_gets_a_token_to_talk_to_the_cluster() -> None:
-    docs = _render("staging")
-    for name in ("kaval-staging-ollama", "kaval-staging-diagnoser"):
+@pytest.mark.parametrize("env", ["staging", "prod"])
+def test_neither_gets_a_token_to_talk_to_the_cluster(env: str) -> None:
+    docs = _render(env)
+    for name in (f"kaval-{env}-ollama", f"kaval-{env}-diagnoser"):
         deployment = _find(docs, "Deployment", name)
         assert "automountServiceAccountToken: false" in deployment
         assert "serviceAccountName" not in deployment
 
 
-def test_the_model_cannot_outgrow_its_share_of_the_node() -> None:
-    ollama = _find(_render("staging"), "Deployment", "kaval-staging-ollama")
+@pytest.mark.parametrize("env", ["staging", "prod"])
+def test_the_model_cannot_outgrow_its_share_of_the_node(env: str) -> None:
+    ollama = _find(_render(env), "Deployment", f"kaval-{env}-ollama")
     assert re.search(r"(?m)^\s+memory: 1536Mi$", ollama)
     assert "type: Recreate" in ollama  # two copies would be two models in memory
     assert 'OLLAMA_KEEP_ALIVE, value: "5m"' in ollama  # unloaded when idle

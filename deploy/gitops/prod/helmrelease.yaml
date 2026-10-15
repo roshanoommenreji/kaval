@@ -83,6 +83,12 @@ spec:
         enabled: true
       probe:
         targets: "kaval-prod/gateway=http://kaval-prod-gateway.kaval-prod.svc.cluster.local:8000/healthz"
+    # The model and the diagnosis worker (KAV-87, ADR-0055) - hand-kept copy of
+    # deploy/environments/prod/values.yaml's own comment block.
+    ollama:
+      enabled: true
+    diagnoser:
+      enabled: true
   valuesFrom:
     # targetPath entries overwrite everything before them, including the inline `values:`
     # above (Flux's own documented precedence) — the registry injection always wins.
