@@ -163,7 +163,9 @@ cmd_propose() {
   local experiment="${1:-oom}"
   victim_of "$experiment" >/dev/null || exit 2
   need_node
-  pod_run chaos-propose agent "$(b64_of "$HERE/chaos_propose.py")" ",{\"name\":\"CHAOS_EXPERIMENT\",\"value\":\"${experiment}\"}"
+  # CHAOS_BY_HAND is passed on too: without it the script in the pod never sees the switch and always
+  # returns the worker's proposal (found live on staging, 2026-10-15, after an approval expired).
+  pod_run chaos-propose agent "$(b64_of "$HERE/chaos_propose.py")" ",{\"name\":\"CHAOS_EXPERIMENT\",\"value\":\"${experiment}\"},{\"name\":\"CHAOS_BY_HAND\",\"value\":\"${CHAOS_BY_HAND:-0}\"}"
 }
 
 # How long each stage took, from the outcome rows, with the EXECUTOR's database role.

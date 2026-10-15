@@ -75,3 +75,20 @@ def test_the_executor_cannot_approve_anything(db_session: Session) -> None:
     assert not _can(db_session, "kaval_executor",
                     "INSERT INTO decision (id, action_id, verdict, actor, decided_at) "
                     "VALUES (gen_random_uuid(), gen_random_uuid(), 'approved', 'x', now())")
+
+
+def test_the_agent_can_read_everything_the_diagnosis_worker_reads_but_cannot_write_outcomes(
+    db_session: Session,
+) -> None:
+    """KAV-87: on staging the worker was refused 'permission denied for table outcome' as soon as a
+    second similar incident existed, because the context builder reads how past fixes turned out.
+    Every table the worker reads is listed here, so the next one added cannot be missed quietly."""
+    _apply_roles(db_session)
+
+    for table in ("incident", "proposal", "action", "outcome", "signal", "incident_signal",
+                  "runbook_chunk"):
+        assert _can(db_session, "kaval_agent", f"SELECT 1 FROM {table} WHERE false"), table
+    # Least privilege: it reads how fixes turned out, it never records or edits that.
+    assert not _can(db_session, "kaval_agent", "INSERT INTO outcome DEFAULT VALUES")
+    assert not _can(db_session, "kaval_agent", "UPDATE outcome SET resolved = true")
+    assert not _can(db_session, "kaval_agent", "DELETE FROM outcome")
