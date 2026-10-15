@@ -124,7 +124,8 @@ surplus-CPU charge while the model ran flat out (up to about 8 cents an hour; no
   not narrowed or re-checked: it cannot run live yet (`KAV-44`), and a rule that cannot be proved is not added.
 - **Confidence went up.** The mean stated confidence rose from 0.76 to 0.88, and 60 percent of replies now say 0.9
   or more (10 percent before). Policy uses confidence only to *promote* to `auto`, which is empty, so nothing
-  unsafe follows, but the number is less useful. `KAV-88`.
+  unsafe follows, but the number is less useful. `KAV-88`, *resolved by [ADR-0056](0056-the-stored-confidence-follows-the-evidence.md):
+  the stored number can no longer exceed what the evidence supports; the model's own is still printed beside it*.
 - **A crash loop has two candidate fixes** (a rollback or a restart). No golden case covers it, so the model's pick
   between them is unmeasured.
 - **Text planted in a log line** is not stripped from the message. It could not change the action on this path, but

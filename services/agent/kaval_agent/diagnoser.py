@@ -35,7 +35,10 @@ The rules that keep it safe and quiet:
 
 **What it exports on :9100** (no ids, targets or error text: the network cannot hide a port
 from other pods, see `kaval_shared.metrics`): `kaval_diagnosis_total{outcome}`,
-`kaval_diagnosis_waiting`, `kaval_diagnosis_oldest_wait_seconds`, `kaval_diagnosis_last_seconds`.
+`kaval_diagnosis_waiting`, `kaval_diagnosis_oldest_wait_seconds`, `kaval_diagnosis_last_seconds`,
+`kaval_diagnosis_confidence_limited_total` (proposals whose stored confidence was lowered because
+the incident held thin evidence, KAV-88: a count, so it is visible when the rule starts or stops
+biting, and no data in it).
 """
 
 from __future__ import annotations
@@ -75,6 +78,9 @@ BACKOFF_MAX = timedelta(minutes=10)
 CANDIDATES = 50  # how many waiting incidents one pass looks at; it diagnoses one
 
 _DIAGNOSES = Counter("kaval_diagnosis", "Diagnosis attempts by outcome", ["outcome"])
+_LIMITED = Counter("kaval_diagnosis_confidence_limited",
+                   "Proposals stored with a lower confidence than the model stated, because the "
+                   "incident held thin evidence")
 _WAITING = Gauge("kaval_diagnosis_waiting",
                  "Open incidents that should be diagnosed and have no proposal yet")
 _OLDEST = Gauge("kaval_diagnosis_oldest_wait_seconds",
@@ -206,8 +212,13 @@ def diagnose_one_pass(
                               cost_usd=Decimal("0"))
     backoff.worked()
     outcome = OK if diagnosis.actions else OK_NO_FIX
+    detail = f"proposal {proposal.id}, {len(diagnosis.actions)} action(s)"
+    if proposal.confidence < diagnosis.confidence:
+        _LIMITED.inc()
+        detail += (f", confidence {proposal.confidence:.2f} "
+                   f"(the model said {diagnosis.confidence:.2f}; thin evidence)")
     return PassResult(outcome, incident.id, len(queue) - 1, time.monotonic() - started,
-                      detail=f"proposal {proposal.id}, {len(diagnosis.actions)} action(s)")
+                      detail=detail)
 
 
 def record(result: PassResult | None) -> list[str]:

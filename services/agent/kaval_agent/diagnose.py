@@ -48,7 +48,7 @@ from kaval_shared.models import Action, BlastRadius, Incident, Proposal, RiskLev
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from kaval_agent import fixes, policy
+from kaval_agent import evidence, fixes, policy
 from kaval_agent.context import Context, build_context
 from kaval_agent.schema import Diagnosis
 
@@ -208,6 +208,10 @@ def write_proposal(
     the rule is enforced. The policy refuses again from the cause (`never`), and so does the
     executor, so a proposal filed by some other route still cannot run.
 
+    **Stores a confidence the evidence supports** (KAV-88, ADR-0056): the model's own number is
+    only a ceiling, lowered by `kaval_agent.evidence` when the incident holds one observation or
+    one kind of observation. The policy is asked about the number that is stored.
+
     `cost_usd` defaults to 0: self-hosted local inference has no metered cost. A Bedrock
     escalation (KAV-44, ADR-0019) passes its real, measured cost instead —
     `kaval_agent.escalate.estimate_cost_usd` — never a guess made in advance."""
@@ -215,11 +219,14 @@ def write_proposal(
         raise HealthIncidentError(
             f"{incident.fingerprint} is for a person, not a proposal (no automated fix exists)"
         )
+    confidence = evidence.limit(
+        diagnosis.confidence, incident.fingerprint, incident.signals,
+    ).confidence
     proposal = Proposal(
         incident_id=incident.id,
         summary=diagnosis.summary,
         root_cause=diagnosis.root_cause,
-        confidence=diagnosis.confidence,
+        confidence=confidence,
         risk=RiskLevel(diagnosis.risk),
         model=model,
         tokens_in=usage.tokens_in,
@@ -243,7 +250,7 @@ def write_proposal(
             # from the proposal as a whole), whoever produced them — Jev (ADR-0006) can supply
             # the same three fields later without this call changing.
             policy_class=policy.classify(
-                a.type, blast_radius, a.reversible, diagnosis.confidence,
+                a.type, blast_radius, a.reversible, confidence,
                 cause=health.cause_of_fingerprint(incident.fingerprint),
             ),
         ))

@@ -225,6 +225,28 @@ def test_a_second_copy_does_nothing_while_the_first_holds_the_lock(
     assert model.calls == []
 
 
+def test_a_limited_confidence_is_counted_and_said_in_the_log_line(db_session: Session) -> None:
+    """KAV-88: an incident with no signals behind it is the thinnest there is (the model said 0.8,
+    the proposal keeps 0.5). The worker counts it and says so; it does not hide it."""
+    incident = _incident(db_session)
+    before = d._LIMITED._value.get()
+    result = _pass(db_session, FakeModel())
+    assert result is not None and result.outcome == d.OK
+    assert d._LIMITED._value.get() == before + 1
+    assert "confidence 0.50 (the model said 0.80; thin evidence)" in result.detail
+    stored = db_session.scalars(select(Proposal).where(Proposal.incident_id == incident.id)).one()
+    assert stored.confidence == 0.5
+
+
+def test_a_confidence_that_was_not_limited_is_not_counted(db_session: Session) -> None:
+    """The negative case: a cost incident is not about a workload, so its number stands."""
+    _incident(db_session, "cost_spike:aws:ec2/eval-r32")
+    before = d._LIMITED._value.get()
+    result = _pass(db_session, FakeModel(actions=False))
+    assert result is not None and "thin evidence" not in result.detail
+    assert d._LIMITED._value.get() == before
+
+
 # ── small pieces that need no database ──────────────────────────────────────────────────────
 
 
