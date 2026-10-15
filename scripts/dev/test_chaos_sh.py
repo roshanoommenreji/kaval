@@ -47,8 +47,8 @@ def test_the_victims_match_the_runner() -> None:
 
 
 def test_the_by_hand_switch_reaches_the_pod_that_files_the_proposal() -> None:
-    """KAV-87: `CHAOS_BY_HAND=1 make chaos-propose` did nothing because only the experiment's name was
-    passed into the pod, so the script there always answered with the worker's proposal."""
+    """KAV-87: `CHAOS_BY_HAND=1 make chaos-propose` did nothing because only the experiment's name
+    was passed into the pod, so the script there always answered with the worker's proposal."""
     stub = 'need_node() { :; }; pod_run() { printf "%s" "$4"; }'
     on = _sh(f'{stub}; CHAOS_BY_HAND=1 cmd_propose oom')
     assert on.returncode == 0 and '"name":"CHAOS_BY_HAND","value":"1"' in on.stdout
