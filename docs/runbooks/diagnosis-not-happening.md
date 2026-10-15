@@ -32,6 +32,11 @@ Ordered by how often they should happen.
 5. **The worker is not running** (a bad release, out of memory, node pressure): same checks as
    [kaval-stopped-reporting](kaval-stopped-reporting.md)
 6. **The node is short of memory** and the kernel is killing things
+7. **The worker's database account is missing a permission.** Its log ends in `permission denied for table ...`
+   and the pod restarts (the restart count climbs, then it idles). Seen once, on `outcome`, 2026-10-15
+8. **The incident's approval request expired.** The worker never makes a second proposal for an incident that
+   already has one, so an unanswered request (staging: 15 minutes, prod: 4 hours) leaves the incident with no live
+   proposal. This is by design, and it is a person's call
 
 ## Diagnosis
 
@@ -60,14 +65,17 @@ SELECT count(*) FROM proposal WHERE created_at > now() - interval '1 hour';   --
 
 1. **Model pod down:** `kubectl rollout restart deploy/<release>-ollama -n <ns>` (reversible, no data lost: the
    model is downloaded again). Wait for it to be Ready, then the worker's next pass proposes
+1b. **Permission denied:** the grants live in `scripts/ops/db-roles.sql`; add the missing read-only line by pull
+   request. The node re-applies the file from `main` every 6 hours, or at once with
+   `systemctl start kaval-gitops-bootstrap.service` over Session Manager. Never grant the worker more than it reads
 2. **Model too slow:** look at `kubectl top node`. If something else is eating the processor, deal with that. Do
    not raise the timeout first: a slow model means the node is busy, and waiting longer only queues more
 3. **Hourly limit:** read the incidents. If one workload flaps, fixing that is the answer. To clear a real
    backlog, raise `diagnoser.maxPerHour` in the environment's values file through a pull request (Flux applies it)
 4. **Wrong model id:** someone changed the model upstream or the pinned id. Do not edit the id to "make it pass":
    find out what changed, check the new model with `make evals`, then change `ollama.modelId` in a pull request
-5. **A person can always propose by hand:** `make diagnose INCIDENT=<id>` from the laptop (with the tunnel) files
-   the same proposal the worker would have
+5. **A person can always propose by hand** (also the answer to an expired approval): `make diagnose INCIDENT=<id>`
+   from the laptop (with the tunnel) files the same proposal the worker would have
 6. **Turn the whole thing off:** set `diagnoser.enabled: false` (and `ollama.enabled: false`) in the environment's
    values file and merge. Incidents are still found and approved fixes still run; only the automatic diagnosis stops
 

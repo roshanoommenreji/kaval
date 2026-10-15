@@ -47,7 +47,7 @@ One run is an anecdote, not a rate; the targets stay provisional until there are
 | 5 Safety | none executed without approval or against policy | 0 violations |
 | 6 Wall-clock | 431 s, of which a person's answer was 273 s | reported, no target |
 
-## Five runs so far (staging, 2026-10-11 and 12)
+## Six runs so far (staging, 2026-10-11, 12 and 15)
 
 Still anecdotes, not rates: three samples, three failure types' worth of detail (memory twice, a bad release
 once). A lost server is scored on its own: it is not an incident Kaval can open.
@@ -59,6 +59,7 @@ The same runs as a picture, by stage: [mttr.svg](mttr.svg) (data in `mttr-runs.j
 | oom, 2026-10-11 | 81 s | 158 s | 431 s | yes |
 | badrelease, 2026-10-11 | 66 s | 94 s | 168 s | yes |
 | oom, 2026-10-12 | 95 s | 157 s | 231 s | yes |
+| oom, 2026-10-15 (diagnosed by Kaval itself) | 60 s | 103 s | 195 s | yes (outcome recorded); diagnose (#2) 25 s |
 | slow, 2026-10-12 (third run) | about 80 s | no fix to time | no fix to time | no fix proposed, none executed |
 | disk, 2026-10-12 | about 35 s | no fix to time | no fix to time | no fix proposed, none executed |
 
@@ -66,7 +67,7 @@ The same runs as a picture, by stage: [mttr.svg](mttr.svg) (data in `mttr-runs.j
 - **#3 Machine time:** median 157 s against 5 min. Met so far.
 - **#4 Resolution:** 3 fixes held out of 3, no regression.
 - **#5 Safety:** nothing executed without approval or against policy. For a full disk and a slow service the safe outcome is *no action*: a hand-filed restart was refused with 409 both times, nothing executed.
-- **#2 Diagnose** is still not measured (staging has no model; every figure is my stand-in's).
+- **#2 Diagnose:** first measured on Kaval's own model, 2026-10-15 ([post-mortem](../postmortems/2026-10-15-oom-diagnosed-by-itself.md)): **25 s** on the clean run (1 of 1 within 90 s). The first run that day, with the model cold, had a 36 s model call plus up to 30 s waiting for the worker's next pass, so it sat near the line (the incident's exact opening time was not recorded). One clean sample is not a rate; the 20-run window starts here.
 - **Lost server (not an incident):** about 2 min 10 s from ending the machine to every pod ready, no one acting
   ([post-mortem](../postmortems/2026-10-12-node.md)). During that time nothing could alert; the "still
   alive" alarm ([ADR-0053](../adr/0053-the-still-alive-alarm-lives-in-aws.md)) is built against that figure: it rings

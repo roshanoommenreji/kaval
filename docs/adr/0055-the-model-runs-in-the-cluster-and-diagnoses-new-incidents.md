@@ -1,7 +1,7 @@
 # ADR-0055 — The model runs in the cluster, and a separate worker diagnoses new incidents by itself
 
-- **Status:** Accepted for the build (`KAV-87`); the measurements on the real node are added under "Measured" when
-  the staging proof is done, and prod follows only when they say it fits
+- **Status:** Accepted; proven on staging 2026-10-15 (see "Measured"); prod follows on the measured numbers, once
+  Roshan has seen them
 - **Date:** 2026-10-14
 - **Deciders:** Roshan
 - **Story:** `KAV-87` (Phase 5) · follows [ADR-0016](0016-json-schema-enforced-proposal-output.md) (the reply is
@@ -157,6 +157,34 @@ and cost measured again). Until then prod renders none of it, and a test proves 
 
 ## Measured
 
-Filled in after the staging run (Lab 52): the model's real memory on the node, node memory with the model loaded
-and idle, time per diagnosis, the processor-credit line, and the live proofs (a new incident diagnosed by itself and
-not twice, the model down, and the model back).
+On staging, 2026-10-15, build `sha-b36c4be` plus the fix of PR #170 (Lab 52, [game-day record](../postmortems/2026-10-15-oom-diagnosed-by-itself.md)).
+The node is a `t4g.medium` (3,829 MB), the same size as production's.
+
+| Question | Measured |
+|---|---|
+| Node memory, model not loaded | **1,640 to 1,725 MB used**, about 2,000 MB available (`free`); `kubectl top node` 1,955 MiB (51 %). The model pod itself holds 138 MiB while it has nothing loaded |
+| Node memory, model loaded | **about 2,840 MB used**, available memory bottomed out at **about 780 MB** (20 % of the node). The model adds about **1.13 GB**, inside its 1.5 GiB limit |
+| How long it stays loaded | 5 minutes after the last use (`OLLAMA_KEEP_ALIVE`); the node returned to about 1,540 MB the moment it unloaded. No pod restarted, nothing was killed for memory |
+| One diagnosis | **36 s** for the model call (1,625 tokens read at 68 per second = 23.7 s, 102 tokens written at 15 per second = 6.8 s), against the 90 s limit. From the failure starting to the proposal existing: **about 2 min 35 s** on the first run, which includes the 60 s the correlator waits to group signals |
+| Failure to recovery, nobody typing a command to diagnose | out-of-memory game day, second run: proposal filed by the worker, approved 6 s later, limit raised **200 s** after the failure began, the program stayed up |
+| Processor credits | The node earned credits the whole time (balance 0 to 29.5 over 2 h 15 min) and was charged **$0** for surplus (`CPUSurplusCreditsCharged` 0 throughout). At the speed limit (6 an hour at about 1.2 vCPU-minutes each) the worst case is under 10 credits an hour against 24 earned, so the node's credits cannot run out from this alone. The $4.40 worst case above cannot happen at these settings |
+| New incident, one proposal | Each new out-of-memory incident got exactly one proposal; the passes after it printed `nothing waiting`; the full-disk incident (for a person) got none |
+| Model off | The model scaled to zero at 17:50:29; the incident opened at 17:51:33 and stayed open and undiagnosed; the worker counted 6 `model_error` passes and paused between tries (30 s doubling towards 10 min). `KavalDiagnosisBacklog` began at 18:07:25 (900 s over) and fired after its 2-minute hold; the poller opened `kaval_diagnosis_backlog` at 18:09:51 (staging has no Slack, so the message is the dry run). The correlator and the executor kept running throughout |
+| Model back | Ready **35 s** after scaling up (both files downloaded and checked against their pinned ids). The worker's next try, 5 minutes later (it was in its pause), filed the one proposal; the alarm cleared and `kaval_diagnosis_waiting` returned to 0 |
+
+**Does it fit on production's node?** Production measured 1,576 MB used and 2,062 MB available before this change
+(Lab 50). Staging, which carries the demo namespace, measured 1,640 to 1,725 MB used idle. Adding the 1.13 GB the
+model takes puts production at about **2,700 MB used**, and about **850 MB available** while the model is loaded
+(staging's available memory fell by 1,220 MB, the model plus the file cache it brings, from 2,000 to 780), then back
+to about 1,580 MB used five minutes later. That is enough headroom for the other services (45 to 81 MiB each) to
+spike, and it is the number to re-measure on the real node before and after the switch-on.
+
+**Found by running it, fixed in PR #170:**
+- The worker's database role could not read `outcome`, which the context builder reads once a similar past incident
+  exists. The first diagnosis worked (no history yet); the next incident with history crashed the worker (it
+  restarted, found nothing to do, and idled). Nothing else was affected and the restart count was the signal. A
+  test now lists every table the worker reads and that the role cannot write outcomes. The laptop never showed it
+  because the laptop uses an administrator's database account.
+- `CHAOS_BY_HAND=1` never reached the pod that files the proposal. A test now pins it.
+- Staging gives an approval 15 minutes (`approvals.expireMinutes`); a proposal approved after 17 minutes was refused
+  as expired, as designed, and the worker did not make a second one, as the consequence above says.

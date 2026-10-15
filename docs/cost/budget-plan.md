@@ -166,7 +166,10 @@ Recurring AWS cost: **$0**. It runs on the app node and uses its existing root d
 new machine, volume or address. The only variable cost is surplus CPU: a diagnosis uses up to 1.5 vCPUs for 10 to 60
 seconds, the speed limit is 6 an hour, so the worst case (one workload flapping every hour all month) is about 109
 vCPU-hours, **at most about $4.40 a month**, and only if the node's earned credits ran out. Memory is the real
-cost: about 1.1 GB while loaded, unloaded after 5 idle minutes; measured on staging's node in Lab 52.
+cost: about 1.13 GB while loaded, unloaded after 5 idle minutes. **Measured on staging 2026-10-15:** the node earned credits
+the whole time (balance 0 to 29.5 in 2 h 15 min) and was charged **$0** for surplus CPU; at 6 diagnoses an hour the
+worst case is under 10 credits an hour against 24 earned, so the $4.40 above cannot happen at these settings. The line
+to watch on the bill is still surplus credits, which stays at $0 while the balance is positive.
 
 **CPU credits, verified 2026-09-27 (KAV-23).** A `t4g.medium` earns CPU credits for 20% of its
 2 vCPUs. In *unlimited* mode, going above that isn't throttled; the extra is billed at $0.04 per

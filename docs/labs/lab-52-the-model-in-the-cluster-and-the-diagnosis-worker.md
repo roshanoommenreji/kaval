@@ -96,7 +96,46 @@ Written up under "What happened on staging" below once it has run. The proofs it
 
 ## What happened on staging
 
-*Pending. Filled in after the staging run.*
+Run on 2026-10-15 (build `sha-b36c4be`, then the fix of PR #170). Numbers and times are in the ADR's
+[Measured](../adr/0055-the-model-runs-in-the-cluster-and-diagnoses-new-incidents.md) table; the full record of the
+game days is [the post-mortem](../postmortems/2026-10-15-oom-diagnosed-by-itself.md). How to repeat it:
+
+```bash
+AWS_PROFILE=kaval make staging-up           # answer y; ~5 min. Both new pods Running on the new image
+make staging-status                         # or read the pods over Session Manager (Step 5 of the runbook)
+ASSUME_YES=1 AWS_PROFILE=kaval make chaos-run EXPERIMENT=oom    # the failure; leave the terminal alone
+make chaos-propose EXPERIMENT=oom           # finds the proposal the WORKER filed; prints ACTION <id>
+make chaos-approve ACTION=<id>              # inside staging's 15-minute approval window
+make chaos-mttr                             # time to restore, once the executor's 5-minute check has run
+```
+
+What it proved:
+
+1. **Both pods came up on the new image.** The worker started before the model had finished downloading, said
+   `runbooks: not synced yet` three times, then indexed 78 runbook chunks by itself: starting early is harmless.
+2. **A new incident got exactly one proposal, with nobody running a command**, about 2 min 35 s after the failure
+   started (60 s of that is the correlator's grouping wait). The passes after it printed `nothing waiting`.
+3. **A full-disk incident got none** (`make chaos-check` passed: a person is told, nothing is proposed or run).
+4. **Model off** (`kubectl scale deploy/<release>-ollama --replicas=0` over Session Manager): the incident stayed
+   open, the worker counted `model_error` and paused, `KavalDiagnosisBacklog` fired, the poller opened
+   `kaval_diagnosis_backlog`, and the correlator and executor carried on.
+5. **Model back on:** ready in 35 s, the waiting incident got its one proposal at the worker's next try, the alarm
+   cleared. In a second, clean run the proposal was approved 6 s after it appeared, the limit was raised 200 s after
+   the failure began and the program stayed up.
+6. **Memory and cost:** the model adds about 1.13 GB while loaded and gives it back 5 minutes after the last use;
+   about 780 MB stayed available on staging at the worst moment; no extra processor credits were charged.
+
+Three things went wrong, and are why this section is worth reading:
+
+- **The worker crashed on the second incident**: its database account could not read `outcome`. The laptop uses an
+  administrator account, so the laptop never showed it; only a real role on a real cluster did. Fixed by one
+  read-only grant and a test that names every table the worker reads (PR #170). `db-roles.sql` is re-applied from
+  `main` by the node every 6 hours; to apply it at once, start `kaval-gitops-bootstrap.service` on the node.
+- **An approval expired**: staging gives 15 minutes and I took 17. The worker did not make a second proposal (by
+  design); `CHAOS_BY_HAND=1 make chaos-propose` files a new one, which exposed that the switch never reached the pod
+  (fixed, PR #170).
+- **I edited `chaos.sh` while a game day was running it.** Bash reads a script as it runs, so the running copy hit a
+  syntax error and cleaned up early. Never edit a script that is running; the repair was a re-run.
 
 ## Done when
 
@@ -104,7 +143,7 @@ Written up under "What happened on staging" below once it has run. The proofs it
 - [x] `make rules-test` passes (both rule files)
 - [x] `make lint` shows no new errors (3 old ones in test files are about how this laptop imports the services, not about this change)
 - [x] The worker diagnosed a fake incident with the real model and did not diagnose it twice
-- [ ] The staging proofs above
+- [x] The staging proofs above (2026-10-15)
 - [ ] Production: model memory and cost measured on the real node, then promoted
 
 ## Clean-up
