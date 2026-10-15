@@ -77,6 +77,11 @@ GRANT SELECT, INSERT ON incident_signal TO kaval_agent;
 -- runbook_chunk: kaval_agent.index_runbooks' own table (its docstring: "creating, updating
 -- or deleting rows"), not yet part of the deployed --every loop but owned by this role.
 GRANT SELECT, INSERT, UPDATE, DELETE ON runbook_chunk TO kaval_agent;
+-- outcome: read-only. The context builder shows the model how past fixes for the same cause turned out
+-- (kaval_agent.context, KAV-83), so the diagnosis worker (KAV-87) reads it on every pass once an incident
+-- has history. Missing here, the worker was refused on staging the moment a second similar incident
+-- existed (found live, 2026-10-15). Reading is all it gets: recording an outcome is the executor's job.
+GRANT SELECT ON outcome TO kaval_agent;
 
 -- executor: the only component that acts, and only on what's already been decided.
 GRANT SELECT ON action, decision TO kaval_executor;
