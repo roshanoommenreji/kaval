@@ -39,7 +39,7 @@ pytest scripts/dev/test_chart_diagnoser.py scripts/dev/test_gitops_values_in_syn
 helm template kaval-staging deploy/charts/kaval -f deploy/environments/staging/values.yaml | grep -n "kind: Deployment" -A3
 ```
 
-What the tests pin: prod and local render **none** of it; neither new pod gets a ServiceAccount token; the model has
+What the tests pin: local renders **none** of it, and staging and prod render both with the same limits; neither new pod gets a ServiceAccount token; the model has
 a 1.5 GiB memory limit, `Recreate`, a read-only filesystem, no root, no capabilities; the image is pinned by
 digest and the model ids are pinned; the model's Service is a plain `ClusterIP`; the worker uses the **agent's**
 database role and no stronger one; the worker is scraped and its alert rules are loaded; the chart **refuses to
@@ -125,6 +125,29 @@ What it proved:
 6. **Memory and cost:** the model adds about 1.13 GB while loaded and gives it back 5 minutes after the last use;
    about 780 MB stayed available on staging at the worst moment; no extra processor credits were charged.
 
+## On production (2026-10-16)
+
+The same build reaches production only through the gate, so the order matters (production's old images did not
+contain the worker):
+
+1. `make staging-smoke` on the staging that runs the new build; a pass is written to
+   `deploy/promotion/passed-staging.json` and merged by pull request. (Clear any `chaos-*` pods first: they count as
+   pods. The check compares bytes, not tag names, since PR #173.)
+2. `gh workflow run promote.yml -f tag=<tag>` opens the promotion pull request; approve its first CI run in the
+   Actions tab, then merge.
+3. A pull request with `ollama.enabled: true` and `diagnoser.enabled: true` in **both** `deploy/environments/prod/values.yaml`
+   and `deploy/gitops/prod/helmrelease.yaml`; merge it after step 2.
+4. Show the plan, then bring production up: `bash scripts/ops/resume-database.sh`, remove `infra/envs/prod/node.auto.tfvars`,
+   `terraform apply` in `infra/envs/prod` (what `make up` does; `make up` itself asks a question at the keyboard).
+5. Wait for the nine pods (the model pod is last: it downloads two files and checks them, under 3 minutes).
+6. Measure on the node over Session Manager: `free -m` before, a one-off Job that sends the model a prompt of about
+   1,800 tokens (the agent image, its pull secret, no cluster token, read-only), `free -m` every 3 seconds while it
+   runs, and once more six minutes later. Do not use `kubectl exec` into a running service.
+
+Result: 2,007 MB available idle, **872 MB available at the worst moment**, 2,045 MB six minutes later; 33.9 s for the
+call; all pods running with no restarts; $0 recurring (numbers in ADR-0055, "Measured on production"). Turn it off by
+setting both lines to `false`.
+
 Three things went wrong, and are why this section is worth reading:
 
 - **The worker crashed on the second incident**: its database account could not read `outcome`. The laptop uses an
@@ -144,7 +167,7 @@ Three things went wrong, and are why this section is worth reading:
 - [x] `make lint` shows no new errors (3 old ones in test files are about how this laptop imports the services, not about this change)
 - [x] The worker diagnosed a fake incident with the real model and did not diagnose it twice
 - [x] The staging proofs above (2026-10-15)
-- [ ] Production: model memory and cost measured on the real node, then promoted
+- [x] Production: model memory and cost measured on the real node, then promoted (2026-10-16)
 
 ## Clean-up
 

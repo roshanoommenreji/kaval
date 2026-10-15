@@ -170,6 +170,9 @@ cost: about 1.13 GB while loaded, unloaded after 5 idle minutes. **Measured on s
 the whole time (balance 0 to 29.5 in 2 h 15 min) and was charged **$0** for surplus CPU; at 6 diagnoses an hour the
 worst case is under 10 credits an hour against 24 earned, so the $4.40 above cannot happen at these settings. The line
 to watch on the bill is still surplus credits, which stays at $0 while the balance is positive.
+**Measured on production 2026-10-16:** still **$0** recurring; 872 MB of memory stayed free at the worst moment (2,007
+MB idle), and in the first 50 minutes after the boot the surplus-credit charge was $0 (a fresh node starts with no
+credits, as staging did). Production costs about $0.044 an hour while up, unchanged.
 
 **CPU credits, verified 2026-09-27 (KAV-23).** A `t4g.medium` earns CPU credits for 20% of its
 2 vCPUs. In *unlimited* mode, going above that isn't throttled; the extra is billed at $0.04 per
