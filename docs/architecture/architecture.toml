@@ -113,7 +113,7 @@ row = 3
 credentials = "none"
 inputs = ["Prompt with retrieved context, OpenAI-compatible API"]
 outputs = ["Completion tokens, token counts"]
-note = "Measured on the 4 GB Graviton dev server (KAV-22, docs/architecture/model-shortlist.md): 1.1–1.9 GB loaded, 11–21 tokens/sec, 9–12 s per diagnosis. Called schema-constrained, which made every shortlisted model produce valid proposals. Shortlist for the Phase 2 evals: gemma3:1b-it-qat (dev default), llama3.2:1b, qwen3:1.7b. Viable because diagnosis is asynchronous — nobody is watching a cursor blink. Since KAV-87 (ADR-0055) it also runs in the cluster: an Ollama Deployment on the same 4 GB app node (staging first, prod after), unloaded after 5 idle minutes, memory-limited to 1.5 GiB so the kernel stops the model before a neighbour, and its files checked against a pinned id before it starts."
+note = "Measured on the 4 GB Graviton dev server (KAV-22, docs/architecture/model-shortlist.md): 1.1–1.9 GB loaded, 11–21 tokens/sec, 9–12 s per diagnosis. Called schema-constrained, which made every shortlisted model produce valid proposals. Shortlist for the Phase 2 evals: gemma3:1b-it-qat (dev default), llama3.2:1b, qwen3:1.7b. Viable because diagnosis is asynchronous — nobody is watching a cursor blink. Since KAV-87 (ADR-0055) it also runs in the cluster: an Ollama Deployment on the same 4 GB app node (proven on staging 2026-10-15, on in prod since 2026-10-16: 872 MB left free at the worst moment), unloaded after 5 idle minutes, memory-limited to 1.5 GiB so the kernel stops the model before a neighbour, and its files checked against a pinned id before it starts."
 
 [[system.node]]
 id = "agent"

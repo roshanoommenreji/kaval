@@ -1,7 +1,7 @@
 # ADR-0055 — The model runs in the cluster, and a separate worker diagnoses new incidents by itself
 
-- **Status:** Accepted; proven on staging 2026-10-15 (see "Measured"); prod follows on the measured numbers, once
-  Roshan has seen them
+- **Status:** Accepted; proven on staging 2026-10-15 and switched on in production 2026-10-16 after the memory was
+  measured again on the real node (see "Measured" and "Measured on production")
 - **Date:** 2026-10-14
 - **Deciders:** Roshan
 - **Story:** `KAV-87` (Phase 5) · follows [ADR-0016](0016-json-schema-enforced-proposal-output.md) (the reply is
@@ -178,6 +178,32 @@ model takes puts production at about **2,700 MB used**, and about **850 MB avail
 (staging's available memory fell by 1,220 MB, the model plus the file cache it brings, from 2,000 to 780), then back
 to about 1,580 MB used five minutes later. That is enough headroom for the other services (45 to 81 MiB each) to
 spike, and it is the number to re-measure on the real node before and after the switch-on.
+
+## Measured on production
+
+2026-10-16, build `sha-c8e3dee` (promoted through PR #174; the two switch-on lines through PR #175). Production had
+been parked; it was brought up from the merged `main` (`terraform plan` shown first: 2 in place, 0 created, 0
+destroyed). The model pod was ready 2 min 44 s after the node booted, and Helm's 5-minute install window held. The
+number was read from `free` on the node while a one-off test job asked the model a question the size of a real
+diagnosis (1,781 tokens in); no real incident was used.
+
+| Question | Measured on production's own node |
+|---|---|
+| Node memory, model not loaded | **1,631 MB used, 2,007 MB available** (before this change: 1,576 / 2,062) |
+| Node memory, model loaded | **2,765 MB used, 872 MB available at the worst moment** (the estimate above was 2,700 / 850). The model takes about 1.1 GB |
+| Unloaded again | 6 minutes after the call: **1,593 MB used, 2,045 MB available**; `kubectl top node` 1,838 MiB |
+| One model call | **33.9 s**, 1,781 tokens read in 26.3 s (the first call also loads the model, 5.3 s), 34 written in 2.0 s; the limit is 90 s |
+| Pods | All nine running, none restarted; the worker idles on `nothing waiting`; `KavalDiagnosisBacklog` and `KavalDiagnoserMissing` are loaded and quiet; the only firing alert is the always-on `KavalWatchdog` |
+| Processor credits | First 50 minutes after boot: credit balance 0, surplus balance 0.5 to 2.1 credits, **surplus charged $0**. A freshly booted node starts at zero and earns from there; staging did the same before its balance rose |
+| Recurring cost | **$0**. Production costs about $0.044 an hour while it is up, the same as before |
+
+The estimate held, and the switch-on stays. Nothing was changed from staging's settings. If the memory had come out
+worse than about 600 MB free the two lines would have gone back to `false` and the numbers would have gone to
+Roshan (a bigger node is about $24 a month more, which breaks the $50 ceiling).
+
+The same session found that the staging smoke test read a running image's tag name instead of its bytes (a node names
+an image by the first tag it pulled, so two byte-identical builds look like the older one). Fixed in PR #173 and
+noted in ADR-0031.
 
 **Found by running it, fixed in PR #170:**
 - The worker's database role could not read `outcome`, which the context builder reads once a similar past incident
