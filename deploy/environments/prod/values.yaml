@@ -83,3 +83,12 @@ prometheus:
     # Kaval's own gateway first: a request that a person's browser or Slack would also make. Any
     # prompt answer counts as not slow, even an error page; "down" is the other alerts' job.
     targets: "kaval-prod/gateway=http://kaval-prod-gateway.kaval-prod.svc.cluster.local:8000/healthz"
+
+# The language model and the worker that asks it about every new incident, by itself (KAV-87,
+# ADR-0055). Staging ran both first and proved them on 2026-10-15; the memory they need on this
+# 4 GB node is measured again here before they are left on. Everything else is the chart's default.
+# To turn them off: set both to false (the incident stays open and a person runs `make diagnose`).
+ollama:
+  enabled: true
+diagnoser:
+  enabled: true
