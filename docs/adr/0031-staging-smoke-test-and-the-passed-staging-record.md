@@ -116,3 +116,10 @@ record is in terms of digests.
 **Revisit when** a model is deployed in staging (add the diagnosis path to the test and remove the
 `not_covered` line), or when releases are frequent enough that running it by hand is a chore (the second
 role).
+
+**Amended 2026-10-16 (`KAV-87`).** The "runs the tag" check now also passes when the running bytes equal
+ECR's digest for that tag. A node names an image by the first tag it pulled for those bytes, and a commit that
+changes only tests or scripts builds a byte-identical image, so staging honestly ran `sha-c8e3dee` while the node
+still called the gateway and agent `sha-b36c4be`. Different bytes still fail both checks, under any name. Found
+on the first release smoke after the model went into staging; the same run showed that game-day leftover pods
+(`chaos-*` jobs) count as pods, so a smoke test wants a staging with the game day cleaned up.

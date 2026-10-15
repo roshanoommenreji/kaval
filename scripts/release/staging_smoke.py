@@ -202,7 +202,16 @@ def evaluate(
                 mid = IMAGE_ID_RE.search(c["image_id"])
                 seen_digest[m.group(1)].add(mid.group(2) if mid else f"?{c['image_id']}")
 
-    wrong_tag = [f"{s} runs {sorted(t) or 'nothing'}" for s, t in seen_tag.items() if t != {tag}]
+    # The node names a running image by the first tag it ever pulled for those bytes. Two builds
+    # with identical contents (a commit that only touched tests or scripts) share a digest, so a
+    # service can honestly run `tag` while the node still calls it by the older name (found on
+    # staging 2026-10-16). Same bytes as ECR's `tag` therefore counts; the digest check below
+    # still catches different bytes under any name.
+    wrong_tag = [
+        f"{s} runs {sorted(t) or 'nothing'}"
+        for s, t in seen_tag.items()
+        if t != {tag} and not (seen_digest[s] and seen_digest[s] == {digests.get(s)})
+    ]
     checks.append(Check(f"every service runs {tag}", not wrong_tag, "; ".join(wrong_tag) or "ok"))
 
     wrong_digest = [
