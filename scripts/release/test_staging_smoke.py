@@ -70,12 +70,22 @@ def test_a_finished_migration_job_pod_is_fine() -> None:
     assert failed(run(output([*good_pods(), job]))) == []
 
 
-def test_wrong_tag_fails_both_tag_and_digest() -> None:
+def test_wrong_tag_with_different_bytes_fails_both_tag_and_digest() -> None:
     pods = good_pods()
-    pods[0] = pod_line("kaval-staging-gateway-abc", "gateway", tag="sha-ffb436b")
+    pods[0] = pod_line(
+        "kaval-staging-gateway-abc", "gateway", tag="sha-ffb436b", digest="sha256:" + "f" * 64
+    )
     bad = failed(run(output(pods)))
     assert f"every service runs {TAG}" in bad
-    assert "running digest equals the ECR digest" not in bad  # the digest is still ECR's
+    assert "running digest equals the ECR digest" in bad
+
+
+def test_an_older_tag_name_on_the_same_bytes_passes() -> None:
+    """Staging 2026-10-16: the node called the gateway by the previous build's name, but the two
+    builds were byte-for-byte the same image, so the right software was running."""
+    pods = good_pods()
+    pods[0] = pod_line("kaval-staging-gateway-abc", "gateway", tag="sha-ffb436b")
+    assert failed(run(output(pods))) == []
 
 
 def test_same_tag_but_different_bytes_fails_the_digest_check() -> None:
