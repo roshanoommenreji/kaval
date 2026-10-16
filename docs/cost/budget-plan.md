@@ -343,7 +343,7 @@ Re-check this figure periodically — a credit-based plan can behave differently
 tier at the edges, and the number should be verified against the console rather than assumed to
 still read $100 by the time Phase 6 goes always-on.
 
-**Re-checked 2026-10-16 ([ADR-0059](../adr/0059-always-on-cost-model-and-measuring-usage-before-credits.md)):** credits applied so far equal usage to the cent (September $1.3896, October to the 16th $6.4119), about $132 remain, and the live budget `kaval-monthly` counts credits (`IncludeCredit = true`), so it reads $0.00 of $50 and its alerts and hard stop would not fire until the credits are nearly gone. Changing that to usage before credits is proposed in the ADR and waits for Roshan's go.
+**Re-checked 2026-10-16 ([ADR-0059](../adr/0059-always-on-cost-model-and-measuring-usage-before-credits.md)):** credits applied so far equal usage to the cent (September $1.3896, October to the 16th $6.4119), about $132 remain, and the live budget `kaval-monthly` counts credits (`IncludeCredit = true`), so it reads $0.00 of $50 and its alerts and hard stop would not fire until the credits are nearly gone. **Changed the same day on Roshan's go:** the budget now leaves credits and refunds out and reads $6.412 of $50, so its alerts and hard stop mean real usage.
 
 ---
 

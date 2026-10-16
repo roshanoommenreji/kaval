@@ -64,6 +64,15 @@ resource "aws_budgets_budget" "monthly" {
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
 
+  # Count usage, not usage after credits (KAV-91, ADR-0059). The account's credits cancel every
+  # dollar, so with the AWS default (credits and refunds counted) this budget read $0.00 and its
+  # alerts and the hard stop could not fire until the credits were nearly gone. Everything else
+  # stays at the AWS defaults, which is what the budget has used since Phase 0.
+  cost_types {
+    include_credit = false
+    include_refund = false
+  }
+
   # First warning — actual spend.
   notification {
     comparison_operator        = "GREATER_THAN"

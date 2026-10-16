@@ -75,5 +75,19 @@ At about $39 a month always-on that is roughly three and a half months.
 - [x] The budget's credit setting read from the live account
 - [x] `make cost-report` shows usage before credits against the $50 ceiling
 - [x] The one charge that is not Kaval's identified and left alone
-- [ ] Not done here: the budget itself still counts credits. Changing it is a Terraform change to a live resource, shown
-  as a plan and applied on Roshan's go (ADR-0059, decision 3)
+- [x] The budget now counts usage before credits (ADR-0059, decision 3): see Step 6
+
+## Step 6 — Make the budget count usage
+
+In `infra/modules/budget/main.tf` the budget gets `cost_types { include_credit = false  include_refund = false }`.
+Plan only the budget so unrelated pending changes are not swept in, read it, apply the saved plan:
+
+```bash
+bash scripts/ops/tf-init.sh prod
+terraform -chdir=infra/envs/prod plan -target=module.budget -out=budget.tfplan   # 0 to add, 1 to change, 0 to destroy
+terraform -chdir=infra/envs/prod apply budget.tfplan
+```
+
+Seen 2026-10-16: the only difference was `include_credit` and `include_refund` going from true to false. Read back with
+the Step 2 command: `spent` **6.412**, both settings false; a second targeted plan said `No changes`. Undo: set both back
+to true and apply again.
