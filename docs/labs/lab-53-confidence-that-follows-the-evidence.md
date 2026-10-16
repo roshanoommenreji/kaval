@@ -91,7 +91,7 @@ days had to be deleted first (with Roshan's yes): leftover `chaos-*` pods count 
 - [x] `make lint` clean on the changed files
 - [x] `make evals` on the real model: both sparse cases at 0.5, nothing else lowered (2026-10-16)
 - [x] Staging check on the fixed build `sha-06b64ba` (2026-10-16): a real memory incident (5 kill events, nothing else) kept the model's number, stored 0.80, no "thin evidence" note; limit raised 290 s after the failure began, program stayed up; smoke check 7 of 7
-- [ ] Production gets it through the gate (production is parked, so it is promoted by pull request and checked when next brought up)
+- [x] Production gets it through the gate: `sha-06b64ba` promoted by PR #182 (production is parked, so it is checked live when next brought up)
 
 ## Clean-up
 

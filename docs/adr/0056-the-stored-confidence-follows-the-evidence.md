@@ -1,6 +1,6 @@
 # ADR-0056 — The stored confidence can never be higher than the evidence allows
 
-- **Status:** Accepted; measured on the dev server 2026-10-16 (see "Measured")
+- **Status:** Accepted; measured on the dev server and re-checked on staging 2026-10-16 (see "Measured" and "Amendment"); promoted to production's pin (`sha-06b64ba`), live there when production is next brought up
 - **Date:** 2026-10-16
 - **Deciders:** Roshan
 - **Story:** `KAV-88` (Phase 5) · follows [ADR-0018](0018-eval-harness-and-golden-incidents.md) (the two sparse cases that
