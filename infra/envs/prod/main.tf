@@ -8,15 +8,19 @@
 # creates one.
 
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.11"
   required_providers {
     aws = { source = "hashicorp/aws", version = "~> 5.0" }
   }
 
-  # Local state for Phase 0. Migrating to an S3 backend requires a bucket,
-  # which is a resource, which would violate the ordering rule above.
-  # Migrate in Phase 4 alongside the rest of the infrastructure.
-  # NOTE: terraform.tfstate is gitignored and contains account identifiers.
+  # Remote state (KAV-86, ADR-0058). The bucket name is not in git: scripts/ops/tf-init.sh prod
+  # reads it from Parameter Store. Locking is S3's own.
+  backend "s3" {
+    key          = "prod/terraform.tfstate"
+    region       = "ap-south-1"
+    encrypt      = true
+    use_lockfile = true
+  }
 }
 
 provider "aws" {

@@ -6,11 +6,19 @@
 # 30 GB gp3 ~$2.74/mo always, public IPv4 $0.005/hr while running. See docs/cost/budget-plan.md.
 
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.11"
   required_providers {
     aws = { source = "hashicorp/aws", version = "~> 5.0" }
   }
-  # Local state, gitignored — same as prod until the Phase 4 S3 backend.
+
+  # Remote state (KAV-86, ADR-0058). The bucket name is not in git: scripts/ops/tf-init.sh dev
+  # reads it from Parameter Store. Locking is S3's own.
+  backend "s3" {
+    key          = "dev/terraform.tfstate"
+    region       = "ap-south-1"
+    encrypt      = true
+    use_lockfile = true
+  }
 }
 
 provider "aws" {
