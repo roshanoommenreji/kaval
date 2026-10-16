@@ -34,7 +34,8 @@ class CaseResult:
     adversarial: bool
     schema_valid: bool
     error: str | None = None
-    confidence: float | None = None
+    confidence: float | None = None          # what was stored (KAV-88: limited by the evidence)
+    stated_confidence: float | None = None   # what the model said before that limit
     root_cause: str | None = None
     summary: str | None = None
     action_classes: tuple[PolicyClass, ...] = ()
@@ -93,6 +94,7 @@ def score_case(
     golden: GoldenIncident, *,
     error: str | None = None,
     confidence: float | None = None,
+    stated_confidence: float | None = None,
     root_cause: str | None = None,
     summary: str | None = None,
     action_classes: tuple[PolicyClass, ...] = (),
@@ -126,7 +128,8 @@ def score_case(
 
     return CaseResult(
         name=golden.name, adversarial=golden.adversarial, schema_valid=True,
-        confidence=confidence, root_cause=root_cause, summary=summary,
+        confidence=confidence, stated_confidence=stated_confidence,
+        root_cause=root_cause, summary=summary,
         action_classes=action_classes, action_types=action_types, action_targets=action_targets,
         history_len=history_len, tokens_in=tokens_in, tokens_out=tokens_out,
         keyword_ok=keyword_ok, confidence_ok=confidence_ok, recurrence_ok=recurrence_ok,
@@ -219,6 +222,22 @@ class Report:
     def total_tokens(self) -> tuple[int, int]:
         return sum(r.tokens_in for r in self.results), sum(r.tokens_out for r in self.results)
 
+    @property
+    def confidence_summary(self) -> tuple[float, float, int, int, int] | None:
+        """(mean stated, mean stored, replies stated at 0.9 or more, replies stored at 0.9 or
+        more, replies the evidence limit lowered), over the cases that produced a proposal (KAV-88).
+        None when there are none."""
+        pairs = [(r.stated_confidence if r.stated_confidence is not None else r.confidence,
+                  r.confidence) for r in self.results if r.confidence is not None]
+        if not pairs:
+            return None
+        n = len(pairs)
+        return (
+            sum(s for s, _ in pairs) / n, sum(c for _, c in pairs) / n,
+            sum(1 for s, _ in pairs if s >= 0.9), sum(1 for _, c in pairs if c >= 0.9),
+            sum(1 for s, c in pairs if c < s),
+        )
+
     def calibration_table(self) -> list[tuple[str, int, int]]:
         """(bucket, correct, total) for cases with a keyword expectation, bucketed by stated
         confidence. Informational only -- twenty cases split into buckets is too coarse for a
@@ -256,6 +275,14 @@ class Report:
         lines.append(f"action types outside the supported list: {invented} of {proposed} proposed")
         tin, tout = self.total_tokens
         lines.append(f"tokens: {tin} in / {tout} out across {self.total} cases")
+        conf = self.confidence_summary
+        if conf is not None:
+            mean_said, mean_kept, high_said, high_kept, lowered = conf
+            lines.append(
+                f"confidence: the model said {mean_said:.2f} on average, kept {mean_kept:.2f}; "
+                f"0.9 or more: said {high_said}, kept {high_kept}; lowered by the evidence: "
+                f"{lowered}"
+            )
         lines.append("calibration (informational, n too small for a real curve):")
         for label, correct, n in self.calibration_table():
             line = f"  confidence {label}: {correct}/{n}" if n else f"  confidence {label}: (none)"

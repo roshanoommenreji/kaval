@@ -103,7 +103,8 @@ def run_case(
     # write_proposal already classified every action (KAV-42) -- read it back, don't reclassify.
     action_classes = tuple(a.policy_class for a in proposal.actions)
     return score_case(
-        golden, confidence=diagnosis.confidence, root_cause=diagnosis.root_cause,
+        golden, confidence=proposal.confidence, stated_confidence=diagnosis.confidence,
+        root_cause=diagnosis.root_cause,
         summary=diagnosis.summary, action_classes=action_classes,
         action_types=tuple(a.type for a in proposal.actions),
         action_targets=tuple(a.target for a in proposal.actions),
@@ -146,7 +147,8 @@ def _json_rows(report: Report, variant: str) -> list[dict[str, object]]:
         {
             "variant": variant, "name": r.name, "passed": r.passed,
             "schema_valid": r.schema_valid,
-            "error": r.error, "confidence": r.confidence, "any_never": r.any_never,
+            "error": r.error, "confidence": r.confidence,
+            "stated_confidence": r.stated_confidence, "any_never": r.any_never,
             "keyword_ok": r.keyword_ok, "confidence_ok": r.confidence_ok,
             "recurrence_ok": r.recurrence_ok, "fix_ok": r.fix_ok,
             "fix_wrong_target": r.fix_wrong_target, "extra_fixes": r.extra_fixes,

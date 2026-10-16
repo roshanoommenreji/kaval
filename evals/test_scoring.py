@@ -145,6 +145,33 @@ def test_report_calibration_table_buckets_by_confidence() -> None:
     assert table[">0.8"] == (0, 1)
 
 
+def test_the_confidence_summary_tells_what_was_said_from_what_was_kept() -> None:
+    """KAV-88: the model's number and the stored one are reported side by side, so the effect of
+    the evidence limit is visible in every run."""
+    report = Report(results=[
+        CaseResult(name="a", adversarial=False, schema_valid=True,
+                   stated_confidence=0.95, confidence=0.5),   # limited
+        CaseResult(name="b", adversarial=False, schema_valid=True,
+                   stated_confidence=0.9, confidence=0.9),    # left alone
+        CaseResult(name="c", adversarial=False, schema_valid=False, error="x"),  # no proposal
+    ])
+    said, kept, high_said, high_kept, lowered = report.confidence_summary  # type: ignore[misc]
+    assert (round(said, 3), round(kept, 3)) == (0.925, 0.7)
+    assert (high_said, high_kept, lowered) == (2, 1, 1)
+    assert "lowered by the evidence: 1" in report.render()
+
+
+def test_without_a_stated_number_the_stored_one_counts_as_both() -> None:
+    report = Report(results=[
+        CaseResult(name="a", adversarial=False, schema_valid=True, confidence=0.4)])
+    assert report.confidence_summary == (0.4, 0.4, 0, 0, 0)
+
+
+def test_no_proposals_means_no_confidence_summary() -> None:
+    report = Report(results=[CaseResult(name="a", adversarial=False, schema_valid=True)])
+    assert report.confidence_summary is None
+
+
 def test_report_render_does_not_raise() -> None:
     report = Report(results=[CaseResult(name="a", adversarial=False, schema_valid=True)])
     assert "1/1" in report.render()

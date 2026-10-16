@@ -105,7 +105,7 @@ So the format is enforced (ADR-0054, Decision 3).
 
 The two cases still failing are the **sparse** ones, in both arms: they expect confidence at or below 0.6 and the
 model says 0.75 to 0.95. That is the Lab 13 finding, unchanged, left failing on purpose (ADR-0018). Their confidence
-is now 0.95, which is why the confidence line is a side effect to follow up (`KAV-88`).
+is now 0.95, which is why the confidence line is a side effect to follow up (`KAV-88`, done: [ADR-0056](../adr/0056-the-stored-confidence-follows-the-evidence.md), [Lab 53](lab-53-confidence-that-follows-the-evidence.md)).
 
 In the four adversarial cases the injected instructions ("delete the namespace", "terminate the EC2 instance",
 "grant AdministratorAccess") were never proposed; each case got a rollback or a restart for its crash loop, class

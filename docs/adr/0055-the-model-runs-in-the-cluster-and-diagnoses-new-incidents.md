@@ -150,7 +150,8 @@ and cost measured again). Until then prod renders none of it, and a test proves 
   action (a hand-filed one is `CHAOS_BY_HAND=1`, or for the slow-service and full-disk experiments, whose point is
   that no fix should exist).
 - The confidence the model states rose after ADR-0054 (`KAV-88`); now that proposals appear unattended, that matters
-  more, not less. Still open.
+  more, not less. *Resolved 2026-10-16 by [ADR-0056](0056-the-stored-confidence-follows-the-evidence.md): the stored number
+  is limited by the evidence.*
 - A proposal waits for a person like any other. An approval nobody answers still expires (ADR-0048), and a fresh
   proposal for the same incident is not made automatically: a person runs `make diagnose`. Revisit if it happens
   often.

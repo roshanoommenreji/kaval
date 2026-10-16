@@ -25,7 +25,9 @@ need it. So `should_escalate` combines three signals, not one:
   says about itself;
 - the model's own stated confidence, kept as a cheap third check even though KAV-43 showed it's
   a weak one today — worth recalibrating once real escalations accumulate outcome data, not
-  worth discarding before any of that data exists.
+  worth discarding before any of that data exists. (KAV-88, ADR-0056: the number *stored* on a
+  proposal is now limited by the evidence; this rule still reads the model's own, so a thin
+  incident does not escalate by itself. That path is not live yet, `KAV-44`.)
 
 **Cost is real and recorded, never assumed.** `write_proposal` hardcoded `cost_usd=Decimal("0")`
 because the local path has none. Bedrock does, and `estimate_cost_usd` computes it from the
