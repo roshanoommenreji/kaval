@@ -68,6 +68,9 @@ alone is still capped at 0.5 (so the two sparse cases behave as before), and a c
 about why, keeps the 0.7. The lesson recorded for the next rule of this kind: check it against what the real collector
 writes on staging before calling it right; a fixture shaped to pass is not a check.
 
+Re-checked on the fixed build `sha-06b64ba`, same game day: 5 `pod_oom_killed` signals, stored confidence **0.80**, no
+limit applied; approved fix, limit raised 290 s after the failure began, held; smoke check 7 of 7.
+
 ## Security
 
 - It can only **lower** a number, so it can only move a proposal further from `auto`, never nearer. The `never` class

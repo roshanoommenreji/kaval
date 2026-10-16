@@ -79,13 +79,19 @@ the incident by itself, about 100 s after the failure began, and its log line re
 negative test was meant to prevent, and only the real collector's shape could show it. Fixed (see the ADR's
 amendment), merged separately, re-checked on a new build below.
 
+**Re-check on `sha-06b64ba`**, the same game day with the approval done inside staging's 15 minutes: the worker diagnosed by
+itself (5 `pod_oom_killed` signals, no other kind), the log line carried no "thin evidence" note, the stored confidence was
+**0.80** (the model's own number), the approved fix raised the limit **290 s** after the failure began and the program stayed
+up. Then `make staging-smoke`: 7 of 7, recorded in `deploy/promotion/passed-staging.json`. Two finished test jobs from the game
+days had to be deleted first (with Roshan's yes): leftover `chaos-*` pods count as pods and fail the check.
+
 ## Done when
 
 - [x] `pytest services/agent/tests evals -q` passes with the database up
 - [x] `make lint` clean on the changed files
 - [x] `make evals` on the real model: both sparse cases at 0.5, nothing else lowered (2026-10-16)
-- [x] Staging check: found the rule too blunt for a real memory incident (stored 0.70, model 0.95; the real incident holds 17 kill events and no other kind); fixed with `DIRECT_EVIDENCE` (ADR-0056, "Amendment"); re-check of the fixed build below
-- [ ] Production gets it through the gate
+- [x] Staging check on the fixed build `sha-06b64ba` (2026-10-16): a real memory incident (5 kill events, nothing else) kept the model's number, stored 0.80, no "thin evidence" note; limit raised 290 s after the failure began, program stayed up; smoke check 7 of 7
+- [ ] Production gets it through the gate (production is parked, so it is promoted by pull request and checked when next brought up)
 
 ## Clean-up
 
