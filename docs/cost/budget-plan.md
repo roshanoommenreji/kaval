@@ -95,6 +95,8 @@ actual, not projected. One addition not in the table above: an S3 bucket for the
 to the figures already here, and the free S3 gateway VPC endpoint means it never crosses a
 metered data-transfer path.
 
+**Terraform's state bucket (`KAV-86`, [ADR-0058](../adr/0058-terraforms-record-lives-in-a-private-versioned-bucket.md), 2026-10-16) adds under $0.01 a month:** 21 object versions, 0.7 MB measured after the move and the proofs (about $0.00002 of storage at the standard rate), plus a few requests per plan or apply. Encryption uses S3's own free key (a customer key would be $1 a month), the lock is S3's own (no lock table), and the Parameter Store entry is free. No change to the ceiling or the alerts.
+
 **The "still alive" alarm (`KAV-83`, [ADR-0053](../adr/0053-the-still-alive-alarm-lives-in-aws.md), 2026-10-13) adds about $0.72 a month at list price, probably $0:** one CloudWatch custom metric $0.30, the alarm's two metrics $0.20, about 21,600 `PutMetricData` calls a month $0.22 (ap-south-1 prices from the AWS Price List API, 2026-10-13); the group metric and the SNS e-mails are free at this size; CloudWatch's always-free allowance (10 metrics, 10 alarms, 1 million requests) probably covers it all, not verified for this account. Worst-case total above becomes about $41.50. (An always-on watcher server would have been about $7 to $9 a month and was not chosen.)
 
 **The nightly dump itself (`KAV-74`, [ADR-0038](../adr/0038-nightly-dump-is-taken-by-the-app-node.md), 2026-10-10)

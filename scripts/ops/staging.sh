@@ -147,7 +147,7 @@ cmd_up() {
   echo "It parks itself after four idle hours; 'staging.sh down' destroys it."
   confirm "Continue?" || { echo "aborted"; exit 1; }
 
-  tf init -input=false >/dev/null
+  bash "$ROOT/scripts/ops/tf-init.sh" staging >/dev/null   # remote state (KAV-86): finds the bucket itself
 
   # A parked staging has a stopped database. Start it before the node so the services find it.
   if [ "$(database_state)" = "stopped" ]; then

@@ -117,7 +117,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | Jira | `scripts/tracking/jira-sync.py` (stories, UAT verdicts) · `scripts/tracking/jira-dashboards.toml` (the Delivery, UAT and Releases dashboards) | `make jira EPIC=KAV-6` · `make jira-dashboards` |
 | Confluence | `scripts/tracking/publish-confluence.py` — a generated mirror, never edited by hand | `make docs-sync` |
 | Dashboard | `scripts/tracking/dashboard.py` + `scripts/tracking/dashboard.toml` + `docs/architecture/architecture.toml` | `make dashboard` |
-| AWS | `infra/` (Terraform) · `scripts/ops/cost-report.sh` | `make plan` · `make cost-report` |
+| AWS | `infra/` (Terraform; its record lives in a private S3 bucket, `infra/envs/state`) · `scripts/ops/cost-report.sh` | `make tf-init ENV=prod` · `make plan` · `make cost-report` |
 | Dev server | `infra/envs/dev` + `infra/modules/devbox` | `make devbox-up` · `devbox-ssh` · `devbox-down` |
 | Staging | `infra/envs/staging` + `infra/modules/idle-stop` + `scripts/ops/staging.sh` | `make staging-up` · `staging-status` · `staging-down` |
 | Database | `services/shared/kaval_shared/models.py` · `migrations/` · `scripts/ops/` | `make migrate` · `make backup` |
