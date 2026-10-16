@@ -246,7 +246,7 @@ restore-prod: ## DISASTER RECOVERY. Replaces the live database. Prompts.
 ##@ Cost
 
 .PHONY: cost-report
-cost-report: ## Month-to-date AWS spend against the \$25 ceiling
+cost-report: ## Month-to-date AWS usage (before credits) against the \$50 ceiling
 	@bash scripts/ops/cost-report.sh
 
 .PHONY: cost-check

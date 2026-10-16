@@ -121,6 +121,10 @@ servers for about an hour and a quarter (the app server $0.0224 plus the databas
 addresses at $0.005, about $0.045 an hour together) and staging for about 20 minutes: **roughly 7 cents**. Two
 snapshots of the 20 GB data volume add a few cents a month while they are kept.
 
+**Phase 6 (`KAV-91`, [ADR-0059](../adr/0059-always-on-cost-model-and-measuring-usage-before-credits.md), 2026-10-16) redoes this table for always-on and finds it holds.** Expected about $39 a month, worst case about $42.10: the $41.50 above plus the cost reader, whose Cost Explorer calls ($0.01 each, [AWS's pricing page](https://aws.amazon.com/aws-cost-management/aws-cost-explorer/pricing/), read 2026-10-16) are capped at 60 a month, $0.60 at most, about 35 expected. Waste scans use free read calls. The ceiling and the alerts are unchanged; the first alert ($42) now sits at the top of the worst case, which would be information, not noise.
+
+**The credits do not stretch over a long always-on run (checked 2026-10-16).** About $132 of the $140 is left (usage so far: September $1.39, October to the 16th $6.41). At about $39 a month that is roughly three and a half months of always-on, to about the end of January 2027, then the card is charged. The projection table below assumed two always-on months (Feb–Mar 2027), written before Phase 6 started now. The rule from here: stay always-on only while a phase needs it, park between phases, and read the credit balance in the console at the start of each phase.
+
 Paused, the same account costs **~$4.80/month**: storage only, the app node's ~$2.20 plus the
 database server's two disks (~$2.55).
 
@@ -339,6 +343,8 @@ Re-check this figure periodically — a credit-based plan can behave differently
 tier at the edges, and the number should be verified against the console rather than assumed to
 still read $100 by the time Phase 6 goes always-on.
 
+**Re-checked 2026-10-16 ([ADR-0059](../adr/0059-always-on-cost-model-and-measuring-usage-before-credits.md)):** credits applied so far equal usage to the cent (September $1.3896, October to the 16th $6.4119), about $132 remain, and the live budget `kaval-monthly` counts credits (`IncludeCredit = true`), so it reads $0.00 of $50 and its alerts and hard stop would not fire until the credits are nearly gone. Changing that to usage before credits is proposed in the ADR and waits for Roshan's go.
+
 ---
 
 ## Actuals
@@ -357,5 +363,4 @@ A record holds four things:
 - the amount actually billed;
 - one line comparing it with this plan, and why if they differ by more than 20%.
 
-`make cost-report` prints the net figure. Cost Explorer lags about a day, so write the record on
-the 2nd or later for final numbers.
+`make cost-report` prints gross usage, credits and refunds left out (changed 2026-10-16, `KAV-91`: it used to print the net figure, which the account's credits turn into $0). Cost Explorer lags about a day, so write the record on the 2nd or later for final numbers.
