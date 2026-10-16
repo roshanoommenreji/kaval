@@ -10,6 +10,15 @@
 # first real `helm install` left this job stuck at Init:0/1 with no postgres pod anywhere in
 # `kubectl get pods` to wait for (Lab 15). pre-upgrade is still correct for upgrades, where
 # postgres already exists from the previous release.
+#
+# That reasoning only holds for the chart's own Postgres. With a database server of its own
+# (staging, prod: `postgres.enabled: false`) there is nothing in the release to wait for, so the
+# migration runs BEFORE the install (KAV-85, ADR-0057). Found live 2026-10-14: production came up
+# over a database two migrations behind, the new executor could not start without the new column,
+# Helm waits for every Deployment to be ready before it runs a post-install hook, so the install
+# timed out and the migration never ran. Migrating first means no service starts against a
+# database that is behind. Its prerequisites (the namespace, ecr-cred and the admin Secret) are
+# created by the node's bootstrap before Flux is told about the release.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -17,7 +26,7 @@ metadata:
   labels:
     {{- include "kaval.labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": post-install,pre-upgrade
+    "helm.sh/hook": {{ if .Values.postgres.enabled }}post-install{{ else }}pre-install{{ end }},pre-upgrade
     "helm.sh/hook-weight": "0"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:

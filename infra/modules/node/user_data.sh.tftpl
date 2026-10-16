@@ -295,8 +295,6 @@ unset SLACK_BOT_TOKEN SLACK_APP_TOKEN SLACK_CHANNEL_ID
 # every 6 hours, and again whenever a parked staging is resumed.
 SEED_RC=0
 /usr/local/sbin/kaval-db-seed || SEED_RC=$?
-SEEDED=""
-if [ "$SEED_RC" = 0 ]; then SEEDED=1; fi
 if [ "$SEED_RC" != 0 ] && [ "$SEED_RC" != 10 ]; then
   echo "seeding failed (exit $SEED_RC) -- staging starts with an empty database; see /var/lib/kaval/seed-status.json"
 fi
@@ -350,20 +348,27 @@ if [ -n "$SCHEMA_READY" ]; then
 else
   echo "schema still missing after ~10 min -- db-roles.sql skipped, will retry on the next 6h timer"
 fi
-%{ if seed_database ~}
-if [ -n "$${SEEDED:-}" ]; then
-  # A restored database already had its tables, so the wait above ended at once -- before the
-  # migration job had moved them to THIS release's version. A table that migration adds would
-  # get no grants. The first run above still matters (it creates the service logins, without
-  # which the pods cannot start and the release never becomes Ready); once the release is Ready
-  # the migration has finished, so hand the permissions out a second time (ADR-0039).
+# Permissions a second time, once the release is Ready (KAV-85, ADR-0057, widening ADR-0039 from a
+# seeded boot to every boot). The wait above ends as soon as the schema EXISTS, which on an old
+# database (a restored copy, or production after a parked week) is at once, before the migration
+# has brought it to this release's version. A table that migration adds would then have no
+# grants. The first run above still matters: it creates the service logins, without which the pods
+# cannot start. Once the release is Ready the migration has finished (it runs before the install,
+# ADR-0057), so the second run hands out the rest. It runs as its own background unit, because
+# waiting here would hold up the rest of this boot (the heartbeat, the "still alive" alarm).
+if [ -n "$${KAVAL_GRANTS_PASS:-}" ]; then
   kubectl wait helmrelease/${name_prefix} -n flux-system --for=condition=Ready --timeout=600s \
     || echo "release not Ready after 10 min -- permissions for any new table wait for the next 6h timer"
   run_db_roles
 fi
-%{ endif ~}
 unset ADMIN_PW GATEWAY_PW AGENT_PW EXECUTOR_PW COLLECTOR_PW
 rm -f /tmp/db-roles.sql
+# Started last, so the two runs never share /tmp/db-roles.sql.
+if [ -z "$${KAVAL_GRANTS_PASS:-}" ]; then
+  systemd-run --no-block --unit=kaval-db-grants --setenv=KAVAL_GRANTS_PASS=1 \
+    /usr/local/sbin/kaval-gitops-bootstrap \
+    || echo "could not start the second permissions pass (already running?) -- the next 6h timer covers it"
+fi
 SCRIPT
 chmod +x /usr/local/sbin/kaval-gitops-bootstrap
 /usr/local/sbin/kaval-gitops-bootstrap
