@@ -216,6 +216,8 @@ c. **Permissions applied before the table existed.** `db-roles.sql` waits for th
    with `permission denied`. Fixed by starting the node's own bootstrap unit again (runbook step 6); the errors
    stopped within a minute.
 
+*Fixed by `KAV-85` (2026-10-16): the migration now runs before the install and the permissions are handed out again once the release is Ready; see [Lab 54](lab-54-a-new-version-on-an-old-database.md). Not yet run on production itself.*
+
 One process finding: the Claude Code auto-mode classifier blocked each change to production's live database or
 services (the migration Job, the bootstrap unit, the backup unit) even after Roshan said to go ahead, so those three
 were written as scripts and run by Roshan; every read-only check, and the plan/apply steps shown first, ran as normal.

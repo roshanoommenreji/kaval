@@ -185,6 +185,19 @@ exit gate as its goal. When a phase closes, its sprint closes too, and anything 
 into the next one. Phase 1 ran with no sprint at all, so none of its work ever appeared on the
 board: it went straight from the backlog to Done.
 
+## Writing a database migration
+
+The migration runs *before* the new version starts, while the old version is still serving
+([ADR-0057](adr/0057-the-database-is-brought-up-to-date-before-a-new-version-starts.md)). So:
+
+- **A migration only adds** (a table, a column, an index). CI fails an `upgrade()` that drops or renames a table or
+  column. Removing something is two releases: stop using it, then remove it. The removing migration says why it is safe
+  on a line of its own: `# contract: <why the old version is already gone>`.
+- **A new table needs a `GRANT` in `scripts/ops/db-roles.sql`** for the services that use it, in the same change. CI
+  fails a created table that no `GRANT` names.
+- Run `alembic downgrade` for your migration once against a throwaway database; the staging drill in
+  [Lab 54](labs/lab-54-a-new-version-on-an-old-database.md) uses it to make a database old.
+
 ## Finishing a piece of work
 
 Work is planned against the Planning standard in `CLAUDE.md` (what real companies do, the whole local → staging → prod path, security, failure, observability, cost, testing, people) before it is built. Merging is step one of the Definition of Done in `CLAUDE.md`. The rest follows in the same

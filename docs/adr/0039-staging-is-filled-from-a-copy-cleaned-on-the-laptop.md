@@ -53,7 +53,7 @@ The scrub proves itself with its own code; this shares none of it.
   starts empty, as before, and says so.
 - Flux installs the release; the migration Job (`alembic upgrade head`) moves the restored data to this
   release's schema.
-- **Permissions run twice on a seeded boot.** The existing wait ("until the `signal` table exists") ends at once on
+- **Permissions run twice on a seeded boot.** *(Widened by [ADR-0057](0057-the-database-is-brought-up-to-date-before-a-new-version-starts.md): the second run now happens on every boot, in the background, and the migration runs before the install.)* The existing wait ("until the `signal` table exists") ends at once on
   a restored database, before the migration has run, so a table the migration adds would get no grants. The first
   run still has to happen early: it creates the service logins, without which the pods cannot start. Then the
   script waits for the HelmRelease to be Ready (the migration is part of that) and runs `db-roles.sql` again.

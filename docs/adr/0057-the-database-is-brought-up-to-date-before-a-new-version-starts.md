@@ -109,8 +109,18 @@ work"; the plan shown at production's next bring-up will contain one extra chang
 Staging, 2026-10-16, database rolled back two versions (`c3e8a1d7f402` to `a1c4f9b0e3d2`, the same distance as
 production on 2026-10-14), Flux resumed so the release is installed afresh:
 
-| | Before (setup as of `sha-06b64ba`) | After |
+| | Before (setup as of `sha-06b64ba`) | After (PR #184) |
 |---|---|---|
-| Install result | `InstallFailed: timeout waiting for ... executor`, uninstalled, retried | *(filled in after the live drill, Lab 54)* |
-| Migration Job | never created | |
-| Hands needed | the migration run by hand | |
+| How the drill starts | resume Flux over a database two versions behind | replace the whole server over a database two versions behind |
+| Install result | `InstallFailed: timeout waiting for ... executor` after 5 minutes, uninstalled, retried | `Helm install succeeded`, Ready 2 min 25 s after Flux started it |
+| Migration Job | never created | ran first, removed on success |
+| Database afterwards | still two versions behind until a person ran the migration | at head (`c3e8a1d7f402`) |
+| Gateway's rights on the added table and column | missing on production's run of 2026-10-14 | present (`notification` insert, `action.slack_ts` update), no `permission denied` in 10 minutes |
+| Second permissions pass | none (seeded staging only) | ran at the moment the release became Ready, as `kaval-db-grants.service` |
+| Boot held up by the wait | n/a | no: the heartbeat timer was already running, first run 81 s after Ready |
+| Hands needed | the migration, then the permissions | none; smoke check 7 of 7 |
+
+One honest gap: the first run of the drill (before the change) did not show the `permission denied` errors on staging,
+(the cause was not established; the gateway simply logged nothing). The missing-grant half is
+therefore proved by the final state (the privileges are present after a boot that started from an old database) and by
+production's own run of 2026-10-14, not by a staged failure.

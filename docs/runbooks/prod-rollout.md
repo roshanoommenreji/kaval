@@ -3,20 +3,25 @@
 Production is parked between sessions (the app server group at 0, the database server stopped). This is the
 procedure to bring it up with a new version, check that it is healthy, and park it again. First written from
 the live run of 2026-10-14 (`KAV-83` Part 3, [Lab 50](../labs/lab-50-closing-phase-5.md)), which brought up
-`sha-0904d5c` over a database two migrations behind and hit two ordering gaps (`KAV-85`). Steps 5 and 6 are the
-manual fixes for those gaps and drop out when `KAV-85` is done.
+`sha-0904d5c` over a database two migrations behind and hit two ordering gaps (`KAV-85`). Since
+[ADR-0057](../adr/0057-the-database-is-brought-up-to-date-before-a-new-version-starts.md) the migration runs before
+the install and the permissions are handed out again once the release is Ready, so steps 5 and 6 are only for
+when that did not work. The new order has been proven on staging (Lab 54) and has **not yet run on production**:
+watch the first bring-up after 2026-10-16 for it.
 
 ## Signals
 
 - A new version has been promoted (the `promote.yml` pull request is merged) and production has not run it yet
 - A session needs production's real numbers (memory, targets, the "still alive" alarm)
-- After bring-up: the executor in `CrashLoopBackOff` with `column ... does not exist` in its log (step 5), or the
-  gateway logging `slack_chatops: notify loop failed this pass` with `permission denied for table` (step 6)
+- After bring-up: the release stuck before any pod starts, with the migrate Job failing (step 5), or the gateway
+  logging `slack_chatops: notify loop failed this pass` with `permission denied for table` (step 6)
 
 ## Likely causes
 
-1. The new version has a migration the database has not had, and the install waits on it (step 5)
-2. A table the migration added has no per-service permissions yet (step 6)
+1. The migration itself failed (it now runs first, so a failure stops the install before any service starts;
+   read the Job's log, step 5)
+2. A table the migration added has no per-service permissions yet (step 6; the second permissions pass should
+   have run, `journalctl -u kaval-db-grants`)
 3. The app server's base image or boot script changed since the last boot (watch the first boot)
 
 ## Diagnosis
@@ -38,7 +43,10 @@ AWS_PROFILE=kaval python scripts/release/promote.py preflight      # prod's pinn
 AWS_PROFILE=kaval terraform -chdir=infra/envs/prod plan            # expect "No changes" while parked
 ```
 
-If the new version has a migration, take a snapshot of the database's data volume while the database is still
+If the new version has a migration, first run the old-database drill on staging with that exact version (roll
+staging's database back, replace its server, see it come up by itself: [Lab 54](../labs/lab-54-a-new-version-on-an-old-database.md),
+steps 2 and 5). Staging's database is normally already at head, so this is the only way staging shows the case.
+Then take a snapshot of the database's data volume while the database is still
 stopped (reversible only with it; blast radius: the database). The data volume's Name tag is
 `kaval-prod-database-data`:
 
@@ -52,8 +60,12 @@ aws ec2 wait snapshot-completed --snapshot-ids <the snapshot>
 ```bash
 bash scripts/ops/resume-database.sh                                # starts it, waits for SSM and a health check
 mv infra/envs/prod/node.auto.tfvars <somewhere>                    # the parked setting (app_node_desired_capacity = 0)
-terraform -chdir=infra/envs/prod plan -out=<file>                  # show it: expect ONE change, desired 0 -> 1, min 0 -> 1
+terraform -chdir=infra/envs/prod plan -out=<file>                  # show it: desired 0 -> 1, min 0 -> 1
 ```
+
+The first bring-up after `KAV-85` also shows the server's start-up script changing (the launch template and the
+group's version of it, both in place, nothing destroyed). That is the new permissions step reaching production; no
+running server is touched because there is none.
 
 Never apply to production without showing this plan and being told to ([CLAUDE.md](../../CLAUDE.md)).
 
@@ -85,11 +97,13 @@ and the database server's `node_exporter` on 9100 and `postgres_exporter` on 918
 (`kaval-prod-still-alive`) stayed `OK` with 2 to 3 datapoints in every 5-minute reading
 ([still-alive-alarm.md](still-alive-alarm.md)).
 
-### 5. If the executor crash-loops on a missing column: run the migration by hand (reversible only from the snapshot; blast radius: the production database)
+### 5. Only if the migration did not run by itself: run it by hand (reversible only from the snapshot; blast radius: the production database)
 
-Cause: the migrate Job is a Helm `post-install` hook, and the install first waits for every Deployment to be
-ready. A new executor cannot be ready without the new column, so the install times out
-(`RetriesExceeded`) and the hook never runs. Tracked as `KAV-85`.
+Since `KAV-85` the migrate Job is a `pre-install` hook, so the database is brought to the new version before any
+service starts. If it did not (the release shows failed and no service is up, or an executor crash-loops on a
+missing column), first read why: `kubectl get jobs,pods -n kaval-prod`, then `kubectl logs job/<release>-migrate-<n>`.
+On 2026-10-14, before the change, the cause was the old `post-install` order: the install waited for an executor
+that needed the migration. If the Job failed for its own reason, fix that; the manual run below is the same command.
 
 Run the same command from the same image the chart uses, as one Job. Fill in the account's registry; the secret
 is the one the chart's `postgres.secretNames.migrate` names (`kaval-postgres-admin`):
@@ -122,10 +136,11 @@ The executor recovers on its next restart (kubelet's back-off is at most 5 minut
 as failed in Flux, which does not matter: production's cluster is rebuilt from Git at every boot, so the next
 boot installs against a database that is already at head.
 
-### 6. If the gateway logs `permission denied for table` after a migration: apply the permissions again (reversible; blast radius: database permissions)
+### 6. Only if the gateway logs `permission denied for table` after a migration: apply the permissions again (reversible; blast radius: database permissions)
 
-Cause: the bootstrap's `db-roles.sql` step waits for the schema to exist, not to be at head, so a table the
-migration added has no `GRANT` until the next 6-hourly run. `KAV-85` covers it.
+Since `KAV-85` the bootstrap runs `db-roles.sql` a second time once the release is Ready, in the background
+(`journalctl -u kaval-db-grants`). If that did not happen (the release never became Ready within 10 minutes, or
+the server was started from an older script), start it by hand; a table the migration added has no `GRANT` until then.
 
 ```bash
 systemctl start kaval-gitops-bootstrap.service    # idempotent; it re-applies scripts/ops/db-roles.sql

@@ -204,7 +204,7 @@
     {
       "tag": "sha-06b64ba",
       "commit": "06b64baf6152f7b6bde289646b2a78725d0fa6ea",
-      "passed_at": "2026-10-16T03:30:13Z",
+      "passed_at": "2026-10-16T05:52:53Z",
       "images": {
         "agent": "sha256:2c6962d53ccdd814836886dec1d5c7063ddcd1c8e089b20cec54d53b5e1c804f",
         "collector": "sha256:452cd00db6878f1c467e89790d191c193962648952f1d62a543caca058af11ff",
