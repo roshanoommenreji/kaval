@@ -69,12 +69,22 @@ an out-of-memory game day (`make chaos-run EXPERIMENT=oom`) produces a proposal 
 the incident held a memory reading, the kill and the restarts (2+ kinds), and `kaval_diagnosis_confidence_limited_total`
 stays at 0 for it; an incident diagnosed while it holds a single signal is limited to 0.5.
 
+### What staging showed (2026-10-16, build `sha-6603033`)
+
+`make chaos-run EXPERIMENT=oom` (run in the background by mistake, so nobody approved in the 15 minutes staging allows; the
+runner timed out, deleted the victim and switched itself off, nothing was left broken). The worker had already diagnosed
+the incident by itself, about 100 s after the failure began, and its log line read
+`confidence 0.70 (the model said 0.95; thin evidence)`. A read-only job on staging listed the incident's signals:
+**17 of `pod_oom_killed`, no other kind**. So the first rule limited a well-evidenced incident, the exact thing its
+negative test was meant to prevent, and only the real collector's shape could show it. Fixed (see the ADR's
+amendment), merged separately, re-checked on a new build below.
+
 ## Done when
 
 - [x] `pytest services/agent/tests evals -q` passes with the database up
 - [x] `make lint` clean on the changed files
 - [x] `make evals` on the real model: both sparse cases at 0.5, nothing else lowered (2026-10-16)
-- [ ] Staging check (below, once run)
+- [x] Staging check: found the rule too blunt for a real memory incident (stored 0.70, model 0.95; the real incident holds 17 kill events and no other kind); fixed with `DIRECT_EVIDENCE` (ADR-0056, "Amendment"); re-check of the fixed build below
 - [ ] Production gets it through the gate
 
 ## Clean-up

@@ -45,13 +45,28 @@ workload:
 | What the incident holds | The stored confidence is at most |
 |---|---|
 | one observation (or none) | **0.5** |
-| several, all of one kind (for example three "restarting" events and never why) | **0.7** |
+| several, all of one kind (for example three "restarting" events and never why) | **0.7**, unless that kind is the direct evidence of the incident's own cause (below) |
+| several, all of the kind that names the cause (a memory kill for a memory incident; the "exec format error" exit for a wrong-architecture incident) | the model's number, unchanged |
 | two or more kinds (a memory reading **and** the kill) | the model's number, unchanged |
 
 Other incidents (a cost spike, an unused disk) are one measurement by nature and have no fix to be overconfident
 about; they are not touched. A number the model already put below the cap is never raised. The policy is asked about the
 stored number. The model's own number is not discarded: the worker's log line says it, the counter
 `kaval_diagnosis_confidence_limited_total` counts each time the rule bites, and the evals print both side by side.
+
+### Amendment: found on staging the first time it ran for real (2026-10-16)
+
+The first version of the rule treated every single-kind incident as thin. On staging, the out-of-memory game day filed
+its proposal by itself and the rule bit: the model said 0.95 and **0.70 was stored**. Reading the incident showed why:
+a real memory incident holds **one kind** of signal, `pod_oom_killed`, 17 of them and nothing else (the golden cases
+build three kinds, a shape the real collector does not produce for this failure, which is why the dev-server run could
+not show it). A confirmed kill reported by the kernel is not a hint about the cause, it *is* the cause.
+
+So `DIRECT_EVIDENCE` names, per cause, the one kind whose own report states it (`oom_killed` with `pod_oom_killed`;
+`exec_format` with `container_exited`), and several observations of exactly that kind are not limited. One observation
+alone is still capped at 0.5 (so the two sparse cases behave as before), and a crash loop, whose restarts say nothing
+about why, keeps the 0.7. The lesson recorded for the next rule of this kind: check it against what the real collector
+writes on staging before calling it right; a fixture shaped to pass is not a check.
 
 ## Security
 

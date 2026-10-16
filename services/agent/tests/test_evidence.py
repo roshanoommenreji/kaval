@@ -51,6 +51,33 @@ def test_several_observations_of_one_kind_cap_at_seven_tenths() -> None:
     assert result.limited is True
 
 
+def test_a_real_memory_incident_holds_only_the_kill_and_keeps_the_models_number() -> None:
+    """Seen live on staging 2026-10-16: 17 `pod_oom_killed` and nothing else. The kill is the cause
+    itself, so one kind is not thin evidence here."""
+    signals = [_signal("pod_oom_killed", n) for n in range(17)]
+    result = evidence.limit(0.95, WORKLOAD, signals)
+    assert result.confidence == 0.95
+    assert result.limited is False
+
+
+def test_one_kill_alone_is_still_only_a_hint() -> None:
+    assert evidence.limit(0.95, WORKLOAD, [_signal("pod_oom_killed")]).confidence == 0.5
+
+
+def test_the_kill_does_not_vouch_for_a_different_cause() -> None:
+    """The exemption is per cause: restarts under a crash-loop name are still 'never why'."""
+    signals = [_signal("pod_back_off", n) for n in range(5)]
+    assert evidence.limit(0.9, "crashloop:k8s:kaval-demo/checkout", signals).confidence == 0.7
+    kills = [_signal("pod_oom_killed", n) for n in range(5)]
+    assert evidence.limit(0.9, "crashloop:k8s:kaval-demo/checkout", kills).confidence == 0.7
+
+
+def test_the_exec_format_exit_is_direct_evidence_for_its_own_cause() -> None:
+    exits = [_signal("container_exited", n) for n in range(3)]
+    assert evidence.limit(0.9, "exec_format:k8s:kaval-demo/gateway", exits).confidence == 0.9
+    assert evidence.limit(0.9, "exec_format:k8s:kaval-demo/gateway", exits[:1]).confidence == 0.5
+
+
 def test_two_kinds_of_evidence_are_left_alone() -> None:
     """The negative case: a well-evidenced incident keeps exactly what the model said."""
     signals = [_signal("pod_oom_killed"), _signal("pod_back_off", 1), _signal("pod_back_off", 2)]
