@@ -31,6 +31,6 @@ Actions that look right and make it worse.
 
 - `restore-from-backup.md`, `rollback-prod.md`, `kaval-stopped-reporting.md` (`KAV-78`), `pod-oomkilled.md` (`KAV-79`), `pod-crashloop-after-release.md` and `node-lost.md` (`KAV-80`), `disk-pressure.md` and `latency-spike.md` (`KAV-81`; both are for a person: no fix is proposed), `approval-unanswered.md`, `backup-missing.md` and `restore-drill.md` (`KAV-82`), `diagnosis-not-happening.md` (`KAV-87`; incidents are not getting a diagnosis, for a person), `terraform-state.md` (`KAV-86`; the state is locked, wrong, or the laptop is gone, for a person), `still-alive-alarm.md` and `prod-rollout.md` (`KAV-83`; the second is a procedure, bring production up, check it, park it, with the two manual fixes `KAV-85` will remove)
 
-## Planned (Phase 5)
+## Planned (Phase 6, with the cost proposals)
 
 - `cost-spike.md`

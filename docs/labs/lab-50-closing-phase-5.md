@@ -232,4 +232,4 @@ were written as scripts and run by Roshan; every read-only check, and the plan/a
 - [x] Part 2 built and tested: the node script, the alarm, the permission, the group metric (ADR-0053)
 - [x] Part 2 proven live on staging (2026-10-13): datapoints arrive, the alarm goes OK, rings when the poller cannot finish passes, and stays OK through 5.5 hours of parked staging
 - [x] Part 3, production (2026-10-14): applied, the pretend ring e-mailed, promoted before bring-up, brought up, 10 of 10 targets up, memory measured, a fresh dump, parked. Two ordering gaps found and fixed by hand (`KAV-85`)
-- [ ] Not seen live: a real Slack post (no incident to announce in production)
+- [ ] Not seen live: a real Slack post (no incident to announce in production); tracked with the other production-only checks as `KAV-90`

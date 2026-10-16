@@ -7,6 +7,7 @@
     {"name": "bad release", "date": "2026-10-11", "kind": "fix", "stages": [66, 12, 74, 4, 12], "machine_s": 94, "wall_s": 168, "held": true, "source": "docs/postmortems/2026-10-11-badrelease.md"},
     {"name": "lost server", "date": "2026-10-12", "kind": "selfheal", "stages": [], "machine_s": 130, "wall_s": 130, "held": true, "source": "docs/postmortems/2026-10-12-node.md"},
     {"name": "slow service", "date": "2026-10-12", "kind": "alert", "stages": [85], "machine_s": null, "wall_s": null, "held": null, "source": "docs/postmortems/2026-10-12-slow.md"},
-    {"name": "disk full", "date": "2026-10-12", "kind": "alert", "stages": [35], "machine_s": null, "wall_s": null, "held": null, "source": "docs/postmortems/2026-10-12-disk.md"}
+    {"name": "disk full", "date": "2026-10-12", "kind": "alert", "stages": [35], "machine_s": null, "wall_s": null, "held": null, "source": "docs/postmortems/2026-10-12-disk.md"},
+    {"name": "oom, run 3 (diagnosed by Kaval itself)", "date": "2026-10-15", "kind": "fix", "stages": [60, 25, 91, 18, 0], "machine_s": 103, "wall_s": 194, "held": true, "source": "docs/postmortems/2026-10-15-oom-diagnosed-by-itself.md"}
   ]
 }

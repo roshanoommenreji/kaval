@@ -28,7 +28,7 @@ def test_machine_time_leaves_out_the_persons_wait() -> None:
 
 def test_an_alert_only_run_cannot_claim_a_restore_time() -> None:
     bad = copy.deepcopy(DATA)
-    bad["runs"][-1]["machine_s"] = 40
+    next(r for r in bad["runs"] if r["kind"] == "alert")["machine_s"] = 40
     assert any("alert-only" in m for m in mttr_chart.check(bad))
 
 
