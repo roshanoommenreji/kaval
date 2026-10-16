@@ -92,7 +92,7 @@ Every LLM output is validated against a Pydantic schema before it touches the da
 
 **TypeScript** (mobile) — Expo SDK, strict mode, no `any`.
 
-**Terraform** — modules in `infra/modules/`, environments in `infra/envs/`. Never `apply` without
+**Terraform** — modules in `infra/modules/`, environments in `infra/envs/`; the record of what exists is in a private versioned S3 bucket ([ADR-0058](docs/adr/0058-terraforms-record-lives-in-a-private-versioned-bucket.md); `scripts/ops/tf-init.sh <env>` connects, the bucket's name is never in git). Never `apply` without
 showing the plan first. Never `apply` to `prod` without being asked.
 
 **Helm** — one umbrella chart in `deploy/charts/kaval`. Environments differ **only** by values
@@ -199,6 +199,7 @@ make staging-status  # database state and pods, read over Session Manager
 make version-plan    # the next component and product versions, worked out from the commits (nothing is written)
 make staging-smoke   # smoke-test the tag staging runs (digest vs ECR, pods, database, API); a pass is recorded in deploy/promotion/passed-staging.json
 make staging-down    # destroy staging completely, data volume included
+make tf-init ENV=prod  # connect an environment (prod|staging|dev|state) to Terraform's remote state; the first step on a new laptop (KAV-86)
 make docs-sync     # regenerate dashboard + republish Confluence
 make jira EPIC=KAV-6   # an epic's stories and status
 ```

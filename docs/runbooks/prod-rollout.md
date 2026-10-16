@@ -40,7 +40,7 @@ addresses). A 1-hour session is about 5 cents.
 
 ```bash
 AWS_PROFILE=kaval python scripts/release/promote.py preflight      # prod's pinned images exist in ECR
-AWS_PROFILE=kaval terraform -chdir=infra/envs/prod plan            # expect "No changes" while parked
+AWS_PROFILE=kaval terraform -chdir=infra/envs/prod plan            # expect "No changes" while parked (or only the launch template and the group's version, if a start-up script change has merged since the last apply). New laptop: `make tf-init ENV=prod` first, see terraform-state.md
 ```
 
 If the new version has a migration, first run the old-database drill on staging with that exact version (roll

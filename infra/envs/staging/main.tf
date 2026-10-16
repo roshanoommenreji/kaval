@@ -18,12 +18,19 @@
 # resumes, `make staging-down` destroys (scripts/ops/staging.sh).
 
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.11"
   required_providers {
     aws = { source = "hashicorp/aws", version = "~> 5.0" }
   }
 
-  # Local state, same as prod. terraform.tfstate is gitignored and holds account identifiers.
+  # Remote state (KAV-86, ADR-0058). The bucket name is not in git: scripts/ops/tf-init.sh staging
+  # reads it from Parameter Store. Locking is S3's own.
+  backend "s3" {
+    key          = "staging/terraform.tfstate"
+    region       = "ap-south-1"
+    encrypt      = true
+    use_lockfile = true
+  }
 }
 
 provider "aws" {

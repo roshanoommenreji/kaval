@@ -42,14 +42,14 @@ Recovery time, from the pieces that were measured:
 | **Code and settings** | git, on GitHub | clone | the last commit | minutes |
 | **Container images** | ECR, newest 15 per repository kept | rebuild from git (`release.yml`) | none: rebuildable | **not measured** |
 | **Staging** | disposable | `make staging-up` | none | about 5 min |
-| **Terraform state** (what it has built) | **a file on the laptop, not backed up** | `terraform import` of every resource | the laptop's last state | **not measured, and a real gap** |
+| **Terraform state** (what it has built) | a private, versioned S3 bucket, one object per environment, locked by S3 ([ADR-0058](../adr/0058-terraforms-record-lives-in-a-private-versioned-bucket.md)) | a new laptop runs `scripts/ops/tf-init.sh <env>`; a damaged record is replaced from an earlier version ([runbook](../runbooks/terraform-state.md)) | the last apply; older versions kept at least 90 days | restoring an earlier version: one command and a plan, tried on staging 2026-10-16; a whole new laptop **not timed** |
 
 ## The two gaps this writing-down found
 
-1. **Terraform's state lives only on the laptop.** Losing the laptop would not lose production, but it
-   would lose Terraform's knowledge of it; rebuilding that is a long, careful job. A remote copy (an S3
-   bucket with versioning and a lock) is the standard fix. It is not built here; it is a roadmap line
-   (Phase 6 "Disaster recovery stated and drilled").
+1. **Terraform's state lived only on the laptop.** *Closed 2026-10-16 (`KAV-86`):* a remote copy, an S3 bucket
+   with versioning and a lock, now holds it ([ADR-0058](../adr/0058-terraforms-record-lives-in-a-private-versioned-bucket.md)).
+   What the record alone does not bring back is each environment's gitignored `terraform.tfvars` (alert email,
+   budget numbers, SSH public key); the runbook says where each comes from. Not timed: a whole new laptop.
 2. **The dump skips nights production is parked.** Harmless while the disk snapshots exist, but it means
    the "RPO 24 h" in older documents ([ADR-0005](../adr/0005-data-durability-and-staging-seeding.md)) is
    the snapshots' promise, not the dump's. A dump taken at the moment production is parked would close

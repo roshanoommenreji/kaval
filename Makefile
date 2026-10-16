@@ -104,7 +104,11 @@ build: ## Build arm64 images (Graviton — amd64 will NOT run on the node)
 
 .PHONY: guardrails
 guardrails: ## Provision ONLY the budget alarms. Run this before anything else, ever.
-	cd $(TF_PROD) && terraform init && terraform apply -target=module.budget
+	bash scripts/ops/tf-init.sh prod && cd $(TF_PROD) && terraform apply -target=module.budget
+
+.PHONY: tf-init
+tf-init: ## Connect one environment to Terraform's remote state, e.g. make tf-init ENV=prod (prod|staging|dev|state)
+	bash scripts/ops/tf-init.sh $(ENV)
 
 .PHONY: plan
 plan: ## Show what would change in prod (never applies)
@@ -174,7 +178,7 @@ staging-down: ## Destroy staging completely, data volume included (it also parks
 
 .PHONY: devbox-create
 devbox-create: ## Create the dev server. Shows the plan and asks before applying
-	cd $(TF_DEV) && terraform init -input=false && terraform apply
+	bash scripts/ops/tf-init.sh dev && cd $(TF_DEV) && terraform apply
 
 .PHONY: devbox-exists
 devbox-exists:

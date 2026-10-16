@@ -348,6 +348,18 @@ outputs = ["Restorable database snapshots"]
 note = "Nightly pg_dump, taken by a systemd timer on the app node (19:30 UTC, before the 20:30 UTC auto-stop) using the node's own instance role, so no key is stored anywhere (ADR-0038). The dump is checked readable before it is uploaded. RPO is 24 hours while production is running — a decision, not a default (ADR-0005); parked days rely on the EBS snapshots. Built and proven locally, not yet run on AWS. Seeding staging from this dump is ADR-0037 / KAV-73: designed and the scrub proven, the live restore not yet run (so today staging still starts empty)."
 
 [[system.node]]
+id = "tfstate"
+label = "Terraform state (S3)"
+kind = "platform"
+phase = 5
+col = 2
+row = 9
+credentials = "the AWS admin login only; TLS-only, no public access"
+inputs = ["Every terraform plan and apply for prod, staging and dev (one object each, taken under a lock)"]
+outputs = ["Terraform's record of what exists, with every earlier version kept 90 days"]
+note = "KAV-86, ADR-0058. One private, versioned, encrypted bucket in a folder of its own (infra/envs/state), so staging-down cannot destroy it. The lock is S3's own (use_lockfile), no lock table. The bucket's name is not in git: it is in Parameter Store and scripts/ops/tf-init.sh reads it. Replaces the files that sat only on the laptop. Proven 2026-10-16: a second run was refused while the first held the lock, a fresh clone planned staging with No changes, and a deliberately damaged record was restored from an earlier version. Costs well under $0.01 a month."
+
+[[system.node]]
 id = "backup-watch"
 label = "backup watch (GitHub)"
 kind = "platform"
