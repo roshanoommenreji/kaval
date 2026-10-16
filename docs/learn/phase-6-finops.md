@@ -2,7 +2,7 @@
 
 > **Written from:** theory
 > **Lab:** to be written
-> **Cost:** posture changes to **always-on**, ~$14/mo — this phase requires it
+> **Cost:** posture changes to **always-on**, about $39 a month expected (worst case about $42), from the itemised table in `docs/cost/budget-plan.md`; the $140 of credits covers roughly three and a half months of it
 
 ## Where this sits
 

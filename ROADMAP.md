@@ -193,8 +193,8 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] The safe way to remove waste, as practised in industry: tag it, stop it, wait a grace period, snapshot, only then delete; every action reversible or snapshotted first, with a dry-run preview in the proposal
 - [ ] Tag policy enforced (required keys on every resource) and a show-back report by service/environment
 - [ ] Savings tracked: proposed vs realised, so the phase can show money actually saved
-- [ ] Re-do the cost model for "always-on" (the $50 ceiling was set for a parked system): a new ADR and budget-plan update **before** switching the posture
-- [ ] Compare against AWS Cost Anomaly Detection (what most teams switch on first) and record what Kaval adds beyond it
+- [x] Re-do the cost model for "always-on" (the $50 ceiling was set for a parked system): a new ADR and budget-plan update **before** switching the posture (`KAV-91`, [ADR-0059](docs/adr/0059-always-on-cost-model-and-measuring-usage-before-credits.md): about $39 a month expected; found that the budget counts usage after credits, so its alerts would not fire; credits cover about three and a half months of always-on)
+- [x] Compare against AWS Cost Anomaly Detection (what most teams switch on first) and record what Kaval adds beyond it (`KAV-91`, ADR-0059: it finds changes, Kaval finds waste that never changes, then proposes and acts through approval; turning it on as a second opinion happens in `KAV-92`)
 - [ ] `docs/learn/phase-6-finops.md` — flip **Written from** to `experience`
 
 **Exit gate:** the agent finds real waste in your own account and you approve the fix.

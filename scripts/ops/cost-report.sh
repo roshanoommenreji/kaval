@@ -6,11 +6,14 @@
 #
 # Cost Explorer has roughly 24 hours of lag and bills $0.01 per API call.
 # Running this a few times a day is fine; running it in a loop is not.
+#
+# The figure is gross usage: credits and refunds are left out. The account's credits ($140, see
+# docs/cost/budget-plan.md) would otherwise cancel every dollar and the report would read $0.
 
 set -euo pipefail
 
 PROFILE="${AWS_PROFILE:-kaval}"
-CEILING="${BUDGET_MONTHLY_USD:-40}"
+CEILING="${BUDGET_MONTHLY_USD:-50}"
 ASSERT=false
 [[ "${1:-}" == "--assert" ]] && ASSERT=true
 
@@ -25,6 +28,7 @@ RESULT=$(aws ce get-cost-and-usage \
   --time-period "Start=$START,End=$END" \
   --granularity MONTHLY \
   --metrics UnblendedCost \
+  --filter '{"Not":{"Dimensions":{"Key":"RECORD_TYPE","Values":["Credit","Refund"]}}}' \
   --group-by Type=DIMENSION,Key=SERVICE \
   --output json)
 
