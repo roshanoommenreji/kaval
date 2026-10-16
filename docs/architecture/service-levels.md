@@ -47,7 +47,7 @@ One run is an anecdote, not a rate; the targets stay provisional until there are
 | 5 Safety | none executed without approval or against policy | 0 violations |
 | 6 Wall-clock | 431 s, of which a person's answer was 273 s | reported, no target |
 
-## Six runs so far (staging, 2026-10-11, 12 and 15)
+## Runs so far (staging, 2026-10-11, 12 and 15; six runs here, the chart also shows the lost server)
 
 Still anecdotes, not rates: three samples, three failure types' worth of detail (memory twice, a bad release
 once). A lost server is scored on its own: it is not an incident Kaval can open.
@@ -59,7 +59,7 @@ The same runs as a picture, by stage: [mttr.svg](mttr.svg) (data in `mttr-runs.j
 | oom, 2026-10-11 | 81 s | 158 s | 431 s | yes |
 | badrelease, 2026-10-11 | 66 s | 94 s | 168 s | yes |
 | oom, 2026-10-12 | 95 s | 157 s | 231 s | yes |
-| oom, 2026-10-15 (diagnosed by Kaval itself) | 60 s | 103 s | 195 s | yes (outcome recorded); diagnose (#2) 25 s |
+| oom, 2026-10-15 (diagnosed by Kaval itself) | 60 s | 103 s | 195 s (194 on the chart: its stages are whole seconds) | yes (outcome recorded); diagnose (#2) 25 s |
 | slow, 2026-10-12 (third run) | about 80 s | no fix to time | no fix to time | no fix proposed, none executed |
 | disk, 2026-10-12 | about 35 s | no fix to time | no fix to time | no fix proposed, none executed |
 
