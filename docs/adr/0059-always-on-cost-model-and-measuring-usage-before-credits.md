@@ -1,6 +1,6 @@
 # ADR-0059 — Production runs always-on from Phase 6, built in-house, and the money is measured before credits
 
-- **Status:** Accepted for decisions 1, 2, 4 and 5; decision 3 (the budget counts usage before credits) is **Proposed**: it changes the live budget, so it waits for Roshan's go and a plan shown first
+- **Status:** Accepted for decisions 1, 2, 4 and 5; decision 3 (the budget counts usage before credits) was applied to the live budget on 2026-10-16 after its plan was shown and Roshan said go
 - **Date:** 2026-10-16
 - **Deciders:** Roshan
 - **Story:** `KAV-91` (Phase 6) · follows [ADR-0028](0028-prod-app-node-on-demand-and-ceiling-50.md) (the $50 ceiling) and [ADR-0008](0008-production-database-on-its-own-server.md) · cost detail in [budget-plan.md](../cost/budget-plan.md)
@@ -60,11 +60,13 @@ step) and what each caught is recorded.
    about 35 expected).** One request per day for the breakdown by service, a small number for tags and for reports.
    The cap is a test, and a failed or missing daily pull raises its own alarm (an unread bill must not look like a
    quiet one). Its login is read-only and separate from the executor's.
-3. **(Proposed) The budget and the report count usage before credits.** `kaval-monthly` is changed to leave credits
+3. **The budget and the report count usage before credits.** `kaval-monthly` is changed to leave credits
    and refunds out (`include_credit = false`, `include_refund = false`), so $42, $46 and $48 mean $42, $46 and $48 of
    usage, as the ceiling always meant, and the credits last as long as possible. `make cost-report` already does this
-   (changed in this story). No cost. The budget is a live resource, so the change is shown as a plan and applied only
-   on Roshan's go; `KAV-96` (arming the hard stop) cannot be finished without it.
+   (changed in this story). No cost. The budget is a live resource, so the change was shown as a plan (0 to add, 1 to change, 0 to destroy,
+   targeted at the budget only) and applied on Roshan's go. Read back afterwards: `IncludeCredit` and `IncludeRefund`
+   false, actual spend $6.412 of $50 (it read $0.00 before), and a second plan said No changes. `KAV-96`
+   (arming the hard stop) builds on it.
 4. **Build it, and run AWS's monitor alongside.** Not buying a tool; not relying on the anomaly monitor alone.
 5. **Kaval acts only on Kaval's own things.** Every cost proposal is limited to resources carrying Kaval's project tag.
    `stock-trader` and anything else in the account is read and reported on, never proposed for change.
