@@ -12,7 +12,7 @@
 
 # ── Stage 1: turn uv.lock into a hash-pinned requirements file ──────────────
 # uv only lives in this stage; the final image installs with plain pip.
-FROM ghcr.io/astral-sh/uv:0.13.0@sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336 AS uv
 FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89 AS lock
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
