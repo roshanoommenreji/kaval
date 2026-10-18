@@ -29,9 +29,10 @@ import argparse
 import os
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from kaval_agent import policy as policy_mod
 from kaval_shared import health, metrics
@@ -40,7 +41,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from kaval_executor import __version__, k8s, verify
+from kaval_executor import __version__, k8s, removal, verify
 from kaval_executor.redact import redact
 
 _APPROVED_VERDICTS = {Verdict.approved, Verdict.auto_approved}
@@ -106,6 +107,12 @@ def _refusal(action: Action, fresh: PolicyClass, now: datetime) -> str | None:
             f"{action.policy_class.value})")
 
 
+def _core_v1() -> Any:
+    from kubernetes import client
+
+    return client.CoreV1Api()
+
+
 def execute_one(session: Session, action: Action, *, now: datetime | None = None) -> Executed:
     now = now or datetime.now(UTC)
     fresh = policy_mod.classify(
@@ -118,7 +125,19 @@ def execute_one(session: Session, action: Action, *, now: datetime | None = None
         return _record(session, action, ExecutionStatus.skipped, f"refused: {reason}",
                        started=now, finished=now)
 
-    handler = k8s.SUPPORTED_ACTIONS.get(action.type)
+    handler: Callable[[str], tuple[dict[str, Any], dict[str, Any], str]] | None
+    if action.type in removal.ORDER_STEPS:
+        # KAV-95: a removal is an order handed to the worker, never a cluster call. Its extra
+        # conditions are checked here, after the policy and the approval above, never instead.
+        if (reason := removal.refusal(action)) is not None:
+            return _record(session, action, ExecutionStatus.skipped, f"refused: {reason}",
+                           started=now, finished=now)
+        handler = lambda _target: removal.hand_over(  # noqa: E731
+            action, v1=_core_v1(), namespace=os.environ["KAVAL_NAMESPACE"],
+            configmap=os.environ["KAVAL_REMOVAL_ORDERS"],
+        )
+    else:
+        handler = k8s.SUPPORTED_ACTIONS.get(action.type)
     if handler is None:
         return _record(
             session, action, ExecutionStatus.skipped,
