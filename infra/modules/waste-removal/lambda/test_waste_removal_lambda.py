@@ -94,8 +94,16 @@ def decide(
     enabled: bool = True,
     env: str = "staging",
     grace: float = GRACE,
+    sibling: bool = True,
 ) -> w.Decision:
-    return w.decide(o, volumes, snaps or [], NOW, env, grace, enabled)
+    """`sibling`: a snapshot order gets a younger copy of the same disk unless a test is about
+    exactly the case where there is none (the newest copy is never removed)."""
+    snaps = list(snaps or [])
+    if sibling and o["step"] == "delete_snapshot":
+        for s in list(snaps):
+            if s["SnapshotId"] == o["target"] and s.get("VolumeId"):
+                snaps.append(copy("snap-0fff1111eeee2222", age_days=0.5, volume=s["VolumeId"]))
+    return w.decide(o, volumes, snaps, NOW, env, grace, enabled)
 
 
 # ── the one case that acts, and each step ───────────────────────────────────────────────────────
@@ -232,9 +240,15 @@ def test_each_class_has_its_own_limit() -> None:
 def test_the_newest_copy_of_a_disk_that_still_exists_is_never_deleted() -> None:
     live = {"VolumeId": "vol-0src00011111", "State": "in-use", "Attachments": [], "Tags": tags()}
     s = copy(age_days=400)
-    assert decide(order("delete_snapshot", SID), [live], [s]).reason == "newest_copy"
+    assert decide(order("delete_snapshot", SID), [live], [s], sibling=False).reason == "newest_copy"
     newer = copy("snap-0fff1111eeee2222", age_days=5)
     assert decide(order("delete_snapshot", SID), [live], [s, newer]).reason == "ok"
+
+
+def test_the_newest_copy_of_a_disk_that_is_gone_is_still_protected_like_the_scan_does() -> None:
+    """Never more permissive than the scan: a pre-stop copy of a replaced disk stays."""
+    s = copy(age_days=400, ManagedBy="kaval-lambda", volume="vol-0gone0001111")
+    assert decide(order("delete_snapshot", SID), [], [s], sibling=False).reason == "newest_copy"
 
 
 def test_a_removals_own_backup_of_a_deleted_disk_expires_like_any_copy() -> None:
@@ -250,7 +264,7 @@ def test_a_removals_backup_of_a_disk_that_still_exists_is_still_protected_as_the
 ):
     live = vol(VID)
     b = copy(age_days=31, ManagedBy="kaval-lambda", volume=VID, **{w.BACKUP_TAG: VID})
-    assert decide(order("delete_snapshot", SID), [live], [b]).reason == "newest_copy"
+    assert decide(order("delete_snapshot", SID), [live], [b], sibling=False).reason == "newest_copy"
 
 
 @pytest.mark.parametrize(

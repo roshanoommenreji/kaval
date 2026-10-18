@@ -258,7 +258,7 @@ def _decide_snapshot(
     # own backup of a disk that is gone is the exception (ADR-0063 decision 9): it expires like
     # any copy.
     removal_backup = bool(tags.get(BACKUP_TAG)) and tags[BACKUP_TAG] not in live
-    if not removal_backup and source in live:
+    if not removal_backup:
         at = _utc(snap["StartTime"])
         newer = [s for s in snapshots if s.get("VolumeId") == source and _utc(s["StartTime"]) > at]
         if not newer:
