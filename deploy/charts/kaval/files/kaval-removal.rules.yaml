@@ -1,0 +1,24 @@
+# Prometheus rules for safe removal (KAV-95, ADR-0063). A file of its own, loaded only where
+# `removal.enabled` is on. The pod that reads the worker's answers is the cost reader's, so "the pod
+# is gone" is already `KavalCostReaderMissing` and is not repeated here. Like the other files, the
+# collector's poller turns a firing alert into a signal and a person is told straight from it.
+#
+# A removal that FAILED or was REFUSED is not here: it is a `removal_failed` signal, an incident
+# for a person that is told straight from the signals (kaval_shared.health). This file is for the
+# case no signal can describe: an approved order that nothing ever answered.
+# Tested with promtool: deploy/charts/kaval/tests/kaval-removal.test.yaml (make rules-test).
+groups:
+  - name: kaval-removal
+    rules:
+      # The oldest order the executor handed over has no answer from the worker after six hours. The
+      # server's copy runs every three hours, so one missed copy is not worth a message; two are.
+      # Something between the executor and the worker is broken (the server's timer, the right to
+      # write the parameter, the worker itself), and an approved removal is sitting there.
+      - alert: KavalRemovalOrderUnanswered
+        expr: >-
+          label_replace(kaval_removal_oldest_unanswered_order_seconds{job="kaval-collector-cost"} > 21600,
+                        "service", "collector-cost", "", "")
+        for: 5m
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: An approved removal order has had no answer from the worker for over six hours.
