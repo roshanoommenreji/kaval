@@ -113,6 +113,10 @@ def _snapshot_data_volumes(ec2, instance_ids):
                             {"Key": "Name", "Value": "kaval-hard-stop-pre-stop"},
                             {"Key": "Reason", "Value": "pre-stop"},
                             {"Key": "Project", "Value": TAG_VALUE},
+                            # Env comes from the disk being copied; "unknown" is a value the
+                            # tag scan reports, which is better than guessing (ADR-0061).
+                            {"Key": "Env", "Value": _tag(volume, "Env") or "unknown"},
+                            {"Key": "ManagedBy", "Value": "kaval-lambda"},
                             {"Key": "Role", "Value": DATA_VOLUME_ROLE_TAG},
                         ],
                     }],
@@ -126,6 +130,10 @@ def _snapshot_data_volumes(ec2, instance_ids):
                 log.exception("Snapshot of %s failed -- stopping %s anyway.", volume["VolumeId"], instance_id)
 
     return snapshot_ids
+
+
+def _tag(resource, key):
+    return next((t["Value"] for t in resource.get("Tags", []) if t["Key"] == key), None)
 
 
 def _stop_tagged_instances():

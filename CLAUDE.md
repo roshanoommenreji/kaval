@@ -189,6 +189,8 @@ make lock          # after editing pyproject.toml's dependencies; commit uv.lock
 make up            # provision the AWS node (~5 min, starts billing)
 make down          # destroy the node, keep state (~$2/mo)
 make cost-report   # current month-to-date spend
+make tag-scan      # read-only: Kaval resources in the live account missing Project/Env/ManagedBy (KAV-93)
+make cost-showback [MONTH=2026-10]  # the month's bill by AWS service and environment -> docs/cost/showback-<month>.md, $0.01 (KAV-93)
 make devbox-up     # start the AWS dev server (ADR-0007); it stops itself after 1 h idle
 make devbox-down   # stop it now
 make migrate       # apply database migrations

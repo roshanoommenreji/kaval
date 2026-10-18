@@ -75,6 +75,7 @@ make lint          # ruff + mypy, the same target CI runs
 make sync          # install exactly what uv.lock pins into .venv
 make lock          # after editing pyproject.toml's dependencies; commit uv.lock with it
 make cost-report   # what AWS is charging right now
+make tag-scan      # read-only: which Kaval resources in the account are missing a required tag
 ```
 
 See [docs/00-start-here.md](docs/00-start-here.md) before touching anything.

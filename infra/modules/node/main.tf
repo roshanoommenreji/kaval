@@ -36,6 +36,15 @@ resource "aws_security_group" "node" {
   tags = { Name = "${var.name_prefix}-node" }
 }
 
+locals {
+  # ADR-0061: every Kaval resource carries these three. Env is the part of the name after "kaval-".
+  required_tags = {
+    Project   = "kaval"
+    Env       = trimprefix(var.name_prefix, "kaval-")
+    ManagedBy = "terraform"
+  }
+}
+
 resource "aws_launch_template" "node" {
   name_prefix   = "${var.name_prefix}-"
   image_id      = data.aws_ssm_parameter.al2023_arm64.insecure_value
@@ -90,9 +99,17 @@ resource "aws_launch_template" "node" {
     gitops_env         = trimprefix(var.name_prefix, "kaval-") # "prod" / "staging": the deploy/gitops/<this> directory
   }))
 
+  # The three required tags (ADR-0061) have to be written here because Terraform's provider-wide
+  # default tags do not reach what an Auto Scaling group launches. Found 2026-10-18: the live
+  # staging server carried only Name and Project, and its disk carried nothing.
   tag_specifications {
     resource_type = "instance"
-    tags          = { Name = var.name_prefix }
+    tags          = merge(local.required_tags, { Name = var.name_prefix })
+  }
+
+  tag_specifications {
+    resource_type = "volume"
+    tags          = merge(local.required_tags, { Name = "${var.name_prefix}-root" })
   }
 
   # A newer AMI or an edited script must not silently replace a running node mid-release.
@@ -126,9 +143,12 @@ resource "aws_autoscaling_group" "node" {
     propagate_at_launch = true
   }
 
-  tag {
-    key                 = "Project"
-    value               = "kaval"
-    propagate_at_launch = true
+  dynamic "tag" {
+    for_each = local.required_tags
+    content {
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = true
+    }
   }
 }

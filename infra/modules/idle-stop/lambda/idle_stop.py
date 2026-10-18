@@ -206,6 +206,7 @@ def _snapshot_data_volumes(ec2: Any, instance_ids: list[str]) -> list[str]:
                             {"Key": "Reason", "Value": "pre-stop"},
                             {"Key": "Project", "Value": "kaval"},
                             {"Key": "Env", "Value": "staging"},
+                            {"Key": "ManagedBy", "Value": "kaval-lambda"},
                             {"Key": "Role", "Value": DATA_VOLUME_ROLE_TAG},
                         ],
                     }],
