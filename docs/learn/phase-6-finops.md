@@ -85,10 +85,20 @@ A **tag** is a key-value pair on a resource. Cost allocation tags must be **acti
 billing console before they appear in cost data — a step people miss, then wonder why grouping by
 tag returns nothing.
 
-The critical property: **tagging is not retroactive.** Activate a tag today and you get tag-grouped
-data from today. Historical spend stays unattributed forever. This is why a tagging strategy has
-to exist before the resources do, and why this project has `Project`, `ManagedBy` and `Purpose`
+The critical property: **tagging is not retroactive on the resource.** Activate a tag today and you get
+tag-grouped data from today; to see earlier months, AWS has a backfill request (up to 12 months, once per 24
+hours), but it can only attribute spend to resources that carried the tag *at the time*. Anything created
+without it stays unattributed forever. (An earlier version of this page said history could never be recovered;
+that stopped being true when AWS added the backfill, found while building `KAV-93`.) This is why a tagging
+strategy has to exist before the resources do, and why this project has `Project`, `Env` and `ManagedBy`
 tags in the Terraform default tags from Phase 0.
+
+Two things only experience teaches, both found in this project's own account (`KAV-93`,
+[ADR-0061](../adr/0061-every-resource-carries-three-tags-and-the-bill-is-split-by-them.md)): labelling the resources is not enough, because **a tag must also be
+activated as a cost allocation tag in Billing** (only `Project` was, so the bill could not be split by
+environment); and **default tags do not reach everything**: servers an Auto Scaling group launches, and
+snapshots a job creates, are labelled by whatever code makes them. The remedy is two checks, one before
+building (the code) and one after (a scan of the live account).
 
 A workable minimum for any account:
 
