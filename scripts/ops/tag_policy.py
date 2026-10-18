@@ -101,7 +101,7 @@ def node_problems(node_tf: str) -> list[str]:
 
 def job_problems(name: str, source: str) -> list[str]:
     """A Kaval job that makes snapshots: the snapshot's tag list must name every required key."""
-    spec = re.search(r"TagSpecifications=\[\{(.*?)\}\],?\s*\n\s*\)", source, re.S)
+    spec = re.search(r"TagSpecifications=\[\s*\{(.*?)\}\s*\],?\s*\n\s*\)", source, re.S)
     if not spec:
         return [f"{name}: no TagSpecifications on its snapshot (the snapshot would be unlabelled)"]
     return [
@@ -123,6 +123,7 @@ def repo_problems(root: Path = ROOT) -> list[str]:
     for name, rel in (
         ("idle_stop", "infra/modules/idle-stop/lambda/idle_stop.py"),
         ("hard_stop", "infra/modules/budget/lambda/hard_stop.py"),
+        ("waste_removal", "infra/modules/waste-removal/lambda/waste_removal.py"),
     ):
         problems += job_problems(name, (root / rel).read_text(encoding="utf-8"))
     return problems
