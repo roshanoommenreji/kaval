@@ -88,15 +88,20 @@ The ratio-only rule (three times the median of the week before) flagged small mo
 pytest services/collector/tests/test_cost_explorer.py -k "real_bill or real_spike" -v
 ```
 
-## Part 4 — Live on staging (pending)
+## Part 4 — Live on staging
 
-Written when it is done. The plan, in order:
+Steps 1 and 2 done 2026-10-18; the rest is written as it is done. The plan, in order:
 
-1. **The login.** `bash scripts/ops/tf-init.sh staging`, `terraform plan` in `infra/envs/staging` (expected: the role,
-   its permission, the server's right to borrow it, and the server's launch template), shown first, applied on a go.
-2. **Prove the login can read costs and nothing else.** `aws iam simulate-principal-policy` against the role: allowed
-   `ce:GetCostAndUsage`; denied a sample of writes and reads (`s3:PutObject`, `ec2:TerminateInstances`,
-   `ssm:GetParameter`, `iam:CreateUser`, `ce:CreateAnomalyMonitor`).
+1. **The login.** `bash scripts/ops/tf-init.sh staging`, `terraform plan` in `infra/envs/staging`, shown first, applied on a go.
+   Seen: **3 to add** (the role, its one permission, the server's right to borrow it), **2 to change in place** (the app-server
+   group and its launch template, which carries the new job and also moves to a newer Amazon Linux image), **0 to destroy**;
+   applied, then a second plan said *No changes*. Staging was parked, so no running server was touched.
+2. **Prove the login can read costs and nothing else.** `aws iam simulate-principal-policy` against the role. Seen: of 14
+   actions, `ce:GetCostAndUsage` **allowed** and the other 13 `implicitDeny`: `s3:PutObject`, `s3:GetObject`,
+   `ec2:TerminateInstances`, `ec2:RunInstances`, `ec2:DeleteVolume`, `ssm:GetParameter`, `ssm:PutParameter`,
+   `iam:CreateUser`, `iam:PassRole`, `sts:AssumeRole`, `ce:CreateAnomalyMonitor`, `budgets:ModifyBudget`,
+   `lambda:InvokeFunction`. Read back: the trust names only `kaval-staging-node`, the role has one inline policy
+   (`read-costs`) and none attached, and the server's role may `sts:AssumeRole` on this role only.
 3. **The code.** Pull request, CI green, merged; the release workflow builds the images and opens a staging pin; merged.
 4. **Switch it on.** `costReader.enabled: true` in staging's two settings files, merged; `make staging-up`.
 5. **Watch one pull.** The timer fires 8 minutes after start; the ConfigMap holds `status ok`; `signal` rows appear
@@ -117,7 +122,7 @@ At production's bring-up, with its own plan shown first and the `KAV-90` checks 
 - [x] The reader's code, the server's script, the chart part, three alarms and the Terraform login all written, with the
       refusal cases tested
 - [x] The spike rule proven quiet on this account's real fortnight and loud on a real spike
-- [ ] The login applied on staging and shown unable to do anything but read costs
+- [x] The login applied on staging and shown unable to do anything but read costs (simulation, 2026-10-18)
 - [ ] One real pull on staging, signals in the table, the pod's memory measured
 - [ ] A capped pull makes the alarm number go to 1 on staging
 - [ ] Production, at its bring-up

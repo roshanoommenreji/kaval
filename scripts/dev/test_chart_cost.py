@@ -1,8 +1,8 @@
 """The cost reader in the chart (KAV-92, ADR-0060): absent where not switched on, narrow where present.
 
-Renders the real chart with `helm template`, so it needs helm; without it the tests skip. The reader
-is switched on with `--set` here because no environment's own file turns it on yet: staging does
-after the build that contains it has been pinned, production at its next bring-up."""
+Renders the real chart with `helm template`, so it needs helm; without it the tests skip. Staging's own
+file switches the reader on (once the build containing it was pinned); production's does at its next
+bring-up, so until then production must render none of it."""
 
 from __future__ import annotations
 
@@ -41,10 +41,8 @@ def _find(docs: list[str], kind: str, name: str) -> str:
     raise AssertionError(f"no {kind} named {name}")
 
 
-@pytest.mark.parametrize("env", ["local", "staging", "prod"])
+@pytest.mark.parametrize("env", ["local", "prod"])
 def test_where_it_is_not_switched_on_nothing_of_it_is_rendered(env: str) -> None:
-    if env == "staging":
-        pytest.skip("staging turns it on in the follow-up change, once the build is pinned")
     text = "\n".join(_render(env))
     assert "collector-cost" not in text and "cost-pull" not in text
     assert "kaval-cost.rules" not in text
@@ -105,8 +103,14 @@ def test_it_is_watched_and_its_alarm_is_loaded() -> None:
         assert alert in text
 
 
+def test_staging_runs_the_reader_by_its_own_settings() -> None:
+    docs = _render("staging")
+    _find(docs, "Deployment", "kaval-staging-collector-cost")
+    assert "kaval-cost.rules.yaml" in "\n".join(docs)
+
+
 def test_the_alarm_is_not_loaded_where_the_reader_is_not() -> None:
-    assert "kaval-cost.rules" not in "\n".join(_render("staging"))
+    assert "kaval-cost.rules" not in "\n".join(_render("prod"))
 
 
 def test_a_reader_without_prometheus_is_refused_at_render_time() -> None:

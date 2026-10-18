@@ -90,3 +90,9 @@ ollama:
   enabled: true
 diagnoser:
   enabled: true
+
+# The cost reader's cluster half (KAV-92, ADR-0060): reads the AWS bill the server's daily job leaves in
+# one ConfigMap and writes cost signals. On here first, once the build that contains it was pinned
+# (the pod would not start before). Production turns it on at its bring-up. See `costReader:` in values.yaml.
+costReader:
+  enabled: true
