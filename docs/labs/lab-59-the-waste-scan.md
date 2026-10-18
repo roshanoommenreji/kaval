@@ -76,25 +76,31 @@ means no read; the read uses the server's own login, never the cost reader's bor
 
 ## Part 5 — Staging: apply, switch on, prove
 
-- [ ] `terraform plan` in `infra/envs/staging` (expect: the function, its role, its schedule and log group, the
-  parameter, and one changed policy on the server's role), read and applied on the owner's go
-- [ ] The build containing the reader is pinned in staging (done 2026-10-18, `sha-d7b274d`, PR #202), then
+- [x] `terraform plan` in `infra/envs/staging` (expect: the function, its role, its schedule and log group, the
+  parameter, and one changed policy on the server's role), read and applied on the owner's go (2026-10-18: 9 added, 3 changed, 0 destroyed; a second plan said No changes)
+- [x] The build containing the reader is pinned in staging (done 2026-10-18, `sha-d7b274d`, PR #202), then
   `costReader.wasteScan.enabled: true` is set in staging's values (a second change, `KAV-94` staging-on PR; an older
   image would not start with the new argument). Merge it only after the apply and a fresh launch, because the server
   gets the copy step with the next launch and until then the reader would report the hand-over as missing
-- [ ] `aws lambda invoke --function-name kaval-staging-waste-scan /dev/null` writes `status: ok`; the pod's log shows
-  `nothing new`; `kaval_waste_scan_failing` is 0
-- [ ] Memory of the cost reader pod before and after, measured (`kubectl top pod`; the limit is 128 MiB, it ran at 86)
+- [x] `aws lambda invoke --function-name kaval-staging-waste-scan /dev/null` writes `status: ok`; the pod's log shows
+  `nothing new`; `kaval_waste_scan_failing` is 0 (first scan 2026-10-18 16:51 UTC: ok, 0 findings; the server's own
+  timer copied it into the cluster by itself)
+- [x] Memory of the cost reader pod before and after, measured (`kubectl top pod`; the limit is 128 MiB, it ran at 86):
+  84 MiB with the waste reading on
 
 ## Part 6 — Plant waste, find it, remove it, find nothing
 
 On the owner's go, with a separate go for the removal:
 
-- [ ] Create a 1 GiB disk labelled `Project=kaval Env=staging ManagedBy=manual`, attached to nothing
-- [ ] Run the function twice (the first only remembers it). Expect an incident named `idle_volume:aws:ebs/vol-…`
+- [x] Create a 1 GiB disk labelled `Project=kaval Env=staging ManagedBy=manual`, attached to nothing (2026-10-18, $0.09 a month)
+- [x] Run the function twice (the first only remembers it). Expect an incident named `idle_volume:aws:ebs/vol-…`
+  (proved: scan 1 listed it only under `candidates`; scan 2 reported it; after the server's timer ran, the cost reader
+  wrote one signal about two minutes later and the correlator opened `idle_volume:aws:ebs/vol-…`, low. Seen: the report
+  says `days_unattached: 1` for a disk seconds old, because it counts the calendar day it was first seen)
 - [ ] A 13-hour-old staging server, if one is up, shows as `server_overstay`; a deliberately unlabelled test resource
   shows as `resource_unlabelled`
-- [ ] Delete the disk. Run the function again: no finding. The incident closes 48 hours later by itself
+- [x] Delete the disk. Run the function again: no finding (proved 2026-10-18: `findings: []`, `candidates: {}`, copied
+  into the cluster). The incident closes 48 hours later by itself (to be seen on 2026-10-20)
 - [ ] The negative checks: another project's resources and production servers are never in the output
 
 ## Part 7 — Failure is loud
