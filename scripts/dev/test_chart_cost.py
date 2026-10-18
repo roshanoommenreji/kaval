@@ -58,7 +58,9 @@ def test_switched_on_it_is_a_deployment_a_role_and_a_scrape_target() -> None:
 
 
 def test_it_may_get_one_configmap_by_name_and_nothing_else() -> None:
-    role = _find(_render("staging", *ON), "Role", "kaval-staging-cost")
+    # without the waste scan (staging switches it on too, KAV-94); the two-name case is below
+    role = _find(_render("staging", *ON, "--set", "costReader.wasteScan.enabled=false"),
+                 "Role", "kaval-staging-cost")
     assert re.findall(r"(?m)^\s+verbs: \[(.*)\]$", role) == ['"get"']
     assert re.findall(r"(?m)^\s+resources: \[(.*)\]$", role) == ['"configmaps"']
     assert "resourceNames: [kaval-staging-cost-pull]" in role

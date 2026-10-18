@@ -96,3 +96,7 @@ diagnoser:
 # (the pod would not start before). Production turns it on at its bring-up. See `costReader:` in values.yaml.
 costReader:
   enabled: true
+  # The same pod also reads the daily waste scan (KAV-94, ADR-0062). On once the build that contains the
+  # reader is pinned (sha-d7b274d) and the server's copy step exists (it arrives with the next launch).
+  wasteScan:
+    enabled: true
