@@ -1,7 +1,8 @@
 # ADR-0060 — The cost reader: the server asks AWS for the bill, the cluster never holds an AWS login
 
-- **Status:** Accepted. Built and tested on the laptop; the live proof on staging and production is recorded in
-  [Lab 57](../labs/lab-57-the-cost-reader.md) as it happens
+- **Status:** Accepted. Built, tested, and proven live on staging 2026-10-18 (65 rows from one real request, a capped
+  pull refused and alarmed, recovered by itself, no duplicates); production at its next bring-up. Recorded in
+  [Lab 57](../labs/lab-57-the-cost-reader.md)
 - **Date:** 2026-10-18
 - **Deciders:** Roshan
 - **Story:** `KAV-92` (Phase 6) · builds on [ADR-0059](0059-always-on-cost-model-and-measuring-usage-before-credits.md)
@@ -76,7 +77,8 @@ Three facts from the recorded bill (pulled 2026-10-18, 14 days, Lab 57) shaped t
 - **Cost:** about 31 requests a month, **$0.31**, at most $0.60. No new server, no new managed service. The reader's
   own requests appear in the bill as "AWS Cost Explorer" (10 cents on 2026-10-16 from the tests that built this),
   which is how a runaway would show.
-- **Memory:** one small pod, limited to 128 MB, measured on staging (Lab 57).
+- **Memory:** one small pod, limited to 128 MB; measured on staging at **86 MiB** in use, with 1,916 MB of the server's
+  3,829 MB still available.
 - **Size limit:** the node's start-up script grew by about 3 KB. Packed, it is now about 15.3 KB of the 16 KB the
   server allows; a test fails before the next addition does.
 - **A rebuilt server counts requests again from zero** (decision 3). Accepted.
