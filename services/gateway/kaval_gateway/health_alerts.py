@@ -46,6 +46,8 @@ _RUNBOOKS = {
     "KavalCostPullFailing": "docs/runbooks/cost-reader-not-pulling.md",
     "KavalCostPullStale": "docs/runbooks/cost-reader-not-pulling.md",
     "KavalCostReaderMissing": "docs/runbooks/cost-reader-not-pulling.md",
+    "KavalWasteScanFailing": "docs/runbooks/waste-scan-not-running.md",
+    "KavalWasteScanStale": "docs/runbooks/waste-scan-not-running.md",
 }
 
 _WORDS = {
@@ -58,6 +60,8 @@ _WORDS = {
     "KavalCostPullFailing": "cannot read the AWS bill: the daily cost pull keeps failing",
     "KavalCostPullStale": "has had no good AWS bill for over 36 hours",
     "KavalCostReaderMissing": "is not running, so the AWS bill is not being read",
+    "KavalWasteScanFailing": "cannot read the daily waste scan: it keeps failing",
+    "KavalWasteScanStale": "has had no good waste scan for over 36 hours",
     "disk_near_full": "the app server's disk is nearly full",
     "service_slow": "is answering slowly (or not in time)",
 }

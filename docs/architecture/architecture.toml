@@ -52,6 +52,18 @@ inputs = ["Account billing data"]
 outputs = ["Daily cost grouped by service and tag"]
 note = "Daily granularity, ~24 h lag, and $0.01 per API call. This is why the FinOps phase needs the node always-on, and why nothing polls it in a loop. Asked once a day (KAV-92, ADR-0060) by a job on the server that borrows a separate role allowed to do one thing, read costs; the newest day is always partial, so only days at least two old are recorded."
 
+[[system.node]]
+id = "waste-scan"
+label = "waste scan (daily)"
+kind = "source"
+phase = 6
+col = 2
+row = 0
+credentials = "read-only IAM · four ec2:Describe* calls, and write of ONE parameter (its own findings). Cannot stop, delete, detach, snapshot or label anything"
+inputs = ["The account's servers, disks, fixed addresses and snapshots (read-only)", "Its own last result (the two-scan rule)"]
+outputs = ["One parameter: up to 25 findings (unattached disk or address, backup copy past its retention, staging server left running, resource missing its labels)"]
+note = "KAV-94, ADR-0062. A small function on a daily schedule of its own, so it still runs while production is parked. It finds and reports; removing anything is KAV-95. A disk or address must be seen unattached on two scans in a row before it is reported. The newest copy of a disk is never flagged, production servers are never flagged for running, another project's resources are counted and left alone. Only ids, sizes, dates and fixed words are written, never tag text."
+
 # ── row 1: ingest ──────────────────────────────────────────────────────
 
 [[system.node]]
@@ -62,10 +74,10 @@ phase = 6
 col = 3
 row = 1
 credentials = "NO AWS login in the cluster. The server's own job borrows a read-only role (ce:GetCostAndUsage, nothing else); this pod may get ONE named ConfigMap. Database role: the collector's"
-inputs = ["The bill the server's daily job leaves in one ConfigMap (14 days, by service)"]
-outputs = ["daily_cost signal rows — one per service per settled day, written once"]
+inputs = ["The bill the server's daily job leaves in one ConfigMap (14 days, by service)", "The waste scan's findings, copied by the same job into a second ConfigMap (KAV-94)"]
+outputs = ["daily_cost signal rows — one per service per settled day, written once", "One signal per waste finding per daily scan (volume_unattached, address_unattached, snapshot_past_retention, server_overstay, resource_unlabelled), rebuilt from a whitelist"]
 tables = ["signal"]
-note = "KAV-92, ADR-0060. Two halves on purpose: kaval-cost-pull on the server (timer every 3 h, but a good answer under 20 h old means no request, so about one a day; a hard cap of 60 a month, counted before each request; only a fixed reason word is ever passed on) and this pod, which turns the answer into signals the existing cost-spike rule reads. Three alarms tell a person: the pull failing for 4 hours, no good pull for 36 hours, no reader running. Switched on by one values-file line."
+note = "KAV-92, ADR-0060. Two halves on purpose: kaval-cost-pull on the server (timer every 3 h, but a good answer under 20 h old means no request, so about one a day; a hard cap of 60 a month, counted before each request; only a fixed reason word is ever passed on) and this pod, which turns the answer into signals the existing cost-spike rule reads. Three alarms tell a person: the pull failing for 4 hours, no good pull for 36 hours, no reader running. Switched on by one values-file line. KAV-94 adds the waste scan's reading to the same pod (no new pod): a second ConfigMap it may get by name, and two more alarms (scan failing for 4 hours, no good scan for 36 hours)."
 
 [[system.node]]
 id = "collector"
@@ -441,6 +453,11 @@ label = "daily bill (read-only role, via the server's job)"
 from = "cost-reader"
 to = "db"
 label = "INSERT daily_cost signals"
+
+[[system.edge]]
+from = "waste-scan"
+to = "cost-reader"
+label = "findings (a parameter, copied into the cluster by the server's job)"
 
 [[system.edge]]
 from = "synthetic"

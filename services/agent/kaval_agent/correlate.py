@@ -74,6 +74,8 @@ LOCK_KEY = 0x4B41564C_0001  # "KAVL", lock 1
 
 _SEVERITY_ORDER = [Severity.low, Severity.medium, Severity.high, Severity.critical]
 _ALERT_SEVERITY = {"critical": Severity.high, "warning": Severity.medium}
+# The waste scan's findings (KAV-94) are low unless a server is left running (billed by the hour).
+_WASTE_SEVERITY = {"server_overstay": Severity.medium}
 
 # Kubernetes pod names: <workload>-<replicaset hash>-<pod hash> for a Deployment,
 # <workload>-<pod hash> for a DaemonSet, <workload>-<ordinal> for a StatefulSet. The hashes
@@ -137,6 +139,8 @@ def cause_of(signal: Signal, spikes: set[uuid.UUID]) -> Cause | None:
     # KAV-81, ADR-0047: both are for a person (kaval_shared.health); the table names the cause.
     if kind in health.PEOPLE_ONLY_SIGNALS:
         name = health.PEOPLE_ONLY_SIGNALS[kind]
+        if kind in health.WASTE_SIGNALS:  # KAV-94: waste is money, not an outage
+            return Cause(name, 1, _WASTE_SEVERITY.get(name, Severity.low))
         return Cause(name, 1, Severity.high if name == "disk_pressure" else Severity.medium)
     if kind == "daily_cost":
         return Cause("cost_spike", 1, Severity.medium) if signal.id in spikes else None

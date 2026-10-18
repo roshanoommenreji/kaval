@@ -116,3 +116,48 @@ def test_the_alarm_is_not_loaded_where_the_reader_is_not() -> None:
 def test_a_reader_without_prometheus_is_refused_at_render_time() -> None:
     done = _helm("staging", *ON, "--set", "prometheus.enabled=false")
     assert done.returncode != 0 and "needs prometheus.enabled" in done.stderr
+
+
+# ── the waste scan, read by the same pod (KAV-94, ADR-0062) ─────────────────────────────────────
+
+WASTE = ("--set", "costReader.enabled=true", "--set", "costReader.wasteScan.enabled=true")
+
+
+def test_the_waste_scan_is_off_unless_asked_for_so_an_older_image_still_starts() -> None:
+    """The extra argument would stop an image that does not have the reading code from starting."""
+    docs = _render("staging", *ON, "--set", "costReader.wasteScan.enabled=false")
+    deployment = _find(docs, "Deployment", "kaval-staging-collector-cost")
+    assert "waste" not in deployment
+    role = _find(docs, "Role", "kaval-staging-cost")
+    assert "resourceNames: [kaval-staging-cost-pull]" in role
+    assert "kaval-waste.rules" not in "\n".join(docs)
+
+
+def test_switched_on_the_pod_reads_the_scans_configmap_too_and_may_get_only_the_two() -> None:
+    docs = _render("staging", *WASTE)
+    deployment = _find(docs, "Deployment", "kaval-staging-collector-cost")
+    assert '- "--waste-handoff"' in deployment and '- "kaval-staging-waste-scan"' in deployment
+    role = _find(docs, "Role", "kaval-staging-cost")
+    assert "resourceNames: [kaval-staging-cost-pull, kaval-staging-waste-scan]" in role
+    assert re.findall(r"(?m)^\s+verbs: \[(.*)\]$", role) == ['"get"']  # still one verb
+    for wider in ("list", "watch", "secrets", "pods", "create", "update", "delete", "patch"):
+        assert wider not in role
+
+
+def test_the_scans_alarms_are_loaded_only_with_it() -> None:
+    text = "\n".join(_render("staging", *WASTE))
+    assert "kaval-waste.rules.yaml" in text
+    for alert in ("KavalWasteScanFailing", "KavalWasteScanStale"):
+        assert alert in text
+
+
+def test_the_pod_still_holds_no_aws_login_with_the_scan_on() -> None:
+    docs = _render("staging", *WASTE)
+    mine = "\n".join(_find(docs, k, n) for k, n in (
+        ("Deployment", "kaval-staging-collector-cost"), ("Role", "kaval-staging-cost")))
+    for word in ("AWS_", "aws_access", "aws-credentials", "eks.amazonaws.com", "role-arn"):
+        assert word not in mine, word
+
+
+def test_production_renders_none_of_it() -> None:
+    assert "waste" not in "\n".join(_render("prod"))

@@ -14,6 +14,6 @@ variable "backup_bucket_arn" {
 }
 
 variable "secret_parameter_arns" {
-  description = "The DB passwords' and Slack tokens' SSM Parameter Store ARNs (KAV-56). The node's bootstrap script reads these to recreate kaval-postgres-* and kaval-slack on every boot, the same way it already refreshes ecr-cred -- this runs on the trusted host itself, never inside a pod, so it needs no change to IMDS hop limits or pod-level AWS access."
+  description = "The DB passwords' and Slack tokens' SSM Parameter Store ARNs (KAV-56), and the daily waste scan's findings parameter (KAV-94, not a secret). The node's bootstrap script reads these to recreate kaval-postgres-* and kaval-slack on every boot, the same way it already refreshes ecr-cred -- this runs on the trusted host itself, never inside a pod, so it needs no change to IMDS hop limits or pod-level AWS access."
   type        = list(string)
 }

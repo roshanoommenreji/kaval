@@ -8,7 +8,8 @@
 # cost signals. It holds no AWS login of any kind, which is the point: the cluster's programs have
 # no AWS access, and the one that has some has one verb.
 #
-# What it may do in the cluster: `get` ONE ConfigMap, by name (`resourceNames`), in its own namespace.
+# What it may do in the cluster: `get` ONE ConfigMap, by name (`resourceNames`), in its own namespace
+# (two once the waste scan is read as well, KAV-94: the bill's and the scan's).
 # Not list, not watch, not any other ConfigMap, not a Secret. A bug or a misled input cannot widen
 # that: no binding anywhere grants more.
 # What it may do in the database: the `collector` role, the same one the event watcher uses.
@@ -31,7 +32,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
-    resourceNames: [{{ include "kaval.fullname" . }}-cost-pull]
+    resourceNames: [{{ include "kaval.fullname" . }}-cost-pull{{ if .Values.costReader.wasteScan.enabled }}, {{ include "kaval.fullname" . }}-waste-scan{{ end }}]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -97,6 +98,10 @@ spec:
             - {{ .Release.Namespace | quote }}
             - "--handoff"
             - "{{ include "kaval.fullname" . }}-cost-pull"
+            {{- if .Values.costReader.wasteScan.enabled }}
+            - "--waste-handoff"
+            - "{{ include "kaval.fullname" . }}-waste-scan"
+            {{- end }}
             - "--every"
             - {{ .Values.costReader.everySeconds | quote }}
           envFrom:

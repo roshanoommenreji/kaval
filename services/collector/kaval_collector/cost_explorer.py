@@ -51,7 +51,7 @@ from prometheus_client import Gauge
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from kaval_collector import __version__
+from kaval_collector import __version__, waste
 
 SERVICE = "collector-cost"
 SOURCE = "cost_explorer"
@@ -276,6 +276,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--namespace", required=True, help="where Kaval runs")
     parser.add_argument("--handoff", required=True, help="the ConfigMap the cost pull writes")
+    parser.add_argument("--waste-handoff", metavar="CONFIGMAP",
+                        help="also read the daily waste scan this ConfigMap holds (KAV-94)")
     parser.add_argument("--every", type=float, metavar="SECONDS",
                         help="keep running, one pass every SECONDS; default: one pass")
     parser.add_argument("--version", action="version", version=f"kaval-collector {__version__}")
@@ -286,7 +288,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     from kaval_collector import k8s
     k8s.load_config()
-    reader = KubernetesHandoff(client.CoreV1Api(), args.namespace, args.handoff)
+    v1 = client.CoreV1Api()
+    reader = KubernetesHandoff(v1, args.namespace, args.handoff)
+    waste_reader = (waste.KubernetesHandoff(v1, args.namespace, args.waste_handoff)
+                    if args.waste_handoff else None)
 
     if args.every:
         metrics.serve(SERVICE, interval=args.every, version=__version__)
@@ -294,15 +299,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         # this program must not look like thirty-six hours without a bill.
         _LAST_OK.set(time.time())
         _FAILING.set(0)
+        waste.start()
     try:
         while True:
+            ok = True
             try:
                 with Session(get_engine()) as session:
                     for line in run_pass(session, reader):
                         print(line, flush=True)
-                metrics.pass_ok(SERVICE)
             except Exception as exc:  # noqa: BLE001 - one bad pass must not stop the loop
                 print(f"cost pass failed: {type(exc).__name__}", file=sys.stderr, flush=True)
+                ok = False
+            if waste_reader is not None:
+                # Its own try: a bad bill must not hide the waste scan, nor the reverse.
+                try:
+                    with Session(get_engine()) as session:
+                        for line in waste.run_pass(session, waste_reader):
+                            print(line, flush=True)
+                except Exception as exc:  # noqa: BLE001
+                    print(f"waste pass failed: {type(exc).__name__}", file=sys.stderr, flush=True)
+                    waste.pass_failed()
+                    ok = False
+            if ok:
+                metrics.pass_ok(SERVICE)
+            else:
                 metrics.pass_failed(SERVICE)
                 if not args.every:
                     return 1

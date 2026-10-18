@@ -25,6 +25,7 @@ pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="bash not i
 # Built from pieces: a twelve-digit number in a file reads like a real account id to the repository's
 # secret checks, and this one is not.
 ACCOUNT = "1111" + "2222" + "3333"
+NL = chr(10)  # an f-string expression cannot hold a backslash on Python 3.11
 THIS_MONTH = time.strftime("%Y-%m", time.gmtime())
 
 
@@ -39,9 +40,10 @@ def _script() -> str:
 
 class Run:
     def __init__(self, code: int, err: str, aws: list[str], applied: str, state: Path,
-                 ce_env: list[str]) -> None:
+                 ce_env: list[str], ssm: list[str] | None = None) -> None:
         self.code, self.err, self.aws, self.applied, self.state, self.ce_env = (
             code, err, aws, applied, state, ce_env)
+        self.ssm = ssm or []  # the waste scan's reads, kept apart from the bill's calls
 
     @property
     def asked_for_the_bill(self) -> bool:
@@ -51,7 +53,7 @@ class Run:
 def _run(tmp_path: Path, *, calls: int | None = None, last_ok_age: float | None = None,
          namespace: bool = True, assume_ok: bool = True, ce_ok: bool = True,
          identity_ok: bool = True, last_month_calls: int | None = None,
-         counter_raw: str | None = None) -> Run:
+         counter_raw: str | None = None, waste: str | None = None) -> Run:
     state = tmp_path / "state"
     state.mkdir()
     if calls is not None:
@@ -72,7 +74,15 @@ def _run(tmp_path: Path, *, calls: int | None = None, last_ok_age: float | None 
               ">&2; exit 255")
     bill = ("echo '{\"ResultsByTime\": []}'" if ce_ok else
             f'echo "User: arn:aws:sts::{ACCOUNT}:assumed-role/x is not authorized" >&2; exit 255')
+    ssm_log = tmp_path / "ssm.txt"
+    # The waste scan's parameter (KAV-94): `waste` is its text, None means it does not exist yet.
+    ssm_reply = "exit 255" if waste is None else f"cat <<'PARAMETER'{NL}{waste}{NL}PARAMETER"
     aws_stub = f"""
+if [ "$1" = ssm ]; then
+  echo "id=$AWS_ACCESS_KEY_ID $*" >> "{ssm_log.as_posix()}"
+  {ssm_reply}
+  exit $?
+fi
 echo "$*" >> "{aws_log.as_posix()}"
 case "$1 $2" in
   "sts get-caller-identity") {identity} ;;
@@ -92,7 +102,14 @@ case "$1" in
   *) exit 99 ;;
 esac
 """
-    for name, body in {"aws": aws_stub, "kubectl": kubectl_stub}.items():
+    curl_stub = """
+case "$*" in
+  *api/token*) echo the-token ;;
+  *placement/region*) echo ap-south-1 ;;
+  *) exit 22 ;;
+esac
+"""
+    for name, body in {"aws": aws_stub, "kubectl": kubectl_stub, "curl": curl_stub}.items():
         path = bin_dir / name
         path.write_text(f"#!/bin/bash\n{body}\n", encoding="utf-8", newline="\n")
         path.chmod(0o755)
@@ -106,7 +123,7 @@ esac
              "AWS_ACCESS_KEY_ID": "the-servers-own-id", "AWS_SECRET_ACCESS_KEY": "the-servers-own"})
     read = lambda p: p.read_text(encoding="utf-8").splitlines() if p.exists() else []  # noqa: E731
     return Run(result.returncode, result.stderr, read(aws_log),
-               "\n".join(read(applied)), state, read(ce_env))
+               "\n".join(read(applied)), state, read(ce_env), read(ssm_log))
 
 
 def _calls_file(run: Run) -> int:
@@ -243,3 +260,58 @@ def test_the_node_start_up_script_still_fits_the_ec2_limit() -> None:
     packed = base64.b64encode(gzip.compress(raw))
     assert len(packed) < 15_800, (
         f"{len(packed)} bytes packed: trim comments or move something out before adding more")
+
+
+# ── the waste scan's hand-over (KAV-94, ADR-0062): same script, same timer, one more free copy ──────
+
+SCAN = '{"candidates":{},"env":"staging","findings":[],"scanned_at":"2026-10-18T03:15:00Z",' \
+       '"status":"ok","truncated":0}'
+
+
+def test_the_waste_scan_is_copied_whole_into_its_own_configmap(tmp_path: Path) -> None:
+    run = _run(tmp_path, waste=SCAN)
+    assert run.code == 0
+    assert "create configmap kaval-test-waste-scan -n kaval-test" in run.applied
+    assert f"--from-literal=scan.json={SCAN}" in run.applied
+
+
+def test_it_reads_one_named_parameter_in_the_servers_own_region_with_the_servers_own_login(
+        tmp_path: Path) -> None:
+    run = _run(tmp_path, waste=SCAN)
+    [read] = run.ssm
+    assert "--region ap-south-1" in read and "--name /kaval/kaval-test/waste-scan" in read
+    assert "id=the-servers-own-id" in read  # not the cost reader's borrowed login
+    assert "--with-decryption" not in read  # a plain string, never a secret
+
+
+def test_it_is_copied_even_when_the_bill_is_fresh_and_asks_for_no_money(tmp_path: Path) -> None:
+    run = _run(tmp_path, last_ok_age=3600, waste=SCAN)
+    assert run.code == 0 and run.aws == [] and not run.asked_for_the_bill
+    assert f"--from-literal=scan.json={SCAN}" in run.applied
+
+
+def test_a_missing_parameter_leaves_the_bill_pull_alone(tmp_path: Path) -> None:
+    run = _run(tmp_path)  # the scan has never run: the read fails
+    assert run.code == 0 and run.asked_for_the_bill and "waste-scan" not in run.applied
+    assert len(run.ssm) == 1
+
+
+def test_a_missing_parameter_never_overwrites_the_last_good_copy(tmp_path: Path) -> None:
+    run = _run(tmp_path, last_ok_age=3600)
+    assert run.applied == ""  # nothing is written, so the old ConfigMap stays and goes stale
+
+
+def test_with_no_cluster_yet_it_reads_nothing(tmp_path: Path) -> None:
+    run = _run(tmp_path, namespace=False, waste=SCAN)
+    assert run.ssm == [] and "waste-scan" not in run.applied
+
+
+def test_the_configmap_the_reader_wants_is_the_one_this_writes() -> None:
+    text = TEMPLATE.read_text(encoding="utf-8")
+    assert '"$NS-waste-scan"' in text and "--from-literal=scan.json=" in text
+    chart = (ROOT / "deploy" / "charts" / "kaval" / "templates" / "cost.yaml").read_text(
+        encoding="utf-8")
+    assert 'fullname" . }}-waste-scan' in chart
+    parameter = (ROOT / "infra" / "modules" / "waste-scan" / "main.tf").read_text(encoding="utf-8")
+    assert 'parameter_name = "/kaval/${var.name_prefix}/waste-scan"' in parameter
+    assert '"/kaval/$NS/waste-scan"' in text and 'NS="${name_prefix}"' in text

@@ -1,0 +1,35 @@
+# Prometheus rules for the waste scan's reader (KAV-94, ADR-0062). A file of its own, loaded only where
+# `costReader.wasteScan.enabled` is on. The reader is the cost reader's pod, so "the pod is gone" is
+# already `KavalCostReaderMissing` and is not repeated here. Like the other files, the collector's
+# poller turns a firing alert into a signal and a person is told straight from it, without waiting
+# for the correlator.
+# Tested with promtool: deploy/charts/kaval/tests/kaval-waste.test.yaml (make rules-test).
+#
+# The scan runs once a day (03:15 UTC) and the server copies it over every few hours, so the rules are
+# about days, not minutes.
+groups:
+  - name: kaval-waste
+    rules:
+      # The newest scan failed (the account could not be read) or its hand-over is missing, and it is
+      # still so four hours later. One failed try that the schedule's retry fixes is not worth a message.
+      - alert: KavalWasteScanFailing
+        expr: >-
+          label_replace(kaval_waste_scan_failing{job="kaval-collector-cost"} == 1,
+                        "service", "collector-cost", "", "")
+        for: 4h
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: The daily waste scan is failing, so waste is not being looked for.
+
+      # The last good scan is over 36 hours old. Catches what the rule above cannot: a scan that does
+      # not run at all (the schedule is gone, the server's copy step cannot reach the parameter).
+      # Starts counting when the reader starts, so a fresh bring-up has a day and a half to make its
+      # first scan.
+      - alert: KavalWasteScanStale
+        expr: >-
+          label_replace(time() - kaval_waste_scan_last_ok_timestamp_seconds{job="kaval-collector-cost"} > 129600,
+                        "service", "collector-cost", "", "")
+        for: 5m
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: No good waste scan for over 36 hours.

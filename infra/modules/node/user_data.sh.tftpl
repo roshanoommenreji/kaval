@@ -490,6 +490,20 @@ STATE="$${KAVAL_COST_STATE:-/var/lib/kaval/cost-pull}"
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 mkdir -p "$STATE"
 
+# The daily waste scan's findings (KAV-94, ADR-0062): its one parameter, copied whole into a
+# ConfigMap. Free, so it runs on every tick, before the bill's freshness check below. It uses the
+# node's own role (read of that one parameter) and never stops the bill: any failure is skipped.
+waste() {
+  local T R V
+  kubectl get namespace "$NS" >/dev/null 2>&1 || return 0
+  T=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 60') || return 0
+  R=$(curl -fsS -H "X-aws-ec2-metadata-token: $T" http://169.254.169.254/latest/meta-data/placement/region) || return 0
+  V=$(aws ssm get-parameter --region "$R" --name "/kaval/$NS/waste-scan" --query Parameter.Value --output text 2>/dev/null) || return 0
+  kubectl create configmap "$NS-waste-scan" -n "$NS" --from-literal=scan.json="$V" --dry-run=client -o yaml \
+    | kubectl apply -f - >/dev/null
+}
+waste || true
+
 NOW=$(date +%s)
 if [ -f "$STATE/last-ok" ]; then
   LAST=$(cat "$STATE/last-ok")

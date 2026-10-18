@@ -343,3 +343,43 @@ def test_disk_pressure_is_its_own_incident_with_a_stable_subject() -> None:
                   used_fraction=0.9)
     plan = c.plan([disk], [], AT + timedelta(minutes=2))
     assert only(plan).fingerprint == "disk_pressure:k8s:kaval-staging/node-disk"
+
+
+# ── the waste scan's findings (KAV-94, ADR-0062) ────────────────────────────────────────────────
+
+@pytest.mark.parametrize(("kind", "target", "fingerprint", "severity"), [
+    ("address_unattached", "eip/eipalloc-0abc12345", "idle_address:aws:eip/eipalloc-0abc12345",
+     Severity.low),
+    ("snapshot_past_retention", "snapshot/snap-0abc12345",
+     "snapshot_past_retention:aws:snapshot/snap-0abc12345", Severity.low),
+    ("server_overstay", "ec2/i-0abc12345", "server_overstay:aws:ec2/i-0abc12345", Severity.medium),
+    ("resource_unlabelled", "ebs/vol-0abc12345", "resource_unlabelled:aws:ebs/vol-0abc12345",
+     Severity.low),
+])
+def test_a_waste_finding_is_its_own_incident_for_a_person(
+        kind: str, target: str, fingerprint: str, severity: Severity) -> None:
+    found = signal(kind, AT, target=target, source="aws_ec2")
+    incident = only(c.plan([found], [], AT + timedelta(minutes=2)))
+    assert incident.fingerprint == fingerprint and incident.severity is severity
+    assert health.is_people_only_fingerprint(incident.fingerprint)  # no model, no fix
+
+
+def test_an_unattached_disk_keeps_its_older_path_and_is_not_people_only() -> None:
+    found = signal("volume_unattached", AT, target="ebs/vol-0abc12345", source="aws_ec2")
+    incident = only(c.plan([found], [], AT + timedelta(minutes=2)))
+    assert incident.fingerprint == "idle_volume:aws:ebs/vol-0abc12345"
+    assert not health.is_people_only_fingerprint(incident.fingerprint)
+
+
+def test_the_daily_restatement_keeps_one_incident_open_and_silence_closes_it() -> None:
+    day = timedelta(days=1)
+    first = signal("server_overstay", AT, target="ec2/i-0abc12345", source="aws_ec2")
+    open_one = _open("server_overstay:aws:ec2/i-0abc12345", AT)
+    again = signal("server_overstay", AT + day, target="ec2/i-0abc12345", source="aws_ec2")
+    renewed = c.plan([again], [open_one], AT + day + timedelta(minutes=2))
+    assert renewed.opened == [] and renewed.attached[open_one.id] == [again]
+    assert renewed.closed == {}
+    # nothing for 48 hours (the server was stopped and the scan stopped finding it): it closes
+    quiet = c.plan([], [open_one], AT + timedelta(hours=49))
+    assert list(quiet.closed) == [open_one.id]
+    assert first.observed_at == AT

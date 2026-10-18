@@ -30,8 +30,18 @@ Tiny and dependency-free on purpose: the agent, gateway, executor and tests all 
 from __future__ import annotations
 
 PREFIX = "kaval_"
+# The waste scan's findings (KAV-94, ADR-0062): signal kind -> cause. They are for a person until
+# removal exists (KAV-95), which will have to take its own kinds out of this list on purpose. A
+# disk attached to nothing is not here: it keeps its older path (`idle_volume`, explained but never
+# fixed by the model, and measured by the golden evals).
+WASTE_SIGNALS = {
+    "address_unattached": "idle_address",
+    "snapshot_past_retention": "snapshot_past_retention",
+    "server_overstay": "server_overstay",
+    "resource_unlabelled": "resource_unlabelled",
+}
 # Causes that are not Kaval's own health but still have no automated fix. Same list in policy.rego.
-PEOPLE_ONLY_CAUSES = frozenset({"disk_pressure", "latency_high"})
+PEOPLE_ONLY_CAUSES = frozenset({"disk_pressure", "latency_high", *WASTE_SIGNALS.values()})
 
 
 def is_health_cause(cause: str) -> bool:
@@ -61,4 +71,5 @@ def is_people_only_fingerprint(fingerprint: str) -> bool:
 PEOPLE_ONLY_SIGNALS = {
     "disk_near_full": "disk_pressure",
     "service_slow": "latency_high",
+    **WASTE_SIGNALS,
 }

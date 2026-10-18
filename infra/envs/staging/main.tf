@@ -124,6 +124,8 @@ module "iam" {
   secret_parameter_arns = concat(
     module.database.ssm_parameter_arns,
     [for p in aws_ssm_parameter.slack : p.arn],
+    # Not a secret: the daily waste scan's findings, which the server copies into the cluster.
+    [module.waste_scan.parameter_arn],
   )
 }
 
@@ -134,6 +136,14 @@ module "cost_reader" {
   name_prefix    = local.name_prefix
   node_role_arn  = module.iam.node_role_arn
   node_role_name = module.iam.node_role_name
+}
+
+# The daily waste scan (KAV-94, ADR-0062): looks for disks, addresses, backup copies and servers that
+# cost money for nothing, and for resources missing their labels. Read-only; it writes one parameter.
+module "waste_scan" {
+  source = "../../modules/waste-scan"
+
+  name_prefix = local.name_prefix
 }
 
 module "node" {
