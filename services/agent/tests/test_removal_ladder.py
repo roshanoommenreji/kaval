@@ -211,8 +211,8 @@ class Harness:
 
         class Frozen(datetime):
             @classmethod
-            def now(cls, tz: Any = None) -> Frozen:  # type: ignore[override]
-                return clock.now  # type: ignore[return-value]
+            def now(cls, tz: Any = None) -> Any:
+                return clock.now
 
         monkeypatch.setattr(worker, "datetime", Frozen)
 
@@ -221,7 +221,7 @@ class Harness:
         self.world.now = self.now
 
     def run_scan(self) -> dict[str, Any]:
-        doc = scan.scan(self.world.inventory(), self.now, "staging", self.previous)
+        doc: dict[str, Any] = scan.scan(self.world.inventory(), self.now, "staging", self.previous)
         self.previous = doc["candidates"]
         handoff = waste_reader.parse_handoff({"scan.json": scan.encode(doc)})
         waste_reader.run_pass(self.db, _OneShot(handoff), now=self.now + timedelta(minutes=5))
@@ -243,7 +243,9 @@ class Harness:
         # the approval is stamped by the real clock, so the executor judges its age by it too
         result = executor.execute_one(self.db, action)
         assert result.status == ExecutionStatus.success, result.detail
-        assert "handed over" in result.detail or "handed over" in (action.execution.stdout or "")
+        assert "handed over" in result.detail or (
+            action.execution is not None and "handed over" in (action.execution.stdout or "")
+        )
         return action
 
     def carry_orders_to_the_worker_and_the_answer_back(self) -> None:
@@ -318,7 +320,7 @@ def test_a_loose_disk_goes_up_the_ladder_and_is_deleted_with_its_backup_kept(
     assert len(h.plan()) == 1
     step2 = h.db.scalars(select(Action).where(Action.type == planner.STEP_DELETE)).first()
     assert step2 is not None and step2.type == planner.STEP_DELETE
-    assert h.world.snapshots[0]["SnapshotId"] in step2.params["undo"]  # the way back is named
+    assert h.world.snapshots[0]["SnapshotId"] in str(step2.params["undo"])  # the way back is named
 
     h.approve_and_execute()  # second approval
     h.carry_orders_to_the_worker_and_the_answer_back()
