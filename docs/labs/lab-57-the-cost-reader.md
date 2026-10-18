@@ -90,7 +90,7 @@ pytest services/collector/tests/test_cost_explorer.py -k "real_bill or real_spik
 
 ## Part 4 — Live on staging
 
-Steps 1 and 2 done 2026-10-18; the rest is written as it is done. The plan, in order:
+All done on 2026-10-18 (the server's clock read 13:48 to 14:10 UTC). In order:
 
 1. **The login.** `bash scripts/ops/tf-init.sh staging`, `terraform plan` in `infra/envs/staging`, shown first, applied on a go.
    Seen: **3 to add** (the role, its one permission, the server's right to borrow it), **2 to change in place** (the app-server
@@ -102,14 +102,39 @@ Steps 1 and 2 done 2026-10-18; the rest is written as it is done. The plan, in o
    `iam:CreateUser`, `iam:PassRole`, `sts:AssumeRole`, `ce:CreateAnomalyMonitor`, `budgets:ModifyBudget`,
    `lambda:InvokeFunction`. Read back: the trust names only `kaval-staging-node`, the role has one inline policy
    (`read-costs`) and none attached, and the server's role may `sts:AssumeRole` on this role only.
-3. **The code.** Pull request, CI green, merged; the release workflow builds the images and opens a staging pin; merged.
-4. **Switch it on.** `costReader.enabled: true` in staging's two settings files, merged; `make staging-up`.
-5. **Watch one pull.** The timer fires 8 minutes after start; the ConfigMap holds `status ok`; `signal` rows appear
-   for the settled days; the reader's page shows `kaval_cost_pull_last_ok_timestamp_seconds` moving and
-   `kaval_cost_pull_failing 0`; the pod's memory.
-6. **Make it fail on purpose** (staging only): put 60 in the month's counter file and start the service: the
-   handoff says `capped`, `kaval_cost_pull_failing` goes to 1 within a pass, and the reader writes no new rows. The
-   four-hour hold is the promtool test's job; waiting for it live is not worth a staging night.
+3. **The code.** Pull request #195, CI green, merged; the release workflow built the images and opened a staging pin
+   (#196); merged.
+4. **Switch it on.** `costReader.enabled: true` in staging's two settings files (#197), merged; `make staging-up`.
+   (Run it without `MSYS_NO_PATHCONV=1`: that setting, needed for `/kaval/...` AWS parameter names, breaks the script's
+   Terraform path under Git Bash. The first try failed on exactly that and was harmless.)
+5. **Watch one pull.** Over Session Manager, read-only (a few lines of `aws ssm send-command` that print the output).
+   Seen:
+   - the timer fired by itself 8 minutes after boot; the job took **4 seconds** and made **1 request**
+     (`calls-2026-10` = 1, `last-ok` written)
+   - the ConfigMap said `ok`, with the time and `calls=1`
+   - the reader wrote **65 `daily_cost` rows**, 4 to 16 October, the 17th correctly left out as partial; the figures match
+     the recorded bill (EC2-Other 2026-10-12 $0.2538, AWS Cost Explorer 2026-10-16 $0.1000)
+   - its health page: `kaval_cost_pull_failing 0`, `kaval_cost_pull_last_ok_timestamp_seconds` set to the pull's time,
+     `kaval_cost_calls_this_month 1`, `kaval_cost_rows_written 65`
+   - Prometheus on staging: target `kaval-collector-cost` up, all three rules loaded and `ok` with holds of 4 h, 5 min and
+     2 min
+   - **no cost incident was opened** from the real fortnight (the agent's log has no cost lines)
+6. **Make it fail on purpose** (staging only, deliberately against the runbook's "do not"): put 60 in the month's counter
+   file, remove `last-ok`, start the service. Seen:
+   - the job refused: `cost pull: 60 requests already this month (cap 60)`, exit 1, **no request to AWS** (nothing in the
+     journal), the ConfigMap `capped` with reason `capped` and **no bill in it**
+   - within three tries (under two minutes, one reader pass) `kaval_cost_pull_failing` went to **1** and the reader printed
+     `no good cost pull: capped`; the rows written did not change
+   - restored (counter back to 1, `last-ok` removed, service started): `ok`, `calls=2`; on the next pass
+     `kaval_cost_pull_failing` was back to **0** by itself and **`kaval_cost_rows_written` 0**: the second identical bill
+     added no duplicates
+
+   The four-hour hold before the message reaches Slack is the promtool test's job; waiting for it live was not worth a
+   staging night.
+7. **Measure.** The reader pod: **86 MiB** in use of its 128 MiB limit (the health page's own RSS reads 101 MB), 1m CPU, 0
+   restarts. The server: **1,916 MB available of 3,829 MB** with all services up and the model unloaded (2,062 MB at the last
+   full measurement on 2026-10-14; the reader's 86 MiB and the other services' growth account for the difference).
+   The limit leaves about 40 MiB; if it is ever hit the pod restarts and the "reader missing" or stale alarms ring.
 
 ## Part 5 — Production (pending)
 
@@ -123,6 +148,6 @@ At production's bring-up, with its own plan shown first and the `KAV-90` checks 
       refusal cases tested
 - [x] The spike rule proven quiet on this account's real fortnight and loud on a real spike
 - [x] The login applied on staging and shown unable to do anything but read costs (simulation, 2026-10-18)
-- [ ] One real pull on staging, signals in the table, the pod's memory measured
-- [ ] A capped pull makes the alarm number go to 1 on staging
+- [x] One real pull on staging, signals in the table, the pod's memory measured (65 rows, 86 MiB)
+- [x] A capped pull makes the alarm number go to 1 on staging, and a good pull puts it back to 0 with no duplicate rows
 - [ ] Production, at its bring-up
