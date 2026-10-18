@@ -18,6 +18,8 @@ from kaval_shared.models import (
     Action,
     BlastRadius,
     Decision,
+    Execution,
+    ExecutionStatus,
     Incident,
     PolicyClass,
     Proposal,
@@ -216,17 +218,78 @@ def test_a_loose_disk_gets_one_rule_made_proposal_that_needs_a_person(db_session
     assert action.params["preview"] and action.params["undo"]
 
 
-def test_the_same_step_is_not_asked_again_inside_its_cooldown(db_session: Session) -> None:
+def test_a_question_still_waiting_for_an_answer_is_never_asked_a_second_time(
+    db_session: Session,
+) -> None:
     incident = _loose(db_session)
     r.plan_pass(db_session, ON, now=NOW)
-    _restate(db_session, incident, volume(), 24)  # tomorrow's scan still sees it loose
-    assert r.plan_pass(db_session, ON, now=NOW + timedelta(hours=24)) == []
+    for day in (1, 2, 5):
+        _restate(db_session, incident, volume(), 24 * day)  # each day's scan still sees it loose
+        assert r.plan_pass(db_session, ON, now=NOW + timedelta(days=day)) == []
     assert _count(db_session) == 1
+
+
+def _approve_and_hand_over(db: Session, action: Action, at: datetime) -> None:
+    db.add(Decision(action_id=action.id, verdict=Verdict.approved, actor="roshan", decided_at=at))
+    db.add(Execution(action_id=action.id, status=ExecutionStatus.success, started_at=at))
+    db.commit()
+
+
+def test_a_step_handed_over_is_left_to_the_worker_then_retried_only_if_nothing_came_of_it(
+    db_session: Session,
+) -> None:
+    incident = _loose(db_session)
+    r.plan_pass(db_session, ON, now=NOW)
+    _approve_and_hand_over(db_session, db_session.scalars(select(Action)).one(), NOW)
+    _restate(db_session, incident, volume(), 24)
+    assert r.plan_pass(db_session, ON, now=NOW + timedelta(hours=24)) == []  # still its time
     _restate(db_session, incident, volume(), 49)
-    assert (
-        len(r.plan_pass(db_session, ON, now=NOW + timedelta(hours=49))) == 1
-    )  # asked again, after
+    assert len(r.plan_pass(db_session, ON, now=NOW + timedelta(hours=49))) == 1  # refused: retry
     assert _count(db_session) == 2
+
+
+def test_a_step_the_worker_already_did_is_never_asked_again(db_session: Session) -> None:
+    incident = _loose(db_session)
+    r.plan_pass(db_session, ON, now=NOW)
+    _approve_and_hand_over(db_session, db_session.scalars(select(Action)).one(), NOW)
+    done = Signal(
+        source="aws_ec2",
+        kind="removal_done",
+        target=f"ebs/{VID}",
+        value={"order_id": "x", "step": "mark_backup", "status": "ok"},
+        observed_at=NOW + timedelta(hours=1),
+    )
+    db_session.add(done)
+    db_session.commit()
+    for day in (3, 10):
+        _restate(db_session, incident, volume(), 24 * day)
+        assert r.plan_pass(db_session, ON, now=NOW + timedelta(days=day)) == []
+    assert _count(db_session) == 1
+
+
+def test_a_deleted_disk_is_never_proposed_for_deletion_again(db_session: Session) -> None:
+    """Found by the end-to-end test: the scan's last fact is still fresh a day after the delete."""
+    v = volume(pending_removal_since=stamp(30), backup_state="completed", backup_snapshot_id=SID)
+    incident = _loose(
+        db_session,
+        **{k: v[k] for k in ("pending_removal_since", "backup_state", "backup_snapshot_id")},
+    )
+    r.plan_pass(db_session, ON, now=NOW)
+    assert db_session.scalars(select(Action.type)).one() == r.STEP_DELETE
+    _approve_and_hand_over(db_session, db_session.scalars(select(Action)).one(), NOW)
+    db_session.add(
+        Signal(
+            source="aws_ec2",
+            kind="removal_done",
+            target=f"ebs/{VID}",
+            value={"order_id": "y", "step": "delete_volume", "status": "ok"},
+            observed_at=NOW + timedelta(hours=1),
+        )
+    )
+    db_session.commit()
+    _restate(db_session, incident, v, 25)
+    assert r.plan_pass(db_session, ON, now=NOW + timedelta(hours=26)) == []
+    assert _count(db_session) == 1
 
 
 def test_a_no_is_not_asked_again_for_a_week(db_session: Session) -> None:

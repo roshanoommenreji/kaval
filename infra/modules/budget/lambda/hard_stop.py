@@ -49,11 +49,7 @@ DATA_VOLUME_ROLE_TAG = "database-data"
 def handler(event, context):
     log.info(
         "Budget hard stop triggered. asg=%r asg_dry_run=%s stop_instances=%s tag=%s=%s",
-        ASG_NAME,
-        DRY_RUN,
-        STOP_INSTANCES,
-        TAG_KEY,
-        TAG_VALUE,
+        ASG_NAME, DRY_RUN, STOP_INSTANCES, TAG_KEY, TAG_VALUE,
     )
     for record in event.get("Records", []):
         log.info("SNS subject: %s", record.get("Sns", {}).get("Subject", ""))
@@ -64,9 +60,7 @@ def handler(event, context):
 
 def _scale_asg_to_zero():
     if not ASG_NAME:
-        log.warning(
-            "ASG_NAME is empty -- no Auto Scaling Group to scale (expected before Phase 4)."
-        )
+        log.warning("ASG_NAME is empty -- no Auto Scaling Group to scale (expected before Phase 4).")
         return {"status": "no-op", "reason": "no asg configured"}
 
     if DRY_RUN:
@@ -87,8 +81,7 @@ def _scale_asg_to_zero():
     asg.update_auto_scaling_group(AutoScalingGroupName=ASG_NAME, MinSize=0, DesiredCapacity=0)
     log.warning(
         "HARD STOP APPLIED. %s scaled %d -> 0. Storage preserved; restore with `make up`.",
-        ASG_NAME,
-        before,
+        ASG_NAME, before,
     )
     return {"status": "stopped", "asg": ASG_NAME, "desired_before": before}
 
@@ -106,9 +99,7 @@ def _snapshot_data_volumes(ec2, instance_ids):
                 ]
             )["Volumes"]
         except Exception:
-            log.exception(
-                "Could not look up data volumes for %s -- stopping without a snapshot.", instance_id
-            )
+            log.exception("Could not look up data volumes for %s -- stopping without a snapshot.", instance_id)
             continue
 
         for volume in volumes:
@@ -116,33 +107,27 @@ def _snapshot_data_volumes(ec2, instance_ids):
                 snapshot = ec2.create_snapshot(
                     VolumeId=volume["VolumeId"],
                     Description=f"kaval hard-stop pre-stop snapshot of {instance_id}",
-                    TagSpecifications=[
-                        {
-                            "ResourceType": "snapshot",
-                            "Tags": [
-                                {"Key": "Name", "Value": "kaval-hard-stop-pre-stop"},
-                                {"Key": "Reason", "Value": "pre-stop"},
-                                {"Key": "Project", "Value": TAG_VALUE},
-                                # Env comes from the disk being copied; "unknown" is a value the
-                                # tag scan reports, which is better than guessing (ADR-0061).
-                                {"Key": "Env", "Value": _tag(volume, "Env") or "unknown"},
-                                {"Key": "ManagedBy", "Value": "kaval-lambda"},
-                                {"Key": "Role", "Value": DATA_VOLUME_ROLE_TAG},
-                            ],
-                        }
-                    ],
+                    TagSpecifications=[{
+                        "ResourceType": "snapshot",
+                        "Tags": [
+                            {"Key": "Name", "Value": "kaval-hard-stop-pre-stop"},
+                            {"Key": "Reason", "Value": "pre-stop"},
+                            {"Key": "Project", "Value": TAG_VALUE},
+                            # Env comes from the disk being copied; "unknown" is a value the
+                            # tag scan reports, which is better than guessing (ADR-0061).
+                            {"Key": "Env", "Value": _tag(volume, "Env") or "unknown"},
+                            {"Key": "ManagedBy", "Value": "kaval-lambda"},
+                            {"Key": "Role", "Value": DATA_VOLUME_ROLE_TAG},
+                        ],
+                    }],
                 )
                 log.warning(
                     "Snapshotted %s as %s before stopping %s.",
-                    volume["VolumeId"],
-                    snapshot["SnapshotId"],
-                    instance_id,
+                    volume["VolumeId"], snapshot["SnapshotId"], instance_id,
                 )
                 snapshot_ids.append(snapshot["SnapshotId"])
             except Exception:
-                log.exception(
-                    "Snapshot of %s failed -- stopping %s anyway.", volume["VolumeId"], instance_id
-                )
+                log.exception("Snapshot of %s failed -- stopping %s anyway.", volume["VolumeId"], instance_id)
 
     return snapshot_ids
 

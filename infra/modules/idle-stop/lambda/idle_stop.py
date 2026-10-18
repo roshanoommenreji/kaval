@@ -78,11 +78,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     verdict = decide(now, launches, activity, IDLE_SECONDS)
     log.info(
         "idle=%s idle_for=%ss limit=%ss %s (instances=%s)",
-        verdict["idle"],
-        verdict["idle_seconds"],
-        IDLE_SECONDS,
-        verdict["reason"],
-        instance_ids,
+        verdict["idle"], verdict["idle_seconds"], IDLE_SECONDS, verdict["reason"], instance_ids,
     )
     if not verdict["idle"]:
         return {"status": "active", "idle_seconds": verdict["idle_seconds"]}
@@ -203,19 +199,17 @@ def _snapshot_data_volumes(ec2: Any, instance_ids: list[str]) -> list[str]:
                 snapshot = ec2.create_snapshot(
                     VolumeId=volume["VolumeId"],
                     Description=f"kaval staging idle-stop pre-stop snapshot of {instance_id}",
-                    TagSpecifications=[
-                        {
-                            "ResourceType": "snapshot",
-                            "Tags": [
-                                {"Key": "Name", "Value": f"{DATABASE_NAME}-pre-stop"},
-                                {"Key": "Reason", "Value": "pre-stop"},
-                                {"Key": "Project", "Value": "kaval"},
-                                {"Key": "Env", "Value": "staging"},
-                                {"Key": "ManagedBy", "Value": "kaval-lambda"},
-                                {"Key": "Role", "Value": DATA_VOLUME_ROLE_TAG},
-                            ],
-                        }
-                    ],
+                    TagSpecifications=[{
+                        "ResourceType": "snapshot",
+                        "Tags": [
+                            {"Key": "Name", "Value": f"{DATABASE_NAME}-pre-stop"},
+                            {"Key": "Reason", "Value": "pre-stop"},
+                            {"Key": "Project", "Value": "kaval"},
+                            {"Key": "Env", "Value": "staging"},
+                            {"Key": "ManagedBy", "Value": "kaval-lambda"},
+                            {"Key": "Role", "Value": DATA_VOLUME_ROLE_TAG},
+                        ],
+                    }],
                 )
                 snapshot_ids.append(snapshot["SnapshotId"])
             except Exception:

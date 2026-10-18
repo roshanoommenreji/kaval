@@ -38,6 +38,7 @@ from kaval_shared.models import (
     Action,
     BlastRadius,
     Decision,
+    Execution,
     Incident,
     Proposal,
     RiskLevel,
@@ -60,8 +61,8 @@ REMOVAL_TYPES = frozenset({STEP_BACKUP, STEP_DELETE, STEP_SNAPSHOT})
 # A scan fact older than this is stale: the scan runs daily and the server copies it every few
 # hours.
 FACT_MAX_AGE = timedelta(hours=36)
-# The same step for the same thing is not asked again inside this time. Step one's label only shows
-# in the next scan (up to a day plus the copy), so it must outlast that.
+# A step that was handed over and came back refused or failed may be tried again after this pause.
+# Step one's label only shows in the next scan (up to a day plus the copy), so it must outlast that.
 COOLDOWN = {STEP_BACKUP: timedelta(hours=48), STEP_DELETE: timedelta(hours=24),
             STEP_SNAPSHOT: timedelta(hours=24)}
 DENIED_COOLDOWN = timedelta(days=7)  # a "no" is not asked again for a week
@@ -212,20 +213,50 @@ def _latest(incident: Incident, kind: str) -> Signal | None:
     return max(rows, key=lambda s: s.observed_at, default=None)
 
 
-def _cooling_down(session: Session, planned: Planned, now: datetime) -> bool:
-    """True if this step for this thing was asked recently (or refused recently)."""
+def _already_done(session: Session, planned: Planned) -> bool:
+    """True if the worker already answered `ok` for this step on this thing. A disk's or a copy's id
+    is never reused, so a step that worked is never asked again, whatever the scan still says."""
+    prefix = "snapshot/" if planned.type == STEP_SNAPSHOT else "ebs/"
+    step = {STEP_BACKUP: "mark_backup", STEP_DELETE: "delete_volume",
+            STEP_SNAPSHOT: "delete_snapshot"}[planned.type]
+    return (
+        session.scalar(
+            select(Signal.id)
+            .where(
+                Signal.kind == "removal_done",
+                Signal.target == prefix + planned.target,
+                Signal.value.contains({"step": step}),
+            )
+            .limit(1)
+        )
+        is not None
+    )
+
+
+def _skip(session: Session, planned: Planned, now: datetime) -> str | None:
+    """Why this step should not be asked now, or None when it should be."""
+    if _already_done(session, planned):
+        return "already done"
     latest = session.execute(
-        select(Action, Decision.verdict)
+        select(Action, Decision.verdict, Execution.id)
         .outerjoin(Decision, Decision.action_id == Action.id)
+        .outerjoin(Execution, Execution.action_id == Action.id)
         .where(Action.type == planned.type, Action.target == planned.target)
         .order_by(Action.created_at.desc())
         .limit(1)
     ).first()
     if latest is None:
-        return False
-    action, verdict = latest
-    wait = DENIED_COOLDOWN if verdict == Verdict.denied else COOLDOWN[planned.type]
-    return bool(now - action.created_at < wait)
+        return None
+    action, verdict, execution = latest
+    if verdict is None:
+        return "already waiting for an answer"  # never a second copy of the same question
+    if verdict == Verdict.denied:
+        return "denied recently" if now - action.created_at < DENIED_COOLDOWN else None
+    # approved: a step handed over and not yet answered is left to the worker (and to the alarm for
+    # an order nobody answered); a refused one may be tried again after a pause
+    if execution is not None and now - action.created_at < COOLDOWN[planned.type]:
+        return "handed over recently"
+    return None
 
 
 def _open_removals(session: Session) -> int:
@@ -304,7 +335,7 @@ def plan_pass(
             if cause == "idle_volume"
             else plan_snapshot(fact.value)
         )
-        if planned is None or _cooling_down(session, planned, now):
+        if planned is None or _skip(session, planned, now) is not None:
             continue
         proposal = file_proposal(session, incident, planned)
         open_now += 1
