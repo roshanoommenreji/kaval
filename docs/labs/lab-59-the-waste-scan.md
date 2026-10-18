@@ -97,11 +97,18 @@ On the owner's go, with a separate go for the removal:
   (proved: scan 1 listed it only under `candidates`; scan 2 reported it; after the server's timer ran, the cost reader
   wrote one signal about two minutes later and the correlator opened `idle_volume:aws:ebs/vol-…`, low. Seen: the report
   says `days_unattached: 1` for a disk seconds old, because it counts the calendar day it was first seen)
-- [ ] A 13-hour-old staging server, if one is up, shows as `server_overstay`; a deliberately unlabelled test resource
-  shows as `resource_unlabelled`
+- [ ] A 13-hour-old staging server, if one is up, shows as `server_overstay` (not yet seen live: staging parks itself
+  after 4 idle hours, so it has to be kept awake past 12 hours)
+- [x] A deliberately unlabelled test resource shows as `resource_unlabelled` (2026-10-18: a 1 GiB disk labelled
+  `Project=kaval ManagedBy=manual` with no `Env`; one scan, one finding with `problems: ["Env"]`, and about 5 minutes
+  after the copy the correlator opened `resource_unlabelled:aws:ebs/vol-…`, low; the disk was deleted and the next scan
+  said `findings: []`)
 - [x] Delete the disk. Run the function again: no finding (proved 2026-10-18: `findings: []`, `candidates: {}`, copied
   into the cluster). The incident closes 48 hours later by itself (to be seen on 2026-10-20)
-- [ ] The negative checks: another project's resources and production servers are never in the output
+- [x] The negative check for another project (2026-10-18: a 1 GiB disk labelled `Project=waste-test-other` attached to
+  nothing; the scan output had `left_alone: 1` and no finding for it)
+- [ ] The negative check for production servers: not possible live while production is parked (no server exists); it
+  stays covered by the unit tests and is to be seen at the production bring-up (`KAV-98`)
 
 ## Part 7 — Failure is loud
 
