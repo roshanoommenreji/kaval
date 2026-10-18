@@ -19,7 +19,9 @@ the same pod as the cost reader (`kaval_collector.cost_explorer`) and follows th
   incident open until the waste is gone (the correlator closes it after 48 quiet hours).
 
 What the findings become is the correlator's business (`kaval_shared.health.WASTE_SIGNALS`): most
-are an incident for a person, with no fix proposed, until removal exists (KAV-95).
+are an incident for a person, with no fix proposed. Two (a loose disk, an old backup copy) can be
+removed, in steps, by the planner (KAV-95, ADR-0063). The removal worker's answers are read in
+`kaval_collector.removal`.
 """
 
 from __future__ import annotations
@@ -45,9 +47,10 @@ REASONS = frozenset({"describe_failed"})
 ENVS = frozenset({"prod", "staging", "dev", "state"})
 REQUIRED_KEYS = ("Project", "Env", "ManagedBy")
 
-_ID = re.compile(r"^[a-z]+-[0-9a-f]{8,17}$")
-_MONEY = re.compile(r"^\d{1,6}\.\d{2}$")
-_WORD = re.compile(r"^[a-z0-9_]{1,16}$")
+_ID = re.compile(r"[a-z]+-[0-9a-f]{8,17}")
+_MONEY = re.compile(r"\d{1,6}\.\d{2}")
+_WORD = re.compile(r"[a-z0-9_]{1,16}")
+_STAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 
 _LAST_OK = Gauge(
     "kaval_waste_scan_last_ok_timestamp_seconds",
@@ -80,7 +83,7 @@ def pass_failed() -> None:
 
 def _id(prefix: str) -> Callable[[object], bool]:
     return lambda v: (
-        isinstance(v, str) and bool(_ID.match(v)) and (not prefix or v.startswith(prefix + "-"))
+        isinstance(v, str) and bool(_ID.fullmatch(v)) and (not prefix or v.startswith(prefix + "-"))
     )
 
 
@@ -93,11 +96,15 @@ def _one_of(*words: str) -> Callable[[object], bool]:
 
 
 def _word(v: object) -> bool:
-    return isinstance(v, str) and bool(_WORD.match(v))
+    return isinstance(v, str) and bool(_WORD.fullmatch(v))
 
 
 def _money(v: object) -> bool:
-    return isinstance(v, str) and bool(_MONEY.match(v))
+    return isinstance(v, str) and bool(_MONEY.fullmatch(v))
+
+
+def _stamp(v: object) -> bool:
+    return isinstance(v, str) and bool(_STAMP.fullmatch(v))
 
 
 def _keys(v: object) -> bool:
@@ -122,8 +129,14 @@ SHAPES: dict[str, Shape] = {
             "volume_type": _word,
             "days_unattached": _int,
             "monthly_cost_usd": _money,
+            # Where the disk stands in the removal steps (KAV-95): read from the labels on AWS.
+            "pending_removal_since": _stamp,
+            "backup_snapshot_id": _id("snap"),
+            "backup_state": _one_of("completed", "pending", "error", "unknown"),
         },
-        frozenset({"monthly_cost_usd"}),
+        frozenset(
+            {"monthly_cost_usd", "pending_removal_since", "backup_snapshot_id", "backup_state"}
+        ),
     ),
     "address_unattached": (
         "eip/",

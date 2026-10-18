@@ -51,7 +51,7 @@ from prometheus_client import Gauge
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from kaval_collector import __version__, waste
+from kaval_collector import __version__, removal, waste
 
 SERVICE = "collector-cost"
 SOURCE = "cost_explorer"
@@ -278,10 +278,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--handoff", required=True, help="the ConfigMap the cost pull writes")
     parser.add_argument("--waste-handoff", metavar="CONFIGMAP",
                         help="also read the daily waste scan this ConfigMap holds (KAV-94)")
+    parser.add_argument("--removal-result", metavar="CONFIGMAP",
+                        help="also read the removal worker's answers this ConfigMap holds (KAV-95)")
+    parser.add_argument("--removal-orders", metavar="CONFIGMAP",
+                        help="the ConfigMap the executor writes its removal orders into; needed "
+                             "with --removal-result, to tell when an order has gone unanswered")
     parser.add_argument("--every", type=float, metavar="SECONDS",
                         help="keep running, one pass every SECONDS; default: one pass")
     parser.add_argument("--version", action="version", version=f"kaval-collector {__version__}")
     args = parser.parse_args(argv)
+    if bool(args.removal_result) != bool(args.removal_orders):
+        parser.error("--removal-result and --removal-orders go together")
 
     from kaval_shared.db import get_engine  # only a real run needs the database
     from kubernetes import client
@@ -292,6 +299,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     reader = KubernetesHandoff(v1, args.namespace, args.handoff)
     waste_reader = (waste.KubernetesHandoff(v1, args.namespace, args.waste_handoff)
                     if args.waste_handoff else None)
+    removal_reader = (removal.KubernetesHandoff(v1, args.namespace, args.removal_result,
+                                                args.removal_orders)
+                      if args.removal_result else None)
 
     if args.every:
         metrics.serve(SERVICE, interval=args.every, version=__version__)
@@ -300,6 +310,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _LAST_OK.set(time.time())
         _FAILING.set(0)
         waste.start()
+        removal.start()
     try:
         while True:
             ok = True
@@ -319,6 +330,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 except Exception as exc:  # noqa: BLE001
                     print(f"waste pass failed: {type(exc).__name__}", file=sys.stderr, flush=True)
                     waste.pass_failed()
+                    ok = False
+            if removal_reader is not None:
+                try:
+                    with Session(get_engine()) as session:
+                        for line in removal.run_pass(session, removal_reader):
+                            print(line, flush=True)
+                except Exception as exc:  # noqa: BLE001
+                    print(f"removal pass failed: {type(exc).__name__}", file=sys.stderr, flush=True)
+                    removal.pass_failed()
                     ok = False
             if ok:
                 metrics.pass_ok(SERVICE)
