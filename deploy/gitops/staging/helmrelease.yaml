@@ -74,6 +74,8 @@ spec:
       enabled: true
     costReader:
       enabled: true
+      wasteScan:
+        enabled: true
   valuesFrom:
     - kind: ConfigMap
       name: kaval-registry

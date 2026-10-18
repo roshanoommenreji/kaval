@@ -78,8 +78,10 @@ means no read; the read uses the server's own login, never the cost reader's bor
 
 - [ ] `terraform plan` in `infra/envs/staging` (expect: the function, its role, its schedule and log group, the
   parameter, and one changed policy on the server's role), read and applied on the owner's go
-- [ ] The build containing the reader is pinned in staging, then `costReader.wasteScan.enabled: true` is set in
-  staging's values (a second change; an older image would not start with the new argument)
+- [ ] The build containing the reader is pinned in staging (done 2026-10-18, `sha-d7b274d`, PR #202), then
+  `costReader.wasteScan.enabled: true` is set in staging's values (a second change, `KAV-94` staging-on PR; an older
+  image would not start with the new argument). Merge it only after the apply and a fresh launch, because the server
+  gets the copy step with the next launch and until then the reader would report the hand-over as missing
 - [ ] `aws lambda invoke --function-name kaval-staging-waste-scan /dev/null` writes `status: ok`; the pod's log shows
   `nothing new`; `kaval_waste_scan_failing` is 0
 - [ ] Memory of the cost reader pod before and after, measured (`kubectl top pod`; the limit is 128 MiB, it ran at 86)
