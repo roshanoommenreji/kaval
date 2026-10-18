@@ -1,0 +1,82 @@
+# promtool unit tests for kaval-waste.rules.yaml (KAV-94). `make rules-test` runs them.
+# As with the cost rules, the quiet cases matter as much as the loud ones: a scan that fails once and
+# is fixed by the retry must not send anyone a message, and a scan that is fine must never look stale.
+rule_files:
+  - ../files/kaval-waste.rules.yaml
+evaluation_interval: 30m
+
+tests:
+  - name: a healthy scan is quiet for two days
+    interval: 30m
+    input_series:
+      - series: 'kaval_waste_scan_failing{job="kaval-collector-cost"}'
+        values: "0+0x100"
+      # the last good scan keeps pace with the clock
+      - series: 'kaval_waste_scan_last_ok_timestamp_seconds{job="kaval-collector-cost"}'
+        values: "0+1800x100"
+    alert_rule_test:
+      - { eval_time: 48h, alertname: KavalWasteScanFailing, exp_alerts: [] }
+      - { eval_time: 48h, alertname: KavalWasteScanStale, exp_alerts: [] }
+
+  - name: one failed scan that the retry fixes never alerts
+    interval: 30m
+    input_series:
+      # failing for three hours (the failed run and its retries), then a good scan
+      - series: 'kaval_waste_scan_failing{job="kaval-collector-cost"}'
+        values: "0 1x6 0+0x40"
+      - series: 'kaval_waste_scan_last_ok_timestamp_seconds{job="kaval-collector-cost"}'
+        values: "0+1800x100"
+    alert_rule_test:
+      - { eval_time: 3h, alertname: KavalWasteScanFailing, exp_alerts: [] }
+      - { eval_time: 6h, alertname: KavalWasteScanFailing, exp_alerts: [] }
+
+  - name: a scan that is still failing after four hours alerts
+    interval: 30m
+    input_series:
+      - series: 'kaval_waste_scan_failing{job="kaval-collector-cost"}'
+        values: "0 1x40"
+      - series: 'kaval_waste_scan_last_ok_timestamp_seconds{job="kaval-collector-cost"}'
+        values: "0+1800x40"
+    alert_rule_test:
+      - { eval_time: 3h, alertname: KavalWasteScanFailing, exp_alerts: [] }
+      - eval_time: 6h
+        alertname: KavalWasteScanFailing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: collector-cost
+              job: kaval-collector-cost
+            exp_annotations:
+              summary: The daily waste scan is failing, so waste is not being looked for.
+
+  - name: a scan that never runs is stale after a day and a half, and not before
+    interval: 30m
+    input_series:
+      # the one good scan was at t=0 and nothing since; the reader itself is up and not "failing"
+      - series: 'kaval_waste_scan_last_ok_timestamp_seconds{job="kaval-collector-cost"}'
+        values: "0+0x100"
+      - series: 'kaval_waste_scan_failing{job="kaval-collector-cost"}'
+        values: "0+0x100"
+    alert_rule_test:
+      - { eval_time: 35h, alertname: KavalWasteScanStale, exp_alerts: [] }
+      - eval_time: 37h
+        alertname: KavalWasteScanStale
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: collector-cost
+              job: kaval-collector-cost
+            exp_annotations:
+              summary: No good waste scan for over 36 hours.
+
+  - name: an old image that has no waste numbers at all stays silent
+    interval: 30m
+    input_series:
+      # only the cost reader's own numbers exist; the waste ones were never published
+      - series: 'kaval_cost_pull_failing{job="kaval-collector-cost"}'
+        values: "0+0x100"
+    alert_rule_test:
+      - { eval_time: 48h, alertname: KavalWasteScanFailing, exp_alerts: [] }
+      - { eval_time: 48h, alertname: KavalWasteScanStale, exp_alerts: [] }

@@ -74,6 +74,11 @@ data:
   kaval-cost.rules.yaml: |
     {{- .Files.Get "files/kaval-cost.rules.yaml" | nindent 4 }}
   {{- end }}
+  {{- if and .Values.costReader.enabled .Values.costReader.wasteScan.enabled }}
+  # Only where the waste scan is read (KAV-94): same pod as the cost reader, so no second `absent()`.
+  kaval-waste.rules.yaml: |
+    {{- .Files.Get "files/kaval-waste.rules.yaml" | nindent 4 }}
+  {{- end }}
   prometheus.yml: |
     global:
       scrape_interval: {{ .Values.prometheus.scrapeIntervalSeconds }}s
@@ -85,6 +90,9 @@ data:
       {{- end }}
       {{- if .Values.costReader.enabled }}
       - /etc/prometheus/kaval-cost.rules.yaml
+      {{- end }}
+      {{- if and .Values.costReader.enabled .Values.costReader.wasteScan.enabled }}
+      - /etc/prometheus/kaval-waste.rules.yaml
       {{- end }}
     scrape_configs:
       # Prometheus's own numbers: its real memory is what the staging measurement reads.
@@ -154,7 +162,7 @@ spec:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $prom) | nindent 8 }}
       annotations:
         # A changed scrape setting restarts Prometheus, so a values change is never half-applied.
-        checksum/config: {{ list (toJson .Values.prometheus) (.Files.Get "files/kaval-alerts.rules.yaml") (toJson .Values.diagnoser.enabled) (.Files.Get "files/kaval-diagnoser.rules.yaml") (toJson .Values.costReader.enabled) (.Files.Get "files/kaval-cost.rules.yaml") | toJson | sha256sum }}
+        checksum/config: {{ list (toJson .Values.prometheus) (.Files.Get "files/kaval-alerts.rules.yaml") (toJson .Values.diagnoser.enabled) (.Files.Get "files/kaval-diagnoser.rules.yaml") (toJson .Values.costReader.enabled) (.Files.Get "files/kaval-cost.rules.yaml") (toJson .Values.costReader.wasteScan.enabled) (.Files.Get "files/kaval-waste.rules.yaml") | toJson | sha256sum }}
     spec:
       serviceAccountName: {{ include "kaval.fullname" . }}-prometheus
       automountServiceAccountToken: true

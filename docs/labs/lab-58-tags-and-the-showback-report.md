@@ -79,5 +79,6 @@ changes. Its idle-stop and hard-stop jobs are updated by the same apply. Tracked
 
 ## What this does not do
 
-It does not run on a schedule or alert (that comes with waste detection, `KAV-94`), and it does not stop anyone
+`make tag-scan` itself does not run on a schedule; the four resource types that cost money are checked daily, with an
+alert, by the waste scan ([Lab 59](lab-59-the-waste-scan.md), `KAV-94`). Neither stops anyone
 making an unlabelled resource by hand in the console: the scan finds it afterwards.

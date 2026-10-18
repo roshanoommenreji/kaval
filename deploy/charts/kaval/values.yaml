@@ -193,6 +193,12 @@ costReader:
   resources:
     requests: { cpu: 25m, memory: 48Mi }
     limits: { cpu: 100m, memory: 128Mi }
+  # The same pod also reads the daily waste scan the server leaves in a second ConfigMap (KAV-94,
+  # ADR-0062) and writes a signal per finding. Off until the collector image that has the reading code
+  # is the one pinned, because an older image would not start with the extra argument. The scan's
+  # alarms are loaded only with it.
+  wasteScan:
+    enabled: false
 
 # Prometheus, and the collector poller that turns it into signals (KAV-75, ADR-0040).
 # Off here; an environment switches it on from its own values file. The memory limit below is

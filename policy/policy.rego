@@ -43,7 +43,10 @@ is_never if {
 # causes are Kaval's own health (every name starting `kaval_`) and the two with no automated fix.
 # The list is repeated in kaval_shared/health.py; services/agent/tests/test_policy.py fails if
 # the two differ. `input.cause` is optional: an input without one behaves exactly as before.
-people_only_causes := {"disk_pressure", "latency_high"}
+people_only_causes := {
+	"disk_pressure", "latency_high",
+	"idle_address", "snapshot_past_retention", "server_overstay", "resource_unlabelled",
+}
 
 is_never if {
 	input.cause in people_only_causes

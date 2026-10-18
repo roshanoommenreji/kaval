@@ -12,7 +12,9 @@ the resource's spend cannot be attributed and, for a missing `Project`, the budg
   `ec2/snapshot  snap-...  kaval-prod-database-pre-stop  missing Env; missing ManagedBy`
 - `make cost-showback` shows a large "no Env label" share (some of it is never labellable: support, tax, data transfer,
   the Cost Explorer requests themselves)
-- Not an alarm yet: scheduling the scan and alerting on it comes with waste detection (`KAV-94`)
+- For servers, disks, snapshots and fixed addresses a daily scan now files an incident named
+  `resource_unlabelled:aws:…` (`KAV-94`, [waste-found.md](waste-found.md)); `make tag-scan` is still the full,
+  on-demand check across every resource type
 
 ## Likely causes
 

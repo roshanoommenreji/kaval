@@ -74,7 +74,10 @@ remove?". The answer is a label on the resource. A read-only look at the real ac
 - The labels on a **new** server and disk only appear when a server is next launched (staging at its next
   `make staging-up`; production at its next bring-up, together with the pending server-settings change, so no
   extra step).
-- Layer 2 is run by hand for now. Running it on a schedule and alerting on it belongs to `KAV-94`, which needs
-  the same list ("age plus no label") for its first category of waste.
+- Layer 2 (`make tag-scan`) is run by hand. For the four resource types that cost money (servers, disks, snapshots,
+  fixed addresses) a daily check with an alert now exists too: the waste scan's `resource_unlabelled` finding
+  ([ADR-0062](0062-waste-is-found-daily-by-a-read-only-scan-and-reported-to-a-person.md), `KAV-94`), which carries
+  a copy of the rules above kept equal by a test. `make tag-scan` stays for every other resource type and as the
+  check before a production bring-up.
 - Anyone able to change tags can still hide a resource from the hard stop by removing `Project`; the scan reports
   the missing label, and nothing in Kaval has any write access to tags (the agent has no AWS write access at all).

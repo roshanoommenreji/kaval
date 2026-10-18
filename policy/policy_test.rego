@@ -203,6 +203,34 @@ test_a_promotion_cannot_resurrect_a_people_only_cause if {
 	} with data.auto_promotions as promotions
 }
 
+# KAV-94: the waste scan's findings are for a person too, until removal exists (KAV-95). Whatever a
+# model or a hand-filed proposal suggests for one of them, the answer is never.
+
+test_deleting_an_old_backup_copy_is_never_while_it_is_a_people_only_cause if {
+	policy.decision == "never" with input as {
+		"action": {"type": "delete_snapshot", "target": "snap-0abc", "blast_radius": "pod", "reversible": true},
+		"confidence": 0.99, "cause": "snapshot_past_retention",
+	}
+}
+
+test_stopping_an_overstaying_server_is_never_for_now if {
+	policy.decision == "never" with input as {
+		"action": {"type": "stop_server", "target": "i-0abc", "blast_radius": "pod", "reversible": true},
+		"confidence": 0.99, "cause": "server_overstay",
+	}
+}
+
+test_releasing_an_idle_address_and_labelling_are_never_for_now if {
+	policy.decision == "never" with input as {
+		"action": {"type": "restart_pod", "target": "x/y", "blast_radius": "pod", "reversible": true},
+		"confidence": 0.99, "cause": "idle_address",
+	}
+	policy.decision == "never" with input as {
+		"action": {"type": "restart_pod", "target": "x/y", "blast_radius": "pod", "reversible": true},
+		"confidence": 0.99, "cause": "resource_unlabelled",
+	}
+}
+
 test_other_causes_are_unchanged if {
 	policy.decision == "ask" with input as {
 		"action": {"type": "restart_pod", "target": "x/y", "blast_radius": "pod", "reversible": true},

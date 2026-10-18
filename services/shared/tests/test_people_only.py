@@ -39,3 +39,16 @@ def test_the_policy_file_lists_exactly_the_same_causes() -> None:
 
 def test_every_signal_that_names_one_of_these_causes_names_a_listed_one() -> None:
     assert set(health.PEOPLE_ONLY_SIGNALS.values()) == set(health.PEOPLE_ONLY_CAUSES)
+
+
+@pytest.mark.parametrize("kind", [
+    "address_unattached", "snapshot_past_retention", "server_overstay", "resource_unlabelled",
+])
+def test_each_waste_finding_is_for_a_person_by_its_signal_kind(kind: str) -> None:
+    """KAV-94: the waste scan's findings have no automated fix until KAV-95 builds one."""
+    assert kind in health.PEOPLE_ONLY_SIGNALS
+    assert health.is_people_only_cause(health.PEOPLE_ONLY_SIGNALS[kind])
+
+
+def test_an_unattached_disk_is_not_people_only() -> None:
+    assert "volume_unattached" not in health.PEOPLE_ONLY_SIGNALS

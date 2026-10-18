@@ -130,6 +130,15 @@ Cloud waste is boringly consistent, which is what makes automated detection viab
 | **Wrong tier** | Everything in S3 Standard | Access frequency versus storage class |
 | **Zombie** | An idle NAT Gateway, an unused ALB | Cost with no corresponding traffic |
 
+Detection is not all the same kind of check. Two of these categories can be found by looking at one resource's
+state (an orphaned disk is attached to nothing; an address nothing uses), and two need a judgement about time
+(a snapshot is only "forgotten" once it is older than anyone would keep it). Kaval's daily waste scan
+(`KAV-94`, ADR-0062) does exactly those, plus a servers-left-running check, and deliberately skips "idle" by CPU:
+on this project a busy-looking server is just Prometheus and the database, so how *long* a server has been up says more
+than how hard it is working. It also asks twice before it speaks: a disk must be seen attached to nothing on two
+daily scans in a row, so a disk in the middle of being moved is not reported. And it never flags the newest backup
+copy of a disk however old, because that may be the only one.
+
 The last row is the most expensive in practice. A NAT Gateway costs $32/month whether it passes a
 byte or not — which is exactly the trap this project's architecture avoids by design.
 
