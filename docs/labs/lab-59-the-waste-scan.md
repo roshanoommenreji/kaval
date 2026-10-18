@@ -130,6 +130,6 @@ the production bring-up story (`KAV-98`). Its first scan also reports the unlabe
 
 ## What this does not do
 
-It does not remove anything (`KAV-95`). It does not read every kind of resource (servers, disks, snapshots and fixed
+It does not remove anything itself (removal is a separate worker, [Lab 60](lab-60-safe-removal.md), `KAV-95`). It does not read every kind of resource (servers, disks, snapshots and fixed
 addresses only; `make tag-scan` reads the rest). It cannot see a disk that is attached to a stopped server and never
 used: that costs the same and looks in use. Where it flags something, the first step is always a person looking.

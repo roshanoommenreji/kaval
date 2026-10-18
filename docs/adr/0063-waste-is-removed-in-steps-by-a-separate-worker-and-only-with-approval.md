@@ -1,7 +1,7 @@
 # ADR-0063 — Waste is removed in steps, by a separate worker, and only with a person's approval
 
-- **Status:** Accepted (plan approved by Roshan 2026-10-19). Built in steps; each step's proof is recorded in
-  [Lab 60](../labs/lab-60-safe-removal.md) as it happens
+- **Status:** Accepted (plan approved by Roshan 2026-10-19). Built and tested on the laptop 2026-10-19; the staging
+  proof and production are recorded in [Lab 60](../labs/lab-60-safe-removal.md) as they happen
 - **Date:** 2026-10-19
 - **Deciders:** Roshan
 - **Story:** `KAV-95` (Phase 6) · builds on [ADR-0062](0062-waste-is-found-daily-by-a-read-only-scan-and-reported-to-a-person.md)
@@ -82,11 +82,12 @@ the code:
    found by the scan as past retention. The scan's "never flag the newest copy of a disk" rule would protect a
    removed disk's last copy forever, so a copy labelled `KavalBackupOf` whose disk no longer exists is eligible after
    30 days (a person still approves its deletion).
-10. **Loud when it fails, off with one switch.** A refused or failed order becomes a signal and an incident for a
-    person (`removal_failed`, people-only); two alarms: `KavalRemovalFailing` and `KavalRemovalOrderStuck` (an order
-    with no result for 6 hours). The planner and the executor's handlers are off unless `removal.enabled` is set in
-    the values, and the worker is off unless its module is applied, so the safe state is the default. Staging first;
-    production at its bring-up (`KAV-98`).
+10. **Loud when it fails, off with one switch.** A refused or failed order becomes a `removal_failed` signal and an
+    incident for a person (people-only), told straight to Slack like the other waste findings. One alarm covers what
+    no signal can: `KavalRemovalOrderUnanswered` (the oldest order has no answer after 6 hours). The planner and the
+    executor's hand-over are off unless `removal.enabled` is set in the values (a chart refuses to render it without
+    the cost reader and the waste scan being read), and the worker refuses everything if its module's `enabled` is
+    false, so the safe state is the default. Staging first; production at its bring-up (`KAV-98`).
 
 ## Consequences
 
@@ -99,5 +100,18 @@ the code:
   fine for a 7-day process; the live proof starts the timer by hand.
 - **What the worker cannot protect against:** a person approving the wrong thing. The proposal shows the id, size,
   age and what it costs, and the second step shows the backup copy that makes it undoable.
+- **The executor gains one right in its own namespace.** ADR-0021 gave it none; it may now `get` and `patch` ONE
+  ConfigMap by name (the orders). The chart's test proves it has no other right there.
+- **Two checks the model cannot reach.** The executor only carries out a removal for a proposal whose `model` is
+  `rule:removal`, and the approval message shows its preview only for such a proposal, so text a model put in an
+  action is never shown or acted on as if Kaval had written it.
+- **The server's start-up script is now full:** 15,736 of the 15,800 bytes. The next addition must first move
+  something out; the size test fails before EC2 does (its own limit is 16,384).
+- **Found by the end-to-end test:** after a disk was deleted, the last scan's fact was still fresh for a day, so the
+  planner could have asked to delete it again. A step the worker has answered `ok` for is now never asked again,
+  and a question still waiting for an answer is never asked a second time.
+- **A residual risk, accepted:** a disk attached, changed and detached again between two daily scans during the wait
+  could lose those changes (the backup is from the moment it was marked). The seven-day grace and the scan's daily
+  look make it unlikely; the backup copy is kept 30 days.
 - **Not decided here:** removing servers or addresses; tracking money saved (its own roadmap line); a permission
   boundary for the executor's Kubernetes role (unchanged).

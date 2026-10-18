@@ -139,6 +139,16 @@ than how hard it is working. It also asks twice before it speaks: a disk must be
 daily scans in a row, so a disk in the middle of being moved is not reported. And it never flags the newest backup
 copy of a disk however old, because that may be the only one.
 
+Finding waste is half the job; removing it is the half that can hurt. The usual company answer is a **mark, wait,
+back up, delete** ladder with a person approving: tag the resource with the date it was marked, leave it alone for a
+grace period (so anyone who still needs it can say so, or just uses it, which cancels the removal), take a snapshot,
+and only then delete, so the delete can be undone. Kaval's removal (`KAV-95`, ADR-0063) does exactly that for a loose
+disk and an old backup copy, with three extra rules that come from this project's own shape: the proposal is made by
+plain code and never by the model; the part that deletes is a separate worker with its own narrow login, which
+re-reads the account itself and refuses on any doubt (so even a forged order can only remove something that is
+already safe to remove); and nothing in the cluster ever holds an AWS login. A deliberately boring result: the first
+real example proves that a disk attached during the wait is never deleted.
+
 The last row is the most expensive in practice. A NAT Gateway costs $32/month whether it passes a
 byte or not — which is exactly the trap this project's architecture avoids by design.
 
