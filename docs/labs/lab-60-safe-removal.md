@@ -11,8 +11,12 @@ steps, and only with a person's approval at each risky step. The decision is
 
 ## Parts
 
-- [ ] **Part 0 — The byte count.** How much of the server's start-up script (15,528 of 15,800 bytes packed) the
-  order and result hand-over takes; if it does not fit, an alternative comes back to the owner before anything else
+- [x] **Part 0 — The byte count.** The order and result hand-over fit: the one waste copy was turned into a loop over
+  two read parameters plus one write, and the packed script went from 15,528 to 15,736 of the 15,800 limit (EC2's own
+  hard limit is 16,384). That leaves almost nothing, so **the next addition to the script must first move something
+  out**; the size test fails loudly if it grows. Tests: `pytest scripts/dev/test_cost_pull.py` (35, including the
+  negative cases: no order writes nothing, an empty order writes nothing, no cluster means no read and no write, a
+  missing result never overwrites the last good copy, the write uses the server's own login and one parameter name)
 - [ ] **Part 1 — The worker's rules, without AWS.** Pure function, made-up answers: every refusal (not Kaval's,
   Terraform's, another environment's, attached, attached during the wait, backup unfinished, grace not over,
   retention not over, newest copy of a live disk) and the one case that acts

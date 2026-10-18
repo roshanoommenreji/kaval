@@ -53,7 +53,8 @@ class Run:
 def _run(tmp_path: Path, *, calls: int | None = None, last_ok_age: float | None = None,
          namespace: bool = True, assume_ok: bool = True, ce_ok: bool = True,
          identity_ok: bool = True, last_month_calls: int | None = None,
-         counter_raw: str | None = None, waste: str | None = None) -> Run:
+         counter_raw: str | None = None, waste: str | None = None,
+         result: str | None = None, order: str | None = None) -> Run:
     state = tmp_path / "state"
     state.mkdir()
     if calls is not None:
@@ -75,13 +76,23 @@ def _run(tmp_path: Path, *, calls: int | None = None, last_ok_age: float | None 
     bill = ("echo '{\"ResultsByTime\": []}'" if ce_ok else
             f'echo "User: arn:aws:sts::{ACCOUNT}:assumed-role/x is not authorized" >&2; exit 255')
     ssm_log = tmp_path / "ssm.txt"
-    # The waste scan's parameter (KAV-94): `waste` is its text, None means it does not exist yet.
-    ssm_reply = "exit 255" if waste is None else f"cat <<'PARAMETER'{NL}{waste}{NL}PARAMETER"
+    # The hand-over parameters: `waste` is the scan's text and `result` the removal worker's (None
+    # means it does not exist yet); `order` is the executor's order ConfigMap (None: none written).
+    scan_reply = "exit 255" if waste is None else f"cat <<'PARAMETER'{NL}{waste}{NL}PARAMETER"
+    result_reply = "exit 255" if result is None else f"cat <<'PARAMETER'{NL}{result}{NL}PARAMETER"
     aws_stub = f"""
 if [ "$1" = ssm ]; then
   echo "id=$AWS_ACCESS_KEY_ID $*" >> "{ssm_log.as_posix()}"
-  {ssm_reply}
-  exit $?
+  case "$*" in
+    *get-parameter*/waste-scan*)
+{scan_reply}
+      exit $? ;;
+    *get-parameter*/removal-result*)
+{result_reply}
+      exit $? ;;
+    *put-parameter*) exit 0 ;;
+  esac
+  exit 255
 fi
 echo "$*" >> "{aws_log.as_posix()}"
 case "$1 $2" in
@@ -94,9 +105,10 @@ case "$1 $2" in
 esac
 """
     namespace_cmd = "exit 0" if namespace else "exit 1"
+    order_cmd = "exit 1" if order is None else f"printf '%s' '{order}'"
     kubectl_stub = f"""
 case "$1" in
-  get) {namespace_cmd} ;;
+  get) if [ "$2" = configmap ]; then {order_cmd}; else {namespace_cmd}; fi ;;
   create) echo "$*" ;;
   apply) cat >> "{applied.as_posix()}" ;;
   *) exit 99 ;;
@@ -278,7 +290,7 @@ def test_the_waste_scan_is_copied_whole_into_its_own_configmap(tmp_path: Path) -
 def test_it_reads_one_named_parameter_in_the_servers_own_region_with_the_servers_own_login(
         tmp_path: Path) -> None:
     run = _run(tmp_path, waste=SCAN)
-    [read] = run.ssm
+    [read] = [c for c in run.ssm if "get-parameter" in c and "/waste-scan" in c]
     assert "--region ap-south-1" in read and "--name /kaval/kaval-test/waste-scan" in read
     assert "id=the-servers-own-id" in read  # not the cost reader's borrowed login
     assert "--with-decryption" not in read  # a plain string, never a secret
@@ -293,7 +305,7 @@ def test_it_is_copied_even_when_the_bill_is_fresh_and_asks_for_no_money(tmp_path
 def test_a_missing_parameter_leaves_the_bill_pull_alone(tmp_path: Path) -> None:
     run = _run(tmp_path)  # the scan has never run: the read fails
     assert run.code == 0 and run.asked_for_the_bill and "waste-scan" not in run.applied
-    assert len(run.ssm) == 1
+    assert not [c for c in run.ssm if "put-parameter" in c]
 
 
 def test_a_missing_parameter_never_overwrites_the_last_good_copy(tmp_path: Path) -> None:
@@ -308,10 +320,64 @@ def test_with_no_cluster_yet_it_reads_nothing(tmp_path: Path) -> None:
 
 def test_the_configmap_the_reader_wants_is_the_one_this_writes() -> None:
     text = TEMPLATE.read_text(encoding="utf-8")
-    assert '"$NS-waste-scan"' in text and "--from-literal=scan.json=" in text
+    assert "waste-scan:scan" in text and 'configmap "$NS-$${P%:*}"' in text
+    assert '--from-literal="$${P#*:}.json=$V"' in text
     chart = (ROOT / "deploy" / "charts" / "kaval" / "templates" / "cost.yaml").read_text(
         encoding="utf-8")
     assert 'fullname" . }}-waste-scan' in chart
     parameter = (ROOT / "infra" / "modules" / "waste-scan" / "main.tf").read_text(encoding="utf-8")
     assert 'parameter_name = "/kaval/${var.name_prefix}/waste-scan"' in parameter
-    assert '"/kaval/$NS/waste-scan"' in text and 'NS="${name_prefix}"' in text
+    assert '"/kaval/$NS/$${P%:*}"' in text and 'NS="${name_prefix}"' in text
+
+
+# ── the removal hand-over (KAV-95, ADR-0063): the worker's result comes in, the executor's order goes out ──
+
+RESULT = '{"order_id":"o1","status":"ok","step":"delete","target":"vol-0123456789abcdef0"}'
+ORDER = '{"order_id":"o1","step":"delete","target":"vol-0123456789abcdef0"}'
+
+
+def _puts(run: Run) -> list[str]:
+    return [c for c in run.ssm if "put-parameter" in c]
+
+
+def test_the_removal_result_is_copied_whole_into_its_own_configmap(tmp_path: Path) -> None:
+    run = _run(tmp_path, result=RESULT)
+    assert run.code == 0
+    assert "create configmap kaval-test-removal-result -n kaval-test" in run.applied
+    assert f"--from-literal=result.json={RESULT}" in run.applied
+    [read] = [c for c in run.ssm if "get-parameter" in c and "/removal-result" in c]
+    assert "--name /kaval/kaval-test/removal-result" in read and "id=the-servers-own-id" in read
+
+
+def test_a_missing_result_never_overwrites_the_last_good_copy(tmp_path: Path) -> None:
+    run = _run(tmp_path, waste=SCAN)
+    assert "removal-result" not in run.applied  # the scan is still copied, the result is not invented
+
+
+def test_an_order_goes_into_exactly_one_parameter_with_the_servers_own_login(tmp_path: Path) -> None:
+    run = _run(tmp_path, order=ORDER)
+    [put] = _puts(run)
+    assert "--name /kaval/kaval-test/removal-orders" in put and f"--value {ORDER}" in put
+    assert "--region ap-south-1" in put and "--type String" in put and "--overwrite" in put
+    assert "id=the-servers-own-id" in put  # not the cost reader's borrowed login
+    assert "SecureString" not in put and "--key-id" not in put
+
+
+def test_no_order_means_nothing_is_written(tmp_path: Path) -> None:
+    run = _run(tmp_path, waste=SCAN, result=RESULT)
+    assert _puts(run) == []
+
+
+def test_an_empty_order_is_not_written(tmp_path: Path) -> None:
+    run = _run(tmp_path, order="")
+    assert _puts(run) == []
+
+
+def test_with_no_cluster_yet_no_order_is_written_and_no_result_read(tmp_path: Path) -> None:
+    run = _run(tmp_path, namespace=False, order=ORDER, result=RESULT)
+    assert run.ssm == [] and "removal-result" not in run.applied
+
+
+def test_an_order_never_stops_the_bill_pull(tmp_path: Path) -> None:
+    run = _run(tmp_path, order=ORDER)
+    assert run.code == 0 and run.asked_for_the_bill and "status=ok" in run.applied
