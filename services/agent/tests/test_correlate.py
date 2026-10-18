@@ -366,7 +366,9 @@ def test_a_waste_finding_is_its_own_incident_for_a_person(
 
 def test_an_old_backup_copy_is_an_incident_the_removal_planner_may_act_on() -> None:
     """KAV-95: the one waste kind that left the people-only list besides the loose disk."""
-    found = signal("snapshot_past_retention", AT, target="snapshot/snap-0abc12345", source="aws_ec2")
+    found = signal(
+        "snapshot_past_retention", AT, target="snapshot/snap-0abc12345", source="aws_ec2"
+    )
     incident = only(c.plan([found], [], AT + timedelta(minutes=2)))
     assert incident.fingerprint == "snapshot_past_retention:aws:snapshot/snap-0abc12345"
     assert incident.severity is Severity.low

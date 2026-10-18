@@ -41,9 +41,10 @@ WASTE_SIGNALS = {
     "resource_unlabelled": "resource_unlabelled",
     "removal_failed": "removal_failed",
 }
-# The two causes removal (KAV-95, ADR-0063) can act on: the removal planner files their proposals by
-# code (never the model), and each still needs a person's approval at every step. ADR-0062 decision 4
-# said removal would take its own kinds out of the people-only list on purpose; this is that.
+# The two causes removal (KAV-95, ADR-0063) can act on: the removal planner files their proposals
+# by code (never the model), and each still needs a person's approval at every step. ADR-0062
+# decision 4 said removal would take its own kinds out of the people-only list on purpose; this is
+# that.
 REMOVABLE_CAUSES = frozenset({"idle_volume", "snapshot_past_retention"})
 # Causes that are not Kaval's own health but still have no automated fix. Same list in policy.rego.
 PEOPLE_ONLY_CAUSES = frozenset(

@@ -61,7 +61,7 @@ from prometheus_client import Counter, Gauge
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from kaval_agent import __version__
+from kaval_agent import __version__, removal
 from kaval_agent.context import Context, build_context
 from kaval_agent.diagnose import DiagnosisError, ModelUsage, diagnose, write_proposal
 from kaval_agent.embeddings import EmbeddingError
@@ -153,8 +153,12 @@ class PassResult:
     detail: str = ""
 
 
-def waiting_incidents(session: Session, now: datetime, max_age: timedelta) -> list[Incident]:
-    """Open, recent incidents with no proposal, oldest first, minus the ones for a person."""
+def waiting_incidents(
+    session: Session, now: datetime, max_age: timedelta, *, skip_removable: bool = False
+) -> list[Incident]:
+    """Open, recent incidents with no proposal, oldest first, minus the ones for a person.
+    With removal switched on (`skip_removable`), also minus the two causes the removal planner
+    files by rule (KAV-95): the model is never asked what to delete."""
     has_proposal = select(Proposal.id).where(Proposal.incident_id == Incident.id).exists()
     rows = session.scalars(
         select(Incident)
@@ -163,7 +167,15 @@ def waiting_incidents(session: Session, now: datetime, max_age: timedelta) -> li
         .order_by(Incident.opened_at, Incident.id)
         .limit(CANDIDATES)
     ).all()
-    return [i for i in rows if not health.is_people_only_fingerprint(i.fingerprint)]
+    return [
+        i
+        for i in rows
+        if not health.is_people_only_fingerprint(i.fingerprint)
+        and not (
+            skip_removable
+            and health.cause_of_fingerprint(i.fingerprint) in health.REMOVABLE_CAUSES
+        )
+    ]
 
 
 def proposals_in_last_hour(session: Session, now: datetime, model: str) -> int:
@@ -184,7 +196,9 @@ def diagnose_one_pass(
     now = now or datetime.now(UTC)
     if not session.scalar(text("SELECT pg_try_advisory_xact_lock(:k)"), {"k": LOCK_KEY}):
         return None
-    queue = waiting_incidents(session, now, settings.max_age)
+    queue = waiting_incidents(
+        session, now, settings.max_age, skip_removable=removal.Settings.from_env().enabled
+    )
     _WAITING.set(len(queue))
     _OLDEST.set(max(((now - i.opened_at).total_seconds() for i in queue), default=0))
     if not queue:
@@ -278,6 +292,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         while True:
             worked = True
+            # The removal planner needs no model, so it runs whether or not the model is up. Its own
+            # try: a bug here must not stop diagnosis, nor the reverse.
+            try:
+                with Session(get_engine()) as session:
+                    for line in removal.plan_pass(session, removal.Settings.from_env()):
+                        print(line, flush=True)
+            except Exception as exc:  # noqa: BLE001
+                print(f"removal planner failed: {type(exc).__name__}", flush=True)
             if not runbooks_ready:
                 try:
                     with Session(get_engine()) as session:

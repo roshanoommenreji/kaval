@@ -26,7 +26,7 @@ from kaval_agent import fixes
 # that has to keep the two in sync, and it does so by construction: it converts every
 # Diagnosis field into the matching kaval_shared enum, so a real drift fails there, at write
 # time, not silently.
-BlastRadiusValue = Literal["pod", "deployment", "namespace", "node", "account"]
+BlastRadiusValue = Literal["pod", "deployment", "namespace", "node", "resource", "account"]
 RiskValue = Literal["low", "medium", "high"]
 
 
