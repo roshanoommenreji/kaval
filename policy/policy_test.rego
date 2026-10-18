@@ -203,13 +203,43 @@ test_a_promotion_cannot_resurrect_a_people_only_cause if {
 	} with data.auto_promotions as promotions
 }
 
-# KAV-94: the waste scan's findings are for a person too, until removal exists (KAV-95). Whatever a
-# model or a hand-filed proposal suggests for one of them, the answer is never.
+# KAV-94 / KAV-95: the waste scan's findings are for a person. Two kinds (a loose disk, an old backup
+# copy) can be removed, but only as `ask`: a person approves every step, and nothing is `auto`.
 
-test_deleting_an_old_backup_copy_is_never_while_it_is_a_people_only_cause if {
+test_removing_an_old_backup_copy_is_asked_never_automatic if {
+	policy.decision == "ask" with input as {
+		"action": {"type": "delete_old_snapshot", "target": "snap-0abc", "blast_radius": "resource", "reversible": false},
+		"confidence": 1.0, "cause": "snapshot_past_retention",
+	}
+}
+
+test_removing_a_loose_disk_is_asked_in_both_steps if {
+	policy.decision == "ask" with input as {
+		"action": {"type": "backup_and_mark_volume", "target": "vol-0abc", "blast_radius": "resource", "reversible": true},
+		"confidence": 1.0, "cause": "idle_volume",
+	}
+	policy.decision == "ask" with input as {
+		"action": {"type": "delete_idle_volume", "target": "vol-0abc", "blast_radius": "resource", "reversible": false},
+		"confidence": 1.0, "cause": "idle_volume",
+	}
+}
+
+test_removal_is_never_automatic_even_with_a_promotion_for_its_type if {
+	promotions := [{
+		"action_type": "delete_idle_volume", "blast_radius": "resource",
+		"requires_reversible": false, "min_confidence": 0.5,
+		"adr": "docs/adr/0000-example-promotion.md",
+	}]
+	policy.decision != "auto" with input as {
+		"action": {"type": "restart_pod", "target": "x/y", "blast_radius": "pod", "reversible": true},
+		"confidence": 1.0, "cause": "server_overstay",
+	} with data.auto_promotions as promotions
+}
+
+test_a_failed_removal_is_for_a_person_never_a_fix if {
 	policy.decision == "never" with input as {
-		"action": {"type": "delete_snapshot", "target": "snap-0abc", "blast_radius": "pod", "reversible": true},
-		"confidence": 0.99, "cause": "snapshot_past_retention",
+		"action": {"type": "delete_idle_volume", "target": "vol-0abc", "blast_radius": "resource", "reversible": false},
+		"confidence": 1.0, "cause": "removal_failed",
 	}
 }
 
