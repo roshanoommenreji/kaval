@@ -98,15 +98,24 @@ def _tags(items: list[dict[str, str]] | None) -> dict[str, str]:
     return {t["Key"]: t["Value"] for t in items or []}
 
 
+def drop_terminated(resources: list[dict[str, Any]], gone: set[str]) -> list[dict[str, Any]]:
+    """The tagging service keeps listing a terminated server (with the labels it had) for about an
+    hour. A server that no longer exists is not a finding, so it is dropped by id."""
+    return [r for r in resources if not (r["kind"] == "ec2/instance" and r["id"] in gone)]
+
+
 def fetch() -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+    gone: set[str] = set()
     for r in _aws("resourcegroupstaggingapi", "get-resources")["ResourceTagMappingList"]:
         parts = r["ResourceARN"].split(":", 5)
         kind = f"{parts[2]}/{parts[5].split('/')[0].split(':')[0]}"
         out.append({"kind": kind, "id": parts[5].split("/")[-1], "tags": _tags(r["Tags"])})
     for res in _aws("ec2", "describe-instances")["Reservations"]:
         for i in res["Instances"]:
-            if i["State"]["Name"] != "terminated":
+            if i["State"]["Name"] == "terminated":
+                gone.add(i["InstanceId"])
+            else:
                 tags = _tags(i.get("Tags"))
                 out.append({"kind": "ec2/instance", "id": i["InstanceId"], "tags": tags})
     for v in _aws("ec2", "describe-volumes")["Volumes"]:
@@ -116,7 +125,7 @@ def fetch() -> list[dict[str, Any]]:
     for a in _aws("ec2", "describe-addresses")["Addresses"]:
         ip_id = a.get("AllocationId", "")
         out.append({"kind": "ec2/elastic-ip", "id": ip_id, "tags": _tags(a.get("Tags"))})
-    return out
+    return drop_terminated(out, gone)
 
 
 def main() -> int:

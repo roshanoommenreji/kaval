@@ -55,3 +55,32 @@ def test_the_output_names_the_findings_and_masks_account_ids() -> None:
     text = ts._mask(ts.render(report) + " arn:aws:ec2:ap-south-1:" + account)
     assert "Missing or wrong labels: 1" in text and "vol-9" in text
     assert "1 belonging to stock-trader" in text and "<acct>" in text and account not in text
+
+
+def test_a_terminated_server_the_tagging_service_still_lists_is_not_a_finding() -> None:
+    """Found live 2026-10-18 after staging's old server was replaced: the tagging service kept
+    listing it, with its old labels, for about an hour, and the scan reported it."""
+    from tag_scan import drop_terminated
+
+    listed = [
+        {
+            "kind": "ec2/instance",
+            "id": "i-0old",
+            "tags": {"Project": "kaval", "Name": "kaval-staging"},
+        },
+        {
+            "kind": "ec2/instance",
+            "id": "i-0new",
+            "tags": {"Project": "kaval", "Name": "kaval-staging"},
+        },
+        {
+            "kind": "ec2/volume",
+            "id": "i-0old",
+            "tags": {"Project": "kaval"},
+        },  # same id text, other kind
+    ]
+    kept = drop_terminated(listed, {"i-0old"})
+    assert [(r["kind"], r["id"]) for r in kept] == [
+        ("ec2/instance", "i-0new"),
+        ("ec2/volume", "i-0old"),
+    ]
