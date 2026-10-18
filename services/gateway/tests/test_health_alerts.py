@@ -64,6 +64,26 @@ def test_a_stalled_service_is_posted_once_with_what_stopped_and_where_the_runboo
     assert [b["type"] for b in posts[0]["blocks"]] == ["section"]  # nothing to approve: no buttons
 
 
+@pytest.mark.parametrize(("alert", "words"), [
+    ("KavalCostPullFailing", "cost pull keeps failing"),
+    ("KavalCostPullStale", "no good AWS bill for over 36 hours"),
+    ("KavalCostReaderMissing", "is not running, so the AWS bill is not being read"),
+])
+def test_a_cost_reader_fault_reaches_a_person_with_its_own_runbook(
+    db_session: Session, alert: str, words: str,
+) -> None:
+    target = _target()
+    _alert(db_session, alert, target)
+    slack = _Slack()
+
+    health_alerts.notify_pass(db_session, slack, "C1", now=NOW)
+
+    [post] = _about(slack, target)
+    text = post["blocks"][0]["text"]["text"]
+    assert words in text and "docs/runbooks/cost-reader-not-pulling.md" in text
+    assert "No fix is proposed" in text
+
+
 def test_the_same_fault_is_not_repeated_until_the_reminder_period_passes(
     db_session: Session,
 ) -> None:

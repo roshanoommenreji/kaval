@@ -181,6 +181,19 @@ diagnoser:
     requests: { cpu: 25m, memory: 96Mi }
     limits: { cpu: 250m, memory: 256Mi }
 
+# The cost reader's cluster half (KAV-92, ADR-0060): reads the AWS bill the server's daily cost pull
+# leaves in one ConfigMap and writes cost signals. Off here; an environment switches it on from its
+# own values file. It needs `prometheus.enabled` (its alarm is a Prometheus rule). The pull itself is
+# on the server (infra/modules/node), not here: nothing in the cluster holds an AWS login.
+costReader:
+  enabled: false
+  # How often the ConfigMap is looked at. The pull is daily; this only decides how soon a new day's
+  # rows or a failure show up on the health page.
+  everySeconds: 300
+  resources:
+    requests: { cpu: 25m, memory: 48Mi }
+    limits: { cpu: 100m, memory: 128Mi }
+
 # Prometheus, and the collector poller that turns it into signals (KAV-75, ADR-0040).
 # Off here; an environment switches it on from its own values file. The memory limit below is
 # a first guess until Lab 43 measures it, and staging/prod stay off until it is measured on a

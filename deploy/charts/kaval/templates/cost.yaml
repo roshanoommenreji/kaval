@@ -1,0 +1,113 @@
+{{- if .Values.costReader.enabled }}
+{{- if not .Values.prometheus.enabled }}
+{{- fail "costReader.enabled needs prometheus.enabled: its alarm is a Prometheus rule, and with no Prometheus a failed pull would be silent" }}
+{{- end }}
+# The cost reader's cluster half (KAV-92, ADR-0060). The pull itself runs on the server, outside the
+# cluster: a small timer there borrows a login that can only read costs, asks Cost Explorer once a
+# day, and leaves the answer in one ConfigMap. This Deployment reads that ConfigMap and writes the
+# cost signals. It holds no AWS login of any kind, which is the point: the cluster's programs have
+# no AWS access, and the one that has some has one verb.
+#
+# What it may do in the cluster: `get` ONE ConfigMap, by name (`resourceNames`), in its own namespace.
+# Not list, not watch, not any other ConfigMap, not a Secret. A bug or a misled input cannot widen
+# that: no binding anywhere grants more.
+# What it may do in the database: the `collector` role, the same one the event watcher uses.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kaval.fullname" . }}-cost
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "kaval.fullname" . }}-cost
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ include "kaval.fullname" . }}-cost-pull]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "kaval.fullname" . }}-cost
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "kaval.fullname" . }}-cost
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kaval.fullname" . }}-cost
+    namespace: {{ .Release.Namespace }}
+---
+{{ $component := "collector-cost" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaval.fullname" . }}-collector-cost
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+    {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
+    spec:
+      {{- include "kaval.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "kaval.fullname" . }}-cost
+      automountServiceAccountToken: true
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.postgres.image }}
+          envFrom:
+            - secretRef:
+                name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "collector") }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT"; do
+                echo "waiting for postgres..."; sleep 2
+              done
+      containers:
+        - name: collector-cost
+          image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.collector.image.repository "tag" .Values.collector.image.tag) }}"
+          imagePullPolicy: {{ .Values.collector.image.pullPolicy }}
+          command: ["python", "-m", "kaval_collector.cost_explorer"]
+          args:
+            - "--namespace"
+            - {{ .Release.Namespace | quote }}
+            - "--handoff"
+            - "{{ include "kaval.fullname" . }}-cost-pull"
+            - "--every"
+            - {{ .Values.costReader.everySeconds | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "collector") }}
+          ports:
+            - { name: metrics, containerPort: 9100 }
+          {{- include "kaval.workerReadiness" . | nindent 10 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            {{- toYaml .Values.costReader.resources | nindent 12 }}
+{{- end }}

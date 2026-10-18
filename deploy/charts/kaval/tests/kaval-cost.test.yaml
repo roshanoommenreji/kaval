@@ -1,0 +1,102 @@
+# promtool unit tests for kaval-cost.rules.yaml (KAV-92). `make rules-test` runs them.
+# As always the quiet cases matter as much as the loud ones: a pull that fails once and is fixed by
+# the next try must not send anyone a message, and a pull that is fine must never look stale.
+rule_files:
+  - ../files/kaval-cost.rules.yaml
+evaluation_interval: 30m
+
+tests:
+  - name: a healthy reader is quiet for two days
+    interval: 30m
+    input_series:
+      - series: 'kaval_cost_pull_failing{job="kaval-collector-cost"}'
+        values: "0+0x100"
+      # the last good pull keeps pace with the clock: pulled just now, every time
+      - series: 'kaval_cost_pull_last_ok_timestamp_seconds{job="kaval-collector-cost"}'
+        values: "0+1800x100"
+      - series: 'up{job="kaval-collector-cost"}'
+        values: "1+0x100"
+    alert_rule_test:
+      - { eval_time: 48h, alertname: KavalCostPullFailing, exp_alerts: [] }
+      - { eval_time: 48h, alertname: KavalCostPullStale, exp_alerts: [] }
+      - { eval_time: 48h, alertname: KavalCostReaderMissing, exp_alerts: [] }
+
+  - name: one failed try that the next try fixes never alerts
+    interval: 30m
+    input_series:
+      # failing for three hours (a failed pull and its retry window), then a good pull
+      - series: 'kaval_cost_pull_failing{job="kaval-collector-cost"}'
+        values: "0 1x6 0+0x40"
+      - series: 'kaval_cost_pull_last_ok_timestamp_seconds{job="kaval-collector-cost"}'
+        values: "0+1800x100"
+    alert_rule_test:
+      - { eval_time: 3h, alertname: KavalCostPullFailing, exp_alerts: [] }
+      - { eval_time: 6h, alertname: KavalCostPullFailing, exp_alerts: [] }
+
+  - name: a pull that is still failing after four hours alerts
+    interval: 30m
+    input_series:
+      - series: 'kaval_cost_pull_failing{job="kaval-collector-cost"}'
+        values: "0 1x40"
+      - series: 'kaval_cost_pull_last_ok_timestamp_seconds{job="kaval-collector-cost"}'
+        values: "0+1800x40"
+    alert_rule_test:
+      # three hours in: failing, but not yet for four hours
+      - { eval_time: 3h, alertname: KavalCostPullFailing, exp_alerts: [] }
+      - eval_time: 6h
+        alertname: KavalCostPullFailing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: collector-cost
+              job: kaval-collector-cost
+            exp_annotations:
+              summary: The daily AWS cost pull is failing, so the bill is not being read.
+
+  - name: a pull that never runs is stale after a day and a half, and not before
+    interval: 30m
+    input_series:
+      # the one good pull was at t=0 and nothing since; the reader itself is up and not "failing"
+      # (there is simply no new handoff, which is the case only this rule can see)
+      - series: 'kaval_cost_pull_last_ok_timestamp_seconds{job="kaval-collector-cost"}'
+        values: "0+0x100"
+      - series: 'kaval_cost_pull_failing{job="kaval-collector-cost"}'
+        values: "0+0x100"
+    alert_rule_test:
+      - { eval_time: 35h, alertname: KavalCostPullStale, exp_alerts: [] }
+      - eval_time: 37h
+        alertname: KavalCostPullStale
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: collector-cost
+              job: kaval-collector-cost
+            exp_annotations:
+              summary: No good AWS cost pull for over 36 hours.
+
+  - name: a reader with no pod at all alerts, because a dead pod has no numbers
+    interval: 30m
+    input_series:
+      # the series exist for an hour, then the pod is gone
+      - series: 'up{job="kaval-collector-cost"}'
+        values: "1+0x2"
+      - series: 'kaval_cost_pull_failing{job="kaval-collector-cost"}'
+        values: "0+0x2"
+      - series: 'kaval_cost_pull_last_ok_timestamp_seconds{job="kaval-collector-cost"}'
+        values: "0+1800x2"
+    alert_rule_test:
+      - { eval_time: 1h, alertname: KavalCostReaderMissing, exp_alerts: [] }
+      - eval_time: 3h
+        alertname: KavalCostReaderMissing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: collector-cost
+              job: kaval-collector-cost
+            exp_annotations:
+              summary: The cost reader is not running.
+      # and the other two cannot speak: their series are gone too
+      - { eval_time: 3h, alertname: KavalCostPullFailing, exp_alerts: [] }

@@ -50,9 +50,22 @@ row = 0
 credentials = "read-only IAM · ce:GetCostAndUsage"
 inputs = ["Account billing data"]
 outputs = ["Daily cost grouped by service and tag"]
-note = "Daily granularity, ~24 h lag, and $0.01 per API call. This is why the FinOps phase needs the node always-on, and why nothing polls it in a loop."
+note = "Daily granularity, ~24 h lag, and $0.01 per API call. This is why the FinOps phase needs the node always-on, and why nothing polls it in a loop. Asked once a day (KAV-92, ADR-0060) by a job on the server that borrows a separate role allowed to do one thing, read costs; the newest day is always partial, so only days at least two old are recorded."
 
 # ── row 1: ingest ──────────────────────────────────────────────────────
+
+[[system.node]]
+id = "cost-reader"
+label = "cost reader"
+kind = "service"
+phase = 6
+col = 3
+row = 1
+credentials = "NO AWS login in the cluster. The server's own job borrows a read-only role (ce:GetCostAndUsage, nothing else); this pod may get ONE named ConfigMap. Database role: the collector's"
+inputs = ["The bill the server's daily job leaves in one ConfigMap (14 days, by service)"]
+outputs = ["daily_cost signal rows — one per service per settled day, written once"]
+tables = ["signal"]
+note = "KAV-92, ADR-0060. Two halves on purpose: kaval-cost-pull on the server (timer every 3 h, but a good answer under 20 h old means no request, so about one a day; a hard cap of 60 a month, counted before each request; only a fixed reason word is ever passed on) and this pod, which turns the answer into signals the existing cost-spike rule reads. Three alarms tell a person: the pull failing for 4 hours, no good pull for 36 hours, no reader running. Switched on by one values-file line."
 
 [[system.node]]
 id = "collector"
@@ -421,8 +434,13 @@ label = "metric queries · firing Kaval alerts"
 
 [[system.edge]]
 from = "cost-explorer"
-to = "collector"
-label = "daily cost"
+to = "cost-reader"
+label = "daily bill (read-only role, via the server's job)"
+
+[[system.edge]]
+from = "cost-reader"
+to = "db"
+label = "INSERT daily_cost signals"
 
 [[system.edge]]
 from = "synthetic"

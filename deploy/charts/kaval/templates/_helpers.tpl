@@ -91,6 +91,7 @@ then. A JSON list because a Helm helper can only return text.
 {{- $c := list "gateway" "agent" "executor" "collector" -}}
 {{- if .Values.prometheus.enabled -}}{{- $c = append $c "collector-prometheus" -}}{{- end -}}
 {{- if .Values.diagnoser.enabled -}}{{- $c = append $c "diagnoser" -}}{{- end -}}
+{{- if .Values.costReader.enabled -}}{{- $c = append $c "collector-cost" -}}{{- end -}}
 {{- toJson $c -}}
 {{- end -}}
 

@@ -86,6 +86,29 @@ def test_a_spike_needs_a_baseline() -> None:
     assert c.plan(days, [], AT).empty
 
 
+def _cost_days(amounts: Sequence[str]) -> list[Signal]:
+    return [
+        signal("daily_cost", AT - timedelta(days=len(amounts) - i), target="ce/ec2",
+               source=synthetic.COST_EXPLORER, service="EC2", granularity="DAILY",
+               amount_usd=amount)
+        for i, amount in enumerate(amounts)
+    ]
+
+
+def test_a_big_ratio_on_a_tiny_amount_is_not_a_spike() -> None:
+    # 8 cents a day, then 30 cents: 3.75 times the usual, and 22 cents more. Nobody is told.
+    assert c.plan(_cost_days(["0.08"] * 6 + ["0.30"]), [], AT).empty
+
+
+def test_a_rise_of_a_quarter_dollar_and_three_times_is_a_spike() -> None:
+    plan = c.plan(_cost_days(["0.08"] * 6 + ["0.34"]), [], AT)  # 4.25 times, 26 cents more
+    assert only(plan).fingerprint == "cost_spike:aws:ce/ec2"
+
+
+def test_a_rise_of_a_dollar_but_under_three_times_is_not_a_spike() -> None:
+    assert c.plan(_cost_days(["1.00"] * 6 + ["2.00"]), [], AT).empty
+
+
 def test_idle_volume_is_low_severity_on_the_volume() -> None:
     signals = run("idle-volume")
     incident = only(c.plan(signals, [], AT + timedelta(minutes=2)))

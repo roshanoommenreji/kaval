@@ -63,6 +63,11 @@ GROUP_WAIT = timedelta(seconds=60)
 LOOKBACK = timedelta(days=8)
 BASELINE = timedelta(days=7)
 SPIKE_FACTOR = Decimal(3)
+# A spike must also be this many dollars above the usual day (KAV-92, ADR-0060). The recorded real
+# bill showed why: a service that normally costs 8 cents and cost 30 once is "3.7 times the usual"
+# and nobody should be told. 25 cents a day is about 15% of the account's whole usual day ($1.60
+# is the ceiling's daily share), the smallest rise worth a person's attention.
+MIN_SPIKE_RISE = Decimal("0.25")
 MIN_BASELINE_DAYS = 3
 # Postgres advisory lock id: two correlators at once would open the same incident twice.
 LOCK_KEY = 0x4B41564C_0001  # "KAVL", lock 1
@@ -164,7 +169,10 @@ def cost_spikes(rows: Sequence[Signal]) -> set[uuid.UUID]:
     for points in series.values():
         for at, amount, sid in points:
             prior = [a for t, a, _ in points if at - BASELINE <= t < at]
-            if len(prior) >= MIN_BASELINE_DAYS and amount > SPIKE_FACTOR * statistics.median(prior):
+            if len(prior) < MIN_BASELINE_DAYS:
+                continue
+            usual = statistics.median(prior)
+            if amount > SPIKE_FACTOR * usual and amount - usual >= MIN_SPIKE_RISE:
                 spikes.add(sid)
     return spikes
 
