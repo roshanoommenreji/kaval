@@ -24,6 +24,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from kaval_shared import health
 from kaval_shared.db import get_engine
 from kaval_shared.models import Action, PolicyClass, Verdict
 from slack_sdk.socket_mode import SocketModeClient
@@ -59,6 +60,22 @@ def pending_actions(session: Session) -> list[Action]:
     return list(session.scalars(query))
 
 
+def _preview(action: Action) -> str:
+    """What a removal will do and how to undo it (KAV-95), for the person deciding. Shown only for a
+    proposal the removal planner made by rule: its preview is text Kaval wrote, whereas anything a
+    model put in `params` is never shown as if it were a fact."""
+    if action.proposal.model != health.REMOVAL_MODEL:
+        return ""
+    lines = action.params.get("preview")
+    if not isinstance(lines, list):
+        return ""
+    shown = [f"• {str(line)[:200]}" for line in lines[:6]]
+    undo = action.params.get("undo")
+    if isinstance(undo, str):
+        shown.append(f"*To undo:* {undo[:200]}")
+    return "\n*What will happen:*\n" + "\n".join(shown)
+
+
 def _blocks(action: Action) -> list[dict[str, Any]]:
     proposal = action.proposal
     return [
@@ -67,7 +84,8 @@ def _blocks(action: Action) -> list[dict[str, Any]]:
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    f"*{action.type}* on `{action.target}`\n{proposal.summary}\n"
+                    f"*{action.type}* on `{action.target}`\n{proposal.summary}"
+                    f"{_preview(action)}\n"
                     f"blast radius: `{action.blast_radius.value}` · reversible: "
                     f"`{action.reversible}` · confidence: `{proposal.confidence:.2f}`"
                 ),

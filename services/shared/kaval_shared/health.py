@@ -46,6 +46,10 @@ WASTE_SIGNALS = {
 # decision 4 said removal would take its own kinds out of the people-only list on purpose; this is
 # that.
 REMOVABLE_CAUSES = frozenset({"idle_volume", "snapshot_past_retention"})
+# The `model` of a proposal the removal planner made by rule. The executor carries out a removal
+# only for a proposal with exactly this marker, and the approval message shows its preview only
+# for it.
+REMOVAL_MODEL = "rule:removal"
 # Causes that are not Kaval's own health but still have no automated fix. Same list in policy.rego.
 PEOPLE_ONLY_CAUSES = frozenset(
     {"disk_pressure", "latency_high", *WASTE_SIGNALS.values()} - REMOVABLE_CAUSES

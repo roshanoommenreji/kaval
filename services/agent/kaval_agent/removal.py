@@ -50,7 +50,7 @@ from sqlalchemy.orm import Session
 from kaval_agent import policy
 
 LOCK_KEY = 0x4B41_5652  # "KAVR"; not the correlator's or the diagnoser's
-RULE_MODEL = "rule:removal"
+RULE_MODEL = health.REMOVAL_MODEL
 
 STEP_BACKUP = "backup_and_mark_volume"
 STEP_DELETE = "delete_idle_volume"

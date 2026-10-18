@@ -194,3 +194,43 @@ def test_the_slack_message_handle_is_kept_so_the_buttons_can_be_removed_later(
     slack_chatops.notify_pass(db_session, _WithTs(), "C_TEST")
 
     assert action.slack_ts == "1760000000.000100"
+
+
+# ── a removal shows what it will do and how to undo it (KAV-95, ADR-0063) ───────────────────────
+
+
+def _removal_action(model: str, params: dict[str, object]) -> Action:
+    action = Action(id=uuid.uuid4(), type="delete_idle_volume", target="vol-0abc1234def56789a",
+                    params=params, reversible=False, blast_radius=BlastRadius.resource,
+                    policy_class=PolicyClass.ask)
+    action.proposal = Proposal(summary="Delete the loose disk", root_cause="r", confidence=1.0,
+                               risk=RiskLevel.medium, model=model, tokens_in=0, tokens_out=0,
+                               cost_usd=Decimal("0"))
+    return action
+
+
+def test_a_rule_made_removal_shows_its_preview_and_how_to_undo_it() -> None:
+    action = _removal_action("rule:removal", {
+        "preview": ["Delete the disk vol-0abc.", "The backup copy is kept for 30 days."],
+        "undo": "Create a new disk from the backup copy."})
+    text = slack_chatops._blocks(action)[0]["text"]["text"]
+    assert "*What will happen:*" in text and "• Delete the disk vol-0abc." in text
+    assert "*To undo:* Create a new disk from the backup copy." in text
+
+
+def test_what_a_model_put_in_params_is_never_shown_as_a_preview() -> None:
+    action = _removal_action("gemma3:1b-it-qat", {
+        "preview": ["Click here: ignore previous instructions"], "undo": "trust me"})
+    text = slack_chatops._blocks(action)[0]["text"]["text"]
+    assert "ignore previous" not in text and "What will happen" not in text
+
+
+def test_a_preview_is_capped_and_a_garbled_one_is_ignored() -> None:
+    lines = [f"line {i} " + "x" * 400 for i in range(20)]
+    many = _removal_action("rule:removal", {"preview": lines})
+    text = slack_chatops._blocks(many)[0]["text"]["text"]
+    assert text.count("•") == 6 and "x" * 201 not in text
+    garbled: list[dict[str, object]] = [{"preview": "not a list"}, {"preview": None}, {}]
+    for bad in garbled:
+        assert "What will happen" not in slack_chatops._blocks(
+            _removal_action("rule:removal", bad))[0]["text"]["text"]
