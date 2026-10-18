@@ -53,19 +53,24 @@ the hard-stop job copies `Env` from the disk it snapshots.
 
 ## Part 5 — Staging: apply, then prove a new server is labelled
 
-- [ ] `terraform plan` in `infra/envs/staging`, read (expected: 3 changed in place, 0 added, 0 destroyed: the launch
-  template, the group, the idle-stop job's code), then apply on the owner's go
+- [x] `terraform plan` in `infra/envs/staging`, read (3 changed in place, 0 added, 0 destroyed: the launch
+  template, the group, the idle-stop job's code), applied 2026-10-18 on the owner's go; a second plan said no changes.
+  The group now carries `Env` and `ManagedBy` and launch template version 9 labels the instance and its disk. The
+  server that was already running keeps its old labels (tags are applied at launch), so the scan still lists it
 - [ ] A new server is launched (`make staging-up` after the current one parks) and `make tag-scan` shows the server
   **and its disk** with all three labels
 
 ## Part 6 — Labels on the bill
 
-- [ ] On the owner's go: activate `Env` and `ManagedBy` (`aws ce update-cost-allocation-tags-status`), then request
-  the backfill (`aws ce start-cost-allocation-tag-backfill --backfill-from <first of the earliest month>`; once per
-  24 hours)
+- [x] On the owner's go (2026-10-18): `aws ce update-cost-allocation-tags-status --cost-allocation-tags-status
+  TagKey=Env,Status=Active TagKey=ManagedBy,Status=Active`, then
+  `aws ce start-cost-allocation-tag-backfill --backfill-from 2026-08-01T00:00:00Z` (status PROCESSING; once per 24 hours)
 - [ ] The next day (the data takes up to a day to appear): `make cost-showback` and read the "no `Env` label" share
-- [ ] On the owner's go: label the 10 old snapshots and the staging disk by hand (`aws ec2 create-tags`), then
-  `make tag-scan` reads 0
+- [x] On the owner's go (2026-10-18): the 10 old snapshots and the staging server's root disk were labelled with
+  `aws ec2 create-tags` (values read from the snapshots' source disks: 6 prod pre-stop `Env=prod ManagedBy=kaval-lambda`,
+  3 staging pre-stop `ManagedBy=kaval-lambda`, 1 prod pre-migration backup `Env=prod ManagedBy=manual`, the root disk
+  `Project=kaval Env=staging ManagedBy=terraform`). `make tag-scan` went from 12 findings to 1: the staging server that
+  was already running, which a new launch replaces
 
 ## Part 7 — Production
 
