@@ -183,13 +183,13 @@ First real spend. **Posture: paused between sessions** (`make down`).
 
 **Posture: always-on from here.** Cost Explorer needs real days of data.
 
-- [ ] Cost Explorer + CUR ingestion
+- [~] Cost Explorer + CUR ingestion — the Cost Explorer half is **built and tested 2026-10-18** (`KAV-92`, [ADR-0060](docs/adr/0060-the-cost-reader-the-server-asks-aws-and-the-cluster-never-holds-the-login.md), [Lab 57](docs/labs/lab-57-the-cost-reader.md)): the server's daily job reads the bill as a read-only role and leaves it in one ConfigMap; a pod with no AWS login turns settled days into `daily_cost` signals; tested on a recorded real bill, capped at 60 requests a month, three alarms. **Live proof on staging and production is still to do.** The Cost and Usage Report (line items in S3) is not built: Cost Explorer's daily figures are enough to find spikes, line items are what waste detection (`KAV-94`) may need, and the decision is made there
 - [ ] Tagging strategy and enforcement
 - [ ] Waste detection: idle nodes, orphaned volumes, unused snapshots
 - [ ] Cost proposals through the same approve/execute path
 - [ ] Hard-stop Lambda wired to the live ASG
 - *Planning-standard additions (2026-10-11), each a checkbox below:*
-- [ ] A read-only role for the cost reader, separate from the executor's role; the executor's cost actions get an explicit allow-list and a permission boundary
+- [~] A read-only role for the cost reader, separate from the executor's role; the executor's cost actions get an explicit allow-list and a permission boundary — the read-only role is **built 2026-10-18** (`KAV-92`: `ce:GetCostAndUsage` and nothing else, only that environment's server may borrow it, the cluster holds no AWS login); the executor's allow-list and permission boundary come with the cost proposals (`KAV-95`)
 - [ ] The safe way to remove waste, as practised in industry: tag it, stop it, wait a grace period, snapshot, only then delete; every action reversible or snapshotted first, with a dry-run preview in the proposal
 - [ ] Tag policy enforced (required keys on every resource) and a show-back report by service/environment
 - [ ] Savings tracked: proposed vs realised, so the phase can show money actually saved

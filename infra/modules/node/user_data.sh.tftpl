@@ -457,6 +457,141 @@ UNIT
 systemctl daemon-reload
 systemctl enable --now kaval-heartbeat.timer
 
+# ── The daily AWS cost pull (KAV-92, ADR-0060) ─────────────────────────────────────────────
+# Once a day this server asks Cost Explorer what the account spent and leaves the answer in one
+# ConfigMap, which the cost reader pod (kaval_collector.cost_explorer) turns into cost signals.
+# It is the HOST that asks, for the reason the heartbeat above is: a pod cannot reach this server's
+# role (IMDSv2, one hop, ADR-0021), so no program in the cluster holds an AWS login. The host
+# borrows a SEPARATE role for the one call (infra/modules/cost-reader: ce:GetCostAndUsage and
+# nothing else), so reading the bill never uses this server's other powers.
+#
+# Cost Explorer bills $0.01 a request. Three rules keep that small and certain:
+#   - one request asks for the last 14 days at once (a first run needs the history, and a repeat
+#     costs nothing extra because the reader never writes the same day twice);
+#   - a good answer less than 20 hours old means no request at all, so the timer can try every
+#     three hours (a failed try is retried soon) and still make about one request a day;
+#   - a hard cap of 60 requests a month, counted before each request (a failed request may still
+#     be billed). At the cap it asks nothing and says "capped". The count lives in a file on this
+#     server, so a rebuilt server counts again from zero: the cost of that is cents, and the budget
+#     alarm is the backstop.
+#
+# What it tells the cluster is a status and a FIXED reason word, never AWS's own error text, which
+# can carry account details and would end up on a page every pod can read. `set -x` stays off.
+# Anything unexpected is a failed pull, never a half-written good one: the reader refuses a
+# ConfigMap without a status of "ok", a time and a bill, and an alarm rings after a day and a half
+# with no good pull (deploy/charts/kaval/files/kaval-cost.rules.yaml).
+cat > /usr/local/sbin/kaval-cost-pull <<'COSTSCRIPT'
+#!/bin/bash
+set -uo pipefail
+NS="${name_prefix}"
+CAP=60
+FRESH_SECONDS=72000
+STATE="$${KAVAL_COST_STATE:-/var/lib/kaval/cost-pull}"
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+mkdir -p "$STATE"
+
+NOW=$(date +%s)
+if [ -f "$STATE/last-ok" ]; then
+  LAST=$(cat "$STATE/last-ok")
+  case "$LAST" in ""|*[!0-9]*) LAST=0 ;; esac
+  if [ $((NOW - LAST)) -lt "$FRESH_SECONDS" ]; then
+    exit 0
+  fi
+fi
+
+# The namespace must exist before anything is spent: the first timer tick can come before the
+# cluster has made it, and that must cost nothing.
+if ! kubectl get namespace "$NS" >/dev/null 2>&1; then
+  echo "cost pull: namespace $NS is not there yet" >&2
+  exit 1
+fi
+
+MONTH=$(date -u +%Y-%m)
+COUNT=0
+if [ -f "$STATE/calls-$MONTH" ]; then
+  COUNT=$(cat "$STATE/calls-$MONTH")
+  case "$COUNT" in ""|*[!0-9]*) COUNT=0 ;; esac
+fi
+
+# Writes the handoff. $1 = status, $2 = a fixed reason word (empty for ok), $3 = the bill file or
+# empty. The same ConfigMap every time, replaced whole.
+handoff() {
+  local args=(--from-literal=status="$1" --from-literal=pulled_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              --from-literal=calls_this_month="$COUNT")
+  [ -n "$2" ] && args+=(--from-literal=reason="$2")
+  [ -n "$3" ] && args+=(--from-file=bill.json="$3")
+  kubectl create configmap "$NS-cost-pull" -n "$NS" "$${args[@]}" --dry-run=client -o yaml \
+    | kubectl apply -f - >/dev/null
+}
+
+fail() {
+  echo "cost pull failed: $1" >&2
+  handoff failed "$1" "" || echo "cost pull: could not write the handoff either" >&2
+  exit 1
+}
+
+if [ "$COUNT" -ge "$CAP" ]; then
+  echo "cost pull: $COUNT requests already this month (cap $CAP)" >&2
+  handoff capped capped "" || true
+  exit 1
+fi
+
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text 2>/dev/null) || fail assume_role_failed
+CREDS=$(aws sts assume-role --role-arn "arn:aws:iam::$ACCOUNT:role/$NS-cost-reader" \
+  --role-session-name kaval-cost-pull --duration-seconds 900 \
+  --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text 2>/dev/null) \
+  || fail assume_role_failed
+read -r AK SK TOKEN <<<"$CREDS"
+[ -n "$AK" ] && [ -n "$SK" ] && [ -n "$TOKEN" ] || fail assume_role_failed
+
+BILL=$(mktemp)
+trap 'rm -f "$BILL"' EXIT
+START=$(date -u -d '14 days ago' +%Y-%m-%d)
+END=$(date -u +%Y-%m-%d)
+
+# Counted BEFORE the request: a request that fails after AWS received it may still be billed.
+COUNT=$((COUNT + 1))
+echo "$COUNT" > "$STATE/calls-$MONTH"
+
+# Only this call runs as the borrowed role. Credits and refunds are left out, as in
+# scripts/ops/cost-report.sh, so the figures are what the account used, not what it paid.
+if ! AWS_ACCESS_KEY_ID="$AK" AWS_SECRET_ACCESS_KEY="$SK" AWS_SESSION_TOKEN="$TOKEN" \
+     aws ce get-cost-and-usage --region us-east-1 \
+       --time-period "Start=$START,End=$END" --granularity DAILY --metrics UnblendedCost \
+       --filter '{"Not":{"Dimensions":{"Key":"RECORD_TYPE","Values":["Credit","Refund"]}}}' \
+       --group-by Type=DIMENSION,Key=SERVICE --output json >"$BILL" 2>/dev/null; then
+  fail ce_call_failed
+fi
+
+handoff ok "" "$BILL" || { echo "cost pull: could not write the handoff" >&2; exit 1; }
+echo "$NOW" > "$STATE/last-ok"
+COSTSCRIPT
+chmod +x /usr/local/sbin/kaval-cost-pull
+
+cat > /etc/systemd/system/kaval-cost-pull.service <<'UNIT'
+[Unit]
+Description=Read the AWS bill once a day and leave it for the cost reader
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+TimeoutStartSec=300
+ExecStart=/usr/local/sbin/kaval-cost-pull
+UNIT
+
+cat > /etc/systemd/system/kaval-cost-pull.timer <<'UNIT'
+[Unit]
+Description=Kaval cost pull: try every 3 hours (it asks AWS at most about once a day)
+[Timer]
+OnBootSec=8min
+OnUnitActiveSec=3h
+[Install]
+WantedBy=timers.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now kaval-cost-pull.timer
+
 %{ if backup_bucket_name != "" ~}
 # ── Nightly database dump (KAV-74, ADR-0038) ─────────────────────────────────────────────
 # Taken from the node itself, using the node's own instance role (it can already write to the

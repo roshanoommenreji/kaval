@@ -1,0 +1,1955 @@
+{
+ "GroupDefinitions": [
+  {
+   "Type": "DIMENSION",
+   "Key": "SERVICE"
+  }
+ ],
+ "ResultsByTime": [
+  {
+   "TimePeriod": {
+    "Start": "2026-10-04",
+    "End": "2026-10-05"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.001605084",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.1581762926",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0791524887",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Notification Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.000123519",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.11100972",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-05",
+    "End": "2026-10-06"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon API Gateway"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0000021",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.001605084",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.1860592848",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0615944934",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Container Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0579305792",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Notification Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Queue Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0265385082",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.16770556",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Tax"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-06",
+    "End": "2026-10-07"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon API Gateway"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.00005565",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Cognito"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.001605084",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.185296934",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.1035695612",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Container Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.057949618",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Notification Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0281209261",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.102076395",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-07",
+    "End": "2026-10-08"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Secrets Manager"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.000005",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.001605084",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.1714723795",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Container Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0578734625",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Notification Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Queue Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0282023853",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.03381667",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-08",
+    "End": "2026-10-09"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.001890172",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.1809469872",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.032032",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Container Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0579543778",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Notification Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0285497408",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.049084715",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-09",
+    "End": "2026-10-10"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0025398624",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.2006492099",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.1290488864",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Container Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0579686569",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Notification Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0285424695",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.076679165",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-10",
+    "End": "2026-10-11"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0043685213",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.1760719463",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0565413408",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Notification Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0004333795",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.019179175",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-11",
+    "End": "2026-10-12"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0063872575",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.2255518885",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.2948897728",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0003905046",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.10926667",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-12",
+    "End": "2026-10-13"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.007479667",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.2537711099",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.2729688864",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Container Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0580352931",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0270807015",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.14627084",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-13",
+    "End": "2026-10-14"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon API Gateway"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.000042",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.006660309",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.2552098559",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.2738026592",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Container Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0579567575",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Notification Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0269001385",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.144074995",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.00006",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-14",
+    "End": "2026-10-15"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.005904906",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.3120298793",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.07672",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Container Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0579948354",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Notification Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0269305382",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.056834715",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-15",
+    "End": "2026-10-16"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.005955029",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.245336848",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.2576622048",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Container Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0579115403",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Notification Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0286437368",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.11913611",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-16",
+    "End": "2026-10-17"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Cost Explorer"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.1",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Key Management Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.005679295",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.2435364476",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Compute Cloud - Compute"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.1660648864",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Elastic Container Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.05791392",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Notification Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0290995072",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Virtual Private Cloud"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.108327785",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  },
+  {
+   "TimePeriod": {
+    "Start": "2026-10-17",
+    "End": "2026-10-18"
+   },
+   "Total": {},
+   "Groups": [
+    {
+     "Keys": [
+      "AWS Glue"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AWS Lambda"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon EC2 Container Registry (ECR)"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.003556304",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "EC2 - Other"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.1117935504",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "Amazon Simple Storage Service"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0.0002641068",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "AmazonCloudWatch"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    },
+    {
+     "Keys": [
+      "CloudWatch Events"
+     ],
+     "Metrics": {
+      "UnblendedCost": {
+       "Amount": "0",
+       "Unit": "USD"
+      }
+     }
+    }
+   ],
+   "Estimated": true
+  }
+ ],
+ "DimensionValueAttributes": []
+}

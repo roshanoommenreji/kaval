@@ -145,6 +145,15 @@ module "iam" {
   )
 }
 
+# The login the server's daily cost pull borrows (KAV-92, ADR-0060): one permission, "read costs".
+module "cost_reader" {
+  source = "../../modules/cost-reader"
+
+  name_prefix    = "kaval-prod"
+  node_role_arn  = module.iam.node_role_arn
+  node_role_name = module.iam.node_role_name
+}
+
 module "node" {
   source = "../../modules/node"
 

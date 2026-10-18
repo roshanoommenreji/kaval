@@ -43,6 +43,9 @@ RUNBOOK = "docs/runbooks/kaval-stopped-reporting.md"
 _RUNBOOKS = {
     "disk_near_full": "docs/runbooks/disk-pressure.md",
     "service_slow": "docs/runbooks/latency-spike.md",
+    "KavalCostPullFailing": "docs/runbooks/cost-reader-not-pulling.md",
+    "KavalCostPullStale": "docs/runbooks/cost-reader-not-pulling.md",
+    "KavalCostReaderMissing": "docs/runbooks/cost-reader-not-pulling.md",
 }
 
 _WORDS = {
@@ -52,6 +55,9 @@ _WORDS = {
     "kaval_watchdog_missing": "Prometheus answers, but its alert rules are not running",
     "KavalDatabaseDown": "cannot be reached, or Postgres is not answering",
     "KavalDatabaseMonitorDown": "is not answering, so the database server's disk is not watched",
+    "KavalCostPullFailing": "cannot read the AWS bill: the daily cost pull keeps failing",
+    "KavalCostPullStale": "has had no good AWS bill for over 36 hours",
+    "KavalCostReaderMissing": "is not running, so the AWS bill is not being read",
     "disk_near_full": "the app server's disk is nearly full",
     "service_slow": "is answering slowly (or not in time)",
 }

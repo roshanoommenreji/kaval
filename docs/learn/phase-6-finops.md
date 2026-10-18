@@ -66,6 +66,19 @@ Two consequences the agent must be designed around:
 This is exactly why the Phase 0 budget uses both ACTUAL and FORECASTED notifications. Forecast
 compensates for lag.
 
+### What a real bill looked like when we first read it (KAV-92, 2026-10-18)
+
+Three things the theory above says, seen in this account's own fourteen days:
+
+- **The newest day is partial.** The 17th read $0.12 against about $0.70 for a normal day, and every day of the
+  current month is flagged `Estimated`, so the flag cannot tell a partial day from a settled one. Kaval records a
+  day only once it is two days old, because its table is append-only and a partial day written early would stay as
+  a false drop.
+- **Most of the account is zero.** 18 services, 7 with any spend. A spike test that is only a ratio ("three times
+  the usual") flags 8 cents turning into 30. Kaval's test also needs the day to be 25 cents above the usual.
+- **Asking costs money.** The account's own bill has a line, "AWS Cost Explorer": 10 cents on 16 October, from the
+  tests that built the reader. That is why the reader asks once a day and stops at 60 requests a month.
+
 ### Tagging, and why untagged spend is unattributable
 
 A **tag** is a key-value pair on a resource. Cost allocation tags must be **activated** in the

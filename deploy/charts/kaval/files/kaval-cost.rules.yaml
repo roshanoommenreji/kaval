@@ -1,0 +1,44 @@
+# Prometheus rules for the cost reader (KAV-92, ADR-0060). A file of its own, loaded only where
+# `costReader.enabled` is on, because the `absent()` rule below would page everywhere else. Like the
+# other files, the collector's poller turns a firing alert into a signal and a person is told
+# straight from it, without waiting for the correlator.
+# Tested with promtool: deploy/charts/kaval/tests/kaval-cost.test.yaml (make rules-test).
+#
+# The pull runs once a day on the server and is retried every few hours until it works, so the
+# rules are about days, not minutes.
+groups:
+  - name: kaval-cost
+    rules:
+      # The newest pull failed (the server could not borrow the login, AWS refused, the monthly cap
+      # was reached) and the retry a few hours later failed too. One failed try that the next one
+      # fixes is not worth a message; a second is.
+      - alert: KavalCostPullFailing
+        expr: >-
+          label_replace(kaval_cost_pull_failing{job="kaval-collector-cost"} == 1,
+                        "service", "collector-cost", "", "")
+        for: 4h
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: The daily AWS cost pull is failing, so the bill is not being read.
+
+      # The last good pull is over 36 hours old. Catches what the rule above cannot: a pull that
+      # does not run at all (the server's timer is gone, the cluster could not take the handoff).
+      # Starts counting when the reader starts, so a fresh bring-up has a day and a half to make
+      # its first pull.
+      - alert: KavalCostPullStale
+        expr: >-
+          label_replace(time() - kaval_cost_pull_last_ok_timestamp_seconds{job="kaval-collector-cost"} > 129600,
+                        "service", "collector-cost", "", "")
+        for: 5m
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: No good AWS cost pull for over 36 hours.
+
+      # No reader at all: no pod, so no numbers to be bad. A dead pod's gauges vanish with it,
+      # which is exactly when the two rules above cannot speak.
+      - alert: KavalCostReaderMissing
+        expr: label_replace(absent(up{job="kaval-collector-cost"}), "service", "collector-cost", "", "")
+        for: 2m
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: The cost reader is not running.
