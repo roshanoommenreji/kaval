@@ -126,7 +126,11 @@ module "iam" {
     [for p in aws_ssm_parameter.slack : p.arn],
     # Not a secret: the daily waste scan's findings, which the server copies into the cluster.
     [module.waste_scan.parameter_arn],
+    # Not a secret: the removal worker's answer, which the server copies into the cluster.
+    [module.waste_removal.result_parameter_arn],
   )
+  # The one parameter the server's timer may write: the executor's removal order (ADR-0063).
+  removal_orders_parameter_arns = [module.waste_removal.orders_parameter_arn]
 }
 
 # The login the server's daily cost pull borrows (KAV-92, ADR-0060): one permission, "read costs".
@@ -144,6 +148,16 @@ module "waste_scan" {
   source = "../../modules/waste-scan"
 
   name_prefix = local.name_prefix
+}
+
+# The removal worker (KAV-95, ADR-0063): the only login that can delete waste, narrow and fenced.
+# Staging waits one hour between marking a disk and deleting it so the live proof is quick; production
+# keeps the default seven days.
+module "waste_removal" {
+  source = "../../modules/waste-removal"
+
+  name_prefix = local.name_prefix
+  grace_hours = 1
 }
 
 module "node" {

@@ -143,8 +143,12 @@ module "iam" {
       aws_ssm_parameter.slack_channel_id.arn,
       # Not a secret: the daily waste scan's findings, which the server copies into the cluster.
       module.waste_scan.parameter_arn,
+      # Not a secret: the removal worker's answer, which the server copies into the cluster.
+      module.waste_removal.result_parameter_arn,
     ]
   )
+  # The one parameter the server's timer may write: the executor's removal order (ADR-0063).
+  removal_orders_parameter_arns = [module.waste_removal.orders_parameter_arn]
 }
 
 # The login the server's daily cost pull borrows (KAV-92, ADR-0060): one permission, "read costs".
@@ -160,6 +164,14 @@ module "cost_reader" {
 # cost money for nothing, and for resources missing their labels. Read-only; it writes one parameter.
 module "waste_scan" {
   source = "../../modules/waste-scan"
+
+  name_prefix = "kaval-prod"
+}
+
+# The removal worker (KAV-95, ADR-0063): the only login that can delete waste, narrow and fenced.
+# Seven days between marking a disk and deleting it. Wired here, applied at the bring-up (KAV-98).
+module "waste_removal" {
+  source = "../../modules/waste-removal"
 
   name_prefix = "kaval-prod"
 }
