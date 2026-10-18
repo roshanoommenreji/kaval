@@ -105,9 +105,16 @@ On the owner's go, with a separate go for the removal:
 
 ## Part 7 — Failure is loud
 
-- [ ] Break the parameter on purpose (a copy of the function with a bad name, or the role's `Look` statement removed
-  in a throwaway apply): the document says `failed` with the fixed word `describe_failed` and the alarm number is 1
-- [ ] Restore it; the number returns to 0 by itself
+- [x] Break it on purpose: instead of a Terraform apply, one temporary inline rule that only **denies** the four
+  `Describe` calls was added to the function's role (`aws iam put-role-policy --policy-name drill-deny-look`, a deny
+  overrides the allow; Terraform does not manage it). Run the function: it fails with `UnauthorizedOperation`, and the
+  document says `status: failed`, `reason: describe_failed`. After the server's copy step (`systemctl start
+  kaval-cost-pull`) and the reader's next 5-minute poll, its log said `no good waste scan: describe_failed` and
+  `kaval_waste_scan_failing` was **1** (2026-10-18, about 17:57 to 18:03 UTC)
+- [x] Restore it (`aws iam delete-role-policy`): the next run wrote `status: ok`; once copied, the number was **0** again
+  within 5 minutes with no other action, and `terraform plan` in staging said No changes. The alarm itself needs the
+  number at 1 for 4 hours before it fires, so it did not fire in this 15-minute test; that rule is covered by the
+  promtool tests (`make rules-test`)
 
 ## Part 8 — Production
 
