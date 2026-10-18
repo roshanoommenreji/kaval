@@ -29,25 +29,25 @@ gateway:
   image:
     # Build once, promote the artifact (ADR-0004): the same sha-ffb436b digest prod runs, pushed
     # to the shared ECR by KAV-51's one-time bootstrap push. Never rebuilt for staging.
-    tag: sha-a170694
+    tag: sha-fd029e9
 
 agent:
   # Wider than local's 30s, narrower than prod's 60s: staging should surface a stuck loop fast.
   correlateEverySeconds: 45
   image:
-    tag: sha-a170694
+    tag: sha-fd029e9
 
 executor:
   # A namespace of its own, not local's `kaval-demo` and not prod's `kaval-demo-prod`.
   demoNamespace: kaval-demo-staging
   executeEverySeconds: 20
   image:
-    tag: sha-a170694
+    tag: sha-fd029e9
 
 collector:
   watchEverySeconds: 20
   image:
-    tag: sha-a170694
+    tag: sha-fd029e9
 
 # Prometheus is on here first (KAV-78, ADR-0042): staging is where its real memory on the 4 GB
 # node is measured, and where the "Kaval has stopped" alerts are proven, before prod turns it on
