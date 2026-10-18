@@ -72,6 +72,8 @@ spec:
       enabled: true
     diagnoser:
       enabled: true
+    costReader:
+      enabled: true
   valuesFrom:
     - kind: ConfigMap
       name: kaval-registry
