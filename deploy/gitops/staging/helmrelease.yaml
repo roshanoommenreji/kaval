@@ -39,20 +39,20 @@ spec:
     gateway:
       replicas: 1
       image:
-        tag: sha-5f02c84
+        tag: sha-69f2f2b
     agent:
       correlateEverySeconds: 45
       image:
-        tag: sha-5f02c84
+        tag: sha-69f2f2b
     executor:
       demoNamespace: kaval-demo-staging
       executeEverySeconds: 20
       image:
-        tag: sha-5f02c84
+        tag: sha-69f2f2b
     collector:
       watchEverySeconds: 20
       image:
-        tag: sha-5f02c84
+        tag: sha-69f2f2b
     prometheus:
       enabled: true
       disk:
