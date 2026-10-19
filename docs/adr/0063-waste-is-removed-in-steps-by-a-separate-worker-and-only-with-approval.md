@@ -110,6 +110,11 @@ the code:
 - **Found by the end-to-end test:** after a disk was deleted, the last scan's fact was still fresh for a day, so the
   planner could have asked to delete it again. A step the worker has answered `ok` for is now never asked again,
   and a question still waiting for an answer is never asked a second time.
+- **Found by the live proof (2026-10-19): the planner could not read approvals.** It runs inside the diagnosis
+  worker, so as the agent's database login, which had no right to read `decision` or `execution`; it failed every
+  pass with "permission denied". The agent now gets **read-only** access to those two tables (`db-roles.sql`) and
+  still cannot write either: approving stays with the gateway, executing with the executor. A role test runs the
+  planner's own lookup as that login and proves the writes are refused. Precedent: `outcome` (found live 2026-10-15).
 - **A residual risk, accepted:** a disk attached, changed and detached again between two daily scans during the wait
   could lose those changes (the backup is from the moment it was marked). The seven-day grace and the scan's daily
   look make it unlikely; the backup copy is kept 30 days.

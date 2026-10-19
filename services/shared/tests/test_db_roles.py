@@ -92,3 +92,23 @@ def test_the_agent_can_read_everything_the_diagnosis_worker_reads_but_cannot_wri
     assert not _can(db_session, "kaval_agent", "INSERT INTO outcome DEFAULT VALUES")
     assert not _can(db_session, "kaval_agent", "UPDATE outcome SET resolved = true")
     assert not _can(db_session, "kaval_agent", "DELETE FROM outcome")
+
+
+def test_the_removal_planner_can_read_approvals_and_executions_but_never_write_them(
+    db_session: Session,
+) -> None:
+    """KAV-95, found live on staging 2026-10-19: the planner (it runs in the diagnosis worker, so as
+    kaval_agent) failed every pass with 'permission denied for table decision'. To never ask twice
+    it looks up whether a step was already approved, denied or handed over. The end-to-end test ran
+    as an all-powerful user and could not see it. Reading is all it gets."""
+    _apply_roles(db_session)
+
+    # The planner's own lookup: an action with its decision and its execution.
+    assert _can(db_session, "kaval_agent",
+                "SELECT a.id, d.verdict, e.id FROM action a "
+                "LEFT JOIN decision d ON d.action_id = a.id "
+                "LEFT JOIN execution e ON e.action_id = a.id WHERE false")
+    for table in ("decision", "execution"):
+        assert not _can(db_session, "kaval_agent", f"INSERT INTO {table} DEFAULT VALUES"), table
+        assert not _can(db_session, "kaval_agent", f"UPDATE {table} SET id = id"), table
+        assert not _can(db_session, "kaval_agent", f"DELETE FROM {table}"), table
