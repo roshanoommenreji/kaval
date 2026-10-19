@@ -65,8 +65,8 @@ GRANT USAGE ON SCHEMA public TO kaval_gateway, kaval_agent, kaval_executor, kava
 -- collector: writes raw signals only.
 GRANT SELECT, INSERT ON signal TO kaval_collector;
 
--- agent: reads history, writes its own reasoning output. Never touches decision or
--- execution -- those are the human-oversight and executor boundaries.
+-- agent: reads history, writes its own reasoning output. Never WRITES decision or
+-- execution -- those are the human-oversight and executor boundaries. It may read them (below).
 GRANT SELECT ON signal, incident TO kaval_agent;
 GRANT SELECT, INSERT, UPDATE ON incident, proposal, action TO kaval_agent;
 -- incident_signal: the many-to-many correlate.py writes while grouping signals into an
@@ -82,6 +82,12 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON runbook_chunk TO kaval_agent;
 -- has history. Missing here, the worker was refused on staging the moment a second similar incident
 -- existed (found live, 2026-10-15). Reading is all it gets: recording an outcome is the executor's job.
 GRANT SELECT ON outcome TO kaval_agent;
+-- decision, execution: read-only. The removal planner (KAV-95, ADR-0063) never asks twice: before filing a
+-- step it looks up whether that step was already approved, denied or handed to the worker. It runs inside the
+-- diagnosis worker, so as this role. Missing here, it failed every pass on staging with 'permission denied for
+-- table decision' (found live, 2026-10-19; the end-to-end test ran as a superuser and could not see it).
+-- Approving and executing stay with the gateway and the executor: the agent gets no write on either.
+GRANT SELECT ON decision, execution TO kaval_agent;
 
 -- executor: the only component that acts, and only on what's already been decided.
 GRANT SELECT ON action, decision TO kaval_executor;

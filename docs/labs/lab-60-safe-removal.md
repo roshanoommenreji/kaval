@@ -130,6 +130,11 @@ pytest scripts/dev/test_chart_removal.py -q      # the rights the chart grants, 
   gone and the backup copy remains
 - [ ] **Undo:** create a disk from the backup copy and see the data is back; delete the test disk and copy afterwards
 
+> **Found live on the first run (2026-10-19):** the planner failed every pass with `permission denied for table
+> decision` because the agent's database login could not read approvals. Fixed with a read-only grant on `decision`
+> and `execution` in `scripts/ops/db-roles.sql`, plus a role test (`services/shared/tests/test_db_roles.py`). The
+> database server's own log (over Session Manager) shows the full message; the pod log shows only the error's type.
+
 ## Part 7 — Negative checks, live
 
 - [ ] An attached disk, another project's disk and a Terraform-managed disk are each refused by the worker even when
