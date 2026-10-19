@@ -38,17 +38,32 @@ def test_the_policy_file_lists_exactly_the_same_causes() -> None:
 
 
 def test_every_signal_that_names_one_of_these_causes_names_a_listed_one() -> None:
-    assert set(health.PEOPLE_ONLY_SIGNALS.values()) == set(health.PEOPLE_ONLY_CAUSES)
+    """Every signal's cause is people-only, except the two that removal (KAV-95) can act on."""
+    assert (
+        set(health.PEOPLE_ONLY_SIGNALS.values()) - health.REMOVABLE_CAUSES
+        == set(health.PEOPLE_ONLY_CAUSES)
+    )
 
 
 @pytest.mark.parametrize("kind", [
-    "address_unattached", "snapshot_past_retention", "server_overstay", "resource_unlabelled",
+    "address_unattached", "server_overstay", "resource_unlabelled", "removal_failed",
 ])
 def test_each_waste_finding_is_for_a_person_by_its_signal_kind(kind: str) -> None:
-    """KAV-94: the waste scan's findings have no automated fix until KAV-95 builds one."""
+    """KAV-94: these findings have no automated fix; KAV-95 removes only the two kinds below."""
     assert kind in health.PEOPLE_ONLY_SIGNALS
     assert health.is_people_only_cause(health.PEOPLE_ONLY_SIGNALS[kind])
 
 
 def test_an_unattached_disk_is_not_people_only() -> None:
     assert "volume_unattached" not in health.PEOPLE_ONLY_SIGNALS
+
+
+@pytest.mark.parametrize("cause", ["idle_volume", "snapshot_past_retention"])
+def test_the_two_removable_causes_are_not_people_only(cause: str) -> None:
+    """KAV-95, ADR-0063: removal takes exactly these two out of the people-only list, on purpose."""
+    assert cause in health.REMOVABLE_CAUSES and not health.is_people_only_cause(cause)
+    assert health.REMOVABLE_CAUSES == {"idle_volume", "snapshot_past_retention"}
+
+
+def test_a_removal_that_failed_is_for_a_person_never_for_a_fix() -> None:
+    assert health.is_people_only_cause("removal_failed")

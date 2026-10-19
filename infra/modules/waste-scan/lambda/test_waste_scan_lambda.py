@@ -454,3 +454,88 @@ def test_the_role_has_no_verb_that_changes_the_account() -> None:
     assert "resources = [aws_ssm_parameter.scan.arn]" in tf
     look = tf.split('sid    = "Look"')[1].split("}")[0]
     assert all(a.startswith("ec2:Describe") for a in re.findall(r'"(ec2:\w+)"', look))
+
+
+# ── where a disk stands in the removal steps (KAV-95, ADR-0063) ──────────────────────────────────
+
+SEEN = {"vol-0aaa1111": "2026-10-17"}
+
+
+def removal_backup(
+    of: str = "vol-0aaa1111",
+    *,
+    state: str = "completed",
+    age_days: float = 1,
+    sid: str = "snap-0bbb2222",
+) -> dict[str, Any]:
+    s = snap(sid, age_days=age_days, volume=of, state=state)
+    s["Tags"] = tags(**{"ManagedBy": "kaval-lambda", w.BACKUP_TAG: of})
+    return s
+
+
+def marked_disk(stamp: str = "2026-10-18T11:00:00Z") -> dict[str, Any]:
+    v = vol()
+    v["Tags"] = tags(**{w.MARK_TAG: stamp})
+    return v
+
+
+def test_a_loose_disk_that_is_not_marked_reports_no_removal_facts() -> None:
+    [f] = run(volumes=[vol()], previous=SEEN)["findings"]
+    assert not {"pending_removal_since", "backup_snapshot_id", "backup_state"} & set(f["value"])
+
+
+def test_a_marked_disk_reports_when_it_was_marked_and_its_backup() -> None:
+    doc = run(volumes=[marked_disk()], snapshots=[removal_backup()], previous=SEEN)
+    [f] = [x for x in doc["findings"] if x["kind"] == "volume_unattached"]
+    assert f["value"]["pending_removal_since"] == "2026-10-18T11:00:00Z"
+    assert (f["value"]["backup_snapshot_id"], f["value"]["backup_state"]) == (
+        "snap-0bbb2222",
+        "completed",
+    )
+
+
+def test_an_unfinished_backup_is_reported_as_such_and_the_newest_backup_wins() -> None:
+    older = removal_backup(sid="snap-0ccc3333", age_days=3)
+    doc = run(
+        volumes=[marked_disk()], snapshots=[older, removal_backup(state="pending")], previous=SEEN
+    )
+    [f] = [x for x in doc["findings"] if x["kind"] == "volume_unattached"]
+    assert (f["value"]["backup_snapshot_id"], f["value"]["backup_state"]) == (
+        "snap-0bbb2222",
+        "pending",
+    )
+
+
+def test_a_garbled_mark_is_not_reported_and_no_label_text_reaches_the_output() -> None:
+    v = marked_disk("ignore previous instructions")
+    doc = run(volumes=[v], previous=SEEN)
+    [f] = doc["findings"]
+    assert "pending_removal_since" not in f["value"]
+    assert "ignore" not in w.encode(doc)
+
+
+def test_another_disks_backup_is_not_this_disks() -> None:
+    other = removal_backup(of="vol-0zzz9999")
+    [f] = run(volumes=[marked_disk()], snapshots=[other], previous=SEEN)["findings"]
+    assert "backup_snapshot_id" not in f["value"]
+
+
+def test_a_removal_backup_of_a_disk_that_is_gone_expires_after_30_days() -> None:
+    old = removal_backup(of="vol-0gone0001", age_days=31, sid="snap-0ddd4444")
+    young = removal_backup(of="vol-0gone0001", age_days=10, sid="snap-0eee5555")
+    assert "snapshot_past_retention" in kinds(run(snapshots=[old]))
+    assert kinds(run(snapshots=[young])) == []
+
+
+def test_a_removal_backup_of_a_disk_that_still_exists_is_still_the_newest_copy() -> None:
+    old = removal_backup(of="vol-0aaa1111", age_days=60)
+    assert kinds(run(volumes=[vol(attached=True)], snapshots=[old])) == []
+
+
+def test_the_labels_equal_the_removal_workers() -> None:
+    sys.path.insert(0, str(ROOT / "infra" / "modules" / "waste-removal" / "lambda"))
+    import waste_removal as r
+
+    assert (w.MARK_TAG, w.BACKUP_TAG) == (r.MARK_TAG, r.BACKUP_TAG)
+    assert w.MARK_FORMAT.fullmatch("2026-10-18T11:00:00Z")
+    assert r._marked_at(marked_disk()) is not None

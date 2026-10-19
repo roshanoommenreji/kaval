@@ -64,7 +64,7 @@ account". A read-only look at the live account on 2026-10-18 showed what there i
    function keeps what it saw last time in the same parameter. Each scan covers its own environment (by the `Env`
    label); unlabelled resources and unlabelled copies are covered by every environment's scan, since no
    environment owns them. `stock-trader`'s resources are counted and never reported.
-4. **Waste findings are for a person until removal exists.** Four of the five are added to the list of causes with no
+4. **Waste findings are for a person until removal exists.** *(Updated by [ADR-0063](0063-waste-is-removed-in-steps-by-a-separate-worker-and-only-with-approval.md): the loose disk and the old backup copy now have a removal path, with a person approving each step; the other three stay for a person.)* Four of the five are added to the list of causes with no
    automated fix (`kaval_shared.health.WASTE_SIGNALS`, the same list in `policy/policy.rego`), so the diagnosis model
    is not asked about them, no proposal can be filed for one, and the policy says `never` to any action attached to
    one. `KAV-95` takes the kinds it can safely act on out of that list on purpose, in its own ADR. A disk attached to
@@ -99,5 +99,5 @@ account". A read-only look at the live account on 2026-10-18 showed what there i
 - **If the function stops, the alarm is on the cluster side**, so a parked production is quiet until it starts and
   then has 36 hours of grace. A failing function does not alarm on its own (an AWS alarm per function would be a
   recurring cost for what the stale rule already says).
-- **Not decided here:** removal, a grace period, and what is safe to delete (`KAV-95`, the "safe way to remove waste"
-  roadmap line); the Cost and Usage Report (line items), which the bill by service did not make necessary.
+- **Not decided here:** removal, a grace period, and what is safe to delete (decided in
+  [ADR-0063](0063-waste-is-removed-in-steps-by-a-separate-worker-and-only-with-approval.md), `KAV-95`); the Cost and Usage Report (line items), which the bill by service did not make necessary.

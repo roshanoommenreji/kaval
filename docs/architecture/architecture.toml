@@ -64,6 +64,18 @@ inputs = ["The account's servers, disks, fixed addresses and snapshots (read-onl
 outputs = ["One parameter: up to 25 findings (unattached disk or address, backup copy past its retention, staging server left running, resource missing its labels)"]
 note = "KAV-94, ADR-0062. A small function on a daily schedule of its own, so it still runs while production is parked. It finds and reports; removing anything is KAV-95. A disk or address must be seen unattached on two scans in a row before it is reported. The newest copy of a disk is never flagged, production servers are never flagged for running, another project's resources are counted and left alone. Only ids, sizes, dates and fixed words are written, never tag text."
 
+[[system.node]]
+id = "waste-removal"
+label = "removal worker"
+kind = "service"
+phase = 6
+col = 2.5
+row = 6
+credentials = "its OWN narrow IAM, never the scan's: make a backup copy of a Kaval disk, label a disk KavalRemoval, delete a MARKED disk or a Kaval backup copy. Every verb is fenced to Project=kaval, this Env and not ManagedBy=terraform; IAM itself refuses to delete an unmarked disk. Cannot stop, terminate, detach, release or change anything else"
+inputs = ["One order at a time from the executor (a step word and an AWS id), carried out of the cluster by the server's timer into a parameter", "AWS's own current answer (it re-checks everything and refuses on any doubt)"]
+outputs = ["A backup copy plus a KavalRemoval label, or a deleted disk or copy", "One answer parameter (fixed words and ids only), carried back into the cluster"]
+note = "KAV-95, ADR-0063. The only thing in Kaval that deletes waste. Two approvals per disk (label + backup, then delete after a grace period: 7 days in production, 1 hour in staging). The proposal is made by code, never the model. Off with one switch (the module's `enabled`). Orders that nobody answers raise KavalRemovalOrderUnanswered after six hours."
+
 # ── row 1: ingest ──────────────────────────────────────────────────────
 
 [[system.node]]
@@ -568,8 +580,18 @@ label = "patch · delete (RBAC)"
 
 [[system.edge]]
 from = "executor"
+to = "waste-removal"
+label = "approved removal order (ConfigMap, then the server's timer, then a parameter)"
+
+[[system.edge]]
+from = "waste-removal"
 to = "aws-apis"
-label = "cost actions (IRSA)"
+label = "backup copy · label · delete (fenced to Kaval's labels)"
+
+[[system.edge]]
+from = "waste-removal"
+to = "cost-reader"
+label = "answer (a parameter, copied into the cluster by the server's job)"
 
 [[system.edge]]
 from = "chaos"

@@ -45,7 +45,7 @@ is_never if {
 # the two differ. `input.cause` is optional: an input without one behaves exactly as before.
 people_only_causes := {
 	"disk_pressure", "latency_high",
-	"idle_address", "snapshot_past_retention", "server_overstay", "resource_unlabelled",
+	"idle_address", "server_overstay", "resource_unlabelled", "removal_failed",
 }
 
 is_never if {

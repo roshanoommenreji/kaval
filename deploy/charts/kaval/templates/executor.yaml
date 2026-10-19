@@ -69,6 +69,59 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "kaval.fullname" . }}-executor
     namespace: {{ .Release.Namespace }}
+{{- if and .Values.removal.enabled (not .Values.costReader.enabled) }}
+{{- fail "removal.enabled needs costReader.enabled: the removal worker's answers are read by the cost reader's pod" }}
+{{- end }}
+{{- if .Values.removal.enabled }}
+---
+# KAV-95, ADR-0063: the executor's one right in its own namespace. It may `get` and `patch` ONE
+# ConfigMap, by name: the orders it hands to the removal worker. Not create (the ConfigMap is made
+# below), not list, not any other ConfigMap, not a Secret. This is the only thing that gives the
+# executor any right in this namespace; `kubectl auth can-i delete pods -n {{ .Release.Namespace }}`
+# still says "no".
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "kaval.fullname" . }}-executor-orders
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ include "kaval.fullname" . }}-removal-orders]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "kaval.fullname" . }}-executor-orders
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "kaval.fullname" . }}-executor-orders
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kaval.fullname" . }}-executor
+    namespace: {{ .Release.Namespace }}
+---
+# The orders the executor writes and the server's timer carries out to AWS. The data is kept across
+# upgrades (read back with `lookup`), so a release never wipes an order that has not been answered.
+{{- $orders := printf "%s-removal-orders" (include "kaval.fullname" .) }}
+{{- $existing := lookup "v1" "ConfigMap" .Release.Namespace $orders }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $orders }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+data:
+  orders.json: {{ if and $existing $existing.data (index $existing.data "orders.json") }}{{ index $existing.data "orders.json" | quote }}{{ else }}'{"orders":[]}'{{ end }}
+{{- end }}
 ---
 {{ $component := "executor" }}
 apiVersion: apps/v1
@@ -120,6 +173,17 @@ spec:
             # An approval older than this is not acted on (KAV-82, ADR-0048).
             - name: EXECUTOR_APPROVAL_MAX_AGE_MINUTES
               value: {{ .Values.approvals.executorMaxAgeMinutes | quote }}
+            # Removal (KAV-95, ADR-0063): the switch, and the one ConfigMap the executor may patch.
+            - name: KAVAL_REMOVAL_ENABLED
+              value: {{ .Values.removal.enabled | quote }}
+            {{- if .Values.removal.enabled }}
+            - name: KAVAL_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KAVAL_REMOVAL_ORDERS
+              value: "{{ include "kaval.fullname" . }}-removal-orders"
+            {{- end }}
           ports:
             - { name: metrics, containerPort: 9100 }
           {{- include "kaval.workerReadiness" . | nindent 10 }}

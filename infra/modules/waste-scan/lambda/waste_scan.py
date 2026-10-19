@@ -30,6 +30,7 @@ The pure `scan` function does all the deciding, so it is tested without AWS.
 import json
 import logging
 import os
+import re
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -71,6 +72,11 @@ KIND_ORDER = (
     "address_unattached",
     "resource_unlabelled",
 )
+# The removal steps' labels (ADR-0063): written by the removal worker, read here so the cluster's
+# planner can see where each disk stands. Kept equal to waste_removal.py by a test.
+MARK_TAG = "KavalRemoval"
+BACKUP_TAG = "KavalBackupOf"
+MARK_FORMAT = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 # Snapshots that something else owns: a lifecycle policy's, or the backing of a machine image.
 AMI_DESCRIPTIONS = ("Created by CreateImage", "Copied for DestinationAmi")
 
@@ -87,6 +93,28 @@ def is_kaval(tags: Mapping[str, str]) -> bool:
 def tag_problems(tags: Mapping[str, str]) -> list[str]:
     """The required keys that are missing or hold a value outside the list (names only)."""
     return [k for k in REQUIRED_KEYS if tags.get(k) not in ALLOWED[k]]
+
+
+def removal_facts(
+    vid: str, tags: Mapping[str, str], snapshots: Iterable[Mapping[str, Any]]
+) -> dict[str, str]:
+    """Where a disk stands in the removal steps (ADR-0063), read from the labels on AWS itself so a
+    rebuilt cluster loses nothing: when it was marked, and the state of the newest backup of it."""
+    facts: dict[str, str] = {}
+    mark = tags.get(MARK_TAG, "")
+    if MARK_FORMAT.fullmatch(mark):
+        facts["pending_removal_since"] = mark
+    copies = [
+        s
+        for s in snapshots
+        if tags_of(s).get(BACKUP_TAG) == vid and tags_of(s).get("Project") == PROJECT
+    ]
+    if copies:
+        newest_copy = max(copies, key=lambda s: _utc(s["StartTime"]))
+        facts["backup_snapshot_id"] = newest_copy["SnapshotId"]
+        state = newest_copy.get("State")
+        facts["backup_state"] = state if state in ("completed", "pending", "error") else "unknown"
+    return facts
 
 
 def _money(amount: Decimal) -> str:
@@ -123,6 +151,7 @@ def scan(
     volumes = list(inventory.get("volumes", []))
     addresses = list(inventory.get("addresses", []))
     snapshots = list(inventory.get("snapshots", []))
+    live_volumes = {v["VolumeId"] for v in volumes}
 
     # The newest snapshot of each disk is the only copy that may be all there is: never flagged.
     newest: dict[str, str] = {}
@@ -197,6 +226,7 @@ def scan(
                 }
                 if vol.get("VolumeType") == "gp3":
                     value["monthly_cost_usd"] = _money(GP3_GB_MONTH * int(vol["Size"]))
+                value.update(removal_facts(vid, tags, snapshots))
                 findings.append(_finding("volume_unattached", f"ebs/{vid}", value))
 
     for addr in addresses:
@@ -257,7 +287,10 @@ def scan(
             continue
         if str(snap.get("Description", "")).startswith(AMI_DESCRIPTIONS):
             continue
-        if newest.get(snap.get("VolumeId") or "") == sid:
+        # A removal's own backup of a disk that no longer exists expires like any copy (ADR-0063
+        # decision 9); otherwise it would be "the newest copy of a disk" for ever.
+        gone_backup = bool(tags.get(BACKUP_TAG)) and tags[BACKUP_TAG] not in live_volumes
+        if newest.get(snap.get("VolumeId") or "") == sid and not gone_backup:
             continue
         snap_env = tags.get("Env")
         if snap_env != env and snap_env in ENVS:

@@ -76,6 +76,8 @@ spec:
       enabled: true
       wasteScan:
         enabled: true
+    removal:
+      graceHours: 1
   valuesFrom:
     - kind: ConfigMap
       name: kaval-registry

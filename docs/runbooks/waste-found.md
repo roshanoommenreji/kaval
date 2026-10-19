@@ -3,8 +3,10 @@
 An incident whose name starts `idle_volume`, `idle_address`, `snapshot_past_retention`, `server_overstay` or
 `resource_unlabelled` means the daily waste scan
 ([ADR-0062](../adr/0062-waste-is-found-daily-by-a-read-only-scan-and-reported-to-a-person.md)) found something that
-costs money or has no clear owner. This is **for a person**: Kaval proposes no fix and the policy refuses to attach one.
-Nothing is broken. The cost is the point: a disk costs about $0.09 per GB a month while it sits there, an address
+costs money or has no clear owner. This is **for a person**. For `idle_address`, `server_overstay` and `resource_unlabelled`
+Kaval proposes no fix and the policy refuses to attach one. For `idle_volume` and `snapshot_past_retention`, where removal
+is switched on (`removal.enabled`), Kaval *asks to remove it*, in steps, with your approval at each risky one
+([waste-removal.md](waste-removal.md)). Nothing is broken. The cost is the point: a disk costs about $0.09 per GB a month while it sits there, an address
 $3.65 a month, and a running server bills by the hour (staging's two servers and their addresses come to about
 $0.045 an hour together; [budget-plan.md](../cost/budget-plan.md) has the full table).
 
@@ -27,7 +29,9 @@ $0.045 an hour together; [budget-plan.md](../cost/budget-plan.md) has the full t
 
 ## Remediation
 
-Removing anything is a deliberate act with your say-so; there is no automatic removal yet (`KAV-95`).
+Removing anything is a deliberate act with your say-so. A loose disk and an old backup copy have a guided path where removal
+is on: approve the steps Kaval proposes ([waste-removal.md](waste-removal.md): a backup first, a wait, then the delete,
+with the way back named). Everything else below is by hand.
 
 - **Disk or address:** if you recognise it and it is not needed, snapshot first if it ever held data
   (`aws ec2 create-snapshot --volume-id <id> --tag-specifications …` with the three required labels), then delete.

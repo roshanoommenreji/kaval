@@ -1,0 +1,51 @@
+# promtool unit tests for kaval-removal.rules.yaml (KAV-95). `make rules-test` runs them.
+# The quiet cases matter as much as the loud one: an order that is answered within the server's
+# three-hour copy, and a quiet system with no orders at all, must never send anyone a message.
+rule_files:
+  - ../files/kaval-removal.rules.yaml
+evaluation_interval: 30m
+
+tests:
+  - name: no orders at all is quiet for two days
+    interval: 30m
+    input_series:
+      - series: 'kaval_removal_oldest_unanswered_order_seconds{job="kaval-collector-cost"}'
+        values: "0+0x100"
+    alert_rule_test:
+      - { eval_time: 48h, alertname: KavalRemovalOrderUnanswered, exp_alerts: [] }
+
+  - name: an order answered by the next copy never alerts
+    interval: 30m
+    input_series:
+      # the order ages for three hours (6 samples of 30 minutes), then the answer lands and it is zero
+      - series: 'kaval_removal_oldest_unanswered_order_seconds{job="kaval-collector-cost"}'
+        values: "0+1800x6 0+0x40"
+    alert_rule_test:
+      - { eval_time: 3h, alertname: KavalRemovalOrderUnanswered, exp_alerts: [] }
+      - { eval_time: 10h, alertname: KavalRemovalOrderUnanswered, exp_alerts: [] }
+
+  - name: an order unanswered for under six hours is quiet
+    interval: 30m
+    input_series:
+      - series: 'kaval_removal_oldest_unanswered_order_seconds{job="kaval-collector-cost"}'
+        values: "0+1800x11"
+    alert_rule_test:
+      - { eval_time: 5h, alertname: KavalRemovalOrderUnanswered, exp_alerts: [] }
+
+  - name: an order unanswered past six hours alerts
+    interval: 30m
+    input_series:
+      - series: 'kaval_removal_oldest_unanswered_order_seconds{job="kaval-collector-cost"}'
+        values: "0+1800x40"
+    alert_rule_test:
+      - { eval_time: 5h, alertname: KavalRemovalOrderUnanswered, exp_alerts: [] }
+      - eval_time: 7h
+        alertname: KavalRemovalOrderUnanswered
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: collector-cost
+              job: kaval-collector-cost
+            exp_annotations:
+              summary: An approved removal order has had no answer from the worker for over six hours.

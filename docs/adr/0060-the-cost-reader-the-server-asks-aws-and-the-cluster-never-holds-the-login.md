@@ -84,6 +84,9 @@ Three facts from the recorded bill (pulled 2026-10-18, 14 days, Lab 57) shaped t
 - **A rebuilt server counts requests again from zero** (decision 3). Accepted.
 - **The first AWS login of any Kaval program is one verb, borrowed by the server's job.** `KAV-95` has to choose
   again for write actions; pod identity is the likely answer and this decision does not block it.
+  *(`KAV-95` chose otherwise, in [ADR-0063](0063-waste-is-removed-in-steps-by-a-separate-worker-and-only-with-approval.md):
+  the same road run backwards, with a separate worker holding the only login that can change anything. The cluster
+  still holds no AWS login, so pod identity was not needed.)*
 - **Reversal:** set `costReader.enabled` to false and remove the `cost_reader` module; the timer is part of the
   server's start-up script and stops with the next rebuild (or `systemctl disable --now kaval-cost-pull.timer`).
 

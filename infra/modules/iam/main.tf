@@ -140,6 +140,26 @@ resource "aws_iam_role_policy" "heartbeat" {
   })
 }
 
+# The server's timer carries the executor's removal order out of the cluster (KAV-95, ADR-0063): it
+# may write exactly the orders parameter and nothing else. The worker, not the server, deletes things.
+resource "aws_iam_role_policy" "write_removal_orders" {
+  count = length(var.removal_orders_parameter_arns) > 0 ? 1 : 0
+  name  = "write-removal-orders"
+  role  = aws_iam_role.node.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "WriteOnlyTheRemovalOrders"
+        Effect   = "Allow"
+        Action   = ["ssm:PutParameter"]
+        Resource = var.removal_orders_parameter_arns
+      }
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "node" {
   name = "${var.name_prefix}-node"
   role = aws_iam_role.node.name

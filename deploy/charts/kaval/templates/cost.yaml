@@ -1,4 +1,7 @@
 {{- if .Values.costReader.enabled }}
+{{- if and .Values.removal.enabled (not .Values.costReader.wasteScan.enabled) }}
+{{- fail "removal.enabled needs costReader.wasteScan.enabled: the removal worker's answers come back through the same pod, and a removal nobody can see the result of is not allowed" }}
+{{- end }}
 {{- if not .Values.prometheus.enabled }}
 {{- fail "costReader.enabled needs prometheus.enabled: its alarm is a Prometheus rule, and with no Prometheus a failed pull would be silent" }}
 {{- end }}
@@ -9,7 +12,8 @@
 # no AWS access, and the one that has some has one verb.
 #
 # What it may do in the cluster: `get` ONE ConfigMap, by name (`resourceNames`), in its own namespace
-# (two once the waste scan is read as well, KAV-94: the bill's and the scan's).
+# (two once the waste scan is read as well, KAV-94: the bill's and the scan's; four once removal is
+# switched on, KAV-95: the worker's answers and the executor's orders, read to tell an unanswered one).
 # Not list, not watch, not any other ConfigMap, not a Secret. A bug or a misled input cannot widen
 # that: no binding anywhere grants more.
 # What it may do in the database: the `collector` role, the same one the event watcher uses.
@@ -32,7 +36,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
-    resourceNames: [{{ include "kaval.fullname" . }}-cost-pull{{ if .Values.costReader.wasteScan.enabled }}, {{ include "kaval.fullname" . }}-waste-scan{{ end }}]
+    resourceNames: [{{ include "kaval.fullname" . }}-cost-pull{{ if .Values.costReader.wasteScan.enabled }}, {{ include "kaval.fullname" . }}-waste-scan{{ end }}{{ if .Values.removal.enabled }}, {{ include "kaval.fullname" . }}-removal-result, {{ include "kaval.fullname" . }}-removal-orders{{ end }}]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -101,6 +105,12 @@ spec:
             {{- if .Values.costReader.wasteScan.enabled }}
             - "--waste-handoff"
             - "{{ include "kaval.fullname" . }}-waste-scan"
+            {{- end }}
+            {{- if .Values.removal.enabled }}
+            - "--removal-result"
+            - "{{ include "kaval.fullname" . }}-removal-result"
+            - "--removal-orders"
+            - "{{ include "kaval.fullname" . }}-removal-orders"
             {{- end }}
             - "--every"
             - {{ .Values.costReader.everySeconds | quote }}

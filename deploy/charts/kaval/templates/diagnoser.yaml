@@ -73,6 +73,11 @@ spec:
               value: {{ .Values.diagnoser.maxAgeHours | quote }}
             - name: DIAGNOSE_TIMEOUT_SECONDS
               value: {{ .Values.diagnoser.timeoutSeconds | quote }}
+            # The removal planner runs in this process but never asks the model (KAV-95, ADR-0063).
+            - name: KAVAL_REMOVAL_ENABLED
+              value: {{ .Values.removal.enabled | quote }}
+            - name: KAVAL_REMOVAL_GRACE_HOURS
+              value: {{ .Values.removal.graceHours | quote }}
           ports:
             - { name: metrics, containerPort: 9100 }
           {{- include "kaval.workerReadiness" . | nindent 10 }}

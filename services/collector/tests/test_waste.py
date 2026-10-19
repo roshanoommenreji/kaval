@@ -122,7 +122,10 @@ def test_every_kind_the_scan_writes_is_accepted_exactly(finding: dict[str, Any])
 
 
 def test_the_kinds_the_reader_knows_are_the_kinds_the_correlator_does() -> None:
-    assert set(waste.SHAPES) - {"volume_unattached"} == set(health.WASTE_SIGNALS)
+    # removal_failed is the removal worker's answer, read in kaval_collector.removal
+    assert set(waste.SHAPES) - {"volume_unattached"} == (
+        set(health.WASTE_SIGNALS) - {"removal_failed"}
+    )
 
 
 def _changed(finding: dict[str, Any], **value: object) -> dict[str, Any]:

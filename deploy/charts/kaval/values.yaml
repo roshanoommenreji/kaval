@@ -200,6 +200,17 @@ costReader:
   wasteScan:
     enabled: false
 
+# Safe removal of waste (KAV-95, ADR-0063): the planner files two-step proposals for a disk attached
+# to nothing and for an old backup copy, the executor hands an approved step over as an order, and the
+# removal worker (outside the cluster, infra/modules/waste-removal) does the deleting. This is the one
+# switch for the cluster's side. It needs the cost reader and the waste scan read, because the worker's
+# answers come back through the same pod. Off everywhere until a build containing it is pinned.
+removal:
+  enabled: false
+  # Hours between marking a disk and the delete step. MUST equal the worker's `grace_hours`
+  # (Terraform): the worker re-checks it and refuses early, which would show as a failed removal.
+  graceHours: 168
+
 # Prometheus, and the collector poller that turns it into signals (KAV-75, ADR-0040).
 # Off here; an environment switches it on from its own values file. The memory limit below is
 # a first guess until Lab 43 measures it, and staging/prod stay off until it is measured on a

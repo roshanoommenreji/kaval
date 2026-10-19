@@ -54,7 +54,7 @@ Labelling only adds or corrects labels; it changes nothing else about the resour
 - Do not label something as Kaval's to make the scan pass. The scan's "left alone" count exists so another
   project's resources are not claimed.
 - Do not delete an unlabelled resource because it is unlabelled. Unlabelled means "unknown", and a pre-stop snapshot
-  may be the only copy of a database disk. Removal goes through the safe-removal steps (`KAV-95`).
+  may be the only copy of a database disk. Removal goes through the safe-removal steps ([waste-removal.md](waste-removal.md), `KAV-95`).
 - Do not remove `Project` from a resource to exempt it from the budget's hard stop.
 
 ## Escalation and ownership

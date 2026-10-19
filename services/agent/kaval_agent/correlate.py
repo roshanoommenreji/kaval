@@ -75,7 +75,7 @@ LOCK_KEY = 0x4B41564C_0001  # "KAVL", lock 1
 _SEVERITY_ORDER = [Severity.low, Severity.medium, Severity.high, Severity.critical]
 _ALERT_SEVERITY = {"critical": Severity.high, "warning": Severity.medium}
 # The waste scan's findings (KAV-94) are low unless a server is left running (billed by the hour).
-_WASTE_SEVERITY = {"server_overstay": Severity.medium}
+_WASTE_SEVERITY = {"server_overstay": Severity.medium, "removal_failed": Severity.medium}
 
 # Kubernetes pod names: <workload>-<replicaset hash>-<pod hash> for a Deployment,
 # <workload>-<pod hash> for a DaemonSet, <workload>-<ordinal> for a StatefulSet. The hashes
@@ -142,6 +142,8 @@ def cause_of(signal: Signal, spikes: set[uuid.UUID]) -> Cause | None:
         if kind in health.WASTE_SIGNALS:  # KAV-94: waste is money, not an outage
             return Cause(name, 1, _WASTE_SEVERITY.get(name, Severity.low))
         return Cause(name, 1, Severity.high if name == "disk_pressure" else Severity.medium)
+    if kind == "removal_done":
+        return None  # KAV-95: an approved removal step that worked is a record, not a problem
     if kind == "daily_cost":
         return Cause("cost_spike", 1, Severity.medium) if signal.id in spikes else None
     if kind == "volume_unattached":

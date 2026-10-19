@@ -350,11 +350,11 @@ def test_disk_pressure_is_its_own_incident_with_a_stable_subject() -> None:
 @pytest.mark.parametrize(("kind", "target", "fingerprint", "severity"), [
     ("address_unattached", "eip/eipalloc-0abc12345", "idle_address:aws:eip/eipalloc-0abc12345",
      Severity.low),
-    ("snapshot_past_retention", "snapshot/snap-0abc12345",
-     "snapshot_past_retention:aws:snapshot/snap-0abc12345", Severity.low),
     ("server_overstay", "ec2/i-0abc12345", "server_overstay:aws:ec2/i-0abc12345", Severity.medium),
     ("resource_unlabelled", "ebs/vol-0abc12345", "resource_unlabelled:aws:ebs/vol-0abc12345",
      Severity.low),
+    ("removal_failed", "ebs/vol-0abc12345", "removal_failed:aws:ebs/vol-0abc12345",
+     Severity.medium),
 ])
 def test_a_waste_finding_is_its_own_incident_for_a_person(
         kind: str, target: str, fingerprint: str, severity: Severity) -> None:
@@ -362,6 +362,22 @@ def test_a_waste_finding_is_its_own_incident_for_a_person(
     incident = only(c.plan([found], [], AT + timedelta(minutes=2)))
     assert incident.fingerprint == fingerprint and incident.severity is severity
     assert health.is_people_only_fingerprint(incident.fingerprint)  # no model, no fix
+
+
+def test_an_old_backup_copy_is_an_incident_the_removal_planner_may_act_on() -> None:
+    """KAV-95: the one waste kind that left the people-only list besides the loose disk."""
+    found = signal(
+        "snapshot_past_retention", AT, target="snapshot/snap-0abc12345", source="aws_ec2"
+    )
+    incident = only(c.plan([found], [], AT + timedelta(minutes=2)))
+    assert incident.fingerprint == "snapshot_past_retention:aws:snapshot/snap-0abc12345"
+    assert incident.severity is Severity.low
+    assert not health.is_people_only_fingerprint(incident.fingerprint)
+
+
+def test_a_removal_step_that_worked_opens_no_incident() -> None:
+    done = signal("removal_done", AT, target="ebs/vol-0abc12345", source="aws_ec2")
+    assert c.plan([done], [], AT + timedelta(minutes=2)).empty
 
 
 def test_an_unattached_disk_keeps_its_older_path_and_is_not_people_only() -> None:

@@ -61,6 +61,7 @@ class BlastRadius(enum.Enum):
     deployment = "deployment"
     namespace = "namespace"
     node = "node"
+    resource = "resource"  # one cloud resource: a disk, a backup copy (KAV-95)
     account = "account"
 
 

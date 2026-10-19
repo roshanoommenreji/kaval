@@ -13,6 +13,12 @@ variable "backup_bucket_arn" {
   type        = string
 }
 
+variable "removal_orders_parameter_arns" {
+  description = "The parameter(s) the server's timer may WRITE the executor's removal order into (KAV-95, ADR-0063): exactly one name per environment, no other write right on parameters. Empty (the default) means removal is not wired and the node gets no write right at all."
+  type        = list(string)
+  default     = []
+}
+
 variable "secret_parameter_arns" {
   description = "The DB passwords' and Slack tokens' SSM Parameter Store ARNs (KAV-56), and the daily waste scan's findings parameter (KAV-94, not a secret). The node's bootstrap script reads these to recreate kaval-postgres-* and kaval-slack on every boot, the same way it already refreshes ecr-cred -- this runs on the trusted host itself, never inside a pod, so it needs no change to IMDS hop limits or pod-level AWS access."
   type        = list(string)
