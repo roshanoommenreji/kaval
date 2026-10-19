@@ -101,10 +101,10 @@ costReader:
   wasteScan:
     enabled: true
 
-# Safe removal of waste (KAV-95, ADR-0063). Not switched on yet: it goes on in a second change, once
-# a build containing it is pinned here (an older image would not start with the new arguments) and
-# the removal worker is applied. Staging waits ONE hour between marking a disk and deleting it so the
-# live proof is quick; this must equal the worker's `grace_hours` in infra/envs/staging/main.tf
+# Safe removal of waste (KAV-95, ADR-0063). On in staging only: the build containing it is pinned above
+# (sha-5f02c84) and the removal worker is applied. Production stays off until
+# staging's live proof. Staging waits ONE hour between marking a disk and deleting it so the live proof is quick; this must equal the worker's `grace_hours` in infra/envs/staging/main.tf
 # (a test fails if they differ). Production keeps the chart's default of 168 (seven days).
 removal:
+  enabled: true
   graceHours: 1

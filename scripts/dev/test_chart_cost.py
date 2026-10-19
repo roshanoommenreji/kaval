@@ -17,7 +17,8 @@ ROOT = Path(__file__).resolve().parents[2]
 CHART = ROOT / "deploy" / "charts" / "kaval"
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm not installed")
 
-ON = ("--set", "costReader.enabled=true")
+# Removal is off here: these tests are about the cost reader alone (staging now has removal on).
+ON = ("--set", "costReader.enabled=true", "--set", "removal.enabled=false")
 
 
 def _helm(env: str, *extra: str) -> subprocess.CompletedProcess[str]:
@@ -122,7 +123,14 @@ def test_a_reader_without_prometheus_is_refused_at_render_time() -> None:
 
 # ── the waste scan, read by the same pod (KAV-94, ADR-0062) ─────────────────────────────────────
 
-WASTE = ("--set", "costReader.enabled=true", "--set", "costReader.wasteScan.enabled=true")
+WASTE = (
+    "--set",
+    "costReader.enabled=true",
+    "--set",
+    "costReader.wasteScan.enabled=true",
+    "--set",
+    "removal.enabled=false",
+)
 
 
 def test_the_waste_scan_is_off_unless_asked_for_so_an_older_image_still_starts() -> None:

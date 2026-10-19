@@ -204,7 +204,8 @@ costReader:
 # to nothing and for an old backup copy, the executor hands an approved step over as an order, and the
 # removal worker (outside the cluster, infra/modules/waste-removal) does the deleting. This is the one
 # switch for the cluster's side. It needs the cost reader and the waste scan read, because the worker's
-# answers come back through the same pod. Off everywhere until a build containing it is pinned.
+# answers come back through the same pod. Off by default; staging switches it on from its own values
+# file (production waits for the live proof).
 removal:
   enabled: false
   # Hours between marking a disk and the delete step. MUST equal the worker's `grace_hours`

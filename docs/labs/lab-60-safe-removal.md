@@ -118,8 +118,8 @@ pytest scripts/dev/test_chart_removal.py -q      # the rights the chart grants, 
 
 ## Part 6 — Staging proof (live; each step on the owner's own go)
 
-- [ ] `terraform plan` in `infra/envs/staging` (expect: the worker, its role, its rule, its schedule, two
-  parameters and one changed policy on the server's role), read and applied on the owner's go
+- [x] `terraform plan` in `infra/envs/staging` (expect: the worker, its role, its rule, its schedule, two
+  parameters and one changed policy on the server's role), read and applied on the owner's go (2026-10-19: 14 added, 4 changed, 0 destroyed; a second plan said "No changes")
 - [ ] The build containing the planner and the new executor is pinned in staging, then `removal.enabled: true` is set
   in staging's values (a second change). Merge only after the apply and a fresh server launch, because the server
   gets the order and result copy with its next launch

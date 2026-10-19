@@ -77,6 +77,7 @@ spec:
       wasteScan:
         enabled: true
     removal:
+      enabled: true
       graceHours: 1
   valuesFrom:
     - kind: ConfigMap
