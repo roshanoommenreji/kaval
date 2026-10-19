@@ -57,7 +57,7 @@ def _find(docs: list[str], kind: str, name: str) -> str:
     raise AssertionError(f"no {kind} named {name}")
 
 
-@pytest.mark.parametrize("env", ["local", "staging", "prod"])
+@pytest.mark.parametrize("env", ["local", "prod"])
 def test_where_it_is_not_switched_on_nothing_of_it_is_rendered(env: str) -> None:
     text = "\n".join(_render(env))
     assert "removal-orders" not in text and "KAVAL_REMOVAL_ORDERS" not in text
@@ -65,6 +65,12 @@ def test_where_it_is_not_switched_on_nothing_of_it_is_rendered(env: str) -> None
     assert "kaval-removal.rules" not in text and "executor-orders" not in text
     assert "--removal-result" not in text
     assert 'name: KAVAL_REMOVAL_ENABLED\n              value: "false"' in text
+
+
+def test_staging_has_it_on_and_production_and_local_do_not() -> None:
+    staging = "\n".join(_render("staging"))
+    assert "kaval-staging-removal-orders" in staging
+    assert 'name: KAVAL_REMOVAL_ENABLED\n              value: "true"' in staging
 
 
 def test_switched_on_the_executor_may_get_and_patch_one_configmap_by_name_only() -> None:
@@ -128,7 +134,7 @@ def test_the_alarm_for_an_unanswered_order_is_loaded_only_where_removal_is_on() 
     on = "\n".join(_render("staging", *ON))
     assert "kaval-removal.rules.yaml" in on and "KavalRemovalOrderUnanswered" in on
     assert "/etc/prometheus/kaval-removal.rules.yaml" in on
-    off = "\n".join(_render("staging"))
+    off = "\n".join(_render("staging", "--set", "removal.enabled=false"))
     assert "KavalRemovalOrderUnanswered" not in off
 
 
@@ -180,7 +186,9 @@ def test_the_grace_in_each_environment_equals_the_workers() -> None:
     staging_values = (ROOT / "deploy" / "environments" / "staging" / "values.yaml").read_text(
         encoding="utf-8"
     )
-    found = re.search(r"removal:\s*\n(?:#.*\n)*\s*graceHours:\s*(\d+)", staging_values)
+    found = re.search(
+        r"removal:\s*\n(?:#.*\n)*(?:\s*enabled:.*\n)?\s*graceHours:\s*(\d+)", staging_values
+    )
     assert found is not None
     staging_chart = float(found.group(1))
     assert chart_default == worker_default == 168
