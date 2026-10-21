@@ -272,9 +272,15 @@ def _open_removals(session: Session) -> int:
     )
 
 
-def file_proposal(session: Session, incident: Incident, planned: Planned) -> Proposal:
+def file_proposal(
+    session: Session, incident: Incident, planned: Planned, now: datetime | None = None
+) -> Proposal:
     """One `proposal` row and its one `action` row. The policy classifies the action from the
-    incident's cause; with no `opa` it says `ask`, never `auto`."""
+    incident's cause; with no `opa` it says `ask`, never `auto`.
+
+    The action is stamped with the planner's own clock, not the database's: `_skip` measures its
+    pauses ("not again for 48 hours") from this time, and a test that moves the clock by hand
+    passed only on the day it was written when the two clocks were mixed (found 2026-10-21)."""
     cause = health.cause_of_fingerprint(incident.fingerprint)
     proposal = Proposal(
         incident_id=incident.id,
@@ -300,6 +306,7 @@ def file_proposal(session: Session, incident: Incident, planned: Planned) -> Pro
             policy_class=policy.classify(
                 planned.type, BlastRadius.resource, planned.reversible, 1.0, cause=cause
             ),
+            created_at=now or datetime.now(UTC),
         )
     )
     return proposal
@@ -337,7 +344,7 @@ def plan_pass(
         )
         if planned is None or _skip(session, planned, now) is not None:
             continue
-        proposal = file_proposal(session, incident, planned)
+        proposal = file_proposal(session, incident, planned, now)
         open_now += 1
         lines.append(f"proposed {planned.type} {planned.target} (proposal {proposal.id})")
     session.commit()
