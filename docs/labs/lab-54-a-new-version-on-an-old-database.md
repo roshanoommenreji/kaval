@@ -108,4 +108,7 @@ launch-template change beside the group's desired count (see [prod-rollout.md](.
 - [x] CI: a migration only adds; every created table is granted; both have negative tests
 - [x] The same drill on staging with the change: Ready by itself, database at head, permissions right, smoke 7 of 7
 - [x] Runbook steps 5 and 6 reduced to "only if the automatic order did not work"
+- [x] Repeated on 2026-10-21 with `sha-3ab86d1` over a database one change behind (`d4f7a2c9e815` -> `c3e8a1d7f402`): the
+      new server was Ready by itself, the database reached head first, `kaval-db-grants` ran after Ready, smoke 7 of 7
+      about 7 minutes after the old server ended (journal 2026-10-21, KAV-98)
 - [ ] Not seen live: production itself (parked). First proof is its next bring-up
