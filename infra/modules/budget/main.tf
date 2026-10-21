@@ -192,6 +192,24 @@ data "aws_iam_policy_document" "hard_stop" {
     }
   }
 
+  # CreateSnapshot is checked against BOTH the disk and the snapshot it makes, so the statement
+  # above is not enough on its own: the first live firing on staging (KAV-96, 2026-10-21) was
+  # refused with "not authorized to perform ec2:CreateSnapshot on resource snapshot/*" and the
+  # stop went ahead without its copy. Scoped to a snapshot the request itself labels as this
+  # project's (the function always sends Project=<stop_tag_value>), so it cannot make an
+  # unlabelled one.
+  statement {
+    sid       = "CreateTheSnapshotItself"
+    effect    = "Allow"
+    actions   = ["ec2:CreateSnapshot"]
+    resources = ["arn:aws:ec2:*:*:snapshot/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/Project"
+      values   = [var.stop_tag_value]
+    }
+  }
+
   # Tagging the new snapshot needs its own grant — it doesn't exist yet when CreateSnapshot
   # is evaluated, so it can't be scoped by a resource tag. Scoped instead to "a snapshot this
   # same call just created", via the ec2:CreateAction condition key.

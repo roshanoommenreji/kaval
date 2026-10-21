@@ -44,16 +44,37 @@ terraform -chdir=infra/envs/prod apply <file>       # only when told
 aws lambda get-function-configuration --function-name kaval-budget-hard-stop --query Environment.Variables
 ```
 
-*To be filled in as it is done.*
+2026-10-21, on the owner's go: the plan showed two small changes (the function's code and its group list, and the nightly
+permission rewritten to the same value; the second turned out to be nothing: 1 changed). Afterwards the live function
+read `ASG_NAMES=kaval-prod,kaval-staging`, `DRY_RUN=false`, `STOP_INSTANCES=true`; a plan said "No changes"; both groups at 0
+and no Kaval server running.
 
 ## Part 3 — The live proof on staging
 
-*To be filled in as it is done.* Staging up, the real alert path used (never a hand-edited copy of the function), then:
-staging's group goes to zero, staging's database is snapshotted and stopped, production (parked) is untouched.
+Staging up (`make staging-up`: it asks "Continue?"; a run that has already been agreed sets `ASSUME_YES=1`, a switch of the
+script's own). Do not set `MSYS_NO_PATHCONV=1` for it on Windows: Terraform then cannot find the staging folder.
+
+Before: `kaval-staging` group at 1, staging database running, production's group at 0 and its database stopped.
+
+```bash
+aws sns publish --topic-arn <the kaval-budget-alarm topic> --subject "KAV-96 proof: simulated budget hard stop"   --message "Test of the spending brake path on staging. Not a real budget breach."
+aws logs tail /aws/lambda/kaval-budget-hard-stop --since 6m
+```
+
+Seen (15:45 to 15:46 UTC): the function started in 0.3 s; `kaval-prod` "already at zero" (left alone); `kaval-staging`
+"scaled 1 -> 0"; staging's database stopped; production's database and the dev server untouched; 6 seconds in all.
+
+**The proof found a real defect.** The snapshot before the stop was refused: "not authorized to perform
+ec2:CreateSnapshot on resource snapshot/*". `CreateSnapshot` is checked against the disk **and** the snapshot it makes, and the
+brake's policy allowed only the disk. The stop went ahead (a failed copy never blocks it, by design) but without its extra
+copy, and the same is true of the nightly 02:00 IST run, which is the same function. The staging data disk still had 19
+daily copies from the backup schedule, so nothing was at risk. The two other stopping functions already had the grant; only
+this module lacked it. Fixed in the change that follows this lab (a statement allowing the snapshot, only when the request
+labels it as the project's, and a test that fails for any module that grants the disk without the snapshot).
 
 ## Part 4 — The real lowered-limit test (separate go)
 
-*To be filled in if it is done.* The real budget's stop line is lowered briefly so AWS Budgets itself sets the brake off,
+*To be filled in if it is done.* (The owner has not yet decided; the snapshot fix and a re-test come first.) The real budget's stop line is lowered briefly so AWS Budgets itself sets the brake off,
 then restored to $48 straight after (a plan shows it back to "No changes").
 
 ## What this does not do
