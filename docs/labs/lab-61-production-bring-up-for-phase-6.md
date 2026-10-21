@@ -72,5 +72,12 @@ running. The planner says "nothing waiting" because the scan found nothing.
 
 ## Parking again
 
-Runbook step 8: put `node.auto.tfvars` back, plan, show, apply on the owner's go, then
-`bash scripts/ops/pause-database.sh`. Not done at the time of writing; production was left up on purpose.
+Runbook step 8, done 2026-10-21 (about 2 hours 20 minutes after the switch-on, roughly 12 cents of running time):
+
+1. Put `node.auto.tfvars` (`app_node_desired_capacity = 0`) back and plan: ONE change, desired 1 → 0 and minimum 1 → 0.
+   Shown first, applied on the owner's go.
+2. Wait until the group has no server left (about 2 minutes), so nothing is writing to the database.
+3. `bash scripts/ops/pause-database.sh`: it snapshotted the data volume (`snap-0c3aa82d962970503`, completed) and stopped
+   the database server (stopped, never deleted).
+4. Check: group at 0 and 0, database `stopped`, no `kaval-prod` machine running, the "still alive" alarm `OK`, a plan
+   afterwards says "No changes".
