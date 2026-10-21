@@ -57,15 +57,21 @@ the hard-stop job copies `Env` from the disk it snapshots.
   template, the group, the idle-stop job's code), applied 2026-10-18 on the owner's go; a second plan said no changes.
   The group now carries `Env` and `ManagedBy` and launch template version 9 labels the instance and its disk. The
   server that was already running keeps its old labels (tags are applied at launch), so the scan still lists it
-- [ ] A new server is launched (`make staging-up` after the current one parks) and `make tag-scan` shows the server
-  **and its disk** with all three labels
+- [x] A new server is launched (`make staging-up` after the current one parks) and `make tag-scan` shows the server
+  **and its disk** with all three labels (2026-10-19, the server launched by the KAV-95 apply: 0 of 107 resources
+  missing a label; re-read 2026-10-21 with staging parked: 0 of 115)
 
 ## Part 6 — Labels on the bill
 
 - [x] On the owner's go (2026-10-18): `aws ce update-cost-allocation-tags-status --cost-allocation-tags-status
   TagKey=Env,Status=Active TagKey=ManagedBy,Status=Active`, then
   `aws ce start-cost-allocation-tag-backfill --backfill-from 2026-08-01T00:00:00Z` (status PROCESSING; once per 24 hours)
-- [ ] The next day (the data takes up to a day to appear): `make cost-showback` and read the "no `Env` label" share
+- [x] The next day (the data takes up to a day to appear): `make cost-showback` and read the "no `Env` label" share.
+  Run 2026-10-21: **$9.19 for October so far, $3.16 (34 %) with no `Env` label**, the rest split prod $2.89,
+  dev $2.30, staging $0.85 (`docs/cost/showback-2026-10.md`). The first try, four hours after the switch-on,
+  read 100 % and was thrown away; the labels only reach the bill after a day. The 34 % is not yet explained line by
+  line: the report covers the whole account, which `stock-trader` shares, and some charges (public addresses,
+  the cost tool's own calls) cannot carry a label
 - [x] On the owner's go (2026-10-18): the 10 old snapshots and the staging server's root disk were labelled with
   `aws ec2 create-tags` (values read from the snapshots' source disks: 6 prod pre-stop `Env=prod ManagedBy=kaval-lambda`,
   3 staging pre-stop `ManagedBy=kaval-lambda`, 1 prod pre-migration backup `Env=prod ManagedBy=manual`, the root disk
