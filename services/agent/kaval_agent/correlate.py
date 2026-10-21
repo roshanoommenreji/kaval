@@ -142,8 +142,8 @@ def cause_of(signal: Signal, spikes: set[uuid.UUID]) -> Cause | None:
         if kind in health.WASTE_SIGNALS:  # KAV-94: waste is money, not an outage
             return Cause(name, 1, _WASTE_SEVERITY.get(name, Severity.low))
         return Cause(name, 1, Severity.high if name == "disk_pressure" else Severity.medium)
-    if kind == "removal_done":
-        return None  # KAV-95: an approved removal step that worked is a record, not a problem
+    if kind in ("removal_done", health.WASTE_SCAN_DONE):
+        return None  # KAV-95: a removal step that worked, and a scan that ran, are records
     if kind == "daily_cost":
         return Cause("cost_spike", 1, Severity.medium) if signal.id in spikes else None
     if kind == "volume_unattached":

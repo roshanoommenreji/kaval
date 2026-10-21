@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
+from kaval_shared.health import WASTE_SCAN_DONE
 from kaval_shared.models import Signal
 from prometheus_client import Gauge
 from sqlalchemy import select
@@ -322,6 +323,31 @@ def ingest(session: Session, findings: Sequence[Finding], scanned_at: datetime) 
     return written
 
 
+def record_scan(session: Session, scanned_at: datetime) -> None:
+    """Note that a complete scan ran, once per scan, dated at the scan (never a second copy)."""
+    stamp = scanned_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if session.scalar(
+        select(Signal.id)
+        .where(
+            Signal.source == SOURCE,
+            Signal.kind == WASTE_SCAN_DONE,
+            Signal.value.contains({"scanned_at": stamp}),
+        )
+        .limit(1)
+    ):
+        return
+    session.add(
+        Signal(
+            source=SOURCE,
+            kind=WASTE_SCAN_DONE,
+            target="scan/waste",
+            observed_at=scanned_at.astimezone(UTC),
+            value={"scanned_at": stamp},
+        )
+    )
+    session.commit()
+
+
 def run_pass(session: Session, reader: HandoffReader, *, now: datetime | None = None) -> list[str]:
     """One pass: read the handoff, set the health numbers, write any new findings. Returns the
     lines to print; a bad handoff is one line naming the fixed code."""
@@ -339,6 +365,10 @@ def run_pass(session: Session, reader: HandoffReader, *, now: datetime | None = 
     good = [f for f in (check(raw) for raw in handoff.findings) if f is not None]
     dropped = len(handoff.findings) - len(good)
     written = ingest(session, good, handoff.scanned_at)
+    if not handoff.truncated and not dropped:
+        # Only a complete list may say "the disks not named here are gone"; a cut-short or
+        # partly refused one could be leaving out a disk that is still there.
+        record_scan(session, handoff.scanned_at)
     _LAST_OK.set(handoff.scanned_at.timestamp())
     _FAILING.set(0)
     _DROPPED.set(dropped)

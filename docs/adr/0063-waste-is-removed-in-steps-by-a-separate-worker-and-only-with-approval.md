@@ -115,6 +115,15 @@ the code:
   pass with "permission denied". The agent now gets **read-only** access to those two tables (`db-roles.sql`) and
   still cannot write either: approving stays with the gateway, executing with the executor. A role test runs the
   planner's own lookup as that login and proves the writes are refused. Precedent: `outcome` (found live 2026-10-15).
+- **Found by the live proof (2026-10-19), fixed 2026-10-21: a disk deleted by hand stayed "loose" for up to 36
+  hours.** A scan that finds nothing left no trace, so the planner kept trusting the last sighting and asked a person
+  to approve a step on a disk that was already gone. The worker refused it safely (`not_found`, then a `removal_failed`
+  note), but the approval was wasted. Now each complete scan leaves one small record, `waste_scan_done`, dated at the
+  scan, and the planner acts only on a sighting that is not older than the latest record (the record is a "this is
+  everything the scan saw" stamp). A scan that was cut short or had a finding refused writes no record: a list that
+  may leave a disk out is never proof that a disk is gone. With no record yet, the 36-hour limit alone applies. The
+  correlator treats the record like `removal_done`: a record, not an incident. Options weighed: asking AWS again
+  (impossible, the cluster has no AWS login), and shortening the 36 hours (still wrong, only smaller).
 - **A residual risk, accepted:** a disk attached, changed and detached again between two daily scans during the wait
   could lose those changes (the backup is from the moment it was marked). The seven-day grace and the scan's daily
   look make it unlikely; the backup copy is kept 30 days.

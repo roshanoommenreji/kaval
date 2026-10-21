@@ -312,6 +312,64 @@ def test_a_stale_scan_fact_is_not_acted_on(db_session: Session) -> None:
     assert r.plan_pass(db_session, ON, now=NOW + timedelta(hours=40)) == []
 
 
+def _scan_done(db: Session, hours_ago: float) -> None:
+    """The record a complete scan leaves, dated at the scan (kaval_collector.waste.record_scan)."""
+    db.add(
+        Signal(
+            source="aws_ec2",
+            kind=health.WASTE_SCAN_DONE,
+            target="scan/waste",
+            value={},
+            observed_at=NOW - timedelta(hours=hours_ago),
+        )
+    )
+    db.commit()
+
+
+def test_a_disk_a_later_scan_did_not_list_again_is_not_proposed(db_session: Session) -> None:
+    """Found live 2026-10-19: a disk deleted by hand stayed 'loose' for up to 36 hours, and the
+    planner asked a person to approve a step on it. A scan that ran after the last sighting and
+    named nothing is the proof that it is gone."""
+    _loose(db_session)  # last seen 1 hour ago
+    _scan_done(db_session, 0.5)  # a later complete scan, which did not repeat it
+    assert r.plan_pass(db_session, ON, now=NOW) == []
+    assert _count(db_session) == 0
+
+
+def test_a_disk_the_latest_scan_listed_again_is_still_proposed(db_session: Session) -> None:
+    _loose(db_session)  # seen 1 hour ago, by the very scan that left this record
+    _scan_done(db_session, 1)
+    assert len(r.plan_pass(db_session, ON, now=NOW)) == 1
+
+
+def test_one_gone_disk_does_not_hide_another_that_is_still_there(db_session: Session) -> None:
+    other = "vol-0fedcba9876543210"
+    _incident(
+        db_session, "idle_volume", f"ebs/{other}", "volume_unattached",
+        volume(volume_id=other), seen_hours_ago=25,
+    )  # last seen by yesterday's scan only
+    _loose(db_session)  # seen by today's
+    _scan_done(db_session, 25)
+    _scan_done(db_session, 1)
+    lines = r.plan_pass(db_session, ON, now=NOW)
+    assert len(lines) == 1 and VID in lines[0] and other not in lines[0]
+
+
+def test_a_backup_copy_a_later_scan_did_not_list_again_is_not_proposed(
+    db_session: Session,
+) -> None:
+    _incident(
+        db_session,
+        "snapshot_past_retention",
+        f"snapshot/{SID}",
+        "snapshot_past_retention",
+        {"snapshot_id": SID, "class": "manual", "age_days": 120, "limit_days": 90, "size_gib": 20},
+        seen_hours_ago=3,
+    )
+    _scan_done(db_session, 1)
+    assert r.plan_pass(db_session, ON, now=NOW) == []
+
+
 def test_a_closed_incident_is_not_acted_on(db_session: Session) -> None:
     _loose(
         db_session,

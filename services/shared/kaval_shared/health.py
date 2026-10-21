@@ -50,6 +50,11 @@ REMOVABLE_CAUSES = frozenset({"idle_volume", "snapshot_past_retention"})
 # only for a proposal with exactly this marker, and the approval message shows its preview only
 # for it.
 REMOVAL_MODEL = "rule:removal"
+# One record per complete waste scan, dated at the scan, even when the scan found nothing. It is how
+# the removal planner knows what the latest scan did NOT list: a disk deleted by hand leaves no
+# finding behind, only this record getting newer than the last sighting (KAV-95, ADR-0063). Not a
+# problem, so the correlator never turns it into an incident.
+WASTE_SCAN_DONE = "waste_scan_done"
 # Causes that are not Kaval's own health but still have no automated fix. Same list in policy.rego.
 PEOPLE_ONLY_CAUSES = frozenset(
     {"disk_pressure", "latency_high", *WASTE_SIGNALS.values()} - REMOVABLE_CAUSES

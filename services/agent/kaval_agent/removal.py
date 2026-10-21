@@ -323,6 +323,12 @@ def plan_pass(
     if not session.scalar(text("SELECT pg_try_advisory_xact_lock(:k)"), {"k": LOCK_KEY}):
         return ["another removal planner holds the lock; skipped this pass"]
     open_now = _open_removals(session)
+    # When the latest complete scan ran. A sighting older than that was not repeated by it: the
+    # disk (or copy) is gone, or no longer waste. None before the first record exists, then the
+    # age limit alone applies.
+    last_scan = session.scalar(
+        select(func.max(Signal.observed_at)).where(Signal.kind == health.WASTE_SCAN_DONE)
+    )
     lines: list[str] = []
     incidents = session.scalars(
         select(Incident).where(Incident.closed_at.is_(None)).order_by(Incident.opened_at)
@@ -337,6 +343,8 @@ def plan_pass(
         fact = _latest(incident, kind)
         if fact is None or now - fact.observed_at > FACT_MAX_AGE:
             continue
+        if last_scan is not None and fact.observed_at < last_scan:
+            continue  # the latest scan did not list it again
         planned = (
             plan_volume(fact.value, now, settings.grace_hours)
             if cause == "idle_volume"
