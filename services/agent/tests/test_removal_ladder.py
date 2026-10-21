@@ -39,9 +39,9 @@ from sqlalchemy.orm import Session
 
 ROOT = Path(__file__).resolve().parents[3]
 VID = "vol-0abc1234def56789a"
-# The pretend clock starts at the real "now": the gateway refuses an approval on a proposal older than a
-# day by the REAL clock, so a date written into the test would fail the day after it was written
-# (found 2026-10-21). Every step below is measured from this, so nothing else depends on the date.
+# The pretend clock starts at the real "now": the gateway refuses an approval on a proposal older
+# than a day by the REAL clock, so a date written into the test would fail the day after it was
+# written (found 2026-10-21). Every step below is measured from this; nothing else depends on it.
 D1 = datetime.now(UTC).replace(minute=15, second=0, microsecond=0)
 GRACE = 1.0
 SETTINGS = planner.Settings(enabled=True, grace_hours=GRACE)
