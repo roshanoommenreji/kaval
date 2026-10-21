@@ -8,8 +8,9 @@
 #   - module "ecr": images live in one shared set of repos (ADR-0004: build once, promote the
 #     artifact), created by infra/envs/prod. A second module call would try to create
 #     repositories that already exist. Staging only needs permission to pull them.
-#   - module "budget": the account-wide guardrail already lives in prod's state, and its hard
-#     stop stops every running Project=kaval instance, staging's included.
+#   - module "budget": the account-wide guardrail already lives in prod's state. Its hard stop
+#     stops every running Project=kaval server outside a group (staging's database) and, since
+#     KAV-96 (ADR-0064), scales staging's group `kaval-staging` to zero by name.
 #   - the nightly 02:00 auto-stop: prod's budget module covers that for staging's database too
 #     (it stops every running Project=kaval server outside an ASG).
 #
