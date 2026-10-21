@@ -90,11 +90,15 @@ spec:
     diagnoser:
       enabled: true
     # The cost reader and the waste scan's reading side (KAV-92, KAV-94) - hand-kept copy of
-    # deploy/environments/prod/values.yaml's own comment block. Removal (KAV-95) stays off here.
+    # deploy/environments/prod/values.yaml's own comment block.
     costReader:
       enabled: true
       wasteScan:
         enabled: true
+    # Safe removal of waste (KAV-95): on, with the 168-hour wait - see the same block there.
+    removal:
+      enabled: true
+      graceHours: 168
   valuesFrom:
     # targetPath entries overwrite everything before them, including the inline `values:`
     # above (Flux's own documented precedence) — the registry injection always wins.

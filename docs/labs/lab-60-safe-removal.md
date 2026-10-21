@@ -166,8 +166,14 @@ pytest scripts/dev/test_chart_removal.py -q      # the rights the chart grants, 
 
 ## Part 8 — Production
 
-- [ ] At its bring-up (`KAV-98`): the module is already wired in `infra/envs/prod/main.tf`; plan shown first, applied
-  on the owner's go, then `removal.enabled` in production's values. Production keeps the seven-day grace
+- [x] At its bring-up (`KAV-98`, 2026-10-21): the module was applied with production's other new pieces (plan shown
+  first, applied on the owner's go: 26 added, 4 changed, 0 destroyed). The first production scan ran clean (0
+  findings) and the reader took it in, then `removal.enabled: true` went into production's two settings files in its
+  own change, so the one part that can delete anything followed the scan rather than coming with it. Production keeps
+  the seven-day grace (a test makes the chart value, the worker's default and this lab agree). With no finding there is
+  nothing to remove yet: the first real order will be the first time the production worker is used.
+- Still tested only, never seen live: the 6-hour `KavalRemovalOrderUnanswered` alarm, `delete_old_snapshot`, and the
+  refusal of another environment's disk.
 
 ## What this does not do
 

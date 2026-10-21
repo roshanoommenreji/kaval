@@ -2,7 +2,7 @@
 
 Renders the real chart with `helm template`, so it needs helm; without it the tests skip. Staging's own
 file switches the reader on (once the build containing it was pinned); production's does since its
-bring-up (KAV-98), reader and waste scan but not removal, which follows the first clean scan."""
+bring-up (KAV-98), reader and waste scan, and removal since its first clean scan."""
 
 from __future__ import annotations
 
@@ -176,12 +176,12 @@ def test_the_pod_still_holds_no_aws_login_with_the_scan_on() -> None:
         assert word not in mine, word
 
 
-def test_production_reads_the_scan_but_cannot_remove_anything_yet() -> None:
-    """KAV-98: production reads the scan; the delete part stays off until its own change."""
+def test_production_reads_the_scan_and_removal_is_on_with_the_seven_day_wait() -> None:
+    """KAV-98: production reads the scan; removal is on after the first clean scan, wait 168 h."""
     docs = _render("prod")
     deployment = _find(docs, "Deployment", "kaval-prod-collector-cost")
     assert '- "--waste-handoff"' in deployment
     text = "\n".join(docs)
     switch = "name: KAVAL_REMOVAL_ENABLED\n              value: "
-    assert text.count(switch + '"false"') == 2 and text.count(switch + '"true"') == 0
+    assert text.count(switch + '"true"') == 2 and text.count(switch + '"false"') == 0
     assert 'KAVAL_REMOVAL_GRACE_HOURS\n              value: "168"' in text
