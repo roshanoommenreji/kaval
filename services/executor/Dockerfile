@@ -27,8 +27,8 @@ RUN uv export --frozen --no-dev --no-emit-project --extra executor -o /requireme
 
 # ── Stage 1b: the opa binary, checksum-verified, same source as the agent's image ──────────
 FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89 AS opa
-ARG OPA_VERSION=1.21.0
-ARG OPA_SHA256=0ec34027c15b4d969c21d01ed570fe14fbebd508a08157043ab09f9a0dccbee6
+ARG OPA_VERSION=1.21.3
+ARG OPA_SHA256=45c8734a41436bf21d82453c2aa7b0ad47c150e8237310b8665e8b5a01305fc0
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
  && rm -rf /var/lib/apt/lists/* \
  && curl -fsSLo /opa \

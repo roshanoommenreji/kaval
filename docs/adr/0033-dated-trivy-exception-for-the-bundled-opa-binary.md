@@ -81,3 +81,19 @@ fourth appears the pattern is clear enough to stop adding entries and decide on 
 `KAV-65` is the place.
 
 **Revisit when** an OPA release built with Go 1.27.2 or later appears, or on 2026-10-23, whichever is first.
+
+## Updated 2026-10-21 (KAV-65): three closed, one new
+
+OPA v1.21.3 (2026-10-19) is built with Go 1.27.2 (`.go-version` in the release tag) and its `go.mod` has
+`golang.org/x/net v0.60.0`, the fixed version for all three entries. Both published checksums were compared with
+files downloaded for the check (they matched). The pin moved from v1.21.0 in both Dockerfiles and `ci.yml`, the three
+entries were removed, and the file is kept with an empty list because both image scans pass it with `--ignorefile`.
+The exit in decision 4 was followed as written, two days before the dates ran out.
+
+**One new finding, same kind.** Scanning the new binary with Trivy (`rootfs`, HIGH and CRITICAL, fixed only) found
+CVE-2026-111943, a `crypto/x509` flaw published after the last green run (2026-10-19). It is fixed in Go 1.27.3 and
+1.26.10; v1.21.3 and OPA's main branch were both still on Go 1.27.2, so no OPA release carries the fix. The old
+v1.21.0 binary has it too, so without any change every image scan would have failed. Roshan approved ONE entry on the
+same terms (only `usr/local/bin/opa`, a one-shot `opa eval` that checks no certificates) ending **2026-11-04**,
+two weeks. **Revisit by then:** an OPA release built with Go 1.27.3 or later, else build OPA from source in the
+Dockerfile with the fixed Go (the option decision 4 names). A fifth entry in this binary is the signal to do that.
