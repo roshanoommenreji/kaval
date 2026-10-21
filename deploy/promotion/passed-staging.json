@@ -250,6 +250,56 @@
         "the backup image: published, not deployed to staging",
         "Slack approval: staging has no Slack app of its own"
       ]
+    },
+    {
+      "tag": "sha-3ab86d1",
+      "commit": "3ab86d1a1bd0efb7f68bd8316f300fa3e8385ccf",
+      "passed_at": "2026-10-21T11:08:34Z",
+      "images": {
+        "agent": "sha256:6467af2c68124dd389a5eaa9d3bbcc8cc4321d93d7e03d54e6db840f96050d89",
+        "collector": "sha256:64036a54f7758e0bda0fce315e9f8ee7daea5115e4bde36e05a145783ae7501b",
+        "executor": "sha256:d4827c0407b0079ea398b50ff7a6a7e53daed4254d1832a8e1caabe58bb8a6a3",
+        "gateway": "sha256:3c09b23af759b81ceff914e9455b2a83a4511e3cb7e889751e8900daf4e0460a"
+      },
+      "published_not_exercised": {
+        "backup": "sha256:bcd2a0f7f419e323a6ebe4519274af0b900031a22fe82dc5c0162c72aba853ad"
+      },
+      "checks": [
+        {
+          "name": "pods running and ready",
+          "detail": "9 running"
+        },
+        {
+          "name": "no crash loop",
+          "detail": "0 restarts"
+        },
+        {
+          "name": "every service runs sha-3ab86d1",
+          "detail": "ok"
+        },
+        {
+          "name": "running digest equals the ECR digest",
+          "detail": "all four match"
+        },
+        {
+          "name": "gateway reaches the database, migrated",
+          "detail": "migrated to d4f7a2c9e815"
+        },
+        {
+          "name": "GET /v1/incidents?limit=1",
+          "detail": "HTTP 200"
+        },
+        {
+          "name": "GET /v1/signals?limit=1",
+          "detail": "HTTP 200"
+        }
+      ],
+      "not_covered": [
+        "Ollama and the model: no environment deploys one yet, so /healthz's ollama check is expected to fail and is not gated on",
+        "agent diagnosis and proposals: they need the model",
+        "the backup image: published, not deployed to staging",
+        "Slack approval: staging has no Slack app of its own"
+      ]
     }
   ]
 }
