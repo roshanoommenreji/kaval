@@ -7,6 +7,7 @@ reachable)."""
 
 from __future__ import annotations
 
+import sys
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -389,3 +390,24 @@ def test_the_model_queue_skips_exactly_these_causes_only_when_removal_is_on(
 def test_removal_proposals_are_the_only_ones_with_the_rule_marker() -> None:
     assert r.RULE_MODEL == "rule:removal"
     assert health.REMOVABLE_CAUSES == {"idle_volume", "snapshot_past_retention"}
+
+
+@pytest.mark.parametrize(
+    "start", [datetime(2024, 3, 1, 12, 0, tzinfo=UTC), datetime(2041, 3, 1, 12, 0, tzinfo=UTC)]
+)
+def test_the_pauses_do_not_depend_on_the_real_date(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch, start: datetime
+) -> None:
+    """Found 2026-10-21: the planner measured its pauses from the database's real clock while the
+    tests moved a pretend one, so the retry test passed on the day it was written and failed the
+    next. A pretend date well before and well after today must behave exactly the same."""
+    monkeypatch.setattr(sys.modules[__name__], "NOW", start)
+    incident = _loose(db_session)
+    assert len(r.plan_pass(db_session, ON, now=start)) == 1
+    action = db_session.scalars(select(Action)).one()
+    assert action.created_at == start  # the planner's clock, not the database's
+    _approve_and_hand_over(db_session, action, start)
+    _restate(db_session, incident, volume(), 24)
+    assert r.plan_pass(db_session, ON, now=start + timedelta(hours=24)) == []  # still its time
+    _restate(db_session, incident, volume(), 49)
+    assert len(r.plan_pass(db_session, ON, now=start + timedelta(hours=49))) == 1  # retry
