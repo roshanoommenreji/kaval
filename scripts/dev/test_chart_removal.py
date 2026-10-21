@@ -57,7 +57,7 @@ def _find(docs: list[str], kind: str, name: str) -> str:
     raise AssertionError(f"no {kind} named {name}")
 
 
-@pytest.mark.parametrize("env", ["local", "prod"])
+@pytest.mark.parametrize("env", ["local"])
 def test_where_it_is_not_switched_on_nothing_of_it_is_rendered(env: str) -> None:
     text = "\n".join(_render(env))
     assert "removal-orders" not in text and "KAVAL_REMOVAL_ORDERS" not in text
@@ -67,10 +67,13 @@ def test_where_it_is_not_switched_on_nothing_of_it_is_rendered(env: str) -> None
     assert 'name: KAVAL_REMOVAL_ENABLED\n              value: "false"' in text
 
 
-def test_staging_has_it_on_and_production_and_local_do_not() -> None:
-    staging = "\n".join(_render("staging"))
-    assert "kaval-staging-removal-orders" in staging
-    assert 'name: KAVAL_REMOVAL_ENABLED\n              value: "true"' in staging
+def test_staging_and_production_have_it_on_and_local_does_not() -> None:
+    for env in ("staging", "prod"):
+        text = "\n".join(_render(env))
+        assert f"kaval-{env}-removal-orders" in text, env
+        assert 'name: KAVAL_REMOVAL_ENABLED\n              value: "true"' in text, env
+        assert 'name: KAVAL_REMOVAL_ENABLED\n              value: "false"' not in text, env
+    assert "removal-orders" not in "\n".join(_render("local"))
 
 
 def test_switched_on_the_executor_may_get_and_patch_one_configmap_by_name_only() -> None:
@@ -191,5 +194,13 @@ def test_the_grace_in_each_environment_equals_the_workers() -> None:
     )
     assert found is not None
     staging_chart = float(found.group(1))
-    assert chart_default == worker_default == 168
+    prod_values = (ROOT / "deploy" / "environments" / "prod" / "values.yaml").read_text(
+        encoding="utf-8"
+    )
+    found = re.search(
+        r"(?m)^removal:\s*\n(?:#.*\n)*(?:\s*enabled:.*\n)?\s*graceHours:\s*(\d+)", prod_values
+    )
+    assert found is not None
+    prod_chart = float(found.group(1))
+    assert chart_default == worker_default == prod_chart == 168
     assert staging_chart == worker_staging == 1

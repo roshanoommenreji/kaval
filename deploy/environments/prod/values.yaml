@@ -96,10 +96,17 @@ diagnoser:
 # The cost reader and the daily waste scan's reading side (KAV-92, KAV-94; ADR-0060, ADR-0062). Staging ran
 # both first and proved them (2026-10-18 to 2026-10-21). They read two ConfigMaps the server's own timers fill,
 # so they need the production Terraform for those (KAV-98: the cost-reader, waste-scan and waste-removal modules)
-# applied first. Removal (KAV-95) is deliberately NOT switched on here yet: it is the only part that can delete
-# anything, so it follows in its own change once the first production scan has run clean. The chart's default
-# for it is off.
+# applied first.
 costReader:
   enabled: true
   wasteScan:
     enabled: true
+
+# Safe removal of waste (KAV-95, ADR-0063), on since the first production scan ran clean (KAV-98, 2026-10-21).
+# It is the only part that can delete anything: two human approvals per disk, and a wait of 168 hours (seven
+# days) between marking a disk and deleting it. The wait must equal the worker's `grace_hours` (the
+# module's default, 168, in infra/modules/waste-removal; a test fails if they differ). To switch it off,
+# set `enabled: false`.
+removal:
+  enabled: true
+  graceHours: 168
