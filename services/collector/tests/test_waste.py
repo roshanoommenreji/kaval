@@ -16,6 +16,7 @@ from kaval_agent import correlate
 from kaval_collector import waste
 from kaval_collector.waste import Handoff
 from kaval_shared import health
+from kaval_shared.health import WASTE_SCAN_DONE
 from kaval_shared.models import Severity, Signal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -99,11 +100,22 @@ class _Reader:
 
 
 def _count(session: Session) -> int:
+    """The findings written (the once-per-scan record is counted by `_records`)."""
     return (
         session.scalar(
-            select(func.count()).select_from(Signal).where(Signal.source == waste.SOURCE)
+            select(func.count())
+            .select_from(Signal)
+            .where(Signal.source == waste.SOURCE, Signal.kind != WASTE_SCAN_DONE)
         )
         or 0
+    )
+
+
+def _records(session: Session) -> list[Signal]:
+    return list(
+        session.scalars(
+            select(Signal).where(Signal.source == waste.SOURCE, Signal.kind == WASTE_SCAN_DONE)
+        )
     )
 
 
@@ -284,10 +296,57 @@ def test_the_next_days_scan_restates_what_is_still_true(db_session: Session) -> 
     assert len(lines) == 1 and _count(db_session) == 2
 
 
-def test_a_clean_account_writes_nothing_and_is_not_a_failure(db_session: Session) -> None:
+def test_a_clean_account_writes_no_finding_and_is_not_a_failure(db_session: Session) -> None:
     waste._FAILING.set(1)  # noqa: SLF001
     assert waste.run_pass(db_session, _Reader(_handoff([])), now=NOW) == ["nothing new"]
     assert _count(db_session) == 0 and _failing() == 0
+
+
+def test_a_complete_scan_leaves_one_dated_record_even_when_it_found_nothing(
+    db_session: Session,
+) -> None:
+    """KAV-95: it is how the removal planner learns that a disk is gone."""
+    waste.run_pass(db_session, _Reader(_handoff([])), now=NOW)
+    waste.run_pass(db_session, _Reader(_handoff([])), now=NOW)  # the same scan again
+    (record,) = _records(db_session)
+    assert (record.target, record.observed_at) == ("scan/waste", SCANNED)
+    assert record.value == {"scanned_at": "2026-10-18T03:00:00Z"}
+    tomorrow = SCANNED + timedelta(days=1)
+    waste.run_pass(
+        db_session, _Reader(_handoff([], scanned_at=tomorrow)), now=NOW + timedelta(days=1)
+    )
+    assert len(_records(db_session)) == 2
+
+
+def test_the_record_is_as_new_as_the_findings_it_goes_with(db_session: Session) -> None:
+    waste.run_pass(db_session, _Reader(_handoff([SERVER])), now=NOW)
+    (record,) = _records(db_session)
+    finding = db_session.scalars(select(Signal).where(Signal.kind == "server_overstay")).one()
+    assert record.observed_at == finding.observed_at  # the planner compares these two
+
+
+@pytest.mark.parametrize(
+    "handoff",
+    [
+        _handoff([SERVER], truncated=7),  # cut short: a disk may be missing from the list
+        _handoff([SERVER, {"kind": "delete_everything"}]),  # one finding refused as malformed
+        _handoff(status="failed", reason="describe_failed"),
+        _handoff(scanned_at=NOW - timedelta(days=3)),  # stale
+        None,
+    ],
+)
+def test_an_incomplete_or_bad_scan_leaves_no_record(
+    db_session: Session, handoff: Handoff | None
+) -> None:
+    """A list that may leave a disk out must never be taken as proof that the disk is gone."""
+    waste.run_pass(db_session, _Reader(handoff), now=NOW)
+    assert _records(db_session) == []
+
+
+def test_the_record_never_becomes_an_incident(db_session: Session) -> None:
+    waste.run_pass(db_session, _Reader(_handoff([])), now=NOW)
+    plan = correlate.plan(_records(db_session), [], NOW)
+    assert plan.empty and plan.waiting == 0
 
 
 @pytest.mark.parametrize(

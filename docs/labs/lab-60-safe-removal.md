@@ -120,15 +120,25 @@ pytest scripts/dev/test_chart_removal.py -q      # the rights the chart grants, 
 
 - [x] `terraform plan` in `infra/envs/staging` (expect: the worker, its role, its rule, its schedule, two
   parameters and one changed policy on the server's role), read and applied on the owner's go (2026-10-19: 14 added, 4 changed, 0 destroyed; a second plan said "No changes")
-- [ ] The build containing the planner and the new executor is pinned in staging, then `removal.enabled: true` is set
+- [x] The build containing the planner and the new executor is pinned in staging, then `removal.enabled: true` is set
   in staging's values (a second change). Merge only after the apply and a fresh server launch, because the server
-  gets the order and result copy with its next launch
-- [ ] Plant a 1 GiB disk labelled `Project=kaval Env=staging ManagedBy=manual`, attached to nothing. Run the scan
+  gets the order and result copy with its next launch (2026-10-19, PRs #208 and #209)
+- [x] Plant a 1 GiB disk labelled `Project=kaval Env=staging ManagedBy=manual`, attached to nothing. Run the scan
   twice. A step-one proposal appears with its preview; **approve**: the disk gets the `KavalRemoval` label and a backup
-  copy, nothing is deleted
-- [ ] After the hour's grace and the next scan, a step-two proposal appears naming the backup; **approve**: the disk is
-  gone and the backup copy remains
-- [ ] **Undo:** create a disk from the backup copy and see the data is back; delete the test disk and copy afterwards
+  copy, nothing is deleted (2026-10-19, after the read grant below: label at 06:22:55Z, backup completed)
+- [x] After the hour's grace and the next scan, a step-two proposal appears naming the backup; **approve**: the disk is
+  gone and the backup copy remains (2026-10-21: scans twice, the server's copy, the proposal appeared within 5
+  minutes, approved at 09:27Z; the worker answered `ok` at 09:30Z and the cost reader recorded `removal_done`; the
+  disk was gone, the backup completed and kept, saving $0.09 a month)
+- [x] **Undo:** create a disk from the backup copy and see the data is back; delete the test disk and copy afterwards
+  (2026-10-21: `aws ec2 create-volume --snapshot-id <backup>` gave a 1 GiB disk, `available`, recorded as made from
+  the backup. The test disk had never held files, so what this shows is that a disk can be rebuilt from the copy, not
+  a file coming back. Both the new disk and the backup copy were deleted afterwards)
+
+> **Staging's approval window is 15 minutes** (the gateway is given short timers for game days; production's default
+> is 4 hours). Have the action id ready before the proposal appears: a rule-made proposal has no `make chaos-propose`
+> experiment to print it, so read it from the `action` table (a throwaway pod run as the agent's login, as the chaos
+> script does) and approve with `make chaos-approve ACTION=<id>`.
 
 > **Found live on the first run (2026-10-19):** the planner failed every pass with `permission denied for table
 > decision` because the agent's database login could not read approvals. Fixed with a read-only grant on `decision`
@@ -137,10 +147,15 @@ pytest scripts/dev/test_chart_removal.py -q      # the rights the chart grants, 
 
 ## Part 7 — Negative checks, live
 
-- [ ] An attached disk, another project's disk and a Terraform-managed disk are each refused by the worker even when
+- [x] An attached disk, another project's disk and a Terraform-managed disk are each refused by the worker even when
   an order names them (`aws ssm put-parameter` of a hand-made order, then the worker's `refused` answer and a
-  `removal_failed` incident)
-- [ ] A disk attached during the wait never reaches step two
+  `removal_failed` incident). 2026-10-21, five throwaway 1 GiB disks and five hand-made `delete_volume` orders: other
+  project `not_kaval`, Terraform-owned `terraform_owned`, attached `attached`, marked a moment ago `grace_not_over`,
+  marked long ago but with no backup `no_backup`. All five disks still existed afterwards, no backup was made, and
+  all five were deleted by hand at the end. The `removal_failed` notes appear when the server next copies the
+  answers into the cluster
+- [x] A disk attached during the wait never reaches step two (the attached disk above was refused at the delete
+  step with `attached`; the check runs before the wait and the backup are even looked at)
 
 ## Part 8 — Production
 
