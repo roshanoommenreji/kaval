@@ -33,14 +33,16 @@ variable "hard_stop_usd" {
   default     = 48
 }
 
-variable "asg_name" {
+variable "asg_names" {
   description = <<-EOT
-    Auto Scaling Group the hard stop will scale to zero.
+    Auto Scaling Groups the hard stop will scale to zero. A group that does not exist when it
+    fires is skipped, not an error (staging's is destroyed between uses). A running server
+    inside a group is NOT stopped by the instance action (the group would replace it), so every
+    group that can run while the bill is high must be named here (KAV-96).
     Empty during Phase 0 — no compute exists yet, and that is the point.
-    Populate in Phase 4 when the node module creates the ASG.
   EOT
-  type        = string
-  default     = ""
+  type        = list(string)
+  default     = []
 }
 
 variable "hard_stop_dry_run" {

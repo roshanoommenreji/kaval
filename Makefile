@@ -66,7 +66,7 @@ bench: ## Measure the local model shortlist on the dev server (KAV-22, ~20 min)
 
 .PHONY: test
 test: ## Unit tests + policy tests
-	pytest services/ scripts/dev/ scripts/ops/ scripts/tracking/ scripts/release/ evals/ infra/modules/idle-stop/lambda/ infra/modules/waste-scan/lambda/ -q
+	pytest services/ scripts/dev/ scripts/ops/ scripts/tracking/ scripts/release/ evals/ infra/modules/idle-stop/lambda/ infra/modules/waste-scan/lambda/ infra/modules/budget/lambda/ -q
 	@command -v opa >/dev/null 2>&1 && opa test policy/ -v || echo "opa not installed — skipping policy tests"
 
 .PHONY: rules-test

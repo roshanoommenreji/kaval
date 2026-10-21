@@ -59,7 +59,11 @@ module "budget" {
   # `make down`'s `terraform destroy -target=module.node` cascaded into destroying the
   # entire hard-stop Lambda, its IAM policy and its log group every single pause, despite
   # the ASG's name never actually varying. The budget guardrail should outlive the node.
-  asg_name          = "kaval-prod"
+  #
+  # KAV-96: staging's group is named too. Without it a running staging node would pass the brake
+  # (a server inside a group is skipped by the instance action); staging's database was always
+  # covered. A group that is not there (staging is destroyed between uses) is skipped, not an error.
+  asg_names         = ["kaval-prod", "kaval-staging"]
   hard_stop_dry_run = false
 
   # Armed 2026-09-26 (KAV-30): at the hard-stop threshold ($48 since ADR-0028) the Lambda stops every running Project=kaval

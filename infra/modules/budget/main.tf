@@ -232,7 +232,7 @@ resource "aws_lambda_function" "hard_stop" {
 
   environment {
     variables = {
-      ASG_NAME       = var.asg_name
+      ASG_NAMES      = join(",", var.asg_names)
       DRY_RUN        = var.hard_stop_dry_run ? "true" : "false"
       STOP_INSTANCES = var.stop_tagged_instances ? "true" : "false"
       STOP_TAG_KEY   = var.stop_tag_key
