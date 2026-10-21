@@ -83,6 +83,13 @@ alembic upgrade head
 KAVAL_REQUIRE_DB=1 pytest services/agent/tests/test_removal_planner.py -q
 ```
 
+- [x] A question nobody answered is asked again once its approval has run out (`ASK_AGAIN_AFTER`, 24 hours), and a dead
+  question stops using up one of the five open places. Tests: a question 23 hours old is still "waiting", one 25 hours old
+  is asked again (and that second one is live, so not asked a third time); five dead questions do not block a sixth
+  disk; five fresh ones still do; an approved or denied question is never treated as dead; and a guard that reads the
+  chart's default (240 minutes) and staging's (15) and fails if any approval window is 24 hours or more. Without the
+  change four of them fail
+
 ## Part 4 — The executor, the policy and the approval message
 
 - [x] The executor writes ONE order into ONE ConfigMap and records **"handed over"**, never "done". It refuses a
