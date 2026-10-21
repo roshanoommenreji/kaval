@@ -6,8 +6,9 @@ the live run of 2026-10-14 (`KAV-83` Part 3, [Lab 50](../labs/lab-50-closing-pha
 `sha-0904d5c` over a database two migrations behind and hit two ordering gaps (`KAV-85`). Since
 [ADR-0057](../adr/0057-the-database-is-brought-up-to-date-before-a-new-version-starts.md) the migration runs before
 the install and the permissions are handed out again once the release is Ready, so steps 5 and 6 are only for
-when that did not work. The new order has been proven on staging (Lab 54) and has **not yet run on production**:
-watch the first bring-up after 2026-10-16 for it.
+when that did not work. The new order was proven on staging (Lab 54) and then ran on production on 2026-10-21 (`KAV-98`,
+[Lab 61](../labs/lab-61-production-bring-up-for-phase-6.md)): the first boot applied the one waiting migration by itself,
+the permissions pass ran after Ready, and neither step 5 nor step 6 was needed.
 
 ## Signals
 
