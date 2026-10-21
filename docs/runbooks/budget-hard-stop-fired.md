@@ -47,7 +47,7 @@ is about $0.05 an hour with its database); the second usual cause is a service o
 - To restart: `bash scripts/ops/resume-database.sh` and the normal bring-up (`docs/runbooks/prod-rollout.md`), only after
   the cause is understood and, if the month's bill is close to $50, only for the short session that is needed.
   Blast radius: the bill.
-- To change the line itself: that is a decision, written as an ADR. Edit `infra/envs/prod/terraform.tfvars`,
+- To change the line itself: that is a decision, written as an ADR. Edit `infra/envs/prod/variables.tf` (and your local `terraform.tfvars`, which is not in git),
   `docs/cost/budget-plan.md` and `CLAUDE.md` together (`scripts/dev/test_budget_wiring.py` fails if one disagrees), with
   the plan shown first.
 - The snapshots the brake took are tagged `Reason=pre-stop`; they age out like the others.

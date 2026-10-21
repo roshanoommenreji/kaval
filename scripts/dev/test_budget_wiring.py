@@ -8,6 +8,8 @@ brake is armed and names every server group that can run while the bill is high.
 import re
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -15,12 +17,24 @@ def _read(*parts: str) -> str:
     return ROOT.joinpath(*parts).read_text(encoding="utf-8")
 
 
-def _tfvars() -> dict[str, int]:
-    text = _read("infra", "envs", "prod", "terraform.tfvars")
+def _prod_values() -> dict[str, int]:
+    """Production's numbers as committed: the defaults in its variables file. The real
+    terraform.tfvars is kept out of git (it holds private values), so CI cannot read it."""
+    text = _read("infra", "envs", "prod", "variables.tf")
     names = ("monthly_limit_usd", "alert_1_usd", "alert_2_usd", "hard_stop_usd")
-    found = {n: re.search(rf"(?m)^{n}\s*=\s*(\d+)\s*$", text) for n in names}
+    found = {n: re.search(rf'variable "{n}".*?default\s*=\s*(\d+)', text, re.S) for n in names}
     assert all(found.values()), found
     return {n: int(m.group(1)) for n, m in found.items() if m}
+
+
+def test_a_local_tfvars_does_not_override_the_committed_numbers() -> None:
+    path = ROOT / "infra" / "envs" / "prod" / "terraform.tfvars"
+    if not path.exists():
+        pytest.skip("terraform.tfvars is not in git; this check runs on a laptop that has it")
+    text = path.read_text(encoding="utf-8")
+    for name, value in _prod_values().items():
+        found = re.search(rf"(?m)^{name}\s*=\s*(\d+)\s*$", text)
+        assert found is None or int(found.group(1)) == value, name
 
 
 def _module_default(name: str) -> int:
@@ -31,17 +45,17 @@ def _module_default(name: str) -> int:
 
 
 def test_the_lines_are_in_order_below_the_ceiling() -> None:
-    v = _tfvars()
+    v = _prod_values()
     assert v["alert_1_usd"] < v["alert_2_usd"] < v["hard_stop_usd"] < v["monthly_limit_usd"]
 
 
 def test_the_modules_defaults_equal_productions_values() -> None:
-    for name, value in _tfvars().items():
+    for name, value in _prod_values().items():
         assert _module_default(name) == value, name
 
 
 def test_the_project_rules_state_the_same_numbers() -> None:
-    v = _tfvars()
+    v = _prod_values()
     rules = _read("CLAUDE.md")
     assert f"${v['monthly_limit_usd']}/month" in rules
     assert (
@@ -51,7 +65,7 @@ def test_the_project_rules_state_the_same_numbers() -> None:
 
 
 def test_the_budget_plan_states_the_same_numbers() -> None:
-    v = _tfvars()
+    v = _prod_values()
     plan = _read("docs", "cost", "budget-plan.md")
     for name in ("alert_1_usd", "alert_2_usd", "hard_stop_usd"):
         assert f"| MTD ≥ ${v[name]} |" in plan, name
