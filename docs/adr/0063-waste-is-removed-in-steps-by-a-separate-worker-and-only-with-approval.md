@@ -109,7 +109,7 @@ the code:
   something out; the size test fails before EC2 does (its own limit is 16,384).
 - **Found by the end-to-end test:** after a disk was deleted, the last scan's fact was still fresh for a day, so the
   planner could have asked to delete it again. A step the worker has answered `ok` for is now never asked again,
-  and a question still waiting for an answer is never asked a second time.
+  and a question still waiting for an answer is never asked a second time (until it has expired, see below).
 - **Found by the live proof (2026-10-19): the planner could not read approvals.** It runs inside the diagnosis
   worker, so as the agent's database login, which had no right to read `decision` or `execution`; it failed every
   pass with "permission denied". The agent now gets **read-only** access to those two tables (`db-roles.sql`) and
@@ -124,6 +124,18 @@ the code:
   may leave a disk out is never proof that a disk is gone. With no record yet, the 36-hour limit alone applies. The
   correlator treats the record like `removal_done`: a record, not an incident. Options weighed: asking AWS again
   (impossible, the cluster has no AWS login), and shortening the 36 hours (still wrong, only smaller).
+- **Found by reading the code (2026-10-21), fixed the same day: a question nobody answered was never asked again.** An
+  approval request runs out by the clock (4 hours in production, 15 minutes on staging), but that is worked out from
+  its age and never written down, so an unanswered proposal has no decision row. The planner took "no decision" to
+  mean "still waiting" for ever: that disk was never asked about again, and five such dead questions filled its limit of
+  five open proposals, so it went silent for everything. Nothing unsafe could happen (nothing is deleted without an
+  approval); it would simply have stopped helping. Now `ASK_AGAIN_AFTER` (24 hours) is the age after which an
+  unanswered question counts as dead: the planner may ask it again, and it no longer takes one of the five places.
+  A question younger than that, an approved one and a denied one (a "no" still holds for a week) behave as before.
+  A test reads the chart's default and every environment's expiry and fails if any is 24 hours or more, so the planner
+  can never ask again while the first question could still be answered. Options weighed: writing an "expired" row
+  from the gateway (a second writer to the approvals table and a migration for what an age already says), and
+  reading the expiry setting in the agent (a second copy of a number the gateway owns, which can drift).
 - **A residual risk, accepted:** a disk attached, changed and detached again between two daily scans during the wait
   could lose those changes (the backup is from the moment it was marked). The seven-day grace and the scan's daily
   look make it unlikely; the backup copy is kept 30 days.

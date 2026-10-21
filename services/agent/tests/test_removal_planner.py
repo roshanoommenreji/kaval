@@ -7,9 +7,11 @@ reachable)."""
 
 from __future__ import annotations
 
+import re
 import sys
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -224,10 +226,98 @@ def test_a_question_still_waiting_for_an_answer_is_never_asked_a_second_time(
 ) -> None:
     incident = _loose(db_session)
     r.plan_pass(db_session, ON, now=NOW)
-    for day in (1, 2, 5):
-        _restate(db_session, incident, volume(), 24 * day)  # each day's scan still sees it loose
-        assert r.plan_pass(db_session, ON, now=NOW + timedelta(days=day)) == []
+    for hours in (3, 12, 23):  # inside the window an answer can still arrive
+        _restate(db_session, incident, volume(), hours)  # the scan still sees it loose
+        assert r.plan_pass(db_session, ON, now=NOW + timedelta(hours=hours)) == []
     assert _count(db_session) == 1
+
+
+def test_a_question_nobody_answered_is_asked_again_once_its_approval_has_run_out(
+    db_session: Session,
+) -> None:
+    """Found 2026-10-21: an unanswered proposal has no decision row (expiry is worked out from the
+    age), so the planner called it "waiting" forever and the disk was never asked about again."""
+    incident = _loose(db_session)
+    r.plan_pass(db_session, ON, now=NOW)
+    _restate(db_session, incident, volume(), 25)
+    lines = r.plan_pass(db_session, ON, now=NOW + timedelta(hours=25))
+    assert len(lines) == 1 and VID in lines[0]
+    assert _count(db_session) == 2
+    # and that second question is itself a live one: not asked a third time the same day
+    _restate(db_session, incident, volume(), 26)
+    assert r.plan_pass(db_session, ON, now=NOW + timedelta(hours=26)) == []
+    assert _count(db_session) == 2
+
+
+def _open_at(db: Session, now: datetime) -> int:
+    return r._open_removals(db, now)
+
+
+def test_dead_questions_do_not_use_up_the_five_open_places(db_session: Session) -> None:
+    for i in range(6):
+        vid = f"vol-0abc1234def5678{i}"
+        _incident(
+            db_session, "idle_volume", f"ebs/{vid}", "volume_unattached", volume(volume_id=vid)
+        )
+    for _ in range(3):
+        r.plan_pass(db_session, ON, now=NOW)
+    assert _count(db_session) == r.MAX_OPEN  # five asked, the sixth waits
+    later = NOW + timedelta(hours=25)  # nobody answered any of them
+    assert _open_at(db_session, later) == 0
+    assert len(r.plan_pass(db_session, ON, now=later)) == r.MAX_PER_PASS  # the queue moves again
+
+
+def test_live_unanswered_questions_still_hold_their_places(db_session: Session) -> None:
+    for i in range(5):
+        vid = f"vol-0abc1234def5678{i}"
+        _incident(
+            db_session, "idle_volume", f"ebs/{vid}", "volume_unattached", volume(volume_id=vid)
+        )
+    for _ in range(3):
+        r.plan_pass(db_session, ON, now=NOW)
+    assert _open_at(db_session, NOW + timedelta(hours=23)) == 5
+    assert _open_at(db_session, NOW + timedelta(hours=25)) == 0
+
+
+def test_an_answered_question_is_never_treated_as_dead(db_session: Session) -> None:
+    """Approved or denied, the old rules stay: a "no" holds a week, a handed-over step is the
+    worker's, whatever their age relative to the 24 hours."""
+    incident = _loose(db_session)
+    r.plan_pass(db_session, ON, now=NOW)
+    action = db_session.scalars(select(Action)).one()
+    db_session.add(
+        Decision(action_id=action.id, verdict=Verdict.denied, actor="roshan", decided_at=NOW)
+    )
+    db_session.commit()
+    assert _open_at(db_session, NOW + timedelta(hours=1)) == 0  # answered: not an open place
+    for hours in (25, 72, 6 * 24):
+        _restate(db_session, incident, volume(), hours)
+        assert r.plan_pass(db_session, ON, now=NOW + timedelta(hours=hours)) == []
+    assert _count(db_session) == 1
+
+
+def _approval_windows() -> dict[str, int]:
+    """Every approval expiry the repository sets, in minutes, by the file it is set in."""
+    root = Path(__file__).resolve().parents[3] / "deploy"
+    files = [root / "charts" / "kaval" / "values.yaml"]
+    files += sorted((root / "environments").glob("*/values.yaml"))
+    files += sorted((root / "gitops").glob("*/helmrelease.yaml"))
+    found: dict[str, int] = {}
+    for path in files:
+        match = re.search(r"^\s*expireMinutes:\s*(\d+)\s*$", path.read_text("utf-8"), re.M)
+        if match:
+            found[path.relative_to(root).as_posix()] = int(match.group(1))
+    return found
+
+
+def test_the_ask_again_time_is_never_shorter_than_any_approval_window() -> None:
+    """If a question could still be answered when the planner asks it again, a person would see two
+    live copies. So this must stay above every expiry the repository sets."""
+    windows = _approval_windows()
+    assert "charts/kaval/values.yaml" in windows  # the guard really found the chart's default
+    assert any(w.startswith("environments/staging") for w in windows)
+    for where, minutes in windows.items():
+        assert timedelta(minutes=minutes) < r.ASK_AGAIN_AFTER, where
 
 
 def _approve_and_hand_over(db: Session, action: Action, at: datetime) -> None:

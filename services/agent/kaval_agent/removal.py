@@ -67,6 +67,12 @@ COOLDOWN = {STEP_BACKUP: timedelta(hours=48), STEP_DELETE: timedelta(hours=24),
             STEP_SNAPSHOT: timedelta(hours=24)}
 DENIED_COOLDOWN = timedelta(days=7)  # a "no" is not asked again for a week
 MAX_OPEN = 5  # at most this many removal proposals waiting for an answer
+# An unanswered proposal is dead once its approval has expired (4 hours in production), but expiry
+# is worked out from the age and never written down, so the planner cannot see it. It treats a
+# question older than this as dead: it may ask again, and the dead one no longer counts toward
+# MAX_OPEN. Must stay at or above every environment's approval expiry (a test reads the values
+# files and checks).
+ASK_AGAIN_AFTER = timedelta(hours=24)
 MAX_PER_PASS = 3
 DEFAULT_GRACE_HOURS = 168.0
 
@@ -249,7 +255,10 @@ def _skip(session: Session, planned: Planned, now: datetime) -> str | None:
         return None
     action, verdict, execution = latest
     if verdict is None:
-        return "already waiting for an answer"  # never a second copy of the same question
+        # never a second copy of a live question; an expired one may be asked again
+        if now - action.created_at < ASK_AGAIN_AFTER:
+            return "already waiting for an answer"
+        return None
     if verdict == Verdict.denied:
         return "denied recently" if now - action.created_at < DENIED_COOLDOWN else None
     # approved: a step handed over and not yet answered is left to the worker (and to the alarm for
@@ -259,14 +268,18 @@ def _skip(session: Session, planned: Planned, now: datetime) -> str | None:
     return None
 
 
-def _open_removals(session: Session) -> int:
-    """Removal proposals nobody has answered yet."""
+def _open_removals(session: Session, now: datetime) -> int:
+    """Removal proposals nobody has answered yet and whose approval has not run out."""
     return int(
         session.scalar(
             select(func.count())
             .select_from(Action)
             .outerjoin(Decision, Decision.action_id == Action.id)
-            .where(Action.type.in_(REMOVAL_TYPES), Decision.id.is_(None))
+            .where(
+                Action.type.in_(REMOVAL_TYPES),
+                Decision.id.is_(None),
+                Action.created_at > now - ASK_AGAIN_AFTER,
+            )
         )
         or 0
     )
@@ -322,7 +335,7 @@ def plan_pass(
     now = now or datetime.now(UTC)
     if not session.scalar(text("SELECT pg_try_advisory_xact_lock(:k)"), {"k": LOCK_KEY}):
         return ["another removal planner holds the lock; skipped this pass"]
-    open_now = _open_removals(session)
+    open_now = _open_removals(session, now)
     # When the latest complete scan ran. A sighting older than that was not repeated by it: the
     # disk (or copy) is gone, or no longer waste. None before the first record exists, then the
     # age limit alone applies.

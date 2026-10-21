@@ -4,6 +4,9 @@ Kaval proposed a fix that needs a person ([ADR-0048](../adr/0048-approvals-nobod
 It reminds after 15 minutes, escalates after 30 and **expires after 4 hours** (staging: 3, 7 and
 15 minutes). An expired request cannot be approved or denied; nothing was done.
 
+For a **disk or backup-copy removal** ([ADR-0063](../adr/0063-waste-is-removed-in-steps-by-a-separate-worker-and-only-with-approval.md))
+an expired request is not the end: if the item is still waste, the planner asks again after 24 hours.
+
 ## Signals
 
 - Slack: ":hourglass_flowing_sand: Still waiting for an answer" (a reminder, in the thread)
