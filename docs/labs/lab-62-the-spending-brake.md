@@ -85,7 +85,7 @@ Seen (05:35 UTC): both groups "already at zero"; `Snapshotted vol-... as snap-07
 
 ## Part 4 — The real lowered-limit test (separate go)
 
-*To be filled in if it is done.* (The owner has not yet decided; the snapshot fix and a re-test come first.) The real budget's stop line is lowered briefly so AWS Budgets itself sets the brake off,
+**Not run (2026-10-22, the owner chose to move on).** The Budgets-to-topic leg is therefore seen only as AWS's documented behaviour plus the Terraform that wires the $48 notification to the topic; the first real crossing will be its live proof. If it is wanted later: lower `hard_stop_usd` for the real budget with a targeted plan shown first, with servers parked (nothing real stops), watch the function's log and the inbox, then restore $48 and confirm a plan says "No changes". The real budget's stop line is lowered briefly so AWS Budgets itself sets the brake off,
 then restored to $48 straight after (a plan shows it back to "No changes").
 
 ## What this does not do
