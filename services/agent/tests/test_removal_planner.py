@@ -559,3 +559,30 @@ def test_the_pauses_do_not_depend_on_the_real_date(
     assert r.plan_pass(db_session, ON, now=start + timedelta(hours=24)) == []  # still its time
     _restate(db_session, incident, volume(), 49)
     assert len(r.plan_pass(db_session, ON, now=start + timedelta(hours=49))) == 1  # retry
+
+
+# ── the promised saving is a stored number (KAV-97) ─────────────────────────────────────────────
+
+
+def _delete_step(**kw: Any) -> r.Planned:
+    v = volume(
+        pending_removal_since=stamp(200), backup_state="completed", backup_snapshot_id=SID, **kw
+    )
+    p = r.plan_volume(v, NOW, GRACE)
+    assert p is not None and p.type == r.STEP_DELETE
+    return p
+
+
+def test_the_delete_step_stores_its_promised_saving_as_a_number() -> None:
+    assert _delete_step().params()["saving_usd_month"] == "1.82"
+
+
+@pytest.mark.parametrize("bad", ["", "abc", "-1.00", "1,82", 1.82, None])
+def test_a_missing_or_odd_price_is_stored_as_none_not_zero(bad: object) -> None:
+    assert "saving_usd_month" not in _delete_step(monthly_cost_usd=bad).params()
+
+
+def test_the_backup_step_and_a_backup_copy_carry_no_promised_saving() -> None:
+    assert "saving_usd_month" not in r.plan_volume(volume(), NOW, GRACE).params()  # type: ignore[union-attr]
+    snap = {"snapshot_id": SID, "age_days": 41, "limit_days": 30, "size_gib": 20}
+    assert "saving_usd_month" not in r.plan_snapshot(snap).params()  # type: ignore[union-attr]

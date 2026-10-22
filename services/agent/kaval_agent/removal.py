@@ -27,6 +27,7 @@ database; `plan_pass` is the part that reads incidents and writes rows.
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -106,9 +107,16 @@ class Planned:
     risk: RiskLevel
     preview: tuple[str, ...]
     undo: str
+    # What the proposal promises to save each month, as the scan's own text ("1.82"); empty when
+    # nobody put a price on it (a backup copy's saving depends on what it shares with others).
+    # The savings report (KAV-97) reads this number, never the wording.
+    saving_usd_month: str = ""
 
     def params(self) -> dict[str, object]:
-        return {"preview": list(self.preview), "undo": self.undo}
+        out: dict[str, object] = {"preview": list(self.preview), "undo": self.undo}
+        if self.saving_usd_month:
+            out["saving_usd_month"] = self.saving_usd_month
+        return out
 
 
 def _stamp(value: object) -> datetime | None:
@@ -118,6 +126,15 @@ def _stamp(value: object) -> datetime | None:
         return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
     except ValueError:
         return None
+
+
+_MONEY = re.compile(r"\d{1,6}\.\d{2}")
+
+
+def _promised(value: Mapping[str, Any]) -> str:
+    """The scan's monthly cost as a plain amount, or "" if it is missing or not in that shape."""
+    cost = value.get("monthly_cost_usd")
+    return cost if isinstance(cost, str) and _MONEY.fullmatch(cost) else ""
 
 
 def _money(value: Mapping[str, Any]) -> str:
@@ -182,6 +199,7 @@ def plan_volume(value: Mapping[str, Any], now: datetime, grace_hours: float) -> 
             f"Saves {_money(value)}.",
         ),
         undo=f"Create a new disk from the backup copy {backup} (a restore).",
+        saving_usd_month=_promised(value),
     )
 
 

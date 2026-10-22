@@ -312,6 +312,13 @@ restore-drill: ## Restore production's newest dump into a throwaway Postgres, ti
 chaos-status: ## Chaos switch, Jobs and victim on staging
 	@bash scripts/ops/chaos.sh status
 
+.PHONY: savings-report staging-savings
+savings-report: ## Removal savings: promised vs confirmed gone, from whichever database you point it at (KAV-97, read-only)
+	@python -m kaval_executor.savings
+
+staging-savings: ## The same report, read from STAGING's database over Session Manager (needs staging up)
+	@bash scripts/ops/chaos.sh savings
+
 .PHONY: mttr
 mttr: ## Time to restore by stage, median/p90/worst, machine time and wall-clock apart (KAV-77). Usage: make mttr [LAST=20]
 	@python -m kaval_executor.mttr $(if $(LAST),--last $(LAST),)
