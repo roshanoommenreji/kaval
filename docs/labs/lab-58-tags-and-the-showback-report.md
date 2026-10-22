@@ -83,6 +83,12 @@ the hard-stop job copies `Env` from the disk it snapshots.
 Production's own plan is shown first and applied at its next bring-up, together with the other pending server-settings
 changes. Its idle-stop and hard-stop jobs are updated by the same apply. Tracked in the production bring-up story.
 
+**A gap the first scheduled production scan found (2026-10-22, 03:15 UTC):** the snapshot that `pause-database.sh` takes
+when production is parked carried `Project` and `Reason` but not `Env` or `ManagedBy`, so the scan reported it as
+`resource_unlabelled`. The offline check (`tag_policy.py`) covered the Terraform and the three Lambda functions but not this
+shell script. The script now labels its snapshot (`Env` from the server's name prefix, `ManagedBy=manual`) and the check
+reads the script too, with a test that fails on the old one.
+
 ## What this does not do
 
 `make tag-scan` itself does not run on a schedule; the four resource types that cost money are checked daily, with an

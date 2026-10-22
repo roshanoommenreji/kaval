@@ -3,6 +3,7 @@ rule that quietly stopped working would fail here instead of passing."""
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -137,3 +138,28 @@ def test_values_outside_the_allowed_lists_are_problems() -> None:
 def test_another_projects_resources_are_not_kavals_but_an_unlabelled_one_is() -> None:
     assert not tp.is_kaval({"Project": "stock-trader"})
     assert tp.is_kaval({"Name": "forgotten"})
+
+
+_TAGS = "{Key=Project,Value=kaval},{Key=Env,Value='\"${E}\"'},{Key=ManagedBy,Value=manual}"
+GOOD_SCRIPT = f"""aws ec2 create-snapshot --volume-id v \\
+  --tag-specifications 'ResourceType=snapshot,Tags=[{{Key=Name,Value=x}},{_TAGS}]' \\
+  --query SnapshotId
+"""
+
+
+def test_a_good_script_passes() -> None:
+    assert tp.script_problems("s.sh", GOOD_SCRIPT) == []
+
+
+def test_a_script_that_leaves_out_a_key_fails() -> None:
+    for key in ("Env", "ManagedBy", "Project"):
+        broken = re.sub(rf"\{{Key={key},Value=[^}}]*\}},?", "", GOOD_SCRIPT)
+        assert tp.script_problems("s.sh", broken) == [f"s.sh: its snapshot is not given {key}"], key
+
+
+def test_a_script_that_tags_nothing_fails() -> None:
+    assert tp.script_problems("s.sh", "aws ec2 create-snapshot --volume-id v") != []
+
+
+def test_a_script_that_no_longer_snapshots_is_reported_not_passed() -> None:
+    assert tp.script_problems("s.sh", "echo hello") != []

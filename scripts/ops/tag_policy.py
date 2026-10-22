@@ -111,6 +111,22 @@ def job_problems(name: str, source: str) -> list[str]:
     ]
 
 
+def script_problems(name: str, source: str) -> list[str]:
+    """A shell script that makes snapshots with `aws ec2 create-snapshot`: its tag list must name
+    every required key (the pre-stop snapshot of `make down` and parking went unlabelled once)."""
+    if "create-snapshot" not in source:
+        return [f"{name}: no create-snapshot in it any more (is the check still pointed at it?)"]
+    # The tag list is on the one line after the flag.
+    spec = re.search(r"--tag-specifications([^\n]*)", source)
+    if not spec:
+        return [f"{name}: no --tag-specifications on its snapshot (it would be unlabelled)"]
+    return [
+        f"{name}: its snapshot is not given {key}"
+        for key in REQUIRED_KEYS
+        if f"Key={key}," not in spec.group(1)
+    ]
+
+
 def repo_problems(root: Path = ROOT) -> list[str]:
     """Every rule, over the real repository."""
     problems: list[str] = []
@@ -126,6 +142,8 @@ def repo_problems(root: Path = ROOT) -> list[str]:
         ("waste_removal", "infra/modules/waste-removal/lambda/waste_removal.py"),
     ):
         problems += job_problems(name, (root / rel).read_text(encoding="utf-8"))
+    pause = root / "scripts" / "ops" / "pause-database.sh"
+    problems += script_problems("pause-database.sh", pause.read_text(encoding="utf-8"))
     return problems
 
 
@@ -134,7 +152,7 @@ def main(argv: Iterable[str] = ()) -> int:
     for p in problems:
         print("TAG POLICY:", p)
     if not problems:
-        print("tag policy: environments, server module and both stop jobs label what they make")
+        print("tag policy: environments, server module, both stop jobs and the pause script label what they make")
     return 1 if problems else 0
 
 
