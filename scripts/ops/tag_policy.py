@@ -152,7 +152,7 @@ def main(argv: Iterable[str] = ()) -> int:
     for p in problems:
         print("TAG POLICY:", p)
     if not problems:
-        print("tag policy: environments, server module, stop jobs and pause script label what they make")
+        print("tag policy: environments, server module, stop jobs and pause script are labelled")
     return 1 if problems else 0
 
 
