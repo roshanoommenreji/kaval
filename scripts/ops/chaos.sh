@@ -12,6 +12,8 @@
 #                        have written (chaos_propose.py). The post-mortem says which was used.
 #   chaos.sh approve ID  the human step: approve a proposed action through the gateway.
 #   chaos.sh mttr        time to restore by stage, read from staging's database (make chaos-mttr).
+#   chaos.sh savings     what removal proposals promised against what the worker confirmed, read from staging's
+#                        database (make staging-savings, KAV-97). Read-only.
 #   chaos.sh status      the switch, the Jobs, the victim.
 #
 # Staging only. It finds the node by its staging name tag and refuses to run if there is none,
@@ -177,6 +179,14 @@ runpy.run_module("kaval_executor.mttr",run_name="__main__")
 ' | b64_of /dev/stdin)"
 }
 
+cmd_savings() {
+  need_node
+  pod_run staging-savings executor "$(printf 'import runpy,sys
+sys.argv=["savings"]
+runpy.run_module("kaval_executor.savings",run_name="__main__")
+' | b64_of /dev/stdin)"
+}
+
 b64_of() { base64 -w0 "$1" 2>/dev/null || base64 "$1"; }
 
 cmd_approve() {
@@ -309,7 +319,8 @@ case "${1:-}" in
   status) cmd_status ;;
   propose) cmd_propose "${2:-oom}" ;;
   mttr)    cmd_mttr ;;
+  savings) cmd_savings ;;
   approve) cmd_approve "${2:-}" ;;
-  *) echo "usage: chaos.sh <run [oom|badrelease]|stop|status|propose [oom|badrelease]|approve ID|mttr|measure|check|approval-file|approval-report>"; exit 2 ;;
+  *) echo "usage: chaos.sh <run [oom|badrelease]|stop|status|propose [oom|badrelease]|approve ID|mttr|savings|measure|check|approval-file|approval-report>"; exit 2 ;;
 esac
 fi

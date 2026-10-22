@@ -178,6 +178,7 @@ make test          # unit + policy tests
 make lint          # ruff + mypy, the same target CI runs
 make rules-test    # promtool-test Kaval's own-health alert rules (needs Docker; CI runs it)
 make mttr [LAST=n] # time to restore by stage, machine time and wall-clock, from the outcome rows
+make savings-report / staging-savings  # removal savings: promised, approved, confirmed gone; read-only, local or staging's database (KAV-97)
 make chaos-run [EXPERIMENT=oom|badrelease|slow|disk] # game day on staging (needs staging up): switch on, cause the failure, follow, switch off
 make chaos-propose [EXPERIMENT=] (finds the proposal the diagnosis worker filed; CHAOS_BY_HAND=1 files one by hand) / chaos-approve ACTION=<id> / chaos-mttr / chaos-check (after slow|disk) / chaos-status / chaos-stop  # the rest of a staging game day; stop = the stop button
 make staging-measure-disk  # read-only: what can staging's metrics see about the disk (needs staging up)
