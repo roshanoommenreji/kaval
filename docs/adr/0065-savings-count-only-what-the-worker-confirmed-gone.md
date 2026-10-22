@@ -51,6 +51,12 @@ A savings report also has a standing way to lie: counting an opportunity as mone
 - **Adding a Prometheus metric for savings.** The decision has no alert to hang on it yet; a metric nobody alerts on is
   noise. The report is the visibility. Revisit with the always-on posture.
 
+## Found by the live proof (2026-10-22)
+
+On staging the planner filed a second step-one question for the same disk 12 seconds after the first was approved: it held off
+asking again only once the executor had written its record. The pause now starts at the yes (PR #236, with a test that fails
+without the fix). The report itself read the real answer correctly the first time: promised $0.09, confirmed $0.09 ([Lab 63](../labs/lab-63-savings-tracking-and-the-phase-6-exit-test.md) Part 4).
+
 ## Consequences
 
 - Deployed with the normal release: the agent image carries the planner change, the executor image carries the report.
