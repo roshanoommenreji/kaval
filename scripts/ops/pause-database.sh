@@ -40,12 +40,16 @@ VOLUME_ID=$(aws ec2 describe-volumes \
   --filters "Name=attachment.instance-id,Values=$INSTANCE_ID" "Name=tag:Role,Values=database-data" \
   --query "Volumes[0].VolumeId" --output text)
 
+# The environment label is the prefix without "kaval-" (kaval-prod -> prod). A snapshot without
+# Env and ManagedBy is what the daily waste scan reported on 2026-10-22 (ADR-0061, KAV-93).
+ENV_TAG="${DB_NAME_PREFIX#kaval-}"
+
 if [ "$VOLUME_ID" != "None" ] && [ -n "$VOLUME_ID" ]; then
   echo "Snapshotting data volume $VOLUME_ID before stopping $INSTANCE_ID..."
   SNAPSHOT_ID=$(aws ec2 create-snapshot \
     --volume-id "$VOLUME_ID" \
     --description "kaval database pre-stop $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    --tag-specifications 'ResourceType=snapshot,Tags=[{Key=Name,Value='"${DB_NAME_PREFIX}"'-database-pre-stop},{Key=Reason,Value=pre-stop},{Key=Project,Value=kaval},{Key=Role,Value=database-data}]' \
+    --tag-specifications 'ResourceType=snapshot,Tags=[{Key=Name,Value='"${DB_NAME_PREFIX}"'-database-pre-stop},{Key=Reason,Value=pre-stop},{Key=Project,Value=kaval},{Key=Env,Value='"${ENV_TAG}"'},{Key=ManagedBy,Value=manual},{Key=Role,Value=database-data}]' \
     --query "SnapshotId" --output text)
   echo "  $SNAPSHOT_ID requested."
   echo "  Snapshots are async copy-on-write -- stopping the instance right after is safe;"
