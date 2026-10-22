@@ -1,7 +1,7 @@
 # Phase 6 — FinOps
 
-> **Written from:** theory
-> **Lab:** to be written
+> **Written from:** experience
+> **Lab:** [Lab 63](../labs/lab-63-savings-tracking-and-the-phase-6-exit-test.md) closes the phase's build (the exit test); labs 57 to 62 cover the slices: the cost reader, tags and the show-back report, the waste scan, safe removal, the production bring-up and the spending brake
 > **Cost:** posture changes to **always-on**, about $39 a month expected (worst case about $42), from the itemised table in `docs/cost/budget-plan.md`; the $140 of credits covers roughly three and a half months of it
 
 ## Where this sits
@@ -152,6 +152,26 @@ real example proves that a disk attached during the wait is never deleted.
 The last row is the most expensive in practice. A NAT Gateway costs $32/month whether it passes a
 byte or not — which is exactly the trap this project's architecture avoids by design.
 
+### Counting savings honestly (KAV-97, 2026-10-22)
+
+Every FinOps team is asked "how much did it save?", and the easy answer is the wrong one. The vocabulary that keeps it honest
+is three words that must never be added together: **identified** (the tool found a possible saving), **approved** (a person
+said yes) and **realised** (the money stopped being spent). A report that sums the first is a wish list; one that sums
+the last is a result.
+
+Kaval's report (`make savings-report`, [ADR-0065](../adr/0065-savings-count-only-what-the-worker-confirmed-gone.md)) counts a
+deletion as realised only when a person approved it **and** the separate worker said it had deleted the thing. A "done" with no yes
+behind it, a failed removal, a question nobody answered, and the answer to an older question are all left out. Three
+choices worth knowing about, because an interviewer will probe each:
+
+- **The promise is stored as a number at the moment it is made.** Before, it existed only in the proposal's wording ("saves
+  $0.09 a month"), which cannot be summed or compared later.
+- **"Realised" is an estimate, and the report says so.** A 9-cent disk cannot be seen in an AWS bill (Cost Explorer lags a day,
+  costs a cent a call, and cannot attribute one disk), so the figure is the monthly price from the scan's table plus the days
+  since the deletion. For a large change (a server type) the bill is the right witness; for cents it would be false precision.
+- **What has no honest price is shown as "no price", never as $0.** A backup copy's saving depends on what it shares with other
+  copies, so the report counts it and prices nothing.
+
 ### Rightsizing, and the honest caveat
 
 **Rightsizing** is matching provisioned capacity to actual need, and it is the highest-yield
@@ -210,6 +230,22 @@ domain knowledge attached — it can say not just "spend changed" but "this node
 days, and here is the action."
 
 ---
+
+## What the exit test showed (2026-10-22)
+
+The phase's gate was "the agent finds real waste in your own account and you approve the fix". On staging, a real 1 GiB disk
+attached to nothing was found by the daily scan, became an incident, and Kaval (plain code, no model) asked twice; the owner
+approved each step from their own terminal. The disk was labelled and backed up, then, after the hour's grace, deleted by the
+separate worker; the backup copy was kept. The savings report then showed the disk as confirmed, promised $0.09 a month and
+confirmed $0.09. What the live run found that no test had:
+
+- **A second question for the same disk, 12 seconds after the first yes.** The planner stopped re-asking only once the executor
+  had written its record, and a pass fell into the gap. Harmless here (the duplicate just waited), but a person could have approved
+  both. Fixed the same day with a test that fails without the fix.
+- **The slowest part is the wait, by design.** Between a yes and the result sit the executor, a timer that carries the order to the worker, the worker,
+  and the timer that carries the answer back (every three hours; run by hand on staging to save time). Safe, and slow.
+- **A report must say what it cannot know.** The first time it ran live it showed a deletion from the day before with a confirmed
+  amount and no stored promise (it predates the change). It is shown as that, not hidden.
 
 ## Common mistakes
 
