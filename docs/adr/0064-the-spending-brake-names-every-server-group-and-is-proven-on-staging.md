@@ -31,8 +31,9 @@ production since `KAV-50` and it already runs every night at 02:00 IST. Reading 
 3. **A test that the ceiling says the same thing everywhere** (`scripts/dev/test_budget_wiring.py`): the lines are in
    order, the module's defaults equal production's values, the project rules and the budget plan quote them, the brake
    is armed, and it names production and staging.
-4. **A live proof on staging**, then (with a separate go) the real lowered-limit test: the real budget's stop line is
-   lowered briefly so AWS Budgets itself sets the brake off, then restored. See Lab 62.
+4. **A live proof on staging** through the real alert topic (done twice). The further test, lowering the real budget's stop
+   line so AWS Budgets itself sets the brake off, was offered and **not run** by the owner's choice; the first real crossing
+   will be that link's live proof. See Lab 62.
 5. **A runbook** for a brake that fired ([budget-hard-stop-fired](../runbooks/budget-hard-stop-fired.md)).
 
 ## Alternatives rejected
