@@ -72,6 +72,17 @@ daily copies from the backup schedule, so nothing was at risk. The two other sto
 this module lacked it. Fixed in the change that follows this lab (a statement allowing the snapshot, only when the request
 labels it as the project's, and a test that fails for any module that grants the disk without the snapshot).
 
+### Part 3b — The fix, applied and re-tested (2026-10-22)
+
+The permission was applied to production on its own (`-target=module.budget.aws_iam_role_policy.hard_stop`, one resource),
+because the full plan also wanted a newer server image published the night before that no staging boot had tried yet; that
+change waits for the next bring-up. Then only staging's database was started
+(`DB_NAME_PREFIX=kaval-staging bash scripts/ops/resume-database.sh`) and the same message was sent again.
+
+Seen (05:35 UTC): both groups "already at zero"; `Snapshotted vol-... as snap-07c7f4fa81aabecb7 before stopping i-...`;
+`HARD STOP APPLIED. Stopped i-...`; 5.5 seconds in all. The snapshot completed with `Project=kaval`, `Env=staging`,
+`ManagedBy=kaval-lambda`, `Reason=pre-stop` and `Role=database-data`. Production's and the dev server's state did not change.
+
 ## Part 4 — The real lowered-limit test (separate go)
 
 *To be filled in if it is done.* (The owner has not yet decided; the snapshot fix and a re-test come first.) The real budget's stop line is lowered briefly so AWS Budgets itself sets the brake off,
