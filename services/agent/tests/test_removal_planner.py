@@ -339,6 +339,38 @@ def test_a_step_handed_over_is_left_to_the_worker_then_retried_only_if_nothing_c
     assert _count(db_session) == 2
 
 
+def test_a_yes_not_yet_carried_out_is_not_asked_again_in_the_seconds_before_the_executor_acts(
+    db_session: Session,
+) -> None:
+    """Found live 2026-10-22 (KAV-97): a planner pass 12 seconds after the approval, before the
+    executor had written its record, filed a second question for the same disk."""
+    incident = _loose(db_session)
+    r.plan_pass(db_session, ON, now=NOW)
+    action = db_session.scalars(select(Action)).one()
+    db_session.add(
+        Decision(action_id=action.id, verdict=Verdict.approved, actor="roshan", decided_at=NOW)
+    )
+    db_session.commit()  # approved, and no execution row yet
+    _restate(db_session, incident, volume(), 1)
+    assert r.plan_pass(db_session, ON, now=NOW + timedelta(seconds=12)) == []
+    assert _count(db_session) == 1
+
+
+def test_a_yes_that_was_never_carried_out_is_asked_again_after_the_pause(
+    db_session: Session,
+) -> None:
+    incident = _loose(db_session)
+    r.plan_pass(db_session, ON, now=NOW)
+    action = db_session.scalars(select(Action)).one()
+    db_session.add(
+        Decision(action_id=action.id, verdict=Verdict.approved, actor="roshan", decided_at=NOW)
+    )
+    db_session.commit()
+    _restate(db_session, incident, volume(), 49)
+    assert len(r.plan_pass(db_session, ON, now=NOW + timedelta(hours=49))) == 1
+    assert _count(db_session) == 2
+
+
 def test_a_step_the_worker_already_did_is_never_asked_again(db_session: Session) -> None:
     incident = _loose(db_session)
     r.plan_pass(db_session, ON, now=NOW)
