@@ -46,6 +46,15 @@ production since `KAV-50` and it already runs every night at 02:00 IST. Reading 
 - **Matching staging by a tag instead of naming the group:** the group has to be scaled, not its servers stopped, so its
   name is what is needed; a name list is explicit and a test checks it.
 
+## Found by the live proof (2026-10-21)
+
+Firing the real alert path on staging worked (the group went 1 to 0, the database was stopped), and showed what the
+laptop tests could not: the pre-stop snapshot was **refused**. `CreateSnapshot` is authorised against the disk and the new
+snapshot, and the brake's policy covered only the disk, so neither the budget firing nor the nightly 02:00 IST run had ever
+taken its extra copy. The stop is not blocked by a failed copy (by design), and the regular daily backup copies were there, so
+no data was at risk. The policy now also allows creating a snapshot the request labels as the project's, and a test fails for
+any module that grants one without the other.
+
 ## Consequences
 
 - Staging's app server stops at the brake too, and at the nightly 02:00 IST run (the same function), which matches the

@@ -93,3 +93,18 @@ def test_the_brake_names_production_and_staging() -> None:
     assert staging is not None
     # A server inside a group is skipped by the instance action, so each group must be named.
     assert "kaval-prod" in listed and staging.group(1) in listed
+
+
+def test_every_module_that_snapshots_a_disk_may_also_create_the_snapshot() -> None:
+    """CreateSnapshot is checked against the disk AND the new snapshot. The spending brake had only
+    the first, so its pre-stop copy was refused on its first live firing (KAV-96)."""
+    for main in sorted((ROOT / "infra" / "modules").glob("*/main.tf")):
+        text = main.read_text(encoding="utf-8")
+        grants = re.findall(
+            r'actions\s*=\s*\[[^\]]*"ec2:CreateSnapshot"[^\]]*\]\s*resources\s*=\s*\[([^\]]*)\]',
+            text,
+        )
+        if grants:
+            # A module may spell the resource out or name it through a local (`local.snapshot_arn`).
+            assert any("snapshot" in g.lower() for g in grants), main.parent.name
+            assert any("volume" in g.lower() for g in grants), main.parent.name
