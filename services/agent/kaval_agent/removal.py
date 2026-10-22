@@ -39,7 +39,6 @@ from kaval_shared.models import (
     Action,
     BlastRadius,
     Decision,
-    Execution,
     Incident,
     Proposal,
     RiskLevel,
@@ -262,16 +261,15 @@ def _skip(session: Session, planned: Planned, now: datetime) -> str | None:
     if _already_done(session, planned):
         return "already done"
     latest = session.execute(
-        select(Action, Decision.verdict, Execution.id)
+        select(Action, Decision.verdict)
         .outerjoin(Decision, Decision.action_id == Action.id)
-        .outerjoin(Execution, Execution.action_id == Action.id)
         .where(Action.type == planned.type, Action.target == planned.target)
         .order_by(Action.created_at.desc())
         .limit(1)
     ).first()
     if latest is None:
         return None
-    action, verdict, execution = latest
+    action, verdict = latest
     if verdict is None:
         # never a second copy of a live question; an expired one may be asked again
         if now - action.created_at < ASK_AGAIN_AFTER:
@@ -280,9 +278,12 @@ def _skip(session: Session, planned: Planned, now: datetime) -> str | None:
     if verdict == Verdict.denied:
         return "denied recently" if now - action.created_at < DENIED_COOLDOWN else None
     # approved: a step handed over and not yet answered is left to the worker (and to the alarm for
-    # an order nobody answered); a refused one may be tried again after a pause
-    if execution is not None and now - action.created_at < COOLDOWN[planned.type]:
-        return "handed over recently"
+    # an order nobody answered); a refused one may be tried again after a pause. This holds from the
+    # moment of the yes, not from the moment the executor writes its record: the seconds between
+    # the two were a gap in which a second question for the same disk was filed (found live,
+    # 2026-10-22, KAV-97).
+    if now - action.created_at < COOLDOWN[planned.type]:
+        return "approved or handed over recently"
     return None
 
 
