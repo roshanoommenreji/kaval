@@ -39,6 +39,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade 
 RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade perl-base libperl5.36 \
  && rm -rf /var/lib/apt/lists/*
 
+# Same pattern again: Debian shipped 3.0.22-1~deb12u2 for libssl3 (CVE-2026-84782, HIGH: information
+# disclosure via DTLS handshake retransmission) after this digest was pinned; Trivy flagged all five
+# images on 2026-10-26. A new instruction, so a cached layer cannot hide it.
+RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade libssl3  && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \

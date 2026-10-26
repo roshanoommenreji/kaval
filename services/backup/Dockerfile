@@ -16,6 +16,8 @@ FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903c
 # digest was pinned; folded into this same apt-get since it's the only one in this image.
 # perl-base/libperl5.36: same pattern, for CVE-2026-13221 (CRITICAL) plus several
 # perl-Archive-Tar/IO-Compress/Storable CVEs Debian fixed in the same 5.36.0-7+deb12u4 update.
+# libssl3: Debian shipped 3.0.22-1~deb12u2 for CVE-2026-84782 (HIGH) after this digest was pinned;
+# Trivy flagged all five images on 2026-10-26. Same line as the others, edited, so apt-get runs fresh.
 # python3.11 and its three library packages come in with awscli. Debian fixed five HIGH CVEs in
 # 3.11.2-6+deb12u9 on 2026-10-08 while CI's layer cache still held an apt result with deb12u8.
 # Naming them on the install line changes this instruction, which forces a fresh apt-get, and
@@ -24,7 +26,7 @@ FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903c
 # CVE-2026-77214) in 2.5.0-1+deb12u5, and on 2026-10-24 Trivy failed the backup image on three open
 # Dependabot pull requests while the other four images passed. Same remedy, same reason.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 perl-base libperl5.36 \
+ && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 perl-base libperl5.36 libssl3 \
  && apt-get install -y --no-install-recommends postgresql-client awscli \
       python3.11 python3.11-minimal libpython3.11-minimal libpython3.11-stdlib libexpat1 \
  && rm -rf /var/lib/apt/lists/*
