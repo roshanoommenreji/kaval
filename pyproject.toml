@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "Autonomous ops agent with human-in-the-loop approval"
 requires-python = ">=3.11"
 dependencies = [
-    "sqlalchemy>=2.1.4",
-    "alembic>=1.13",
+    "sqlalchemy>=2.1.6",
+    "alembic>=1.20.1",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.14.1",
     # The Vector column type (KAV-40). Core, not an extra: kaval_shared.models imports it,
@@ -18,7 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gateway = [
-    "fastapi>=0.143.0",
+    "fastapi>=0.161.1",
     "uvicorn[standard]>=0.54.0",
     "httpx>=0.27",
     # Slack ChatOps (KAV-55, ADR-0026): the outbound Socket Mode connection and chat.postMessage.
@@ -38,8 +38,8 @@ agent = [
     # profile, or an instance role — never a key committed anywhere), so boto3 is a real runtime
     # dependency here, not incidental. Laptop-only for the same reason httpx above is: nothing
     # decides how the deployed agent gets triggered yet (ADR-0016).
-    "anthropic>=1.13.0",
-    "boto3>=1.43.113",
+    "anthropic>=2.2.0",
+    "boto3>=1.43.118",
 ]
 diagnoser = [
     # The diagnosis worker that runs in the agent image (KAV-87, ADR-0055): it calls Ollama for
@@ -64,9 +64,9 @@ collector = [
 ]
 dev = [
     "pytest>=8.0",
-    "ruff>=0.17.0",
+    "ruff>=0.17.2",
     "mypy>=2.4.0",
-    "httpx2>=2.13",     # Starlette's TestClient (successor to httpx; Tom Christie, maintained by Pydantic)
+    "httpx2>=2.16.0",     # Starlette's TestClient (successor to httpx; Tom Christie, maintained by Pydantic)
 ]
 
 [build-system]
