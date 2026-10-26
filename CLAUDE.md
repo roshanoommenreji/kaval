@@ -201,6 +201,7 @@ make staging-up      # build or resume staging, wait for its pods (~5 min, ~$0.0
 make staging-status  # database state and pods, read over Session Manager
 make version-plan    # the next component and product versions, worked out from the commits (nothing is written)
 make staging-smoke   # smoke-test the tag staging runs (digest vs ECR, pods, database, API); a pass is recorded in deploy/promotion/passed-staging.json
+make prod-smoke      # read-only smoke test of production once it is up (digests vs ECR and the staging record, pods, database, API, the server's timers); refuses when prod is parked (KAV-90)
 make staging-down    # destroy staging completely, data volume included
 make tf-init ENV=prod  # connect an environment (prod|staging|dev|state) to Terraform's remote state; the first step on a new laptop (KAV-86)
 make docs-sync     # regenerate dashboard + republish Confluence

@@ -82,6 +82,10 @@ The group's server is `InService` within a minute or two; k3s, Flux and the serv
 
 ### 4. Check it (read-only), from the server over Session Manager
 
+First, from the laptop, `make prod-smoke` ([ADR-0066](../adr/0066-production-gets-one-real-planted-finding-and-a-read-only-smoke-test.md)):
+it checks the tag, that production runs the digests that passed staging, the pods, the database, the API and the
+server's timers, changes nothing, and exits 2 if production is parked. Then, from the server:
+
 ```bash
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 kubectl get pods -n kaval-prod                       # agent, collector, collector-prometheus, executor, 2 x gateway, prometheus: all 1/1
@@ -188,6 +192,8 @@ Then open `http://localhost:9090`. The service IP is set at each boot (`kubectl 
 - Do not apply to production without showing the plan first, or without being told to.
 - Do not run step 5 without a snapshot of the data volume taken while the database was stopped.
 - Do not create a pretend incident in production's database to see a Slack post. A real post waits for a real
-  incident (or `KAV-85`'s staging proof).
+  finding: a real incident, or one real, tiny, clearly named resource planted for the real scan to find (a 1 GiB
+  disk tagged `Project=kaval`, `Env=prod`, `ManagedBy=manual`, deleted by hand afterwards), as
+  [ADR-0066](../adr/0066-production-gets-one-real-planted-finding-and-a-read-only-smoke-test.md) allows.
 - Do not leave production up overnight by accident: the group bills while it wants a server, and the alarm is
   the only thing that notices if it goes quiet.

@@ -56,9 +56,9 @@ MAX_RESTARTS = 2
 # What a green smoke test still says nothing about. Written into every record so nobody reads
 # "passed staging" as more than it is.
 NOT_COVERED = (
-    "Ollama and the model: no environment deploys one yet, so /healthz's ollama check is "
-    "expected to fail and is not gated on",
-    "agent diagnosis and proposals: they need the model",
+    "Ollama and the model: staging runs one, but a cold model can take minutes to load, so "
+    "/healthz's ollama check is reported and not gated on",
+    "agent diagnosis and proposals: proven by a game day (make chaos-run), not by this check",
     "the backup image: published, not deployed to staging",
     "Slack approval: staging has no Slack app of its own",
 )
@@ -334,19 +334,21 @@ def commit_head(commit: str) -> str | None:
     return alembic_head(revisions)
 
 
-def node_id() -> str:
+def node_id(prefix: str = PREFIX, bring_up: str = "make staging-up") -> str:
     out = aws(
         "ec2", "describe-instances",
-        "--filters", f"Name=tag:Name,Values={PREFIX}", "Name=instance-state-name,Values=running",
+        "--filters", f"Name=tag:Name,Values={prefix}", "Name=instance-state-name,Values=running",
         "--query", "Reservations[0].Instances[0].InstanceId", "--output", "text",
     )  # fmt: skip
     if not re.match(r"^i-[0-9a-f]+$", out):
-        raise RuntimeError("staging has no running node. Bring it up first: make staging-up")
+        raise RuntimeError(f"{prefix} has no running node. Bring it up first: {bring_up}")
     return out
 
 
-def on_node(instance: str) -> str:
-    script = REMOTE % {"ns": NAMESPACE}
+def on_node(instance: str, script: str | None = None) -> str:
+    """Run one read-only shell snippet on the node and return its output. The default snippet is
+    staging's; the production smoke test (prod_smoke.py) passes its own."""
+    script = script or REMOTE % {"ns": NAMESPACE}
     with tempfile.TemporaryDirectory() as tmp:
         params = Path(tmp) / "params.json"
         params.write_text(json.dumps({"commands": [script]}), encoding="utf-8")
