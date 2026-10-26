@@ -12,8 +12,8 @@
 
 # ── Stage 1: turn uv.lock into a hash-pinned requirements file ──────────────
 # uv only lives in this stage; the final image installs with plain pip.
-FROM ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336 AS uv
-FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89 AS lock
+FROM ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff AS uv
+FROM python:3.11-slim-bookworm@sha256:f06d01d4ba3f8ad5af45a3ec87df19c1d317d8e8961edc0fabda61811af6f7cf AS lock
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
 COPY pyproject.toml uv.lock ./
@@ -21,7 +21,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv export --frozen --no-dev --extra gateway --no-emit-project -o /requirements.txt
 
 # ── Stage 2: the runtime image ──────────────────────────────────────────────
-FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89
+FROM python:3.11-slim-bookworm@sha256:f06d01d4ba3f8ad5af45a3ec87df19c1d317d8e8961edc0fabda61811af6f7cf
 
 # OS-level patch, independent of uv.lock: Debian shipped a fix for CVE-2026-103111
 # (libpcre2-8-0, HIGH) after this digest was pinned. Trivy flags the base image's own
@@ -35,6 +35,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade 
 # is actually present per image; --only-upgrade skips either one cleanly if it isn't installed.
 RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade perl-base libperl5.36 \
  && rm -rf /var/lib/apt/lists/*
+
+# Same pattern again: Debian shipped 3.0.22-1~deb12u2 for libssl3 (CVE-2026-84782, HIGH: information
+# disclosure via DTLS handshake retransmission) after this digest was pinned; Trivy flagged all five
+# images on 2026-10-26. A new instruction, so a cached layer cannot hide it.
+RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade libssl3  && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
