@@ -86,6 +86,77 @@ A dedicated chapter (like the EKS one) that runs Kaval against two simulated clu
 separate tenancy and a shared control plane. Exercises the parts of platform engineering
 Kaval currently skips.
 
+### FS-6 — Petti: a box for the cloud
+
+Jira epic: [KAV-99](https://roshanoommenreji.atlassian.net/browse/KAV-99). Planned 2026-10-28.
+**Not started until the current Kaval phase closes.** It would be its own repository.
+
+**The idea.** Kubernetes gave apps a standard box (the container) that runs anywhere. Petti
+(Malayalam for "box") would do the same for the cloud: drop any project into a box, give it a
+few settings, and have it come up on AWS or another cloud, scaled as asked. Even with AI writing
+the code, cloud setup is slow because of *decisions* (which service, size, network, permissions),
+*fear* (what will this cost, what will it break) and *day 2* (upgrades, half-failed builds,
+leftovers). Petti targets those, not the typing.
+
+**What already exists** (checked 2026-10-28):
+
+| Kind | Tools | Lesson for Petti |
+|---|---|---|
+| Open "box file" standards | [Score](https://docs.score.dev/docs) (CNCF Sandbox), [Radius](https://opensource.microsoft.com/blog/2025/06/30/expanding-platform-engineering-capabilities-with-radius-resource-types/) recipes, OAM/KubeVela | Score already *is* the box shape: build on it, don't invent one |
+| Kubernetes-based bundles | [Crossplane v2](https://blog.crossplane.io/announcing-crossplane-2-0/), [kro](https://pkg.go.dev/github.com/kubernetes-sigs/kro@v0.9.3) | Powerful, but need a cluster: too heavy for "anybody" |
+| "Your project → your cloud" products | [Defang](https://github.com/DefangLabs/defang-docs/pull/282/files) (Compose → AWS/GCP), [Encore](https://encore.dev/resources/cloud-infrastructure-automation-tools), Nitric, [HCP Terraform no-code modules](https://developer.hashicorp.com/terraform/cloud-docs/no-code-provisioning/module-design), [ECS Express Mode](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/express-service-overview.html) | Try these first (Stage 0): one may already be enough |
+| AI infrastructure agents | [Pulumi Neo](https://www.pulumi.com/docs/ai/neo/), [System Initiative](https://www.businesswire.com/news/home/20250827291941/en) | Propose → human approves is becoming the norm |
+| The graveyard | Wing (a cloud *language*, $20M, [shut down 2025](https://thenewstack.io/?p=22784696)); Acorn ([mothballed 2024](https://pipedot.org/6KJNP)); AWS [Proton](https://docs.aws.amazon.com/proton/latest/userguide/proton-end-of-support.html) (retired 2026-10-07), [Copilot CLI](https://aws.amazon.com/blogs/containers/announcing-the-end-of-support-for-the-aws-copilot-cli) (retired 2026-06-12), [App Runner](https://docs.aws.amazon.com/ja_jp/apprunner/latest/dg/apprunner-availability-change.html) (closed to new customers 2026-04-30) | No new language; expect the clouds to move under any box layer |
+
+**The design.** No new language, no Terraform fork, no Kubernetes needed. A small CLI reads a
+Score-based box file with a few extra fields and turns it into **ordinary OpenTofu** through
+vetted per-cloud recipes:
+
+```yaml
+name: my-shop
+run:    { build: ./Dockerfile, port: 3000 }
+needs:  { database: postgres, files: bucket, domain: shop.example.com }
+size: small            # small | medium | large, mapped per cloud
+scale: { min: 1, max: 5 }
+budget: 20             # $/month; the box refuses to build above it
+cloud: aws             # the only line that changes between clouds
+secrets: [STRIPE_KEY]  # names only; values live in the cloud's secret store
+```
+
+`petti init` (AI **drafts** the box file and never holds cloud credentials, the same split as
+Kaval's agent and executor) → `petti plan` (plain-English plan + cost estimate + policy check;
+over budget is refused) → human approval → `petti up` (everything tagged) → `petti down` /
+`petti eject` (hand back the plain OpenTofu, so no lock-in). "Scale up" means changing one word:
+`size: small` might be one cheap server behind Cloudflare Tunnel, while `large` might be ECS
+Express Mode behind a load balancer (about $18/mo more for the ALB).
+
+**Stages** (each is an acceptance criterion on KAV-99):
+
+| # | Stage | Gate |
+|---|---|---|
+| 0 | Try Defang, Score and ECS Express Mode on one sample app | If one fits, use it and close the epic |
+| 1 | Box file format + 5 example boxes | Readable by a non-expert |
+| 2 | AWS translator: 4 recipes (web service, Postgres, bucket, domain), `plan`/`up`/`down`/`eject` | Up and down with nothing left behind |
+| 3 | Safety net: cost estimate, budget refusal, policy, plain-English plan, approval | Over-budget box refused before anything is created |
+| 4 | AI drafts the box file | Correct for 5 real projects |
+| 5 | GCP recipes | The 5 boxes work unedited except `cloud:` |
+| 6 | Web page: boxes, cost, plan, approve | — |
+
+Rough size: an AWS-only version is ~10–12 sessions, and each extra cloud ~4 more.
+
+**Hard problems, stated up front.** The box can only promise what every cloud offers, so it
+needs an escape hatch (plain OpenTofu beside it). Moving a box moves the setup, not the data.
+Permissions and networking differ per cloud and are where the time really goes. Day 2 work is
+most of the job. As a business the space is crowded. As a platform-engineering portfolio piece
+it is a strong fit.
+
+**Planning standard, in short.** Tested in a separate throwaway AWS account, never Kaval's.
+Every box takes `--env staging|prod`. The AI only drafts files. The tool's role is scoped to its
+own tag, and a leftover scan (like `make tag-scan`) catches orphans. Recipes switch on logs and a
+health alarm by default. Test boxes are created and destroyed in the same session (cost measured
+when built, not guessed). Tests: box → OpenTofu golden files; up → smoke → down; and the negative
+case, proving over-budget and dangerous boxes are refused.
+
 ---
 
 ## Verdict
@@ -95,4 +166,6 @@ what actually make the difference, and none of them are in v1.
 
 For the **AI-platform role Roshan is aiming at**: Kaval is better aligned as-is — safe
 agent architecture, model deployment, and eval discipline are the platform-team core.
-FS-5 is the most relevant add.
+FS-5 is the most relevant add. FS-6 (Petti) is the natural next project after it: it reuses
+Kaval's propose-then-approve, policy gate and cost ceiling in a self-service "golden path" tool,
+which is what platform teams build.
