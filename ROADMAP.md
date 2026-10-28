@@ -284,6 +284,11 @@ multi-tenant chapter).
 
 See [docs/future-scope.md](docs/future-scope.md).
 
+- **FS-6 — Petti: a box for the cloud** ([KAV-99](https://roshanoommenreji.atlassian.net/browse/KAV-99),
+  planned 2026-10-28). One short box file, built on the open Score standard, becomes plain
+  OpenTofu, shown with its monthly cost and built only after approval. Its own repository, and
+  not started until the current Kaval phase closes.
+
 ---
 
 ## Planning standard — how every piece of work is planned
