@@ -159,6 +159,16 @@ figure exactly, and `machine` is that figure minus the human stage.
 > row's `created_at`. The unit tests had passed because their fixtures set both to the same value;
 > the live run is what showed it. Both the code and the test fixtures now use `created_at`.
 
+## Production's number
+
+Every figure `make mttr` prints is from **staging** (and the laptop and dev server before it): the game days in
+[Lab 46](lab-46-chaos-and-the-memory-game-day.md) to [Lab 48](lab-48-chaos-disk-full-and-a-slow-service.md) break staging on
+purpose. Production is never broken on purpose ([ADR-0044](../adr/0044-chaos-with-our-own-jobs-and-a-bounded-memory-fix.md))
+and it runs a few hours a month, so it has no restore time of its own yet; no real production fix happened when Phase 6 was
+closed ([ADR-0066](../adr/0066-production-gets-one-real-planted-finding-and-a-read-only-smoke-test.md),
+[Lab 64](lab-64-closing-phase-6-on-production.md)). If a real fix ever happens in production, the same outcome rows record it
+and `make mttr` will show it. Until then, quote these numbers as a staging figure.
+
 ## Step 7 — clean up
 
 ```bash

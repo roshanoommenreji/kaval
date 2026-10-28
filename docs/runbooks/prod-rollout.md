@@ -60,8 +60,8 @@ aws ec2 wait snapshot-completed --snapshot-ids <the snapshot>
 
 ```bash
 bash scripts/ops/resume-database.sh                                # starts it, waits for SSM and a health check
-mv infra/envs/prod/node.auto.tfvars <somewhere>                    # the parked setting (app_node_desired_capacity = 0)
-terraform -chdir=infra/envs/prod plan -out=<file>                  # show it: desired 0 -> 1, min 0 -> 1
+terraform -chdir=infra/envs/prod plan -var app_node_desired_capacity=1 -out=<file>   # show it: desired 0 -> 1, min 0 -> 1
+                                                                   # (the -var beats node.auto.tfvars, the parked setting, so the file never has to be moved)
 ```
 
 The first bring-up after `KAV-85` also shows the server's start-up script changing (the launch template and the
@@ -184,6 +184,21 @@ aws ssm start-session --profile kaval --region ap-south-1 --target <the server's
 ```
 
 Then open `http://localhost:9090`. The service IP is set at each boot (`kubectl get svc -n kaval-prod`).
+
+### Proving the Slack path with a planted disk (once, `KAV-90`)
+
+Only when a real production Slack post has not been seen yet ([ADR-0066](../adr/0066-production-gets-one-real-planted-finding-and-a-read-only-smoke-test.md), [Lab 64](../labs/lab-64-closing-phase-6-on-production.md)). On the owner's go, each command shown first:
+
+1. Create one 1 GiB disk with the tags in the "Do not" list below.
+2. Run `kaval-prod-waste-scan` three times (the first can run before the disk is visible), **then** start `kaval-cost-pull` on
+   the server (`systemctl start kaval-cost-pull`, over Session Manager). Scan first, copy after: the planner ignores a
+   sighting older than the newest scan.
+3. The question reaches Slack within a couple of minutes. Answer step one only, or leave it; never approve step two
+   (production waits 168 hours before it would be asked).
+4. Delete the disk by hand (`aws ec2 delete-volume`) and check `describe-volumes` shows no loose disk.
+
+A question left open when production is parked outlives the server that could close it; do not press Approve on it
+after the park.
 
 ## Do not
 
