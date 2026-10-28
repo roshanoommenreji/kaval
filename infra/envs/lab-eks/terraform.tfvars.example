@@ -6,5 +6,10 @@ profile = "kaval"
 # It changes (home internet): check it again on the day.
 api_allowed_cidrs = ["203.0.113.7/32"]
 
+# AWS's own registry for the EKS add-on images in your region, so the servers can pull them. AWS
+# publishes the number per region on its "Amazon container image registries" documentation page; on a
+# running cluster it is the first part of the kube-proxy image address.
+eks_registry_account_id = "REPLACE-WITH-THE-12-DIGITS"
+
 # Optional: prod's budget topic, so a failed or silent self-destruct timer rings.
 # alarm_topic_arn = ""

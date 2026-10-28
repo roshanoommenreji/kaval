@@ -15,6 +15,11 @@ variable "api_allowed_cidrs" {
   type        = list(string)
 }
 
+variable "eks_registry_account_id" {
+  description = "AWS's own registry account for the EKS add-on images in this region (see modules/eks-lab). Public, published by AWS per region; kept out of git because the repo's checks reject any 12-digit number."
+  type        = string
+}
+
 variable "kubernetes_version" {
   description = "See modules/eks-lab: stay in standard support ($0.10 an hour, not $0.50)."
   type        = string

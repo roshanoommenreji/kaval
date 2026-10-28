@@ -55,6 +55,16 @@ variable "ecr_repository_arns" {
   type        = list(string)
 }
 
+variable "eks_registry_account_id" {
+  description = "The account that hosts AWS's own EKS add-on images in this region. It is the first part of the image address on any kube-proxy pod (kubectl -n kube-system get ds kube-proxy -o jsonpath='{.spec.template.spec.containers[0].image}'); AWS publishes it per region. The servers may pull the add-on repositories there and nothing else."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.eks_registry_account_id))
+    error_message = "That is a 12-digit account number: the first part of the kube-proxy image address."
+  }
+}
+
 variable "executor_namespace" {
   description = "Where the chart is installed. Part of the executor's IRSA trust: only this namespace's service account may use the role."
   type        = string

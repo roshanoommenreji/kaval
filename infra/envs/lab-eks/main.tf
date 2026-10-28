@@ -42,6 +42,13 @@ provider "aws" {
       Env       = "lab-eks"
     }
   }
+
+  # The cluster module adds kubernetes.io/... tags to the subnets with aws_ec2_tag (so the network
+  # module stays untouched). Without this the subnet resource sees them as strangers and the next
+  # apply strips them, and the load balancer controller can no longer find its subnets. Found live.
+  ignore_tags {
+    key_prefixes = ["kubernetes.io/"]
+  }
 }
 
 data "aws_caller_identity" "current" {}
@@ -77,6 +84,8 @@ module "cluster" {
   api_allowed_cidrs   = var.api_allowed_cidrs
   node_count          = var.node_count
   ecr_repository_arns = local.ecr_repository_arns
+
+  eks_registry_account_id = var.eks_registry_account_id
 }
 
 # The self-destruct timer. Lives in this state on purpose: if the lab is destroyed normally, so is

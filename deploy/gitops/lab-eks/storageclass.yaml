@@ -2,10 +2,18 @@
 # StorageClass, so this is one. WaitForFirstConsumer: the disk is made in the zone where the pod
 # lands, instead of in a zone the pod then cannot reach. Delete reclaim: the lab's disks must not
 # outlive it (a disk left behind is a charge and a finding in the sweep).
+#
+# xfs, not the default ext4. Found live (Lab 66): the chart mounts the disk straight onto Postgres's
+# data directory, ext4 puts a lost+found folder in a fresh disk, and Postgres refuses to start in a
+# folder that is not empty (initdb: "exists but is not empty"). xfs has no such folder, so the chart
+# runs as it is. k3s's local-path disks never had the folder, which is why no other environment saw it.
+# A class's parameters cannot be changed once made, so Flux is told to replace it (force).
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: gp3
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
 provisioner: ebs.csi.aws.com
 volumeBindingMode: WaitForFirstConsumer
 reclaimPolicy: Delete
@@ -13,3 +21,4 @@ allowVolumeExpansion: true
 parameters:
   type: gp3
   encrypted: "true"
+  csi.storage.k8s.io/fstype: xfs

@@ -35,6 +35,8 @@ aws eks update-kubeconfig --name kaval-lab-eks --region ap-south-1 --profile kav
 kubectl get nodes    # two Ready servers
 ```
 
+If the servers stay `NotReady` and `kubectl -n kube-system get pods` shows `ImagePullBackOff`, read the pod's events: a `403 ... not authorized to perform: ecr:BatchGetImage` means the servers' role cannot pull AWS's own add-on images (found live on 2026-10-29, fixed by `aws_iam_role_policy.node_ecr_addons` and the `eks_registry_account_id` setting in `terraform.tfvars`: the first part of the kube-proxy image address, `kubectl -n kube-system get ds kube-proxy -o jsonpath='{.spec.template.spec.containers[0].image}'`). It can be added by hand while the build waits; put it in the code before `make lab-down`, or the destroy cannot delete the role.
+
 **From this moment the clock is running.** The self-destruct timer scales the servers to zero at 4 hours and deletes everything at 6. To prove it before trusting it, set `reaper_dry_run = true` for a first look at its log (`aws logs tail /aws/lambda/kaval-lab-eks-reaper`).
 
 ## 3. Install Flux, then give it what it must not read from git
