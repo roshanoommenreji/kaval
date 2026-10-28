@@ -1,0 +1,12 @@
+# The lab release's own namespace (KAV-102), separate from flux-system. Pod Security Standards are
+# switched on in "warn" and "audit" mode at the strictest level (restricted): nothing is refused, but
+# every pod the chart creates that would not pass says so, which is the list of what EKS-grade rules
+# would break. Enforcing is a step of the live run (docs/runbooks/lab-eks.md), done with
+# `kubectl label`, so this file never has to change for it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kaval-lab
+  labels:
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted

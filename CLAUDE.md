@@ -189,6 +189,9 @@ make sync          # install exactly what uv.lock pins into .venv
 make lock          # after editing pyproject.toml's dependencies; commit uv.lock with it
 make up            # provision the AWS node (~5 min, starts billing)
 make down          # destroy the node, keep state (~$2/mo)
+make lab-plan      # EKS lab (Phase 7, ephemeral, $0.10/hr control plane): show the plan, change nothing (KAV-101)
+make lab-up        # create the EKS lab from the saved plan; starts billing, a timer deletes it at 6 hours
+make lab-down      # destroy the EKS lab, always, then make lab-sweep (read-only: anything of it left?) and again 24 h later
 make cost-report   # current month-to-date spend
 make tag-scan      # read-only: Kaval resources in the live account missing Project/Env/ManagedBy (KAV-93)
 make cost-showback [MONTH=2026-10]  # the month's bill by AWS service and environment -> docs/cost/showback-<month>.md, $0.01 (KAV-93)

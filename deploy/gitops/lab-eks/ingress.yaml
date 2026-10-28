@@ -1,0 +1,31 @@
+# One real load balancer in front of the gateway (KAV-102). Not part of the chart, which has no
+# Ingress (production reaches the gateway through a Cloudflare Tunnel): this is the lab's own object,
+# pointing at the Service the chart already makes.
+#
+# `group.name` is the cost lesson from docs/learn/phase-7-eks-chapter.md: Ingresses that share a
+# group share ONE load balancer (about 2.4 cents an hour), instead of one each. `inbound-cidrs`
+# limits who can reach it to the laptop's address (${LAB_ALLOWED_CIDR}, from the kaval-lab-cluster
+# ConfigMap), so the lab is never open to the world.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kaval-lab-gateway
+  namespace: kaval-lab
+  annotations:
+    alb.ingress.kubernetes.io/group.name: kaval-lab
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/inbound-cidrs: ${LAB_ALLOWED_CIDR}
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kaval-lab-gateway
+                port:
+                  number: 8000

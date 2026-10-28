@@ -1,8 +1,8 @@
 # Phase 7 — EKS chapter
 
 > **Written from:** theory
-> **Lab:** to be written
-> **Cost:** ~$4 per session, ephemeral — `terraform apply`, prove it, `terraform destroy`
+> **Lab:** [Lab 65](../labs/lab-65-building-the-eks-lab-before-spending-anything.md) (the build); the live run's lab follows with `KAV-102`
+> **Cost:** about $1.2 to $2 per six-hour session, capped at $4, ephemeral — `terraform apply`, prove it, `terraform destroy` (priced against the AWS price list on 2026-10-28; a self-destruct timer enforces the six hours)
 
 ## Where this sits
 

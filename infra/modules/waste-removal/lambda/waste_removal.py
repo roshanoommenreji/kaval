@@ -59,7 +59,7 @@ BACKUP_TAG = "KavalBackupOf"
 STOP_COPY_DAYS = 30
 MANUAL_DAYS = 90
 UNLABELLED_DAYS = 30
-ENVS = ("prod", "staging", "dev", "state")
+ENVS = ("prod", "staging", "dev", "state", "lab-eks")
 MANAGED_BY = ("terraform", "kaval-lambda", "manual")
 AMI_DESCRIPTIONS = ("Created by CreateImage", "Copied for DestinationAmi")
 

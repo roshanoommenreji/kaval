@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 PROJECT = "kaval"
 REQUIRED_KEYS = ("Project", "Env", "ManagedBy")
-ENVS = ("prod", "staging", "dev", "state")
+ENVS = ("prod", "staging", "dev", "state", "lab-eks")
 # terraform: Terraform makes it and would make it again. kaval-lambda: one of Kaval's own jobs
 # made it (a pre-stop snapshot), so deleting it is final. manual: a person made it by hand.
 MANAGED_BY = ("terraform", "kaval-lambda", "manual")

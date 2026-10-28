@@ -1,0 +1,83 @@
+# The lab release itself (KAV-102, ADR-0067). Same chart, same mechanics as
+# deploy/gitops/staging/helmrelease.yaml; read that file's header for why `values:` is used and
+# why reconcileStrategy is Revision.
+#
+# KNOWN GAP, shared with staging and prod: `values:` is a hand-kept copy of
+# deploy/environments/lab-eks/values.yaml. scripts/dev/test_gitops_values_in_sync.py fails if they differ.
+#
+# Two things come from ConfigMaps made by hand when the lab is brought up (docs/runbooks/lab-eks.md),
+# because each holds something that must not be committed:
+#   kaval-registry    (flux-system): the ECR hostname, which contains the AWS account number
+#   kaval-lab-cluster (flux-system): the role ARNs, VPC id and laptop address, substituted by sync.yaml
+#
+# THE ONE LAB-ONLY THING: the executor's service account needs the IRSA label
+# (eks.amazonaws.com/role-arn) to get its AWS login. The chart has no setting for it, and the
+# portability rule says the chart is not edited for the lab. So Flux adds the label to the rendered
+# result (a post-renderer), here, in the lab's own deploy file. The chart is byte-for-byte what
+# production runs.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kaval-lab
+  namespace: flux-system
+spec:
+  interval: 1m
+  releaseName: kaval-lab
+  targetNamespace: kaval-lab
+  chart:
+    spec:
+      chart: ./deploy/charts/kaval
+      sourceRef:
+        kind: GitRepository
+        name: kaval
+      reconcileStrategy: Revision
+  # Hand-kept copy of deploy/environments/lab-eks/values.yaml — see the KNOWN GAP note above.
+  values:
+    postgres:
+      enabled: true
+      password: kaval-lab-throwaway
+      storage: 5Gi
+      storageClassName: gp3
+    gateway:
+      replicas: 1
+      image:
+        tag: sha-eb3f81a
+    agent:
+      correlateEverySeconds: 60
+      image:
+        tag: sha-eb3f81a
+    executor:
+      demoNamespace: kaval-demo-lab
+      executeEverySeconds: 30
+      image:
+        tag: sha-eb3f81a
+    collector:
+      watchEverySeconds: 30
+      image:
+        tag: sha-eb3f81a
+    prometheus:
+      enabled: true
+      probe:
+        targets: "kaval-lab/gateway=http://kaval-lab-gateway.kaval-lab.svc.cluster.local:8000/healthz"
+  valuesFrom:
+    - kind: ConfigMap
+      name: kaval-registry
+      valuesKey: registry
+      targetPath: global.imageRegistry
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: ServiceAccount
+              name: kaval-lab-executor
+            patch: |
+              - op: add
+                path: /metadata/annotations
+                value:
+                  eks.amazonaws.com/role-arn: ${EXECUTOR_ROLE_ARN}
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3

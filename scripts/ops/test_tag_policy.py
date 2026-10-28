@@ -131,7 +131,7 @@ def test_values_outside_the_allowed_lists_are_problems() -> None:
     ok = {"Project": "kaval", "Env": "prod", "ManagedBy": "terraform"}
     assert tp.tag_problems(ok) == []
     wrong = tp.tag_problems({**ok, "Env": "Prod"})
-    assert wrong == ["Env=Prod is not one of prod, staging, dev, state"]
+    assert wrong == ["Env=Prod is not one of prod, staging, dev, state, lab-eks"]
     assert tp.tag_problems({"Project": "kaval"}) == ["missing Env", "missing ManagedBy"]
 
 

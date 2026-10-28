@@ -56,7 +56,7 @@ LIMIT_BYTES = 4000
 # one file; test_waste_scan_lambda.py fails if the two ever differ.
 PROJECT = "kaval"
 REQUIRED_KEYS = ("Project", "Env", "ManagedBy")
-ENVS = ("prod", "staging", "dev", "state")
+ENVS = ("prod", "staging", "dev", "state", "lab-eks")
 MANAGED_BY = ("terraform", "kaval-lambda", "manual")
 ALLOWED = {"Project": (PROJECT,), "Env": ENVS, "ManagedBy": MANAGED_BY}
 

@@ -1,0 +1,15 @@
+# Disks for the in-cluster Postgres (KAV-102). EKS's EBS add-on installs the driver but no
+# StorageClass, so this is one. WaitForFirstConsumer: the disk is made in the zone where the pod
+# lands, instead of in a zone the pod then cannot reach. Delete reclaim: the lab's disks must not
+# outlive it (a disk left behind is a charge and a finding in the sweep).
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+parameters:
+  type: gp3
+  encrypted: "true"

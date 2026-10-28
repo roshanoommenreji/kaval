@@ -205,7 +205,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 
 ## Phase 7 — EKS chapter · week 21 · `[ ]`
 
-- [ ] `infra/envs/lab-eks` — real EKS via Terraform
+- [ ] `infra/envs/lab-eks` — real EKS via Terraform *(code, timer, sweep and plan done 2026-10-29, `KAV-101`, [Lab 65](docs/labs/lab-65-building-the-eks-lab-before-spending-anything.md); not applied until the live run, `KAV-102`)*
 - [ ] IRSA for the executor — no static keys
 - [ ] AWS Load Balancer Controller
 - [ ] Deploy the **identical** Helm chart, unmodified
