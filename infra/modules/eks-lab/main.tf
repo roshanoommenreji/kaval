@@ -244,6 +244,29 @@ resource "aws_iam_role_policy" "node_ecr" {
   })
 }
 
+# ...and AWS's own add-on images (the network plug-in, kube-proxy, DNS, the disk driver): pull only,
+# only these repository names, only in AWS's registry account for the region. Found live (Lab 66):
+# without this every add-on pod is refused and the servers never become Ready. Kaval's own images
+# stay limited to the statement above.
+resource "aws_iam_role_policy" "node_ecr_addons" {
+  name = "pull-eks-addon-images"
+  role = aws_iam_role.node.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage"]
+        Resource = [
+          "arn:aws:ecr:${local.region}:${var.eks_registry_account_id}:repository/eks/*",
+          "arn:aws:ecr:${local.region}:${var.eks_registry_account_id}:repository/amazon-k8s-cni*",
+          "arn:aws:ecr:${local.region}:${var.eks_registry_account_id}:repository/amazon/*",
+        ]
+      },
+    ]
+  })
+}
+
 # Session Manager, so a server can be looked at without opening a port (the same way as k3s's nodes).
 resource "aws_iam_role_policy_attachment" "node_ssm" {
   role       = aws_iam_role.node.name

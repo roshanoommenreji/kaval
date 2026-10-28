@@ -111,3 +111,27 @@ def test_the_lab_asks_for_no_secret_and_commits_no_account_number() -> None:
         text = path.read_text(encoding="utf-8")
         assert not re.search(r"(?<!\d)\d{12}(?!\d)", text), f"{path.name}: account number?"
         assert "arn:aws:iam::" not in text.replace("arn:aws:iam::aws:policy", ""), path.name
+
+
+def test_the_database_disk_is_xfs_because_ext4_leaves_a_folder_postgres_refuses() -> None:
+    # Found live: the chart mounts the disk on Postgres's data directory; ext4 adds lost+found.
+    sc = _load(GITOPS / "storageclass.yaml")[0]
+    assert sc["parameters"]["csi.storage.k8s.io/fstype"] == "xfs"
+    # parameters of a class cannot change in place, so Flux must be allowed to replace it
+    assert sc["metadata"]["annotations"]["kustomize.toolkit.fluxcd.io/force"] == "enabled"
+
+
+def test_the_servers_may_pull_aws_add_on_images_and_only_those_besides_kavals() -> None:
+    # Found live: without it the add-on pods are refused (403) and no server ever becomes Ready.
+    module = (ROOT / "infra" / "modules" / "eks-lab" / "main.tf").read_text(encoding="utf-8")
+    start = module.split('resource "aws_iam_role_policy" "node_ecr_addons"')[1]
+    block = start.split("\nresource ")[0]
+    for repo in ("repository/eks/*", "repository/amazon-k8s-cni*", "repository/amazon/*"):
+        assert repo in block
+    assert "ecr:PutImage" not in block and '"*"' not in block  # pull only, no wildcard repository
+
+
+def test_subnet_tags_added_from_outside_are_not_stripped_by_the_next_apply() -> None:
+    # Found live: aws_ec2_tag adds the tags, the subnet resource then plans to remove them again.
+    env = (ROOT / "infra" / "envs" / "lab-eks" / "main.tf").read_text(encoding="utf-8")
+    assert 'key_prefixes = ["kubernetes.io/"]' in env
