@@ -1,6 +1,6 @@
 # ADR-0066 — Production's first real Slack post comes from one real planted disk, and production gets a read-only smoke test
 
-- **Status:** Accepted (plan approved by Roshan 2026-10-26). The live proof is recorded in Lab 64 once the production run has happened
+- **Status:** Accepted (plan approved by Roshan 2026-10-26). Run on 2026-10-27 and 2026-10-28; the live proof is [Lab 64](../labs/lab-64-closing-phase-6-on-production.md)
 - **Date:** 2026-10-26
 - **Deciders:** Roshan
 - **Story:** `KAV-90` (Phase 6 production checks); also unblocks `KAV-92` criterion 5 and `KAV-98` criterion 4 · builds on [ADR-0044](0044-chaos-with-our-own-jobs-and-a-bounded-memory-fix.md), [ADR-0062](0062-waste-is-found-daily-by-a-read-only-scan-and-reported-to-a-person.md), [ADR-0063](0063-waste-is-removed-in-steps-by-a-separate-worker-and-only-with-approval.md)
@@ -90,6 +90,17 @@ not by hand, which is also the brake's first real run on production. Cost is abo
   script as optional arguments), and its "not covered" text no longer says no environment deploys the model, which
   stopped being true when staging switched it on (older records keep the sentence they were written with).
 - A planted disk is a real cost and a real object; it must be deleted. The lab records the id and the deletion.
+
+## What the run showed (2026-10-27/28, [Lab 64](../labs/lab-64-closing-phase-6-on-production.md))
+
+- The planted disk worked as designed: the real scan found it, production's own planner filed the step-one question,
+  and its gateway posted it to Slack about two minutes after the copy step ran; the 30-minute "nobody has answered"
+  alert fired by itself. Nobody answered, which the check does not need. The disk was deleted by hand afterwards.
+- The overnight run did what ADR-0064 promised: the dump timer fired at 01:00 IST on its own, the 02:00 IST brake parked
+  production after a pre-stop snapshot, and the daily dump check passed.
+- Three findings, none a reason to reverse the decision: production's two gateway copies send the same reminder twice
+  (its own story); a question left open when production is parked outlives the server that could close it; and the
+  Approve button's path into production's gateway has still not been pressed (staging only).
 
 ## What would make us revisit
 

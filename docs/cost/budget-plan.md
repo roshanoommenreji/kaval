@@ -109,6 +109,13 @@ One-off, the same day: switching prod on to take the first real dump (the app no
 about an hour, and a failed first attempt that left the database server running a little longer) cost roughly $0.10.
 The measured dump was 22 KB.
 
+One-off, 2026-10-26 to 2026-10-28 (closing Phase 6, `KAV-90`, [ADR-0066](../adr/0066-production-gets-one-real-planted-finding-and-a-read-only-smoke-test.md),
+[Lab 64](../labs/lab-64-closing-phase-6-on-production.md)): a staging session of 2 h 37 min (about $0.09), production's
+app server for 3 h 42 min and its database server for about 3 h 46 min (about $0.12), a planted 1 GiB disk for about
+six hours (under a cent) and a few cents a month of backup copies until deleted: about **$0.30** in all, below the
+$0.70 planned because the 02:00 IST brake stopped both environments in under four hours. From running hours; the
+bill will confirm it. No recurring change, no new resource.
+
 Staging seeding (`KAV-73`, [ADR-0039](../adr/0039-staging-is-filled-from-a-copy-cleaned-on-the-laptop.md), 2026-10-10) adds no
 recurring spend and no resource: the cleaned file is about 20 KB in staging's own bucket, which is destroyed with staging
 (`force_destroy`), and the cleaning runs in Docker on the laptop. The live drill is one ordinary staging session, about
