@@ -87,18 +87,21 @@ cost      = "~$4/session"
       ] }
 3 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-8" }
 4 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-9" }
+# Phases 5 and 9 both point at KAV-10, on purpose (found 2026-10-28): Phase 5's stories
+# (KAV-76..83) were filed under KAV-10, the epic titled "Phase 9 — Mobile app", while KAV-11,
+# titled "Phase 5", holds only the older KAV-52..54. Untangling that is a Jira decision.
 5 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-10" }
-6 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-11" }
-7 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-12" }
-8 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-13" }
-9 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-14" }
+6 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-12" }
+7 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-13" }
+8 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-14" }
+9 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-10" }
 
 # External links. Empty entries are rendered as "not yet created" rather than
 # hidden — a missing Jira project is information, not an absence.
 [[links]]
 label = "Jira — project KAV"
 url   = "https://roshanoommenreji.atlassian.net/jira/software/projects/KAV/boards/1"
-note  = "Ten epics (KAV-5..14), one per phase, one sprint per phase. Workflow: To Do → In Definition → Ready → In Progress → In Review → In Staging (UAT) → Ready for Prod → Done."
+note  = "Ten phase epics (KAV-5..14), one sprint per phase, plus KAV-99 for beyond-v1 work (Petti, FS-6). Workflow: To Do → In Definition → Ready → In Progress → In Review → In Staging (UAT) → Ready for Prod → Done."
 
 [[links]]
 label = "Jira — Delivery dashboard"
