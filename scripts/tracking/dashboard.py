@@ -142,6 +142,72 @@ def lab_chips(labs: list[dict], phase: int, already: set[str], repo_url: str) ->
     return chips
 
 
+FUTURE_SUMMARY_LIMIT = 220  # characters on a Beyond v1 card; the full text is one click away
+
+
+def github_anchor(heading: str) -> str:
+    """The id GitHub gives a Markdown heading: lower case, punctuation dropped, spaces to hyphens."""
+    return re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-")
+
+
+def card_summary(paragraph: str) -> str:
+    """Whole sentences up to the limit, never fewer than one. A leading label such as
+    "**The idea.**" is dropped and links keep only their words."""
+    text = re.sub(r"^\*\*[^*]{1,24}[.:]\*\*\s*", "", paragraph)
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    out = ""
+    for sentence in re.split(r"(?<=[.!?])\s+", text):
+        joined = f"{out} {sentence}".strip()
+        if out and len(joined) > FUTURE_SUMMARY_LIMIT:
+            break
+        out = joined
+    if len(out) > FUTURE_SUMMARY_LIMIT:
+        out = out[: FUTURE_SUMMARY_LIMIT - 1].rsplit(" ", 1)[0] + "…"
+    return out
+
+
+def read_future_scope(path: Path) -> list[dict]:
+    """The FS-n ideas of docs/future-scope.md, for the Beyond v1 section (KAV-99). They are not
+    phases and never count toward progress; the page stays the only place they are written. An
+    idea's epic is its `Jira epic: [KAV-n](url)` line; its summary is its first paragraph."""
+    if not path.exists():
+        return []
+    head = re.compile(r"^### (FS-\d+) — (.+)")
+    jira = re.compile(r"^Jira epic: \[(KAV-\d+)\]\((\S+?)\)")
+    not_prose = re.compile(r"^\s*([-*+] |\d+\. |\||```|>)")
+    lines = path.read_text(encoding="utf-8").splitlines()
+
+    out = []
+    for i, line in enumerate(lines):
+        m = head.match(line)
+        if not m:
+            continue
+        body = []
+        for nxt in lines[i + 1:]:
+            if nxt.startswith("#") or nxt.strip() == "---":
+                break
+            body.append(nxt)
+        key, url = next(((j[1], j[2]) for ln in body if (j := jira.match(ln))), ("", ""))
+        # The first paragraph of prose, skipping the whole paragraph the Jira line starts.
+        paragraph: list[str] = []
+        in_jira = False
+        for ln in body:
+            in_jira = bool(ln.strip()) and (in_jira or bool(jira.match(ln)))
+            if ln.strip() and not in_jira and not not_prose.match(ln):
+                paragraph.append(ln.strip())
+            elif paragraph:
+                break
+        out.append({
+            "id": m[1],
+            "title": m[2].strip(),
+            "summary": card_summary(" ".join(paragraph)),
+            "jira_key": key,
+            "jira": url,
+            "anchor": github_anchor(line[4:]),
+        })
+    return out
+
+
 # What each run posture means, shown when you hover its pill. "paused" says nothing about the
 # work: it is how AWS is run while that phase is being built (switched off between sessions).
 POSTURE_TIPS = {
@@ -840,6 +906,15 @@ section{margin-top:44px}
 .index .t{font-size:13.5px; font-weight:500; color:var(--ink); margin-top:2px}
 .index .m{font-size:11.5px; color:var(--ink-3); margin-top:4px}
 
+/* ── beyond v1: ideas, not phases ─────────────────────── */
+.future{display:grid; grid-template-columns:repeat(auto-fit,minmax(232px,1fr)); gap:1px;
+        background:var(--rule); border:1px dashed var(--rule-strong); border-radius:6px; overflow:hidden}
+.future .fs{background:var(--surface); padding:13px 15px}
+.future .n{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--ink-3)}
+.future .t{font-size:13.5px; font-weight:500; color:var(--ink); margin-top:2px}
+.future .m{font-size:12.5px; color:var(--ink-2); margin-top:5px; line-height:1.5}
+.future .fl{margin-top:10px}
+
 /* ── architecture diagrams ────────────────────────────── */
 .dwrap{overflow-x:auto; border:1px solid var(--rule); border-radius:6px;
        background:var(--surface); padding:6px 2px}
@@ -933,7 +1008,7 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-o
 
 def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
            sessions: list[dict], threads: list[str], commits: list[dict],
-           learn: list[Learn], arch: dict, releases: list[dict]) -> str:
+           learn: list[Learn], arch: dict, releases: list[dict], future: list[dict]) -> str:
     proj = cfg["project"]
     cost = cfg["cost"]
     posture = cfg.get("posture", {})
@@ -1092,6 +1167,30 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
     <div class="count">{done_tasks}/{total_tasks} tasks</div></div>
   <div class="ladder">
 {chr(10).join(rows)}
+  </div>
+</section>""")
+
+    # ── beyond v1 ── (KAV-99) The FS-n ideas of docs/future-scope.md: shown so they are not
+    # forgotten, kept out of the task counts above because they are not part of the build.
+    if future:
+        page = f"{repo_url}/blob/main/docs/future-scope.md"
+        cards = []
+        for i in future:
+            links = (f'<a class="learn-link" href="{e(page)}#{e(i["anchor"])}" target="_blank" '
+                     f'rel="noopener">Write-up</a>')
+            if i["jira"]:
+                links += (f' <a class="learn-link" href="{e(i["jira"])}" target="_blank" '
+                          f'rel="noopener">{e(i["jira_key"])}</a>')
+            cards.append(f'  <div class="fs"><div class="n">{e(i["id"])}</div>'
+                         f'<div class="t">{e(i["title"])}</div>'
+                         f'<div class="m">{md_inline(i["summary"])}</div>'
+                         f'<div class="fl">{links}</div></div>')
+        parts.append(f"""
+<section>
+  <div class="sec-head"><div class="eyebrow">After v1 · not committed · not counted in progress</div><h2>Beyond v1</h2>
+    <div class="count">{len(future)} ideas</div></div>
+  <div class="future">
+{chr(10).join(cards)}
   </div>
 </section>""")
 
@@ -1537,9 +1636,10 @@ def main() -> None:
     af = ROOT / "docs" / "architecture" / "architecture.toml"
     arch = tomllib.loads(af.read_text(encoding="utf-8")) if af.exists() else {}
     releases = read_releases(ROOT / "docs" / "releases")
+    future = read_future_scope(ROOT / "docs" / "future-scope.md")
 
     OUT.write_text(
-        render(cfg, phases, adrs, labs, sessions, threads, commits, learn, arch, releases),
+        render(cfg, phases, adrs, labs, sessions, threads, commits, learn, arch, releases, future),
         encoding="utf-8",
     )
 
@@ -1551,7 +1651,8 @@ def main() -> None:
           f"({sum(a['open'] for a in adrs)} open) · {len(labs)} labs · {len(threads)} open threads")
     print(f"  {len(learn)} concept pages ({exp} from experience) · "
           f"{sum(l.terms for l in learn)} glossary terms")
-    print(f"  {len(releases)} releases · {len(cfg.get('environments', []))} environments")
+    print(f"  {len(releases)} releases · {len(cfg.get('environments', []))} environments · "
+          f"{len(future)} beyond-v1 ideas")
     for v in ("system", "journey", "delivery"):
         ns = arch.get(v, {}).get("node", [])
         if ns:

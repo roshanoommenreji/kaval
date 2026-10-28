@@ -88,6 +88,10 @@ Kaval currently skips.
 
 ### FS-6 — Petti: a box for the cloud
 
+A small tool that puts any project in a standard box for the cloud: one short box file becomes
+plain OpenTofu, is shown in plain English with its monthly cost, and is built only after a human
+approves.
+
 Jira epic: [KAV-99](https://roshanoommenreji.atlassian.net/browse/KAV-99). Planned 2026-10-28.
 **Not started until the current Kaval phase closes.** It would be its own repository.
 
