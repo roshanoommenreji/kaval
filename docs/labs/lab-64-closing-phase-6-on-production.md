@@ -108,7 +108,7 @@ Nothing to do. By morning:
    the gateway (staging runs one), and the reminder, escalation and expiry messages are sent by a pass that reads "already
    sent?" and then posts, with no lock between the two copies and no unique key on the record
    (`services/gateway/kaval_gateway/approvals.py`, `notify_pass`). Harmless, but production would double every one of
-   those messages. Filed as its own story rather than patched in this run; it needs a lock or a claim-before-send, tested
+   those messages. Filed as its own story (`KAV-100`) rather than patched in this run; it needs a lock or a claim-before-send, tested
    with two passes at once, and proven on staging with two copies first.
 2. **A question can outlive production.** The question expired at about 02:26, after the brake had stopped the server at
    02:00, so nothing could send the "expired" notice or take the buttons off. Pressing Approve then would reach a parked
