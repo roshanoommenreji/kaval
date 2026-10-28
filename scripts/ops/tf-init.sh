@@ -2,7 +2,7 @@
 # Initialise one Terraform environment against its remote state (KAV-86, ADR-0058).
 #
 #   scripts/ops/tf-init.sh <env> [extra terraform-init arguments]
-#   env: prod | staging | dev | state
+#   env: prod | staging | dev | state | lab-eks
 #
 # Every environment's record of what exists lives in one private S3 bucket. Its name is not in
 # git (public repo); it is in Parameter Store at /kaval/tfstate/bucket, which this script reads.
@@ -15,8 +15,8 @@ export MSYS_NO_PATHCONV=1 PYTHONUTF8=1 PYTHONIOENCODING=utf-8   # Git Bash rewri
 
 ENV_NAME="${1:-}"
 case "$ENV_NAME" in
-  prod | staging | dev | state) shift ;;
-  *) echo "usage: $0 <prod|staging|dev|state> [terraform init args]" >&2; exit 2 ;;
+  prod | staging | dev | state | lab-eks) shift ;;
+  *) echo "usage: $0 <prod|staging|dev|state|lab-eks> [terraform init args]" >&2; exit 2 ;;
 esac
 
 ROOT="$(cd "$(dirname "$0")/../.." && { pwd -W 2>/dev/null || pwd; })"   # pwd -W: a path Windows Terraform understands

@@ -1,0 +1,19 @@
+# The strict-rules step (KAV-102), applied BY HAND in the live run and in no other way:
+#   kubectl apply -f deploy/gitops/lab-eks/hardening-sync.yaml
+# It is not in kustomization.yaml, so the lab's own Flux Kustomization neither creates nor prunes it.
+# That is the switch: until this is applied the chart runs on EKS with no network policies at all, and
+# that run is recorded first. Then these policies go on and what they break is recorded too.
+# To take them off again: kubectl delete -f deploy/gitops/lab-eks/hardening-sync.yaml (prune: true
+# removes the policies with it).
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kaval-lab-hardening
+  namespace: flux-system
+spec:
+  interval: 1m
+  path: ./deploy/gitops/lab-eks/hardening
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: kaval

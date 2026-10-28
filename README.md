@@ -121,6 +121,7 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | AWS | `infra/` (Terraform; its record lives in a private S3 bucket, `infra/envs/state`) · `scripts/ops/cost-report.sh` | `make tf-init ENV=prod` · `make plan` · `make cost-report` |
 | Dev server | `infra/envs/dev` + `infra/modules/devbox` | `make devbox-up` · `devbox-ssh` · `devbox-down` |
 | Staging | `infra/envs/staging` + `infra/modules/idle-stop` + `scripts/ops/staging.sh` | `make staging-up` · `staging-status` · `staging-down` |
+| EKS lab (ephemeral) | `infra/envs/lab-eks` + `infra/modules/eks-lab` + `infra/modules/lab-reaper` + `scripts/ops/lab_sweep.py` | `make lab-plan` · `lab-up` · `lab-down` · `lab-sweep` |
 | Database | `services/shared/kaval_shared/models.py` · `migrations/` · `scripts/ops/` | `make migrate` · `make backup` |
 | Secrets scanning | `.gitleaks.toml` · `scripts/dev/install-hooks.sh` | `make secrets-scan` |
 | Commit convention | `scripts/dev/check_commits.py` (the `commit-msg` hook and CI) | `./scripts/dev/install-hooks.sh` once |

@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+region  = "ap-south-1"
+profile = "kaval"
+
+# Your laptop's public address, as /32: curl https://checkip.amazonaws.com
+# It changes (home internet): check it again on the day.
+api_allowed_cidrs = ["203.0.113.7/32"]
+
+# Optional: prod's budget topic, so a failed or silent self-destruct timer rings.
+# alarm_topic_arn = ""

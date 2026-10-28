@@ -1,0 +1,53 @@
+# The EKS lab (Phase 7, KAV-102, ADR-0067). The SAME chart as every other environment, with these
+# values and no template change. CLAUDE.md: "If lab-eks needs a template change that prod-k3s doesn't,
+# the portability claim is broken". Every line below is a setting the chart already had.
+#
+# Read this file against deploy/environments/prod/values.yaml: the differences are exactly what
+# differs in the world (a managed Kubernetes pulls images and lays out disks its own way), not in
+# the chart:
+#   - no pull secret: EKS servers log in to ECR by themselves (k3s needs ecr-cred)
+#   - no separate database server: the chart's own Postgres on an EBS disk (storageClassName gp3,
+#     made by deploy/gitops/lab-eks/storageclass.yaml)
+#   - no model, no cost reader, no removal worker, no Slack: nothing here is worth the memory or
+#     needs a secret, and none of it is what the lab is for
+#
+# The registry (it contains the AWS account number) comes from a ConfigMap made by hand at deploy time
+# (docs/runbooks/lab-eks.md), never committed. The deployed copy of this file is in
+# deploy/gitops/lab-eks/helmrelease.yaml (a test fails if the two differ).
+#
+# The database password is a plain throwaway, the same posture as deploy/environments/local: this
+# Postgres lives for a few hours, holds nothing real, and is reachable only from inside the cluster.
+# CI renders every environment's file with no extra arguments, so it has to be here.
+postgres:
+  enabled: true
+  password: kaval-lab-throwaway
+  storage: 5Gi
+  storageClassName: gp3
+
+gateway:
+  replicas: 1
+  image:
+    tag: sha-eb3f81a
+
+agent:
+  correlateEverySeconds: 60
+  image:
+    tag: sha-eb3f81a
+
+executor:
+  demoNamespace: kaval-demo-lab
+  executeEverySeconds: 30
+  image:
+    tag: sha-eb3f81a
+
+collector:
+  watchEverySeconds: 30
+  image:
+    tag: sha-eb3f81a
+
+# Observability parity (Phase 7 line): the same Prometheus and the same poller, from the same chart,
+# by values only. No database exporters, because there is no separate database server.
+prometheus:
+  enabled: true
+  probe:
+    targets: "kaval-lab/gateway=http://kaval-lab-gateway.kaval-lab.svc.cluster.local:8000/healthz"

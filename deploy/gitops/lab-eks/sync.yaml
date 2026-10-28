@@ -1,0 +1,21 @@
+# Makes deploy/gitops/lab-eks/ self-healing from Git (KAV-102), as sync.yaml does for staging and prod.
+# `postBuild.substituteFrom` fills the dollar-brace placeholders from the kaval-lab-cluster ConfigMap,
+# made by hand when the lab is brought up, so the role ARNs, the VPC id and the laptop's address (all
+# account- or person-specific) are never committed. It does NOT manage kaval-registry or
+# kaval-lab-cluster.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kaval-lab
+  namespace: flux-system
+spec:
+  interval: 1m
+  path: ./deploy/gitops/lab-eks
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: kaval
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: kaval-lab-cluster

@@ -155,7 +155,7 @@ database server's two disks (~$2.55).
 | **Oct–Dec 2026** | **1–3** | **Dev server, idle stop (ADR-0007)** | **~$15** |
 | Nov 2026–Jan 2027 | 4–6 | Paused | ~$5 |
 | Feb–Mar 2027 | 7–9 | Always-on | ~$22 |
-| Occasional | EKS lab × 3 | Ephemeral | ~$15 |
+| Occasional | EKS lab × 3 | Ephemeral | ~$6 (was ~$15; see below) |
 | **Per release** | **staging cluster** | **On demand** | **~$5** |
 | Throughout | Bedrock | — | ~$5 |
 | Nov 2026–Jan 2027 | 4–6 | **Database server, paused with prod (ADR-0008)** | **~$12** |
@@ -220,6 +220,26 @@ About 3 months of Phases 1–3 at ~$5/month adds ~$15, so the projected total ri
 projection to ~$110 against the $140 credit.) `make devbox-down` at the end of each session is the easiest saving. All of it
 comes out of the $140 of AWS credit (expires 2027-09-11), so the expected out-of-pocket cost is still close to
 zero.
+
+### The EKS lab (Phase 7, `KAV-101`, [ADR-0067](../adr/0067-the-eks-lab-is-ephemeral-has-its-own-timer-and-is-proven-clean-by-a-label-sweep.md))
+
+Checked against the AWS price list on 2026-10-28 (ap-south-1). The control plane is **$0.10 an hour**, about $73 a month,
+from the moment the cluster exists; a Kubernetes version past standard support is **$0.50 an hour**, so the lab uses
+1.35 (standard support to 2027-03-27). A six-hour session:
+
+| Item | Rate | Six hours |
+|---|---|---|
+| EKS control plane | $0.10/hr | $0.60 |
+| 2 × `t4g.medium` On-Demand | $0.0224/hr each | $0.27 |
+| One shared Application Load Balancer | about $0.024/hr + usage | about $0.15 |
+| Disks (2 × 20 GB servers, 5 GB database), public addresses, logs | cents | about $0.10 to $0.20 |
+| **Total** | | **about $1.2 to $2 per session** |
+
+The roadmap's $4 stays as the cap per session. Three sessions are about **$6**, replacing the old $15 placeholder. Nothing
+is added to the always-on bill: no NAT gateway, no persistent load balancer. The nightly brake does **not** cover the lab
+(a node group's server group has a generated name, and the control plane is not a server), so the lab's own timer
+([`infra/modules/lab-reaper`](../../infra/modules/lab-reaper/)) scales the servers to zero at 4 hours and deletes the cluster at 6.
+After every session `make lab-sweep` must say nothing is left, and again 24 hours later with `make cost-report`.
 
 ### The staging cluster
 

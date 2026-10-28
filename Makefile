@@ -66,7 +66,7 @@ bench: ## Measure the local model shortlist on the dev server (KAV-22, ~20 min)
 
 .PHONY: test
 test: ## Unit tests + policy tests
-	pytest services/ scripts/dev/ scripts/ops/ scripts/tracking/ scripts/release/ evals/ infra/modules/idle-stop/lambda/ infra/modules/waste-scan/lambda/ infra/modules/budget/lambda/ -q
+	pytest services/ scripts/dev/ scripts/ops/ scripts/tracking/ scripts/release/ evals/ infra/modules/idle-stop/lambda/ infra/modules/waste-scan/lambda/ infra/modules/budget/lambda/ infra/modules/lab-reaper/lambda/ -q
 	@command -v opa >/dev/null 2>&1 && opa test policy/ -v || echo "opa not installed — skipping policy tests"
 
 .PHONY: rules-test
@@ -75,8 +75,8 @@ rules-test: ## promtool-test Kaval's own-health alert rules with the Prometheus 
 
 .PHONY: lint
 lint: ## Lint and type-check
-	ruff check infra/modules/idle-stop/lambda infra/modules/waste-scan/lambda infra/modules/waste-removal/lambda scripts/ops/tag_policy.py scripts/ops/tag_scan.py scripts/ops/test_tag_policy.py scripts/ops/test_tag_scan.py scripts/ops/showback.py scripts/ops/test_showback.py scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/ops/chaos_check.py scripts/ops/test_chaos_check.py scripts/ops/approvals_drill.py scripts/ops/backup_watch.py scripts/ops/test_backup_watch.py scripts/ops/restore_drill_record.py scripts/ops/test_restore_drill_record.py scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira_release.py scripts/tracking/test_jira_release.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
-	mypy infra/modules/idle-stop/lambda/idle_stop.py infra/modules/waste-scan/lambda/waste_scan.py infra/modules/waste-removal/lambda/waste_removal.py scripts/ops/tag_policy.py scripts/ops/tag_scan.py scripts/ops/test_tag_policy.py scripts/ops/test_tag_scan.py scripts/ops/showback.py scripts/ops/test_showback.py scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/ops/chaos_check.py scripts/ops/test_chaos_check.py scripts/ops/approvals_drill.py scripts/ops/backup_watch.py scripts/ops/test_backup_watch.py scripts/ops/restore_drill_record.py scripts/ops/test_restore_drill_record.py scripts/release/pin_staging.py scripts/release/staging_smoke.py scripts/release/prod_smoke.py scripts/release/promote.py scripts/release/rollback.py scripts/release/versions.py scripts/release/change_record.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py scripts/tracking/jira_release.py
+	ruff check infra/modules/idle-stop/lambda infra/modules/waste-scan/lambda infra/modules/waste-removal/lambda infra/modules/lab-reaper/lambda scripts/ops/lab_sweep.py scripts/ops/test_lab_sweep.py scripts/ops/tag_policy.py scripts/ops/tag_scan.py scripts/ops/test_tag_policy.py scripts/ops/test_tag_scan.py scripts/ops/showback.py scripts/ops/test_showback.py scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/ops/chaos_check.py scripts/ops/test_chaos_check.py scripts/ops/approvals_drill.py scripts/ops/backup_watch.py scripts/ops/test_backup_watch.py scripts/ops/restore_drill_record.py scripts/ops/test_restore_drill_record.py scripts/release services/ migrations/ evals/ scripts/tracking/atlassian.py scripts/tracking/jira-sync.py scripts/tracking/jira_adf.py scripts/tracking/test_jira_adf.py scripts/tracking/jira_release.py scripts/tracking/test_jira_release.py scripts/tracking/jira-dashboards.py scripts/dev/bench_models.py scripts/dev/check_commits.py scripts/dev/test_check_commits.py scripts/ops/approve.py
+	mypy infra/modules/idle-stop/lambda/idle_stop.py infra/modules/waste-scan/lambda/waste_scan.py infra/modules/waste-removal/lambda/waste_removal.py infra/modules/lab-reaper/lambda/reaper.py scripts/ops/lab_sweep.py scripts/ops/tag_policy.py scripts/ops/tag_scan.py scripts/ops/test_tag_policy.py scripts/ops/test_tag_scan.py scripts/ops/showback.py scripts/ops/test_showback.py scripts/ops/chaos_node.py scripts/ops/test_chaos_node.py scripts/ops/chaos_check.py scripts/ops/test_chaos_check.py scripts/ops/approvals_drill.py scripts/ops/backup_watch.py scripts/ops/test_backup_watch.py scripts/ops/restore_drill_record.py scripts/ops/test_restore_drill_record.py scripts/release/pin_staging.py scripts/release/staging_smoke.py scripts/release/prod_smoke.py scripts/release/promote.py scripts/release/rollback.py scripts/release/versions.py scripts/release/change_record.py services/ evals/ scripts/dev/check_commits.py scripts/tracking/jira_adf.py scripts/tracking/jira_release.py
 
 .PHONY: lock
 lock: ## Re-resolve uv.lock after editing pyproject.toml's dependencies (then commit both)
@@ -217,15 +217,25 @@ devbox-ssh: ## Open a terminal on the dev server (SSH through Session Manager)
 	ssh kaval-devbox
 
 # ─────────────────────────────────────────────────────────────
-##@ EKS lab  (Phase 8 — ephemeral, ~\$4/session)
+##@ EKS lab  (Phase 7 — ephemeral, about \$1.5-2 for a 6-hour session; the control plane alone is \$0.10/hour)
+
+.PHONY: lab-plan
+lab-plan: ## Show what the EKS lab would create (changes nothing). Read it before lab-up.
+	bash scripts/ops/tf-init.sh lab-eks
+	cd $(TF_LAB) && terraform plan -input=false -out=lab.tfplan
 
 .PHONY: lab-up
-lab-up: ## Stand up real EKS to prove chart portability
-	cd $(TF_LAB) && terraform init && terraform apply
+lab-up: ## Create the EKS lab from the plan lab-plan saved (Terraform asks nothing: the plan was the review). Starts billing.
+	cd $(TF_LAB) && terraform apply -input=false lab.tfplan
 
 .PHONY: lab-down
-lab-down: ## Destroy the EKS lab. ALWAYS run this. Verify with cost-report tomorrow.
+lab-down: ## Destroy the EKS lab. ALWAYS run this, then make lab-sweep, and again 24 hours later.
+	bash scripts/ops/tf-init.sh lab-eks
 	cd $(TF_LAB) && terraform destroy
+
+.PHONY: lab-sweep
+lab-sweep: ## Read-only: anything of the EKS lab still in the account (cluster, load balancers, disks...)? Exit 1 if so (KAV-101)
+	python scripts/ops/lab_sweep.py
 
 # ─────────────────────────────────────────────────────────────
 ##@ Data

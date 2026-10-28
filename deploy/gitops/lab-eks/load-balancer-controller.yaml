@@ -1,0 +1,37 @@
+# The AWS Load Balancer Controller (KAV-102, ADR-0067): watches Ingress objects and makes real AWS
+# load balancers to match. Version pinned: chart 3.5.0 = controller v3.5.0, the version whose
+# published IAM policy is infra/modules/eks-lab/lbc-iam-policy.json. Upgrading means re-downloading
+# that policy and reading the diff.
+#
+# Its AWS login is IRSA: ${LBC_ROLE_ARN} and ${VPC_ID} are substituted from the kaval-lab-cluster
+# ConfigMap (sync.yaml), so no account number is committed. The VPC id is given because a pod cannot
+# ask the server's metadata endpoint on EKS by default.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: aws-load-balancer-controller
+  namespace: flux-system
+spec:
+  interval: 10m
+  releaseName: aws-load-balancer-controller
+  targetNamespace: kube-system
+  chart:
+    spec:
+      chart: aws-load-balancer-controller
+      version: 3.5.0
+      sourceRef:
+        kind: HelmRepository
+        name: eks-charts
+  values:
+    clusterName: kaval-lab-eks
+    region: ap-south-1
+    vpcId: ${VPC_ID}
+    replicaCount: 1
+    serviceAccount:
+      create: true
+      name: aws-load-balancer-controller
+      annotations:
+        eks.amazonaws.com/role-arn: ${LBC_ROLE_ARN}
+  install:
+    remediation:
+      retries: 3

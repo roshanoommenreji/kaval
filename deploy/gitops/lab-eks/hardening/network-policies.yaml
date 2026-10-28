@@ -1,0 +1,71 @@
+# Network policies for the lab (KAV-102, ADR-0067). On EKS the network add-on enforces them (enabled in
+# infra/modules/eks-lab); k3s's Flannel ignores them, which is why this can only be learned here.
+# Not part of the chart: the chart is not edited for the lab. Anything these break is a finding to be
+# recorded and filed as its own story, never patched quietly (the lab's plan).
+#
+# Shape: deny every way IN to the namespace, then open exactly the doors the chart needs.
+# Outbound traffic is left alone in this first round (a second round can deny it too).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: kaval-lab
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# The load balancer sends traffic straight to the pod (target-type: ip) from inside the VPC.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-from-the-vpc
+  namespace: kaval-lab
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: gateway
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 10.62.0.0/16
+      ports:
+        - { protocol: TCP, port: 8000 }
+---
+# Prometheus reads each service's health numbers on :9100.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: metrics-from-prometheus
+  namespace: kaval-lab
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: kaval
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: prometheus
+      ports:
+        - { protocol: TCP, port: 9100 }
+---
+# Every Kaval service talks to its database; nothing else may.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-from-kaval-only
+  namespace: kaval-lab
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: postgres
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: kaval
+      ports:
+        - { protocol: TCP, port: 5432 }

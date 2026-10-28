@@ -444,6 +444,18 @@ inputs = ["15-minute EventBridge Scheduler rule", "Session Manager sessions and 
 outputs = ["Staging node scaled to zero and staging database stopped after 4 idle hours"]
 note = "ADR-0029. Staging's own Lambda (infra/modules/idle-stop), part of staging's Terraform state so it exists only while staging does. It parks staging rather than destroying it: Terraform cannot run from inside AWS without a very broad role, so the real destroy stays `make staging-down`. Idleness is read from outside the machines (a session or a command in the last four hours, floored by launch time), so the node gets no new permission. Free-tier Lambda and Scheduler. A parked staging keeps its disks, about $1.6/month."
 
+[[system.node]]
+id = "lab-reaper"
+label = "EKS lab timer"
+kind = "platform"
+phase = 7
+col = 4.2
+row = 10
+credentials = "delete ONE named EKS cluster and the load balancers, target groups and security groups the controller tagged with its name; nothing else"
+inputs = ["15-minute EventBridge Scheduler rule", "The cluster's age, which AWS records at creation (read-only)"]
+outputs = ["Lab servers scaled to zero at 4 hours; the lab cluster, its controller-made load balancers and their leftovers deleted at 6 hours"]
+note = "ADR-0067. The EKS control plane bills $0.10 an hour from creation and the nightly brake does not cover it, so the lab carries its own timer (infra/modules/lab-reaper), part of the lab's Terraform state. Built in KAV-101 and proven live in KAV-102. `make lab-sweep` is the check that nothing is left, after the destroy and again 24 hours later."
+
 # ── system edges ───────────────────────────────────────────────────────
 
 [[system.edge]]
@@ -685,6 +697,12 @@ kind = "platform"
 from = "staging-idle"
 to = "db-host"
 label = "staging: snapshot + stop"
+kind = "platform"
+
+[[system.edge]]
+from = "lab-reaper"
+to = "aws-apis"
+label = "EKS lab: scale to 0 at 4 h, delete at 6 h"
 kind = "platform"
 
 [[journey.node]]

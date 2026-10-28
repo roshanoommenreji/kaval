@@ -1,0 +1,22 @@
+# Flux's source for this repository on the lab cluster (KAV-102). Identical in shape to
+# deploy/gitops/staging/source.yaml: anonymous HTTPS clone of the public repo, `main` branch.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: kaval
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/roshanoommenreji/kaval
+  ref:
+    branch: main
+---
+# AWS's chart repository, for the load balancer controller (load-balancer-controller.yaml).
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: eks-charts
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://aws.github.io/eks-charts

@@ -1,0 +1,12 @@
+# The set of the lab's Flux objects as one lintable unit; sync.yaml points its Kustomization at this
+# directory. hardening/ is deliberately not in the list: it has its own Kustomization (suspended).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - storageclass.yaml
+  - source.yaml
+  - helmrelease.yaml
+  - load-balancer-controller.yaml
+  - ingress.yaml
+  - sync.yaml

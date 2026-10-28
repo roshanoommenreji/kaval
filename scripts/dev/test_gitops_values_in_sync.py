@@ -31,7 +31,7 @@ def _differences(live: object, written: object, path: str = "") -> list[str]:
     return [] if live == written else [f"{path.rstrip('.')}: {live!r} (deployed) != {written!r}"]
 
 
-@pytest.mark.parametrize("env", ["staging", "prod"])
+@pytest.mark.parametrize("env", ["staging", "prod", "lab-eks"])
 def test_the_deployed_settings_are_the_written_settings(env: str) -> None:
     live = yaml.safe_load(
         (ROOT / "deploy" / "gitops" / env / "helmrelease.yaml").read_text(encoding="utf-8")
