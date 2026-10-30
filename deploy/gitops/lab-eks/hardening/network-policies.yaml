@@ -5,6 +5,11 @@
 #
 # Shape: deny every way IN to the namespace, then open exactly the doors the chart needs.
 # Outbound traffic is left alone in this first round (a second round can deny it too).
+#
+# Pods are selected by app.kubernetes.io/instance, NOT part-of. Found live (Lab 66): the chart puts
+# part-of on its objects but its pod template carries only instance + component
+# (templates/_helpers.tpl: kaval.selectorLabels), so a part-of selector matched 1 pod of 7 and shut
+# the gateway out of its own database.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -41,7 +46,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/part-of: kaval
+      app.kubernetes.io/instance: kaval-lab
   policyTypes: [Ingress]
   ingress:
     - from:
@@ -66,6 +71,6 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/part-of: kaval
+              app.kubernetes.io/instance: kaval-lab
       ports:
         - { protocol: TCP, port: 5432 }
