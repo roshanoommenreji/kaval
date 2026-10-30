@@ -15,7 +15,11 @@ metadata:
     alb.ingress.kubernetes.io/group.name: kaval-lab
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    # NOT /healthz. Found live (Lab 66): /healthz also checks the language model, the lab has none
+    # configured, so it answers 503 "degraded" by design and the load balancer marked the gateway
+    # unhealthy. The chart's own probes avoid it for the same reason (templates/gateway.yaml).
+    # /openapi.json answers 200 whenever the app is up and needs nothing else.
+    alb.ingress.kubernetes.io/healthcheck-path: /openapi.json
     alb.ingress.kubernetes.io/inbound-cidrs: ${LAB_ALLOWED_CIDR}
 spec:
   ingressClassName: alb

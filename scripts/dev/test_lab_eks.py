@@ -80,6 +80,12 @@ def test_the_ingress_points_at_the_service_the_chart_makes_and_is_never_open_to_
     assert "0.0.0.0/0" not in (GITOPS / "ingress.yaml").read_text(encoding="utf-8")
 
 
+def test_the_load_balancer_does_not_health_check_the_path_that_needs_a_model() -> None:
+    # Found live: /healthz also checks the language model, the lab has none, so it answers 503.
+    annotations = _load(GITOPS / "ingress.yaml")[0]["metadata"]["annotations"]
+    assert annotations["alb.ingress.kubernetes.io/healthcheck-path"] != "/healthz"
+
+
 def test_the_kustomization_lists_every_file_except_the_hand_applied_switch() -> None:
     listed = set(_load(GITOPS / "kustomization.yaml")[0]["resources"])
     present = {p.name for p in GITOPS.glob("*.yaml")} - {"kustomization.yaml"}
