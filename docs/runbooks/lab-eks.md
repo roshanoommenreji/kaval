@@ -1,6 +1,6 @@
 # Runbook — the EKS lab (bring it up, use it, take it down, prove it is gone)
 
-Phase 7, [ADR-0067](../adr/0067-the-eks-lab-is-ephemeral-has-its-own-timer-and-is-proven-clean-by-a-label-sweep.md). Real EKS for one session. **The control plane bills $0.10 an hour (about $73 a month) from the moment it exists.** A session is about 4 to 6 hours and costs about $1.2 to $2.
+Phase 7, [ADR-0067](../adr/0067-the-eks-lab-is-ephemeral-has-its-own-timer-and-is-proven-clean-by-a-label-sweep.md). Real EKS for one session. **The control plane bills $0.10 an hour (about $73 a month) from the moment it exists.** A session is 2 to 6 hours and costs about $0.85 to $2 (the two live sessions cost about $2.45 together, [Lab 66](../labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md)).
 
 **Who:** Roshan, at the keyboard. Every step that changes AWS is run on his own go, with the exact command shown first.
 
@@ -8,7 +8,8 @@ Phase 7, [ADR-0067](../adr/0067-the-eks-lab-is-ephemeral-has-its-own-timer-and-i
 
 - Production and staging do not need to be up. The lab is independent of both.
 - `AWS_PROFILE=kaval`, region `ap-south-1`. `kubectl` and `helm` installed. `flux` is **not** needed: Flux is installed from its published manifest (step 3).
-- Your laptop's public address changes (home internet). In `infra/envs/lab-eks/terraform.tfvars` (git-ignored) put `api_allowed_cidrs = ["<address>/32"]` from `curl https://checkip.amazonaws.com`.
+- Your laptop's public address changes (home internet; it changed **twice** in two sessions). In `infra/envs/lab-eks/terraform.tfvars` (git-ignored) put `api_allowed_cidrs = ["<address>/32"]` from `curl https://checkip.amazonaws.com`, and check it again just before `make lab-up` and whenever `kubectl` times out. If it changes while the lab is up: update the file, `make lab-plan` (expect 0 to add, 1 to change, 0 to destroy), `make lab-up`, then update `LAB_ALLOWED_CIDR` in the ConfigMap `kaval-lab-cluster` (step 3) so the load balancer follows.
+- `AWS_PROFILE=kaval` also needs `eks_registry_account_id` in `terraform.tfvars` (the first part of the kube-proxy image address, see step 2).
 - Cost check: `make cost-report` shows spend so far this month. A session adds about $2.
 
 ## 1. Plan, read it, record it
@@ -17,7 +18,7 @@ Phase 7, [ADR-0067](../adr/0067-the-eks-lab-is-ephemeral-has-its-own-timer-and-i
 make lab-plan        # connects to the state, writes lab.tfplan, changes nothing
 ```
 
-Read the plan. **Expect 44 to add, 0 to change, 0 to destroy** on a clean account. Check by eye:
+Read the plan. **Expect 45 to add, 0 to change, 0 to destroy** on a clean account. Check by eye:
 
 - the Kubernetes version is **1.35** (a version past standard support bills $0.50 an hour);
 - `public_access_cidrs` is only your address;
@@ -35,7 +36,7 @@ aws eks update-kubeconfig --name kaval-lab-eks --region ap-south-1 --profile kav
 kubectl get nodes    # two Ready servers
 ```
 
-If the servers stay `NotReady` and `kubectl -n kube-system get pods` shows `ImagePullBackOff`, read the pod's events: a `403 ... not authorized to perform: ecr:BatchGetImage` means the servers' role cannot pull AWS's own add-on images (found live on 2026-10-29, fixed by `aws_iam_role_policy.node_ecr_addons` and the `eks_registry_account_id` setting in `terraform.tfvars`: the first part of the kube-proxy image address, `kubectl -n kube-system get ds kube-proxy -o jsonpath='{.spec.template.spec.containers[0].image}'`). It can be added by hand while the build waits; put it in the code before `make lab-down`, or the destroy cannot delete the role.
+Both servers should be `Ready` within a few minutes. If they stay `NotReady` and `kubectl -n kube-system get pods` shows `ImagePullBackOff` with `403 ... ecr:BatchGetImage`, the servers' role cannot pull AWS's own add-on images. That was found live on 2026-10-29 and is fixed in the code (`aws_iam_role_policy.node_ecr_addons`, which needs `eks_registry_account_id` in `terraform.tfvars`: the first part of the kube-proxy image address, `kubectl -n kube-system get ds kube-proxy -o jsonpath='{.spec.template.spec.containers[0].image}'`). A thing added by hand must reach the code before `make lab-down`, or the destroy cannot delete the role.
 
 **From this moment the clock is running.** The self-destruct timer scales the servers to zero at 4 hours and deletes everything at 6. To prove it before trusting it, set `reaper_dry_run = true` for a first look at its log (`aws logs tail /aws/lambda/kaval-lab-eks-reaper`).
 
@@ -68,30 +69,44 @@ kubectl apply -f deploy/gitops/lab-eks/source.yaml -f deploy/gitops/lab-eks/sync
 kubectl get helmrelease -A -w      # kaval-lab and aws-load-balancer-controller become Ready
 ```
 
+The lab's release is installed with `disableWait: true`. With the chart's own database the migration is a post-install hook that Helm runs only after every service is ready, and they cannot be ready before the tables exist: waiting deadlocks (Lab 66, finding 4). If a release shows "Stalled" or "cannot remediate", nudge it: `kubectl -n flux-system annotate helmrelease kaval-lab reconcile.fluxcd.io/requestedAt="$(date +%s)" reconcile.fluxcd.io/forceAt="$(date +%s)" --overwrite`.
+
 The chart installs **unmodified**. The only lab-only thing is the executor's IRSA label, added by the lab's own `HelmRelease`. If anything needs a *chart* edit to run on EKS, stop: that is a finding against the portability claim, not something to patch.
 
 ## 4. The proofs, in this order
 
 1. **Same chart:** `git diff main -- deploy/charts` is empty; `helm get manifest` is what the other environments render, apart from values.
 2. **IRSA:** run a throwaway pod with the executor's service account (`serviceAccountName: kaval-lab-executor`, image `amazon/aws-cli`) and read the proof parameter (`aws ssm get-parameter --name /kaval/kaval-lab-eks/irsa-proof`). It works with no stored key. Then run the same pod with another service account: it is **refused**. Also: the same pod cannot read any other parameter.
-3. **Load balancer controller:** the Ingress makes one real load balancer; `curl` the gateway's `/healthz` through it from your address; from anywhere else it is refused. Note the number of load balancers (one).
+3. **Load balancer controller:** the Ingress makes one real load balancer; `curl` the gateway's `/openapi.json` through it from your address (not `/healthz`: that page also needs the language model, which the lab does not have); from anywhere else it is refused. Note the number of load balancers (one).
 4. **Observability parity:** Prometheus and the poller are Running from the same chart; the gateway probe target answers.
 5. **Strict rules.** First note what the chart does with none. Then:
    - Pod Security: the namespace already `warn`s at `restricted`; read what it says. Then `kubectl label ns kaval-lab pod-security.kubernetes.io/enforce=baseline --overwrite` and restart the deployments; note what is refused.
-   - Network policies: `kubectl apply -f deploy/gitops/lab-eks/hardening-sync.yaml`; check the gateway still answers through the load balancer, Prometheus still scrapes, the services still reach the database; a pod in another namespace cannot reach the database.
+   - Network policies: first start a pod in the `default` namespace and show it reaches the database (the "before"). Then `kubectl apply -f deploy/gitops/lab-eks/hardening-sync.yaml`; the same pod is now blocked, and the gateway still answers through the load balancer, Prometheus still scrapes, the services still reach the database. Once they are on, look at pods with `kubectl port-forward`: the API server's proxy to pods is blocked by the deny-all rule too.
    - Each thing either rule breaks becomes its own Jira story and roadmap line. Nothing is patched in the lab.
 6. Screenshots and the recorded outputs go in the lab note.
 
 ## 5. Take it down, and prove it
 
+In this order (the first overnight run left a database disk behind because the release was not deleted first):
+
 ```bash
-kubectl delete ingress -n kaval-lab kaval-lab-gateway     # the controller deletes the load balancer
-kubectl get ingress -A                                     # empty
-make lab-down                                              # terraform destroy (shows the plan, asks yes)
-make lab-sweep                                             # must say: nothing left
+# 1. stop Flux putting things back
+kubectl -n flux-system patch kustomization kaval-lab --type merge -p '{"spec":{"suspend":true}}'
+kubectl -n flux-system patch kustomization kaval-lab-hardening --type merge -p '{"spec":{"suspend":true}}'   # if applied
+# 2. the load balancer (the controller deletes it)
+kubectl delete ingress -n kaval-lab kaval-lab-gateway
+# 3. the release, so the database's claim and its disk go too
+kubectl -n flux-system delete helmrelease kaval-lab
+# 4. AWS must show 0 load balancers and 0 disks tagged for the lab before you destroy
+aws elbv2 describe-load-balancers --query 'length(LoadBalancers)'
+aws ec2 describe-volumes --filters Name=tag:Env,Values=lab-eks --query 'length(Volumes)'
+# 5. destroy from a saved plan, and read it first (expect 45)
+cd infra/envs/lab-eks && terraform plan -destroy -out lab-destroy.tfplan && terraform apply lab-destroy.tfplan
+# 6. prove it
+make lab-sweep
 ```
 
-If `make lab-down` fails part-way, run it again; the timer will also finish the job at 6 hours. If a load balancer or disk shows in the sweep, it is a finding: delete it by its id (shown in the sweep), then record how it escaped.
+If the destroy fails part-way, run it again; the timer will also finish the job at 6 hours. If a load balancer or disk shows in the sweep, check it exists (`describe-volumes`): the sweep reads a tag index that lags behind deletions and can list a disk that is already gone. If it does exist, delete it by its id, then record how it escaped.
 
 **24 hours later**, again: `make lab-sweep` and `make cost-report`. The exit gate is both showing nothing, not "destroy succeeded".
 
@@ -102,7 +117,10 @@ If `make lab-down` fails part-way, run it again; the timer will also finish the 
 | `make lab-up` fails part-way | Read the error, run `make lab-plan` again (it shows what is left to make), then `make lab-up`. Do not leave a half-made cluster overnight: `make lab-down` |
 | The nodes never become Ready | `kubectl get nodes`, then `kubectl describe node`; the network add-on is the usual suspect. The cluster still bills: do not stay stuck, destroy |
 | The pods cannot pull images | The servers' role allows only Kaval's repositories; check the image name and tag against ECR |
-| `kubectl` times out | Your address changed. Update `api_allowed_cidrs`, `make lab-plan`, `make lab-up` (a small change in place) |
+| `kubectl` times out (it can look like a name-lookup error) | Your address changed. Update `api_allowed_cidrs`, `make lab-plan` (0 / 1 / 0), `make lab-up` (a small change in place), then the ConfigMap `kaval-lab-cluster` |
+| The agent, executor and poller crash with "relation does not exist" and the release keeps being removed and retried | The install is waiting for a migration that runs only after it. `install.disableWait: true` in the lab's release; nudge the release (step 3) |
+| The load balancer says the gateway is unhealthy | Its health path must be `/openapi.json`, not `/healthz` |
+| The database pod crashes: "directory ... exists but is not empty" | The disk is `ext4`; the StorageClass must be `xfs` |
 | The sweep shows a load balancer | It was made by the controller. `aws elbv2 delete-load-balancer --load-balancer-arn <it>`, then re-run the sweep |
 | The timer errors (alarm) | Read `/aws/lambda/kaval-lab-eks-reaper`. If in doubt, `make lab-down` by hand now |
 
