@@ -80,6 +80,20 @@ def test_the_ingress_points_at_the_service_the_chart_makes_and_is_never_open_to_
     assert "0.0.0.0/0" not in (GITOPS / "ingress.yaml").read_text(encoding="utf-8")
 
 
+def test_network_policies_select_pods_by_labels_the_pods_really_carry() -> None:
+    # Found live: part-of is on the chart's objects, not its pods, so the policies matched 1 of 7.
+    helpers = (CHART / "templates" / "_helpers.tpl").read_text(encoding="utf-8")
+    pod_labels = helpers.split('define "kaval.selectorLabels"')[1].split("end")[0]
+    for policy in _load(GITOPS / "hardening" / "network-policies.yaml"):
+        selectors = [policy["spec"]["podSelector"]]
+        for rule in policy["spec"].get("ingress", []):
+            peers = rule.get("from", [])
+            selectors += [peer["podSelector"] for peer in peers if "podSelector" in peer]
+        for selector in selectors:
+            for key in selector.get("matchLabels", {}):
+                assert key in pod_labels, f"{policy['metadata']['name']}: pods have no {key}"
+
+
 def test_the_load_balancer_does_not_health_check_the_path_that_needs_a_model() -> None:
     # Found live: /healthz also checks the language model, the lab has none, so it answers 503.
     annotations = _load(GITOPS / "ingress.yaml")[0]["metadata"]["annotations"]
