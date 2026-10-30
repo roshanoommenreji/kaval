@@ -67,3 +67,18 @@ First the chart runs on EKS with nothing extra and that is recorded. Then Pod Se
 ## What would make us revisit
 
 A second ephemeral environment of this cost class would reuse the timer and the sweep. If a future phase needs EKS to stay up for a day, the timer's six hours become a variable with a firm cap (already limited to 12), and the cost note is redone.
+
+## Amendment 2026-10-31 — what the live run changed (`KAV-102`, [Lab 66](../labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md))
+
+The decisions above held: one cluster for one session, the timer, the unmodified chart, IRSA with one named parameter, one shared load balancer limited to the laptop, and the sweep. The timer was proven live (servers to zero at 4 h 09 m, everything deleted by 6 h 39 m). Two sessions cost about $2.45 against the plan's $6 for three. Six details were wrong or missing and are now different:
+
+1. **The servers' role may also pull AWS's own add-on images** (`eks/*`, `amazon-k8s-cni*`, `amazon/*`, pull-only, no wildcard repository). Section 4 said it carried "only what a server needs"; the add-ons are what a server needs first. The plan is 45 resources, not 44.
+2. **The database's disk is `xfs`.** The chart mounts a disk on Postgres's data directory and `ext4`'s `lost+found` stops it. A StorageClass with `xfs` and a Flux `force` annotation.
+3. **The provider ignores the `kubernetes.io/` subnet tags** that are added from outside, or each apply strips them.
+4. **The lab's release does not wait for the services during install** (`install.disableWait`). With the chart's own database the migration is a post-install hook that Helm runs only after every Deployment is ready: a deadlock. This is a setting of the lab's own deploy file, not a chart edit; the weakness in the chart is a story. Staging and production, whose database is a separate server migrated before install, never meet it.
+5. **The load balancer health-checks `/openapi.json`**, not `/healthz`: the latter also needs the language model, which the lab does not have.
+6. **Network policies select on `app.kubernetes.io/instance`**, the label the chart's pods really carry (not `part-of`, which only its objects carry). A test now checks every selected label against the chart's pod-label block.
+
+Added to the procedure: the laptop's address is checked immediately before `make lab-up` (it changed twice in two sessions) and updated in two places when it changes; teardown suspends Flux, deletes the Ingress, **deletes the HelmRelease so the database disk goes with it**, checks AWS shows no load balancer or disk, and only then runs `terraform plan -destroy` and applies it (the order is in the [runbook](../runbooks/lab-eks.md)). The sweep reads a label index that lags behind deletions; it can list a thing that is already gone (a story makes it confirm existence).
+
+The chart fails Pod Security `restricted` (no security context on any of its seven pods) and passes `baseline`. That is a finding against the chart, not the lab, filed as its own story; it is why the portability claim is "the same chart runs with no template edit", which was proven, rather than "the same chart is production-grade for EKS", which it is not yet.

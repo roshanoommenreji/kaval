@@ -235,7 +235,9 @@ from the moment the cluster exists; a Kubernetes version past standard support i
 | Disks (2 × 20 GB servers, 5 GB database), public addresses, logs | cents | about $0.10 to $0.20 |
 | **Total** | | **about $1.2 to $2 per session** |
 
-The roadmap's $4 stays as the cap per session. Three sessions are about **$6**, replacing the old $15 placeholder. Nothing
+The roadmap's $4 stays as the cap per session. Three sessions are about **$6**, replacing the old $15 placeholder.
+
+**Actual (2026-10-29/30, `KAV-102`, [Lab 66](../labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md)):** two sessions were enough: about **$1.60** (the first, ended by the timer after 6 h 39 m) and about **$0.85** (the second, 2 h 22 m, ended by hand), **about $2.45** in all. A third session is not planned, so the remaining ~$3.55 of the $6 is released. Nothing
 is added to the always-on bill: no NAT gateway, no persistent load balancer. The nightly brake does **not** cover the lab
 (a node group's server group has a generated name, and the control plane is not a server), so the lab's own timer
 ([`infra/modules/lab-reaper`](../../infra/modules/lab-reaper/)) scales the servers to zero at 4 hours and deletes the cluster at 6.

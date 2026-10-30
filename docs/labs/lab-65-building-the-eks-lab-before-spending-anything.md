@@ -68,7 +68,7 @@ git diff main --name-only -- deploy/charts                                   # e
 make lab-plan      # = tf-init lab-eks, then terraform plan -out=lab.tfplan: reads only
 ```
 
-Result (2026-10-29): **44 to add, 0 to change, 0 to destroy**: the network (9), the cluster, its role, the node group and node role, four add-ons, the identity provider and four IRSA roles with their policies, six subnet labels, the proof parameter, and the timer (function, schedule, two roles, log group). Nothing touches production or staging. The cluster's API shows exactly one allowed address. Nothing was applied.
+Result (2026-10-29): **44 to add, 0 to change, 0 to destroy**: the network (9), the cluster, its role, the node group and node role, four add-ons, the identity provider and four IRSA roles with their policies, six subnet labels, the proof parameter, and the timer (function, schedule, two roles, log group). Nothing touches production or staging. The cluster's API shows exactly one allowed address. Nothing was applied. (The live run added one policy the servers needed, so the plan became **45**: [Lab 66](lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md), finding 1.)
 
 ## What was found on the way
 
