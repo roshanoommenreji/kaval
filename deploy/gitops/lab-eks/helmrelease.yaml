@@ -76,6 +76,14 @@ spec:
                 value:
                   eks.amazonaws.com/role-arn: ${EXECUTOR_ROLE_ARN}
   install:
+    # Do not wait for the services to be ready before finishing the install. Found live (Lab 66):
+    # with the chart's own Postgres, the migration job is a post-install hook (templates/migrate-job.yaml),
+    # Helm runs a post-install hook only after every Deployment is ready, and the agent, executor and
+    # collector cannot become ready until the tables exist. A deadlock: Flux waited 5 minutes, removed
+    # the release, tried again, forever. Without the wait the hook runs at once and the services recover.
+    # Staging and prod never meet this (their database is a separate server, migrated BEFORE the install).
+    # A setting of the lab's own release, not a chart edit.
+    disableWait: true
     remediation:
       retries: 3
   upgrade:
