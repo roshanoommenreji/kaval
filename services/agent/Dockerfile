@@ -39,8 +39,8 @@ RUN uv export --frozen --no-dev --no-emit-project --extra diagnoser -o /requirem
 # (ci.yml installs the linux_amd64 build the same way, for the runner that runs `opa test`
 # and the pytest suite; this is the arm64 build, for the image that actually runs on Graviton.)
 FROM python:3.11-slim-bookworm@sha256:f06d01d4ba3f8ad5af45a3ec87df19c1d317d8e8961edc0fabda61811af6f7cf AS opa
-ARG OPA_VERSION=1.21.3
-ARG OPA_SHA256=45c8734a41436bf21d82453c2aa7b0ad47c150e8237310b8665e8b5a01305fc0
+ARG OPA_VERSION=1.21.4
+ARG OPA_SHA256=810aa96e44f1f852d044888cf830324e44eafd0f510345339011347ab4deaab1
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
  && rm -rf /var/lib/apt/lists/* \
  && curl -fsSLo /opa \

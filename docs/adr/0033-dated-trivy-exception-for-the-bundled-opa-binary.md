@@ -97,3 +97,11 @@ v1.21.0 binary has it too, so without any change every image scan would have fai
 same terms (only `usr/local/bin/opa`, a one-shot `opa eval` that checks no certificates) ending **2026-11-04**,
 two weeks. **Revisit by then:** an OPA release built with Go 1.27.3 or later, else build OPA from source in the
 Dockerfile with the fixed Go (the option decision 4 names). A fifth entry in this binary is the signal to do that.
+
+## Updated 2026-10-30 (KAV-65): the last one closed
+OPA v1.21.4 (2026-10-23) is built with Go 1.27.3 (`.go-version` in the release tag; the downloaded binary, run with
+`opa version`, prints `go1.27.3`). It is a patch release on the line we already run, so nothing else changes; v1.22.0
+(2026-10-29) is also on Go 1.27.3 but is a feature release, left for its own change. The pin moved from v1.21.3 in both
+Dockerfiles (arm64 build) and `ci.yml` (amd64 build), the checksums are the ones GitHub publishes for those two
+files, and the exception was removed. The file stays, with an empty list. Because the agent and executor images
+change, they go through staging before prod like any other image. The deadline of 2026-11-04 was met five days early.

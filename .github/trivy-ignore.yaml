@@ -7,16 +7,8 @@
 #     again by itself, so an exception cannot be forgotten;
 #   - `statement` says why it is safe and what ends it.
 
-# One entry (KAV-65, ADR-0033 amendment of 2026-10-21, approved by Roshan). The three Go CVEs the first
-# version of this file covered ended on 2026-10-21 when OPA v1.21.3 (Go 1.27.2, golang.org/x/net v0.60.0) was
-# pinned. A fourth, published after that, is in the same binary and is fixed only in Go 1.27.3 (or 1.26.10);
-# no OPA release is built with it yet (v1.21.3 and OPA's main branch were both on Go 1.27.2 on 2026-10-21).
-# Same reasoning as before: opa is a one-shot command (`opa eval`), never a server, and it checks no
-# certificates from anyone. Ends when an OPA release built with Go 1.27.3 or later is pinned. A fifth
-# entry in this binary means stop adding them and build OPA from source (ADR-0033).
-vulnerabilities:
-  - id: CVE-2026-111943
-    paths:
-      - usr/local/bin/opa
-    statement: crypto/x509 certificate-handling flaw; opa is a one-shot command that verifies no certificates
-    expired_at: 2026-11-04
+# No entries (KAV-65, ADR-0033 amendment of 2026-10-30). The last one, CVE-2026-111943 (a crypto/x509 flaw
+# fixed in Go 1.27.3), ended when OPA v1.21.4 (built with Go 1.27.3, checked by running it) was pinned. The file is
+# kept with an empty list because both image scans pass it with `--ignorefile`; the next exception goes here under
+# the rules above. A fifth entry in this binary means stop adding them and build OPA from source (ADR-0033).
+vulnerabilities: []
