@@ -150,8 +150,8 @@ note  = "Opens on the phone. Republish after `make dashboard`."
 
 [[links]]
 label = "Full project plan"
-url   = "file:///C:/Users/rosha/.claude/plans/i-want-to-do-twinkly-thompson.md"
-note  = "The reasoning behind every decision here."
+url   = "https://github.com/roshanoommenreji/kaval/blob/main/ROADMAP.md"
+note  = "The phase-by-phase plan and what is done."
 
 [[links]]
 label = "Vault note"
