@@ -205,16 +205,16 @@ First real spend. **Posture: paused between sessions** (`make down`).
 
 ## Phase 7 — EKS chapter · week 21 · `[ ]`
 
-- [ ] `infra/envs/lab-eks` — real EKS via Terraform *(code, timer, sweep and plan done 2026-10-29, `KAV-101`, [Lab 65](docs/labs/lab-65-building-the-eks-lab-before-spending-anything.md); **applied live in two sessions 2026-10-29/30 and destroyed clean**, `KAV-102`, [Lab 66](docs/labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md); ticked when the 24-hour sweep is clean, `KAV-103`)*
-- [ ] IRSA for the executor — no static keys *(proven live 2026-10-30: reads one parameter with no key, refused on another, no credentials for another service account; ticked with the 24-hour sweep)*
-- [ ] AWS Load Balancer Controller *(proven live: one balancer, reachable only from the laptop)*
-- [ ] Deploy the **identical** Helm chart, unmodified *(proven live: no chart edit; the lab's own release needed `disableWait`, a story below)*
+- [x] `infra/envs/lab-eks` — real EKS via Terraform *(code, timer, sweep and plan done 2026-10-29, `KAV-101`, [Lab 65](docs/labs/lab-65-building-the-eks-lab-before-spending-anything.md); **applied live in two sessions 2026-10-29/30 and destroyed clean**, `KAV-102`, [Lab 66](docs/labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md))*
+- [x] IRSA for the executor — no static keys *(proven live 2026-10-30: reads one parameter with no key, refused on another, no credentials for another service account)*
+- [x] AWS Load Balancer Controller *(proven live: one balancer, reachable only from the laptop)*
+- [x] Deploy the **identical** Helm chart, unmodified *(proven live: no chart edit; the lab's own release needed `disableWait`, a story below)*
 - [ ] Screenshot and record everything
 - [ ] `terraform destroy`, verified clean 24 h later
 - *Planning-standard additions (2026-10-11), each a checkbox below:*
-- [ ] A time-to-live on the EKS cluster so it cannot be left running ($73/month for the control plane alone): an automatic destroy, like staging's idle stop
-- [ ] Network policies and Pod Security Standards applied, and the chart's behaviour under them checked (EKS enforces more than k3s) *(done live: passes `baseline`, fails `restricted`; policies block an outsider and keep the real paths working)*
-- [ ] Observability parity: Prometheus and the poller run from the same chart by values only; the Kubernetes version and upgrade policy are written down
+- [x] A time-to-live on the EKS cluster so it cannot be left running ($73/month for the control plane alone): an automatic destroy, like staging's idle stop *(proven live 2026-10-29/30: servers to zero at 4 h 09 m, all deleted by 6 h 39 m)*
+- [x] Network policies and Pod Security Standards applied, and the chart's behaviour under them checked (EKS enforces more than k3s) *(done live: passes `baseline`, fails `restricted`; policies block an outsider and keep the real paths working)*
+- [x] Observability parity: Prometheus and the poller run from the same chart by values only; the Kubernetes version and upgrade policy are written down *(proven live: 8 of 8 targets up; policy in the runbook)*
 - [ ] Terraform plan reviewed and recorded before every apply; teardown verified by a tag-based sweep, not by memory
 - [ ] `docs/learn/phase-7-eks-chapter.md` — flip **Written from** to `experience`
 - *Follow-ups found live (2026-10-30, [Lab 66](docs/labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md)), each its own story:*
