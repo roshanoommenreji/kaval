@@ -106,7 +106,7 @@ cd infra/envs/lab-eks && terraform plan -destroy -out lab-destroy.tfplan && terr
 make lab-sweep
 ```
 
-If the destroy fails part-way, run it again; the timer will also finish the job at 6 hours. If a load balancer or disk shows in the sweep, check it exists (`describe-volumes`): the sweep reads a tag index that lags behind deletions and can list a disk that is already gone. If it does exist, delete it by its id, then record how it escaped.
+If the destroy fails part-way, run it again; the timer will also finish the job at 6 hours. If a load balancer or disk shows in the sweep, it is real: the sweep confirms each tagged disk, snapshot, address, network card and NAT gateway with its own service before reporting it, and says in a `note:` line when it ignored an entry the label index still lists but that no longer exists (the index lags behind deletions). Delete what is reported by its id, then record how it escaped.
 
 **24 hours later**, again: `make lab-sweep` and `make cost-report`. The exit gate is both showing nothing, not "destroy succeeded".
 
