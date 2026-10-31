@@ -219,8 +219,8 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] `docs/learn/phase-7-eks-chapter.md` — flip **Written from** to `experience`
 - *Follow-ups found live (2026-10-30, [Lab 66](docs/labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md)), each its own story:*
 - [ ] The chart installs over its own in-cluster database without deadlocking on the migration hook, then the lab's `disableWait` goes (`KAV-104`)
-- [ ] Every chart pod gets a security context so it passes Pod Security `restricted`, staging first (`KAV-105`)
-- [ ] The gateway's health page is split into liveness and readiness (`KAV-106`)
+- [~] Every chart pod gets a security context so it passes Pod Security `restricted`, staging first (`KAV-105`, [ADR-0068](docs/adr/0068-two-health-pages-and-pods-that-pass-restricted.md), [Lab 67](docs/labs/lab-67-two-health-pages-and-pods-that-pass-restricted.md)) — **built and tested locally 2026-10-31**: the cluster's own checker flags the old chart 9 times and the new one 0 times, and the database starts as its own user; staging run and promotion still to do
+- [~] The gateway's health page is split into liveness (`/livez`) and readiness (`/readyz`), and the chart's checks use them (`KAV-106`, [ADR-0068](docs/adr/0068-two-health-pages-and-pods-that-pass-restricted.md), [Lab 67](docs/labs/lab-67-two-health-pages-and-pods-that-pass-restricted.md)) — **built and tested locally 2026-10-31**; staging run and promotion still to do
 - [x] `lab_sweep.py` confirms a tagged resource still exists before reporting it (`KAV-107`, 2026-10-31)
 
 **Exit gate:** same chart runs on EKS with zero edits; teardown leaves zero billable resources.

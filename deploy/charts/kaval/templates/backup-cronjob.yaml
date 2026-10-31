@@ -20,9 +20,13 @@ spec:
         spec:
           {{- include "kaval.imagePullSecrets" . | nindent 10 }}
           restartPolicy: Never
+          {{- include "kaval.podSecurity" . | nindent 10 }}
           containers:
             - name: backup
               image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.backup.image.repository "tag" .Values.backup.image.tag) }}"
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: { drop: ["ALL"] }
               imagePullPolicy: {{ .Values.backup.image.pullPolicy }}
               command: ["scripts/ops/backup.sh"]
               envFrom:

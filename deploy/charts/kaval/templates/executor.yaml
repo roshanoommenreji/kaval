@@ -148,9 +148,13 @@ spec:
       # The same race agent.yaml already found and fixed (Lab 15): execute_one's first pass
       # can land before postgres is reachable, and the executor's --every loop doesn't retry
       # a connection failure either, it exits.
+      {{- include "kaval.podSecurity" . | nindent 6 }}
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.postgres.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           envFrom:
             - secretRef:
                 name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "executor") }}
@@ -164,6 +168,9 @@ spec:
       containers:
         - name: executor
           image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.executor.image.repository "tag" .Values.executor.image.tag) }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           imagePullPolicy: {{ .Values.executor.image.pullPolicy }}
           args: ["--every", {{ .Values.executor.executeEverySeconds | quote }}]
           envFrom:

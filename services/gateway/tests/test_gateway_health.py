@@ -70,3 +70,54 @@ def test_health_and_openapi_report_the_component_version(monkeypatch: pytest.Mon
     _stub(monkeypatch, Check(ok=True, detail="migrated"), Check(ok=True, detail="ready"))
     assert client.get("/healthz").json()["version"] == __version__
     assert client.get("/openapi.json").json()["info"]["version"] == __version__
+
+
+# --- KAV-106: "is it alive" and "is it ready for work" are two pages -------------------------
+
+
+def _boom_engine() -> Any:
+    raise ConnectionError("postgresql://kaval:secret@db/kaval refused")
+
+
+def test_livez_answers_200_with_nothing_behind_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Alive means the program answers. A dead database or a missing model must not make the
+    orchestrator restart a gateway that is fine: a restart cannot fix either."""
+    monkeypatch.setattr(main, "get_engine", _boom_engine)
+
+    def no_network(*args: Any, **kwargs: Any) -> Any:
+        raise OSError("down")
+
+    monkeypatch.setattr(httpx, "get", no_network)
+    resp = client.get("/livez")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok", "version": __version__}
+
+
+def test_readyz_needs_the_database_and_only_the_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ready means it can do its job: serve the API from a migrated database. The language model
+    is the diagnoser's business, so a missing model must not take the API out of service."""
+    _stub(monkeypatch, Check(ok=True, detail="migrated"), Check(ok=False, detail="down"))
+    resp = client.get("/readyz")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+
+
+def test_readyz_is_503_when_the_database_is_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "get_engine", _boom_engine)
+    resp = client.get("/readyz")
+    assert resp.status_code == 503
+    assert resp.json()["status"] == "degraded"
+    assert "secret" not in resp.text  # only the exception's type, as /healthz does
+
+
+def test_healthz_still_reports_everything(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The full report is unchanged: the watcher and a person at a terminal still use it."""
+    _stub(monkeypatch, Check(ok=True, detail="migrated"), Check(ok=False, detail="down"))
+    resp = client.get("/healthz")
+    assert resp.status_code == 503
+    assert set(resp.json()) == {"status", "version", "postgres", "ollama"}
+
+
+def test_the_probe_pages_are_in_the_api_description() -> None:
+    paths = client.get("/openapi.json").json()["paths"]
+    assert "/livez" in paths and "/readyz" in paths

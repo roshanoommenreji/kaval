@@ -58,7 +58,7 @@ tools (ADR-0016's deployed-agent trigger design remains unresolved). Wiring a Ku
 liveness/readiness probe to `/healthz` today would crash-loop a gateway that is, in every way
 that matters to the correlate loop this chart actually runs, working correctly. The gateway's
 probes check `tcpSocket` on the app port instead — an honest "is it accepting connections",
-not a false claim of full health. `/healthz` is still there to curl by hand (the chart's NOTES
+not a false claim of full health. *(Amended 2026-10-31, [ADR-0068](0068-two-health-pages-and-pods-that-pass-restricted.md): the gateway now has two probe pages that need no model, `/livez` and `/readyz`, and the chart's probes use them. The reasoning about `/healthz` stands; it is still never a probe.)* `/healthz` is still there to curl by hand (the chart's NOTES
 say so), and still reports its honest `degraded` status with `ollama.ok: false` — found live,
 not hypothesized, see Verification.
 

@@ -34,9 +34,13 @@ spec:
       # harmless-looking restart rather than a real race. The migrate Job already needed the
       # identical wait; this gives the agent the same guarantee instead of leaning on a restart
       # happening to land after postgres comes up.
+      {{- include "kaval.podSecurity" . | nindent 6 }}
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.postgres.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           envFrom:
             - secretRef:
                 name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "agent") }}
@@ -50,6 +54,9 @@ spec:
       containers:
         - name: agent
           image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.agent.image.repository "tag" .Values.agent.image.tag) }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           imagePullPolicy: {{ .Values.agent.image.pullPolicy }}
           args: ["--every", {{ .Values.agent.correlateEverySeconds | quote }}]
           envFrom:

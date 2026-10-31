@@ -38,9 +38,13 @@ spec:
     spec:
       {{- include "kaval.imagePullSecrets" . | nindent 6 }}
       restartPolicy: Never
+      {{- include "kaval.podSecurity" . | nindent 6 }}
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.postgres.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           envFrom:
             - secretRef:
                 name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "migrate") }}
@@ -54,6 +58,9 @@ spec:
       containers:
         - name: migrate
           image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.gateway.image.repository "tag" .Values.gateway.image.tag) }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
           command: ["alembic", "upgrade", "head"]
           envFrom:

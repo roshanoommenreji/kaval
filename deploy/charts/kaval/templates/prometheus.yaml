@@ -178,6 +178,7 @@ spec:
         runAsNonRoot: true
         runAsUser: 65534
         fsGroup: 65534
+        seccompProfile: { type: RuntimeDefault }
       {{- if .Values.prometheus.database.enabled }}
       initContainers:
         # Writes the database server's address into the two target files. The address comes from the
@@ -185,6 +186,9 @@ spec:
         # value is refused unless it looks like a host name or an address.
         - name: database-targets
           image: {{ .Values.prometheus.image | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           command:
             - sh
             - -c
@@ -209,6 +213,9 @@ spec:
       containers:
         - name: prometheus
           image: {{ .Values.prometheus.image | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           args:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.path=/prometheus
@@ -276,9 +283,13 @@ spec:
       # Talks to Prometheus and Postgres only. No Kubernetes API call anywhere in the code, so
       # no token is mounted; a bug here cannot be turned into cluster access.
       automountServiceAccountToken: false
+      {{- include "kaval.podSecurity" . | nindent 6 }}
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.postgres.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           envFrom:
             - secretRef:
                 name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "collector") }}
@@ -292,6 +303,9 @@ spec:
       containers:
         - name: collector-prometheus
           image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.collector.image.repository "tag" .Values.collector.image.tag) }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           imagePullPolicy: {{ .Values.collector.image.pullPolicy }}
           command: ["python", "-m", "kaval_collector.prometheus"]
           args:

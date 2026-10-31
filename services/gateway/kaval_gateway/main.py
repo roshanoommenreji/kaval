@@ -1,7 +1,8 @@
 """The gateway app: `/healthz` (KAV-22) plus the read-only /v1 REST surface (KAV-23).
 
 OpenAPI is generated from the code: interactive docs at /docs, the schema at /openapi.json.
-`/healthz` stays outside /v1 because probes aren't part of the versioned API contract.
+`/healthz`, `/livez` and `/readyz` stay outside /v1 because probes aren't part of the versioned
+API contract.
 
 The health check answers the two questions that matter before anything else can work: is the
 database reachable *and migrated*, and is the local model actually pulled, not merely is
@@ -105,6 +106,35 @@ def check_ollama() -> Check:
     if model and model not in names:
         return Check(ok=False, detail=f"{model} not pulled")
     return Check(ok=True, detail=f"{model or 'no model configured'} ready")
+
+
+class Alive(BaseModel):
+    status: Literal["ok"]
+    version: str
+
+
+class Ready(BaseModel):
+    status: Literal["ok", "degraded"]
+    version: str
+    postgres: Check
+
+
+# Two questions, two pages (KAV-106, ADR-0068). The orchestrator asks "is it alive?" to decide
+# whether to restart a copy and "is it ready?" to decide whether to send it traffic. Restarting
+# cannot fix a database or a model that is down, so liveness depends on nothing. Readiness is
+# what this program needs to do its own job: a migrated database. The language model is the
+# diagnosis worker's dependency, not the gateway's, so it stays out of both and in /healthz.
+@app.get("/livez", response_model=Alive, tags=["health"])
+def livez() -> Alive:
+    return Alive(status="ok", version=__version__)
+
+
+@app.get("/readyz", response_model=Ready, tags=["health"])
+def readyz(response: Response) -> Ready:
+    pg = check_postgres()
+    if not pg.ok:
+        response.status_code = 503
+    return Ready(status="ok" if pg.ok else "degraded", version=__version__, postgres=pg)
 
 
 @app.get("/healthz", response_model=Health, tags=["health"])

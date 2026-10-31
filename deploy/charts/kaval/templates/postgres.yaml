@@ -55,9 +55,25 @@ spec:
       labels:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
     spec:
+      # Pod Security `restricted` (KAV-105, ADR-0068). 999 is the user the pgvector/postgres image
+      # was built for. A non-root Postgres cannot take over the disk's top folder (initdb must own
+      # what it initialises, and a folder the group may write is not one it owns), so the data
+      # lives in a subfolder the group may create: PGDATA below. Data left in the old place by an
+      # earlier release is not seen; this database is the local and lab one, rebuilt from nothing.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile: { type: RuntimeDefault }
       containers:
         - name: postgres
           image: {{ .Values.postgres.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          env:
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
           envFrom:
             - secretRef:
                 name: {{ include "kaval.fullname" . }}-postgres
