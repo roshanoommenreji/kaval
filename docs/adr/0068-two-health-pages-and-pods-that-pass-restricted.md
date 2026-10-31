@@ -54,3 +54,7 @@ The in-cluster Postgres (local, k3d and the lab; staging and prod use a separate
 ## What would make us revisit
 
 A second chart dependency that needs root (a database image or a driver). That would be a reason for a namespace-level exemption written down with its reason, not a quiet loosening of the template.
+
+## Amendment 2026-10-31 — the first staging run found a fourth thing
+
+The staging run for this change did exactly what staging is for. The first pod (the database migration) never left its start-up wait: the wait runs `pg_isready` from the stock Postgres image, and with the pod now running as user 10001 (an account that image does not have) `pg_isready` cannot work out a default database user and answers "no attempt" for ever. Reproduced locally in seconds: as 10001 the old command says "no attempt", with the user named (`-U "$POSTGRES_USER"`, which every database Secret already carries) it says "accepting connections". All seven start-up waits (agent, collector, the Prometheus poller, cost, diagnoser, executor, migrate) now name the user. `pg_dump` (the backup job) already did, and was re-checked as 10001. A new chart test fails if any `pg_isready` in any environment omits `-U`, with a negative case. The lesson is the one the Decision already states: rendering and the cluster's dry run prove a pod is admitted, not that it works; only running it does.

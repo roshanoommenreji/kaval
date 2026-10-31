@@ -109,6 +109,42 @@ def test_the_checker_itself_refuses_a_pod_that_is_not_locked_down() -> None:
         "Deployment/root/app: no numeric non-zero runAsUser"]
 
 
+def anonymous_pg_isready(where: str, pod: dict[str, Any]) -> list[str]:
+    """Containers that run pg_isready without naming the database user.
+
+    Found live on staging (KAV-105 follow-up): the pods now run as uid 10001, which the Postgres
+    image has no account for, so pg_isready cannot work out a default user and answers "no
+    attempt" for ever. The start-up wait then never ends. Naming the user (-U) avoids the lookup."""
+    found = []
+    for c in [*pod.get("initContainers", []), *pod.get("containers", [])]:
+        text = " ".join(str(part) for part in [*c.get("command", []), *c.get("args", [])])
+        if "pg_isready" in text and " -U " not in text:
+            found.append(f"{where}/{c['name']}: pg_isready without -U")
+    return found
+
+
+@needs_helm
+@pytest.mark.parametrize("env", ENVS)
+def test_every_postgres_wait_names_its_user(env: str) -> None:
+    pods = _pod_specs(_render(env))
+    waits = [c for _, pod in pods for c in pod.get("initContainers", [])
+             if "pg_isready" in " ".join(c.get("command", []))]
+    if env != "local":  # local runs its own database, the others wait for a separate server
+        assert waits, "found no start-up wait at all, so this test checks nothing"
+    problems = [p for where, pod in pods for p in anonymous_pg_isready(where, pod)]
+    assert not problems, "\n".join(problems)
+
+
+def test_the_user_check_itself_refuses_a_wait_that_names_nobody() -> None:
+    """The negative case: yesterday's wait is reported; a wait that names its user is not."""
+    bad = {"initContainers": [{"name": "wait", "command": [
+        "sh", "-c", 'until pg_isready -h "$H"; do :; done']}]}
+    good = {"initContainers": [{"name": "wait", "command": [
+        "sh", "-c", 'until pg_isready -h "$H" -U "$POSTGRES_USER"; do :; done']}]}
+    assert anonymous_pg_isready("Job/x", bad) == ["Job/x/wait: pg_isready without -U"]
+    assert anonymous_pg_isready("Job/x", good) == []
+
+
 def _gateway_container(env: str) -> dict[str, Any]:
     for where, pod in _pod_specs(_render(env)):
         if where.startswith("Deployment/") and where.endswith("-gateway"):

@@ -62,7 +62,36 @@ kubectl delete ns psa-test
 
 Not done: a minikube profile would not start on this laptop (the cluster's own control plane stayed stopped), so Docker Desktop's cluster did the dry run. A dry run proves the cluster would admit the pods; it does not run them. Running them is the staging smoke test.
 
-## Part 5 — What staging proves next (not done yet)
+## Part 5 — The first staging run found a fourth thing
+
+`ASSUME_YES=1 make staging-up` built everything (91 resources) and then waited 15 minutes without the pods coming up. `make staging-status` showed one pod, the database migration, stuck in its first step. Its log said `10.61.1.71:5432 - no attempt` over and over, and `no attempt` is different from `no response`: the check had not even tried to connect.
+
+Reproduced locally with no AWS (about a minute):
+
+```bash
+export MSYS_NO_PATHCONV=1
+docker network create pgt
+docker run -d --rm --name pgt-db --network pgt -e POSTGRES_PASSWORD=x -e POSTGRES_USER=kaval pgvector/pgvector:pg16
+sleep 8
+# the old wait, as the chart's new user 10001:
+docker run --rm --network pgt --user 10001:10001 -e POSTGRES_HOST=pgt-db -e POSTGRES_PORT=5432 -e POSTGRES_USER=kaval \
+  pgvector/pgvector:pg16 sh -c 'pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT"'
+# the fixed wait:
+docker run --rm --network pgt --user 10001:10001 --cap-drop ALL --security-opt no-new-privileges -e POSTGRES_HOST=pgt-db -e POSTGRES_PORT=5432 -e POSTGRES_USER=kaval \
+  pgvector/pgvector:pg16 sh -c 'pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER"'
+docker rm -f pgt-db; docker network rm pgt
+```
+
+| Wait command, run as user 10001 | Result |
+|---|---|
+| `pg_isready -h … -p …` (what the chart had) | `no attempt` — the image has no account for user 10001, so the tool cannot pick a default database user and gives up before connecting |
+| `pg_isready -h … -p … -U "$POSTGRES_USER"` | `accepting connections` |
+
+The fix is the same one word in seven places (agent, collector, the Prometheus poller, cost, diagnoser, executor, migrate). `pg_dump` in the backup job already named its user and was re-checked as 10001: it connects. A chart test now fails if any `pg_isready` in any environment omits `-U` (red first on all four environments, then green), with a negative case.
+
+Why nothing earlier caught it: the chart tests read the rendered file and the cluster's dry run asks "would you admit this pod?". Neither runs the pod. This is the gap the staging run exists to close.
+
+## Part 6 — What staging proves next (not done yet)
 
 `make staging-up`, then `make staging-smoke`. Its "pods running and ready" check is the live proof of both stories: a gateway image without `/readyz` would never become ready, and a pod whose new settings stop it starting would not either. Production then picks the images up at its next bring-up through the normal promotion gate, followed by `make prod-smoke`. The EKS lab is not run again; when it next runs, the namespace can enforce `restricted` and the Ingress health path can move to `/readyz`.
 
