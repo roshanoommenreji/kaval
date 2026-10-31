@@ -1,6 +1,6 @@
 # Lab 68 — Only one gateway copy notifies at a time: built and proven locally
 
-**Phase:** 6 follow-up · **Story:** `KAV-100` · **Time:** about 2 hours · **Cost:** $0 so far (the staging proof is about $0.50 to $1, still to come)
+**Phase:** 6 follow-up · **Story:** `KAV-100` · **Time:** about 2 hours · **Cost:** $0 so far (the standard staging run before promotion costs about $0.50 to $1)
 
 [Lab 64](lab-64-closing-phase-6-on-production.md) found that production's two gateway copies sent the same "nobody has answered" alert twice. This lab closes the gap, test first, against a real Postgres. The decision is in [ADR-0069](../adr/0069-only-one-gateway-copy-notifies-at-a-time.md).
 
@@ -46,15 +46,15 @@ Re-run: 6 new tests pass; `pytest services` 871 passed, 19 skipped; ruff clean o
 
 ## Part 4 — Still to do
 
-1. **Staging with two gateway copies.** Staging runs one, so the proof run sets two for that run. Needs the user's go (`make staging-up`, about $0.50 to $1). File one approval request (`make approvals-file`), let it pass its reminder time, and check `make approvals-report`: the message was recorded once.
-2. **Production** picks the change up at its next bring-up; the same report check follows `make prod-smoke`.
+1. **Staging** is the ordinary gate before promotion (`make staging-up`, `make staging-smoke`; needs the user's go, about $0.50 to $1). It proves the new gateway starts and passes the standard checks. **It cannot prove the lock:** staging has no Slack app, so its notifier loop never runs. (An earlier version of this plan promised a staging proof with two copies; that was wrong.)
+2. **Production** is the only place the fix can be seen, because it is the only place with Slack and two gateway copies. At its next bring-up, after `make prod-smoke`: one of the two gateway logs shows `another gateway copy is notifying, skipping this round` and the other does not; and no approval message is recorded twice (the query in `make approvals-report`, run against production's database).
 
 ## Done when
 
 - The six tests pass, and the first of them shows the bug without the lock
 - ADR-0069, this lab, the runbook note, the roadmap line, the journal and the repo guide are updated
-- Still open: the staging proof with two copies, then production
+- Still open: the standard staging run, then production's next bring-up, where the lock is seen working
 
 ## Cost
 
-$0 for the build. The staging proof, when done, is about $0.50 to $1.
+$0 for the build. The standard staging run before promotion is about $0.50 to $1.
