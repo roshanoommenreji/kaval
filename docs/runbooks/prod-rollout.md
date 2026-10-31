@@ -102,6 +102,18 @@ and the database server's `node_exporter` on 9100 and `postgres_exporter` on 918
 (`kaval-prod-still-alive`) stayed `OK` with 2 to 3 datapoints in every 5-minute reading
 ([still-alive-alarm.md](still-alive-alarm.md)).
 
+### 4b. Only if `kubectl get helmrelease -A` shows `kaval-prod` Failed or Stalled and fixing the cause in git changed nothing (reversible; blast radius: the Kaval release in its own namespace, not the database)
+
+Flux retries a failed install or upgrade three times. When the three have run out on a broken chart, the release stays failed and is not tried again by itself, even once the fix is merged (production on 2026-10-02, staging on 2026-10-31; first installs show it as `MissingRollbackTarget`). Check first that the cause really is fixed and that a stuck migration job from the broken chart is gone (a running job cannot be edited: `kubectl -n kaval-prod delete job <release>-migrate-<n>`). Then, from the server:
+
+```bash
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+kubectl -n flux-system delete helmrelease kaval-prod     # Flux's kustomization puts it back at its next sync as a clean install (or re-apply it: kubectl apply -f deploy/gitops/prod/helmrelease.yaml)
+kubectl get helmrelease -n flux-system -w                # wait for Ready=True
+```
+
+This is the way that has worked in production. Flux's own reset, `flux reconcile helmrelease kaval-prod -n flux-system --reset`, is documented to clear the retry count and has not been tried here. Staging is cheaper to rebuild (`make staging-down`, `make staging-up`), but the same two steps work there with `kaval-staging`.
+
 ### 5. Only if the migration did not run by itself: run it by hand (reversible only from the snapshot; blast radius: the production database)
 
 Since `KAV-85` the migrate Job is a `pre-install` hook, so the database is brought to the new version before any
