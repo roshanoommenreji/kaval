@@ -1,6 +1,6 @@
-# Lab 67 — Two health pages and pods that pass `restricted`: built and proven locally
+# Lab 67 — Two health pages and pods that pass `restricted`: built, proven locally, passed staging
 
-**Phase:** 7 follow-ups · **Stories:** `KAV-106` and `KAV-105`, one package · **Time:** about 2 hours · **Cost:** $0 for this lab (the staging run that comes next is about $1)
+**Phase:** 7 follow-ups · **Stories:** `KAV-106` and `KAV-105`, one package · **Time:** about 2 hours · **Cost:** $0 for this lab (the two staging runs came to roughly $1 to $2)
 
 [Lab 66](lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md) found two weaknesses in the shared chart. This lab fixes both, test first, and proves what can be proven without AWS. The decisions are in [ADR-0068](../adr/0068-two-health-pages-and-pods-that-pass-restricted.md).
 
@@ -91,9 +91,20 @@ The fix is the same one word in seven places (agent, collector, the Prometheus p
 
 Why nothing earlier caught it: the chart tests read the rendered file and the cluster's dry run asks "would you admit this pod?". Neither runs the pod. This is the gap the staging run exists to close.
 
-## Part 6 — What staging proves next (not done yet)
+## Part 6 — Staging, run again from nothing: it passes
 
-`make staging-up`, then `make staging-smoke`. Its "pods running and ready" check is the live proof of both stories: a gateway image without `/readyz` would never become ready, and a pod whose new settings stop it starting would not either. Production then picks the images up at its next bring-up through the normal promotion gate, followed by `make prod-smoke`. The EKS lab is not run again; when it next runs, the namespace can enforce `restricted` and the Ingress health path can move to `/readyz`.
+The first attempt could not be rescued. After the fix merged, Flux picked up the new chart, but the migration job from the broken version was still sitting there (a running job's recipe cannot be changed), so I deleted that one job. Flux still would not retry: its log said `MissingRollbackTarget`. The release had failed on its very first install, so there was no earlier version to roll back to, and with no retries set in `deploy/gitops/staging/helmrelease.yaml` it stays failed until the release's record is removed. Rather than edit Flux's records by hand, staging was destroyed (`ASSUME_YES=1 make staging-down`, 90 resources) and built again (`ASSUME_YES=1 make staging-up`) from the fixed chart. Everything on staging is throwaway.
+
+| After the clean rebuild | Result |
+|---|---|
+| Pods | 9 of 9 running and ready, the gateway included, so `/readyz` answers 200 once the database is migrated (it answered 503 before, correctly) |
+| `make staging-smoke` | 7 of 7 checks pass: pods ready, 0 restarts, every service on `sha-cc55f32`, running digests equal ECR, database migrated, `/v1/incidents` and `/v1/signals` answer 200 |
+
+The pass was recorded through PR #277; `promote.yml` accepted `sha-cc55f32` and opened the production pin (PR #278, merged). Production is parked, so it picks the images up at its next bring-up; `make prod-smoke` after that is the last step for `KAV-105` and `KAV-106`.
+
+**Gotcha worth knowing:** a Flux release that fails on its first install is wedged (`MissingRollbackTarget`), and fixing the cause in git does not unwedge it. The two ways out are to destroy and rebuild (what was done) or to remove the failed release's record on the server. A possible change, not made, is to let Flux retry a failed install (`install.remediation.retries`) in the staging and production HelmReleases.
+
+Not done: the EKS lab is not run again. When it next runs, its namespace can enforce `restricted` and the Ingress health path can move to `/readyz`.
 
 ## Done when
 
@@ -101,8 +112,9 @@ Why nothing earlier caught it: the chart tests read the rendered file and the cl
 - The database starts under the new settings and fails under the old layout (Part 3)
 - The cluster's checker flags the old chart 9 times and the new chart 0 times (Part 4)
 - ADR-0068, the roadmap lines, the runbook, the repo guide, the journal are updated
-- Still open: the staging run, promotion, prod bring-up and `make prod-smoke` (`KAV-105`, `KAV-106` stay open until then)
+- Staging passed on a clean rebuild (Part 6) and the images are promoted (PR #278)
+- Still open: production's next bring-up and `make prod-smoke` (`KAV-105`, `KAV-106` stay open until then)
 
 ## Cost
 
-Nothing: no AWS resource was created. The staging run is about $1 and is shared with whatever else is waiting to be proven there.
+Two staging runs (the first attempt, then the clean rebuild) came to roughly $1 to $2 in total; staging is destroyed again and nothing is running.
