@@ -1,6 +1,6 @@
 # ADR-0069 — Only one gateway copy notifies at a time
 
-- **Status:** Accepted (plan approved by Roshan 2026-10-31). Built and tested against a real Postgres; the live proof (two gateway copies on staging, then production) is still to come
+- **Status:** Accepted (plan approved by Roshan 2026-10-31). Built and tested against a real Postgres; the live proof can only be seen in production, which is the only environment with a Slack app (staging has none, so its notifier loop never runs); it comes at production's next bring-up
 - **Date:** 2026-10-31
 - **Deciders:** Roshan
 - **Story:** `KAV-100`, found live in production on 2026-10-27 ([Lab 64](../labs/lab-64-closing-phase-6-on-production.md)) · builds on [ADR-0048](0048-approvals-nobody-answers-expiry-and-escalation.md) (the reminders) and [ADR-0026](0026-slack-chatops-and-deferred-mobile.md) (the notifier loop)
@@ -24,7 +24,7 @@ Production runs two copies of the gateway for availability, and each copy runs t
 - **No schema change, no new permission.** The lock is a number the gateway's own database role can already take.
 - **One window remains, as before:** if a copy crashes after posting and before recording, the next round can post that one message again. Closing it needs option 2; the window was there before and is much smaller than the one fixed.
 - **A hung copy could silence notifications.** If a copy holds the lock while its Slack call hangs, the other copy skips rounds. The lock is held for one round only, Slack's client has its own timeout, and a test proves the lock is released when a pass fails.
-- **Seen in the logs:** a skipped round logs `another gateway copy is notifying`. `make approvals-report` lists any approval message recorded twice, which is how a duplicate would show on staging.
+- **Seen in the logs:** a skipped round logs `another gateway copy is notifying`. In production, one of the two gateway copies should log that line and the other should not, and no approval message may be recorded twice (the same query that `make approvals-report` runs; staging cannot show it, having no Slack).
 - **A question still open when production is parked** is not changed: at the next start it gets the ordinary "expired, nothing was done" message (ADR-0048), because a proposal older than its expiry is no longer trusted. Written into the runbook.
 
 ## Testing
