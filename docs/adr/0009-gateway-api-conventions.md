@@ -16,7 +16,7 @@ first client exists.
 
 | Convention | Choice | Why |
 |---|---|---|
-| Versioning | Everything under **`/v1`**. Health probes (`/healthz`) stay outside | A breaking change becomes `/v2` alongside `/v1`, so an app already installed on a phone keeps working. Probes are for Kubernetes, not a client contract |
+| Versioning | Everything under **`/v1`**. Health probes (`/healthz`, and since 2026-10-31 `/livez` and `/readyz`, [ADR-0068](0068-two-health-pages-and-pods-that-pass-restricted.md)) stay outside | A breaking change becomes `/v2` alongside `/v1`, so an app already installed on a phone keeps working. Probes are for Kubernetes, not a client contract |
 | Writes | **None until the approval flow.** Every request runs in a Postgres `READ ONLY` transaction | The audit trail can't be changed by a gateway bug. The database refuses the write; code review isn't the only guard. Per-service database roles (ADR-0008, Phase 4) add the same limit at the credential level |
 | Lists | Newest first, **cursor-paged**: `?limit=` (1–200, default 50) and an opaque `?cursor=` from the previous page's `next_cursor` | Signals arrive continuously. With `?page=N`, rows that land between two requests shift everything, so some get skipped or shown twice. A cursor means "older than this exact row" (its timestamp, with the id to break ties), so each row appears exactly once |
 | Money | Decimal amounts are **strings** in JSON (`"cost_usd": "0.000120"`) | A JSON number is a float in most clients, and floats can't represent most cents exactly |

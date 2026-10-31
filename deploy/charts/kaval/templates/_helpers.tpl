@@ -114,3 +114,20 @@ readinessProbe:
   periodSeconds: 10
   failureThreshold: 3
 {{- end -}}
+
+{{/*
+Pod Security `restricted` (KAV-105, ADR-0068). Found live in Lab 66: the chart passed `baseline` but
+failed `restricted` on all seven pods. Pod level: never root, the user our images already run as
+(`useradd --uid 10001` in each Dockerfile), and the runtime's default system-call filter. Every
+container also gets "kaval.containerSecurity" (no privilege escalation, no extra powers). Written
+into the templates and not into values: a pod that is not locked down is a defect in every
+environment, not a setting. Postgres and Prometheus run as the user their images were built for,
+so they carry their own block.
+*/}}
+{{- define "kaval.podSecurity" -}}
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  seccompProfile: { type: RuntimeDefault }
+{{- end -}}

@@ -17,9 +17,13 @@ spec:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
     spec:
       {{- include "kaval.imagePullSecrets" . | nindent 6 }}
+      {{- include "kaval.podSecurity" . | nindent 6 }}
       containers:
         - name: gateway
           image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.gateway.image.repository "tag" .Values.gateway.image.tag) }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
           envFrom:
             - secretRef:
@@ -47,24 +51,27 @@ spec:
           ports:
             - containerPort: {{ .Values.gateway.port }}
             - { name: metrics, containerPort: 9100 }
-          # NOT wired to /healthz: that endpoint also checks Ollama reachability
-          # (kaval_gateway/main.py's check_ollama()), and the gateway is not pointed at the model
-          # (the in-cluster one since KAV-87 is the diagnoser's, not the gateway's) — ollamaBaseUrl
-          # is empty by default, so /healthz would report unhealthy and a
-          # probe pointed at it would crash-loop a gateway that is, in every way that matters
-          # to the agent loop running in this chart, actually fine. A TCP check on the app
-          # port is an honest "is it up and accepting connections", not a false claim of full
-          # health. /healthz itself is still there to curl by hand — see Lab 15.
+          # Two pages, two questions (KAV-106, ADR-0068). Alive: /livez, which depends on nothing, so
+          # a restart is only ever asked for when the program itself is stuck. Ready: /readyz, which
+          # needs the migrated database, so a copy cut off from it stops receiving traffic and a
+          # rollout waits for it. NOT /healthz: that also checks the language model, and the gateway
+          # is not pointed at one (the in-cluster one is the diagnoser's, KAV-87), so a probe on it
+          # would take a gateway that is fine out of service. /healthz stays for the watcher and
+          # for a person with curl (Lab 15).
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /readyz
               port: {{ .Values.gateway.port }}
             initialDelaySeconds: 5
             periodSeconds: 5
+            failureThreshold: 3
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /livez
               port: {{ .Values.gateway.port }}
             initialDelaySeconds: 10
             periodSeconds: 10
+            failureThreshold: 3
           resources:
             {{- toYaml .Values.gateway.resources | nindent 12 }}
 ---

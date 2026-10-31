@@ -74,9 +74,13 @@ spec:
       automountServiceAccountToken: true
       # The same race agent.yaml and executor.yaml already found and fixed (Lab 15, Lab 16):
       # the first poll can land before postgres is reachable.
+      {{- include "kaval.podSecurity" . | nindent 6 }}
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.postgres.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           envFrom:
             - secretRef:
                 name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "collector") }}
@@ -90,6 +94,9 @@ spec:
       containers:
         - name: collector
           image: "{{ include "kaval.image" (dict "root" $ "repository" .Values.collector.image.repository "tag" .Values.collector.image.tag) }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           imagePullPolicy: {{ .Values.collector.image.pullPolicy }}
           # Overrides the image's default ENTRYPOINT (kaval_collector.synthetic, the
           # one-shot fake-incident generator) — this Deployment runs the real watcher.

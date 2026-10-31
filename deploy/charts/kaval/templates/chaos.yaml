@@ -136,9 +136,13 @@ spec:
           serviceAccountName: {{ include "kaval.fullname" $ }}-chaos-runner
           automountServiceAccountToken: true
           restartPolicy: Never
+          {{- include "kaval.podSecurity" . | nindent 10 }}
           containers:
             - name: chaos
               image: "{{ include "kaval.image" (dict "root" $ "repository" $.Values.executor.image.repository "tag" $.Values.executor.image.tag) }}"
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: { drop: ["ALL"] }
               imagePullPolicy: {{ $.Values.executor.image.pullPolicy }}
               command: ["python", "-m", "kaval_executor.chaos", "{{ $experiment }}"]
               env:

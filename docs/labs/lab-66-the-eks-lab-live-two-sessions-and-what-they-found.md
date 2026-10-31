@@ -104,8 +104,8 @@ The first overnight cleanup showed the order matters. Use this one:
 Each is its own Jira story and roadmap line (Phase 7 follow-ups); none was patched in the lab.
 
 1. **The chart should install over its own database** without the lab's `disableWait`: make the migration safe for a fresh in-cluster Postgres.
-2. **The chart's pods need a security context** to pass `restricted`.
-3. **Split the gateway's health into "alive" and "ready"** (app up versus model ready).
+2. ~~**The chart's pods need a security context** to pass `restricted`.~~ Built 2026-10-31 (`KAV-105`, [Lab 67](lab-67-two-health-pages-and-pods-that-pass-restricted.md)); staging and promotion still to do.
+3. ~~**Split the gateway's health into "alive" and "ready"** (app up versus model ready).~~ Built 2026-10-31 (`KAV-106`, same lab): `/livez` and `/readyz`; the model stays in `/healthz`.
 4. ~~`lab_sweep.py` should confirm a tagged resource exists before reporting it.~~ Done 2026-10-31 (`KAV-107`).
 
 ## Done when

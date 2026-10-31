@@ -38,9 +38,13 @@ spec:
     spec:
       {{- include "kaval.imagePullSecrets" . | nindent 6 }}
       automountServiceAccountToken: false
+      {{- include "kaval.podSecurity" . | nindent 6 }}
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.postgres.image }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
           envFrom:
             - secretRef:
                 name: {{ include "kaval.postgresSecretName" (dict "root" $ "service" "agent") }}
