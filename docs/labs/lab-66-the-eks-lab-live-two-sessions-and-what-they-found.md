@@ -85,7 +85,7 @@ All seven pods lack `allowPrivilegeEscalation: false`, dropped capabilities, `ru
 
 ### Also
 
-- The tag-based sweep reads the Resource Groups Tagging API, which lags behind a deletion: it listed two disks that `describe-volumes` said did not exist. A follow-up makes the sweep confirm a thing still exists before reporting it.
+- The tag-based sweep reads the Resource Groups Tagging API, which lags behind a deletion: it listed two disks that `describe-volumes` said did not exist. The sweep now confirms each tagged disk, snapshot, address, network card and NAT gateway with its own service before reporting it, and names what it ignored (`KAV-107`, 2026-10-31).
 - Reaping by the timer does not repair Terraform's record: after the timer deleted things in session one, `terraform destroy` still had to run.
 
 ## Part 3 — The teardown order that works
@@ -106,7 +106,7 @@ Each is its own Jira story and roadmap line (Phase 7 follow-ups); none was patch
 1. **The chart should install over its own database** without the lab's `disableWait`: make the migration safe for a fresh in-cluster Postgres.
 2. **The chart's pods need a security context** to pass `restricted`.
 3. **Split the gateway's health into "alive" and "ready"** (app up versus model ready).
-4. **`lab_sweep.py` should confirm a tagged resource exists** before reporting it.
+4. ~~`lab_sweep.py` should confirm a tagged resource exists before reporting it.~~ Done 2026-10-31 (`KAV-107`).
 
 ## Done when
 

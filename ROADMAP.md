@@ -221,7 +221,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] The chart installs over its own in-cluster database without deadlocking on the migration hook, then the lab's `disableWait` goes (`KAV-104`)
 - [ ] Every chart pod gets a security context so it passes Pod Security `restricted`, staging first (`KAV-105`)
 - [ ] The gateway's health page is split into liveness and readiness (`KAV-106`)
-- [ ] `lab_sweep.py` confirms a tagged resource still exists before reporting it (`KAV-107`)
+- [x] `lab_sweep.py` confirms a tagged resource still exists before reporting it (`KAV-107`, 2026-10-31)
 
 **Exit gate:** same chart runs on EKS with zero edits; teardown leaves zero billable resources.
 
