@@ -27,6 +27,7 @@ an expired request is not the end: if the item is still waste, the planner asks 
 - Is the problem still there? Look at the incident's signals (`make context INCIDENT=<id>`). If it
   fixed itself, nothing needs doing
 - Is the gateway posting? Look for the `slack_chatops: connected` line in its log
+- Did a message arrive twice? Production runs two gateway copies and only one notifies at a time (`KAV-100`, ADR-0069): `another gateway copy is notifying, skipping this round` in a gateway's log is normal. On staging, `make approvals-report` lists any approval message recorded twice; production's check is the same query
 - How old is the request? `GET /v1/actions` shows `created_at`
 
 ## Remediation
@@ -35,6 +36,7 @@ an expired request is not the end: if the item is still waste, the planner asks 
 - **Expired:** do not look for a way to revive it. Ask for a fresh diagnosis (`make diagnose INCIDENT=<id>`);
   the new proposal is judged on how things are *now*
 - **Approved but refused as too old:** the same, a new proposal and a new approval
+- **A request still open when production was parked:** nothing to do. At the next start it gets the ordinary "expired, nothing was done" message, because a proposal older than its expiry is no longer trusted; ask for a fresh diagnosis
 - **Slack not delivering:** fix the Slack connection first (the Slack Secret and the app's Socket Mode);
   the reminders then resume on their own
 

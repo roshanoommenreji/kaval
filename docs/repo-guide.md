@@ -135,6 +135,8 @@ think.**
 | `services/gateway/kaval_gateway/decisions.py` | `record_decision()` — the one write every approval surface shares (`api.decide()` and Slack ChatOps both call it) | Working (`KAV-55`) |
 | `services/gateway/kaval_gateway/approvals.py` | Approvals that nobody answers: a reminder at 15 minutes, a louder message at 30, an expiry at 4 hours; `is_expired` is what `decisions.record_decision` uses to refuse a late click. Settings `APPROVAL_*_MINUTES` (`KAV-82`, ADR-0048) | Working, tested; live on staging, Slack delivery seen in prod only (`KAV-83`) |
 | `services/gateway/kaval_gateway/slack_chatops.py` | Slack ChatOps (ADR-0026): an outbound Socket Mode connection, no inbound endpoint ever. No-op unless `SLACK_BOT_TOKEN`/`SLACK_APP_TOKEN`/`SLACK_CHANNEL_ID` are set | Working, live-verified on the dev server's k3d cluster (`KAV-55`, Lab 21) |
+| `services/gateway/kaval_gateway/notifier_lock.py` | A Postgres advisory lock so only one gateway copy runs the notifier round at a time; the second copy skips (`KAV-100`, ADR-0069) | Working, tested; staging and prod proof to come |
+| `services/gateway/tests/test_notifier_lock.py` | Two gateway copies against a real Postgres: twice without the lock (the bug), once with it, and the lock freed after a failed pass (`KAV-100`) | Built |
 | `services/gateway/tests/` | Health-check tests, plus API tests against a real database: paging, filters, the incident timeline, error codes, the read-only guard | Working |
 | `services/conftest.py` | The shared test fixture `db_session`: each test runs inside a transaction that's rolled back, and tests needing the database skip when none is reachable | Working (`KAV-23`) |
 

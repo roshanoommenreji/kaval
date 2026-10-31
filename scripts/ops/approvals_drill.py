@@ -12,8 +12,10 @@ in for both by hand, and says so:
       For each such request: its age, whether it has expired, and the exact messages the REAL
       notifier would send right now (reminder, escalation or expiry), produced by running
       `approvals.notify_pass` with a recording client inside a transaction that is rolled back.
-      Nothing is posted and nothing is stored. The timings are read from the environment the
-      chaos wrapper copies from the running gateway, so this shows what staging really uses.
+      It also lists any approval message recorded twice, which is how a duplicate send between
+      two gateway copies shows up (KAV-100). Nothing is posted and nothing is stored. The timings
+      are read from the environment the chaos wrapper copies from the running gateway, so this
+      shows what staging really uses.
 
 The live part is the rest: after the request's expiry, `make chaos-approve` on it must be refused
 by the real gateway (HTTP 409, "expired").
@@ -85,8 +87,8 @@ def file_request() -> int:
 def report() -> int:
     from kaval_gateway import approvals
     from kaval_shared.db import get_engine
-    from kaval_shared.models import Action
-    from sqlalchemy import select
+    from kaval_shared.models import Action, Notification
+    from sqlalchemy import func, select
     from sqlalchemy.orm import Session
 
     timing = approvals.Timing.from_env()
@@ -104,6 +106,13 @@ def report() -> int:
                     state = ("decided" if action.decision is not None else
                              "EXPIRED" if approvals.is_expired(action, now, timing) else "waiting")
                     print(f"request {action.id}  age {int(age.total_seconds() // 60)} min  {state}")
+                twice = [row for row in db.execute(
+                    select(Notification.key, func.count())
+                    .where(Notification.key.like("approval-%"))
+                    .group_by(Notification.key).having(func.count() > 1)
+                )]
+                print("approval messages recorded twice (KAV-100): "
+                      + (", ".join(f"{key} x{n}" for key, n in twice) if twice else "none"))
                 recorder = _Recorder()
                 approvals.notify_pass(db, recorder, "dry-run", "dry-run-escalation", now=now,
                                       timing=timing, told_only=False)
