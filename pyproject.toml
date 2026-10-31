@@ -18,7 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gateway = [
-    "fastapi>=0.161.1",
+    "fastapi>=0.162.0",
     "uvicorn[standard]>=0.54.0",
     "httpx>=0.27",
     # Slack ChatOps (KAV-55, ADR-0026): the outbound Socket Mode connection and chat.postMessage.
@@ -38,8 +38,8 @@ agent = [
     # profile, or an instance role — never a key committed anywhere), so boto3 is a real runtime
     # dependency here, not incidental. Laptop-only for the same reason httpx above is: nothing
     # decides how the deployed agent gets triggered yet (ADR-0016).
-    "anthropic>=2.2.0",
-    "boto3>=1.43.118",
+    "anthropic>=2.3.0",
+    "boto3>=1.43.120",
 ]
 diagnoser = [
     # The diagnosis worker that runs in the agent image (KAV-87, ADR-0055): it calls Ollama for
@@ -63,14 +63,14 @@ collector = [
     "kubernetes>=31.0",
 ]
 dev = [
-    "pytest>=8.0",
-    "ruff>=0.17.2",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
     "mypy>=2.4.0",
     "httpx2>=2.16.0",     # Starlette's TestClient (successor to httpx; Tom Christie, maintained by Pydantic)
 ]
 
 [build-system]
-requires = ["hatchling==1.32.4"]   # pinned: it builds our wheel inside every image (KAV-24)
+requires = ["hatchling==1.33.0"]   # pinned: it builds our wheel inside every image (KAV-24)
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
