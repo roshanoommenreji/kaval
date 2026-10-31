@@ -32,11 +32,12 @@ from slack_sdk.socket_mode.client import BaseSocketModeClient
 from slack_sdk.socket_mode.request import SocketModeRequest
 from slack_sdk.socket_mode.response import SocketModeResponse
 from slack_sdk.web import WebClient
-from sqlalchemy import select
+from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
 from kaval_gateway import approvals, health_alerts
 from kaval_gateway.decisions import DecisionOutcome, record_decision
+from kaval_gateway.notifier_lock import only_one_notifier
 
 logger = logging.getLogger("kaval_gateway.slack_chatops")
 
@@ -132,16 +133,31 @@ def notify_pass(session: Session, web_client: WebClient, channel: str) -> int:
     return len(actions)
 
 
+def notify_round(
+    engine: Engine, web_client: Any, channel: str, escalation_channel: str | None = None,
+) -> bool:
+    """One round of all three passes, if no other gateway copy is notifying right now (KAV-100).
+
+    Returns False when another copy holds the lock and this one stood aside; that copy's round
+    covers everything, and this one tries again at the next poll."""
+    with only_one_notifier(engine) as mine:
+        if not mine:
+            logger.info("slack_chatops: another gateway copy is notifying, skipping this round")
+            return False
+        with Session(engine) as session:
+            notify_pass(session, web_client, channel)
+            approvals.notify_pass(session, web_client, channel, escalation_channel)
+            health_alerts.notify_pass(session, web_client, channel, escalation_channel)
+    return True
+
+
 def _notify_loop(
     web_client: WebClient, channel: str, stop: threading.Event,
     escalation_channel: str | None = None,
 ) -> None:
     while not stop.is_set():
         try:
-            with Session(get_engine()) as session:
-                notify_pass(session, web_client, channel)
-                approvals.notify_pass(session, web_client, channel, escalation_channel)
-                health_alerts.notify_pass(session, web_client, channel, escalation_channel)
+            notify_round(get_engine(), web_client, channel, escalation_channel)
         except Exception:
             logger.exception("slack_chatops: notify loop failed this pass")
         stop.wait(POLL_SECONDS)
