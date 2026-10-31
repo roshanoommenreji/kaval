@@ -400,6 +400,56 @@
         "the backup image: published, not deployed to staging",
         "Slack approval: staging has no Slack app of its own"
       ]
+    },
+    {
+      "tag": "sha-cc55f32",
+      "commit": "cc55f3200ce0ba7176da6e7839b6158cd24a23c9",
+      "passed_at": "2026-10-31T14:32:22Z",
+      "images": {
+        "agent": "sha256:796e4c6efde466f90ea3dd877fa03860ff25fe6f914b7b820b9b58d24fc91daa",
+        "collector": "sha256:c80e0441f403e1610bcb5b1f5c8a3712b97ab4b989f6d384df6db46e5e3c261a",
+        "executor": "sha256:6eb3f67f47cafb2333e99e57857120df184538f98a47566f344a62482b93e119",
+        "gateway": "sha256:015b39d213537d9cde998f6c5ae93f3a10f1ae3a941547a63a1ae0ca33a2c236"
+      },
+      "published_not_exercised": {
+        "backup": "sha256:a89b86d190ac2d532cce1bfdd2261c754d78cb7e5501784706c830e9616d2224"
+      },
+      "checks": [
+        {
+          "name": "pods running and ready",
+          "detail": "9 running"
+        },
+        {
+          "name": "no crash loop",
+          "detail": "0 restarts"
+        },
+        {
+          "name": "every service runs sha-cc55f32",
+          "detail": "ok"
+        },
+        {
+          "name": "running digest equals the ECR digest",
+          "detail": "all four match"
+        },
+        {
+          "name": "gateway reaches the database, migrated",
+          "detail": "migrated to d4f7a2c9e815"
+        },
+        {
+          "name": "GET /v1/incidents?limit=1",
+          "detail": "HTTP 200"
+        },
+        {
+          "name": "GET /v1/signals?limit=1",
+          "detail": "HTTP 200"
+        }
+      ],
+      "not_covered": [
+        "Ollama and the model: staging runs one, but a cold model can take minutes to load, so /healthz's ollama check is reported and not gated on",
+        "agent diagnosis and proposals: proven by a game day (make chaos-run), not by this check",
+        "the backup image: published, not deployed to staging",
+        "Slack approval: staging has no Slack app of its own"
+      ]
     }
   ]
 }
