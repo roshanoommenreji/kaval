@@ -31,6 +31,7 @@ The repository has been public since 2026-09-30, and secret scanning, Dependabot
 - **One Scorecard check will read "unknown"**: Branch-Protection needs a token that can read the repository's admin settings, and the default workflow token cannot. That rule is verified by hand in the lab. A fine-grained token would fix the score but adds a secret to keep; not worth it for one line.
 - **The score will not be perfect and that is allowed.** Checks that cannot pass for a one-person repository (code review by another person, for example) are recorded in the lab with the reason, not hidden.
 - **Cost $0.** Public-repository Actions minutes and code scanning are free.
+- **The first result (2026-11-01)** found two worth fixing (no code scanning, `KAV-110`; four unhashed `pip install` lines for Kaval's own code, `KAV-111`), one that fixes itself (Maintained, about 2026-12-25), and three that are left alone on purpose with the reason written down (Code-Review, Fuzzing, the best-practices badge). See Lab 71.
 - **A new workflow is a new thing to keep current.** Dependabot already bumps the pinned actions weekly, and the pin test fails if one is ever left as a tag.
 
 ## Testing
