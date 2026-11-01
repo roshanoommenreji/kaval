@@ -41,6 +41,16 @@ spec:
               value: {{ .Values.gateway.localModel | quote }}
             - name: LOG_LEVEL
               value: {{ .Values.gateway.logLevel | quote }}
+            {{- if .Values.gateway.approverSecretName }}
+            # The login on the approval route (KAV-115). optional: a missing Secret keeps the route shut
+            # (503) rather than keeping the pod from starting.
+            - name: APPROVER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.gateway.approverSecretName }}
+                  key: APPROVER_TOKEN
+                  optional: true
+            {{- end }}
             # Approvals nobody answers (KAV-82, ADR-0048); see values.yaml's `approvals`.
             - name: APPROVAL_REMINDER_MINUTES
               value: {{ .Values.approvals.reminderMinutes | quote }}

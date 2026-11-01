@@ -46,6 +46,9 @@ gateway:
   # values.yaml's comment: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_CHANNEL_ID) before this
   # reconciles, or the gateway won't start.
   slackSecretName: kaval-slack
+  # The login on the approval route (KAV-115, ADR-0073). Create `kaval-approver` (key APPROVER_TOKEN)
+  # in this namespace before the next bring-up; until it exists the route is shut (503), which is safe.
+  approverSecretName: kaval-approver
   image:
     # Build once, promote the artifact (ADR-0004): the digest tagged `sha-ffb436b` is the
     # one commit this story manually built and pushed to ECR (KAV-51, ADR-0025) — a

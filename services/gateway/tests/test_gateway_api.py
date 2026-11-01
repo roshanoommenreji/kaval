@@ -39,15 +39,19 @@ from sqlalchemy.orm import Session
 NOW = datetime(2026, 9, 27, 12, 0, tzinfo=UTC)
 
 
+TOKEN = "t" * 43  # what a real one looks like: 32 random bytes, url-safe, 43 characters
+
+
 @pytest.fixture
-def client(db_session: Session) -> Iterator[TestClient]:
+def client(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     """The app, reading and writing through the test's rolled-back session instead of its
     own — both `read_session` and `write_session` need overriding, since `decide()` (KAV-47)
     uses the latter."""
     app.dependency_overrides[api.read_session] = lambda: db_session
     app.dependency_overrides[api.write_session] = lambda: db_session
+    monkeypatch.setenv("APPROVER_TOKEN", TOKEN)
     try:
-        yield TestClient(app)
+        yield TestClient(app, headers={"Authorization": f"Bearer {TOKEN}"})
     finally:
         app.dependency_overrides.clear()
 
@@ -216,9 +220,20 @@ def test_decide_records_an_approval(client: TestClient, db_session: Session) -> 
     )
     assert resp.status_code == 201
     body = resp.json()
-    assert body["verdict"] == "approved" and body["actor"] == "roshan"
+    assert body["verdict"] == "approved" and body["actor"] == "api:roshan"
     db_session.refresh(action)
     assert action.decision is not None and action.decision.verdict == Verdict.approved
+
+
+def test_decide_stores_the_actor_under_api_so_it_cannot_pose_as_slack(
+    client: TestClient, db_session: Session
+) -> None:
+    """KAV-115: `slack:<name>` is written only by the Slack path. A caller who names themselves
+    `slack:roshan` is recorded as `api:slack:roshan`, which is plainly not Slack's."""
+    action = _bare_action(db_session)
+    resp = client.post(f"/v1/actions/{action.id}/decisions",
+                       json={"verdict": "approved", "actor": "slack:roshan"})
+    assert resp.status_code == 201 and resp.json()["actor"] == "api:slack:roshan"
 
 
 def test_decide_records_a_denial_with_no_reason_required(

@@ -49,9 +49,11 @@ class DecisionIn(BaseModel):
     """The body of `POST /v1/actions/{action_id}/decisions` — a human's approve or deny
     (KAV-47). No `auto_approved` here: that verdict is written only by the policy engine
     itself, at proposal time, never by a human-facing endpoint — see `Verdict` in
-    `kaval_shared.models`. `actor` is free text for now (a name, or `cli` from the Phase-3
-    approve script) or `slack:<username>` from Slack ChatOps (`KAV-55`,
-    `kaval_gateway.decisions.record_decision`). Cognito identity would replace it if the
+    `kaval_shared.models`. `actor` is free text the caller chose (a name, or `cli` from the Phase-3
+    approve script); the gateway stores it as `api:<actor>` (KAV-115) so it can never pose as
+    `slack:<username>`, which only Slack ChatOps writes (`KAV-55`,
+    `kaval_gateway.decisions.record_decision`). The call needs the approver token
+    (`kaval_gateway.approver_auth`). Cognito identity would replace it if the
     deferred mobile app (Phase 9) is ever built."""
 
     model_config = ConfigDict(extra="forbid")

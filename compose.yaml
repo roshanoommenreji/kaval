@@ -112,6 +112,8 @@ services:
       OLLAMA_BASE_URL: http://ollama:11434
       LOCAL_MODEL: ${LOCAL_MODEL}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # The login on the approval route (KAV-115). Unset or short = the route answers 503.
+      APPROVER_TOKEN: ${APPROVER_TOKEN:-}
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

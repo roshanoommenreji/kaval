@@ -86,6 +86,13 @@ gateway:
   # the louder "nobody answered" message. Optional; without it the message goes to the first
   # channel with an @here.
   slackSecretName: ""
+  # The login on the approval route, `POST /v1/actions/{id}/decisions` (KAV-115, ADR-0073). The name
+  # of a Secret holding one key, APPROVER_TOKEN: 32 random bytes, url-safe base64. Created out of
+  # band, like the Slack one, and never written in a file. EMPTY MEANS THE ROUTE IS SHUT: with no
+  # token the gateway answers every approval call with 503 (Slack's buttons are unaffected).
+  # The Secret is optional on purpose: a missing one leaves the pod running with the route closed,
+  # not stuck in a restart loop.
+  approverSecretName: ""
   resources:
     requests: { cpu: 50m, memory: 64Mi }
     limits: { cpu: 250m, memory: 256Mi }

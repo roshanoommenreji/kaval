@@ -60,6 +60,7 @@ spec:
     gateway:
       replicas: 2
       slackSecretName: kaval-slack
+      approverSecretName: kaval-approver
       image:
         tag: sha-1d38be1
     agent:
