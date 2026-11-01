@@ -23,7 +23,7 @@ Read these first:
 
 - `test_with_a_database_server_of_its_own_the_migration_runs_first`: staging's and production's rendered chart has
   the migrate Job as `pre-install,pre-upgrade`. Run it against the previous chart and it fails (checked).
-- `test_with_the_charts_own_postgres_the_migration_still_waits_for_it`: local k3d keeps `post-install`.
+- `test_with_the_charts_own_postgres_an_upgrade_still_migrates_through_a_hook` (was `..._the_migration_still_waits_for_it`): local k3d keeps `post-install,pre-upgrade` on an upgrade; since `KAV-104` a first install has no hook ([ADR-0070](../adr/0070-the-first-install-over-the-charts-own-database-no-longer-waits-on-itself.md)).
 - `test_every_migration_only_adds` and the two checkers' own tests: the negative cases (a dropped or renamed column is
   flagged; a `downgrade()` that drops is not).
 - `test_every_table_a_migration_creates_is_granted_to_a_service`: a table with no `GRANT` fails the build.

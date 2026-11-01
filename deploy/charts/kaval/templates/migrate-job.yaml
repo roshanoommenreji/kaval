@@ -19,16 +19,29 @@
 # timed out and the migration never ran. Migrating first means no service starts against a
 # database that is behind. Its prerequisites (the namespace, ecr-cred and the admin Secret) are
 # created by the node's bootstrap before Flux is told about the release.
+{{- /*
+The chart's own Postgres has the opposite problem on a FIRST install (KAV-104, found live in
+Lab 66): a post-install hook runs only after every Deployment is ready, and the agent, executor
+and collector cannot become ready until the tables exist. They wait for each other forever.
+So on a first install with the chart's own Postgres the Job carries no hook annotation at all:
+it is an ordinary resource of the release, created together with the Deployments. Its
+wait-for-postgres initContainer waits for the database, it migrates, it finishes, and the
+services (which retry until the tables exist) come up. Helm's wait looks at Deployments, not at
+this Job, so nothing waits on anything circular. Every upgrade is a hook again (pre-upgrade) and
+the first install's Job simply drops out of the next revision's manifest.
+*/}}
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ include "kaval.fullname" . }}-migrate-{{ .Release.Revision }}
   labels:
     {{- include "kaval.labels" . | nindent 4 }}
+  {{- if not (and .Values.postgres.enabled .Release.IsInstall) }}
   annotations:
     "helm.sh/hook": {{ if .Values.postgres.enabled }}post-install{{ else }}pre-install{{ end }},pre-upgrade
     "helm.sh/hook-weight": "0"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  {{- end }}
 spec:
   backoffLimit: 3
   template:

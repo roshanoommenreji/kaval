@@ -159,9 +159,10 @@ def test_with_a_database_server_of_its_own_the_migration_runs_first(env: str) ->
 
 
 @needs_helm
-def test_with_the_charts_own_postgres_the_migration_still_waits_for_it() -> None:
-    """The local/k3d case: there is no database until the release creates one."""
-    hook = _hook("--set", "postgres.enabled=true", "--set", "postgres.password=x")
+def test_with_the_charts_own_postgres_an_upgrade_still_migrates_through_a_hook() -> None:
+    """The local/k3d case on an upgrade. A FIRST install has no hook since KAV-104 (it deadlocked
+    behind the services it was meant to make ready); test_chart_migration.py covers that."""
+    hook = _hook("--is-upgrade", "--set", "postgres.enabled=true", "--set", "postgres.password=x")
     assert hook == "post-install,pre-upgrade"
 
 
