@@ -101,7 +101,7 @@ cost      = "~$4/session"
 [[links]]
 label = "Jira — project KAV"
 url   = "https://roshanoommenreji.atlassian.net/jira/software/projects/KAV/boards/1"
-note  = "Ten phase epics (KAV-5..14), one sprint per phase, plus KAV-99 for beyond-v1 work (Petti, FS-6). Workflow: To Do → In Definition → Ready → In Progress → In Review → In Staging (UAT) → Ready for Prod → Done."
+note  = "Ten phase epics (KAV-5..14), one sprint per phase, plus five for beyond-v1 work: KAV-99 (Petti, FS-6) and KAV-118..121 (FS-7..10). Workflow: To Do → In Definition → Ready → In Progress → In Review → In Staging (UAT) → Ready for Prod → Done."
 
 [[links]]
 label = "Jira — Delivery dashboard"

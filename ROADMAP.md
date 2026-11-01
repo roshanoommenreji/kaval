@@ -288,7 +288,8 @@ if this phase is actually picked up. See
 Not committed. Work that is out of scope for Phases 0–9 but worth doing afterward —
 mostly the Forward Deployed / AI-platform readiness gaps a solo greenfield project can't
 close on its own (integration mini-projects, demo craft, client-facing reps, a
-multi-tenant chapter).
+multi-tenant chapter). FS-7 to FS-10 ask how much of the cloud setup, the security and the
+operations can follow from the code, and all four connect to Petti (FS-6).
 
 See [docs/future-scope.md](docs/future-scope.md).
 
@@ -296,6 +297,18 @@ See [docs/future-scope.md](docs/future-scope.md).
   planned 2026-10-28). One short box file, built on the open Score standard, becomes plain
   OpenTofu, shown with its monthly cost and built only after approval. Its own repository, and
   not started until the current Kaval phase closes.
+- **FS-7 — Infrastructure from code** ([KAV-118](https://roshanoommenreji.atlassian.net/browse/KAV-118),
+  planned 2026-11-01). The code and a short spec work out what an app needs. The plan, diagram and
+  cost stay current as you code, and the cloud is built only after approval, through Petti.
+- **FS-8 — Security from code** ([KAV-119](https://roshanoommenreji.atlassian.net/browse/KAV-119),
+  planned 2026-11-01). Each new route, secret, dependency or permission brings its rule and its
+  check in the same change, or the build fails. Feeds Petti's safety net; does not replace Phase 8.
+- **FS-9 — AI-DLC: spec and context driven development** ([KAV-120](https://roshanoommenreji.atlassian.net/browse/KAV-120),
+  planned 2026-11-01). A measured trial on real stories, light by default, with Petti as the full
+  pilot. Dropping it after the trial is an allowed outcome.
+- **FS-10 — AIOps for Kaval** ([KAV-121](https://roshanoommenreji.atlassian.net/browse/KAV-121),
+  planned 2026-11-01). Kaval already is AIOps at its core. This adds early warnings, learned normal
+  ranges, a number for noise and learning from outcomes, and is Day 2 for what Petti builds.
 
 ---
 
