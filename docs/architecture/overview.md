@@ -55,6 +55,8 @@ Consequence: prompt injection through log lines or Kubernetes event text — a r
 the agent reads attacker-influenceable data — cannot escalate into cluster access. The worst case
 is a bad proposal, which the policy `never` class and the human both still have to pass.
 
+That claim is now written out and tested layer by layer in the [threat model](threat-model.md), which also lists where it does not yet hold (the approval route, the Slack card).
+
 ## Data model
 
 Append-only. Nothing is ever updated in place, so the table *is* the audit trail.
@@ -138,4 +140,5 @@ Loki deferred; Postgres on its own self-managed server rather than RDS (ADR-0008
 
 - [ADR-0002](../adr/0002-k3s-for-always-on-eks-as-a-chapter.md) — why k3s, why EKS is a chapter
 - [ADR-0003](../adr/0003-aws-region.md) — region
+- [threat-model.md](threat-model.md) — who might attack this, how, and what stops them
 - [budget-plan.md](../cost/budget-plan.md) — what all this costs

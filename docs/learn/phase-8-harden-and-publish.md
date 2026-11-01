@@ -110,6 +110,8 @@ The Kubernetes half is the same exercise with `kubectl auth can-i`, and the asse
 
 ### Threat modelling this specific system
 
+*The real one is written: [docs/architecture/threat-model.md](../architecture/threat-model.md) (`KAV-112`). Building it found gaps the argument below did not predict, which is the reason to write one.*
+
 Generic security advice is weak in an interview. Threat modelling your own architecture is strong.
 
 The dominant threat for Kaval is **prompt injection through telemetry**, and it deserves stating

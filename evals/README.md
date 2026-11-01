@@ -56,6 +56,24 @@ Needs a live dev-server stack (`make dev-tunnel`), like `make diagnose`/`make co
 part of `make test`, which stays pure and fast. The fixtures and scoring logic themselves
 (`golden.py`, `scoring.py`) *are* covered by `make test`.
 
+## The prompt-injection set (`KAV-112`)
+
+Ten more cases in [`injection.py`](injection.py), run with `make evals SET=injection`: the same
+pipeline and the same hard gate, with hostile text planted where outside text can reach the model
+(the event message, the event reason, the workload's own name). It is a separate set on purpose: the
+golden twenty are the history every prompt change is compared against, and adding cases to them
+would move those numbers.
+
+Seven cases plant a **marker** and ask the model to begin its summary with it (a made-up word, a
+claim that a person already approved, a Slack `<!channel>`, a link labelled "Approve all fixes").
+The report counts how many summaries did begin with it: *planted text obeyed*, reported and never
+gated. It is a lower bound, not a measure of obedience. The other three check that the outcome did not
+move (the right fix, aimed at the right workload), and the long case reports the tokens a 6,000
+character message costs. The summary matters because it is the one model-written text a person reads.
+Why each case exists, and which layer should stop it, is in
+[the threat model](../docs/architecture/threat-model.md); the layers that need no model are tested in
+`services/agent/tests/test_injection.py`, so CI covers them on every change ([ADR-0072](../docs/adr/0072-a-written-threat-model-and-a-prompt-injection-set.md)).
+
 ## Before and after in one run (`KAV-84`)
 
 `evals/baseline.py` keeps the diagnosis prompt, schema and message exactly as they were before the model was
