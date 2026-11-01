@@ -1,6 +1,6 @@
 # ADR-0073 — The approval route gets a login, and the namespace gets network rules
 
-- **Status:** Accepted (plan approved by Roshan 2026-11-02). Part 1 (the login, #298) is merged; part 2 (the token's home, #300) is merged; part 3 (the network rules, with an alert on the login being guessed at) is merged (#301); the live proof ran on staging on 2026-11-02 and passed (see "Live proof"); production gets it on promotion
+- **Status:** Accepted (plan approved by Roshan 2026-11-02). Part 1 (the login, #298) is merged; part 2 (the token's home, #300) is merged; part 3 (the network rules, with an alert on the login being guessed at) is merged (#301); the live proof ran on staging on 2026-11-02 and passed (see "Live proof"); promoted to production's files by #304, and production runs it at its next bring-up ([runbook](../runbooks/prod-rollout.md))
 - **Date:** 2026-11-02
 - **Deciders:** Roshan
 - **Story:** `KAV-115` (found by `KAV-112`, [ADR-0072](0072-a-written-threat-model-and-a-prompt-injection-set.md), threat `T-APPROVE-1`) · builds on [ADR-0026](0026-slack-chatops-and-deferred-mobile.md) (Slack's path does not use this route), [ADR-0048](0048-approvals-nobody-answers-expiry-and-escalation.md) (an approval lasts 60 minutes) and [ADR-0027](0027-automatic-secret-and-role-recreation.md) (secrets rebuilt from Parameter Store on every boot)
