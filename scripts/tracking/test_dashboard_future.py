@@ -116,7 +116,9 @@ def test_every_real_idea_is_read_and_petti_carries_its_epic() -> None:
     headings = [ln for ln in lines if ln.startswith("### FS-")]
     assert len(got) == len(headings) >= 6
     assert all(i["summary"] for i in got)
-    assert {i["id"]: i["jira_key"] for i in got}["FS-6"] == "KAV-99"
+    epics = {i["id"]: i["jira_key"] for i in got}
+    assert epics["FS-6"] == "KAV-99"
+    assert [epics[f"FS-{n}"] for n in (7, 8, 9, 10)] == ["KAV-118", "KAV-119", "KAV-120", "KAV-121"]
 
 
 def test_future_ideas_never_count_toward_progress() -> None:

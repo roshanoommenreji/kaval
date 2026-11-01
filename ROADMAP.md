@@ -242,7 +242,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - *Planning-standard additions (2026-10-11), each a checkbox below:*
 - [ ] Supply chain, as in industry: an SBOM per image, signed images (cosign keyless), build provenance attestations, and signatures **verified before deploy** (an admission policy), not just produced
 - [x] A threat model (STRIDE) for the whole system, including the agent reading untrusted text; a **prompt-injection test set** added to the evals (OWASP Top 10 for LLM applications) (`KAV-112`, [ADR-0072](docs/adr/0072-a-written-threat-model-and-a-prompt-injection-set.md), [Lab 72](docs/labs/lab-72-the-threat-model-and-the-prompt-injection-set.md), [the model](docs/architecture/threat-model.md)) — **built 2026-11-01**: 33 threats across the agent, Slack and approval path, executor, supply chain and operations, each with what stops it and the test that proves it; a ten-case injection set kept apart from the golden twenty; offline tests for every layer around the model, three of them written as expected failures for the gaps. **Run live 2026-11-01** (two runs on the dev server): the hard gate held and every case got the right fix; the model obeyed planted text in 2 of 7 marker cases (a plain instruction and a claimed prior approval) and not the Slack-markup ones
-- [ ] Fix what the threat model found, each its own story and each staging before production: only the intended callers can reach the approval route (`KAV-115`, the largest; **the login on the route is built** (2026-11-02, [ADR-0073](docs/adr/0073-the-approval-route-gets-a-login-and-the-namespace-gets-network-rules.md)); the token's home in Parameter Store (#300) and the network rules plus an alert on the login being guessed at are built (2026-11-02); the live proof passed on staging 2026-11-02; promoted to production's files by #304; production runs it at its next bring-up, where `docs/runbooks/prod-rollout.md` now lists the plan to expect and the two checks); escape model-written text on the Slack card (`KAV-114`); flatten and cap a signal's text before the model reads it (`KAV-113`); take the gateway's UPDATE right on decisions away (`KAV-116`); tell the model incident text is data and label its summary on the card as unverified (`KAV-117`)
+- [ ] Fix what the threat model found, each its own story and each staging before production: only the intended callers can reach the approval route (`KAV-115`, the largest; **the login on the route is built** (2026-11-01, [ADR-0073](docs/adr/0073-the-approval-route-gets-a-login-and-the-namespace-gets-network-rules.md)); the token's home in Parameter Store (#300) and the network rules plus an alert on the login being guessed at are built (2026-11-01); the live proof passed on staging 2026-11-01; promoted to production's files by #304; production runs it at its next bring-up, where `docs/runbooks/prod-rollout.md` now lists the plan to expect and the two checks); escape model-written text on the Slack card (`KAV-114`); flatten and cap a signal's text before the model reads it (`KAV-113`); take the gateway's UPDATE right on decisions away (`KAV-116`); tell the model incident text is data and label its summary on the card as unverified (`KAV-117`)
 - [~] Public-repo hygiene: `SECURITY.md` (how to report a vulnerability), `CODEOWNERS`, OpenSSF Scorecard checked, dependency updates reviewed (Dependabot already on), secret rotation schedule documented (`KAV-109`, [ADR-0071](docs/adr/0071-the-public-repo-gets-a-security-policy-owners-and-a-weekly-scorecard.md), [Lab 71](docs/labs/lab-71-a-security-policy-owners-and-a-weekly-scorecard.md)) — **built 2026-11-01**: `.github/SECURITY.md`, `.github/CODEOWNERS` (owner list only; it cannot block merges on a one-person repo), a weekly read-only Scorecard workflow, 13 tests. Done 2026-11-01: private reporting switched on, first Scorecard run read and its gaps recorded. Found: no code scanning (`KAV-110`) and four unhashed `pip install` lines (`KAV-111`), now their own stories. Still not done from this line: the secret rotation schedule and a review of the dependency updates
 - [ ] IAM least-privilege review with IAM Access Analyzer, kept as evidence
 - [ ] Disaster recovery stated and drilled: recovery time and acceptable data loss for each store, one full-restore drill recorded (Terraform's state gap closed by `KAV-86`, 2026-10-16)
@@ -288,7 +288,8 @@ if this phase is actually picked up. See
 Not committed. Work that is out of scope for Phases 0–9 but worth doing afterward —
 mostly the Forward Deployed / AI-platform readiness gaps a solo greenfield project can't
 close on its own (integration mini-projects, demo craft, client-facing reps, a
-multi-tenant chapter).
+multi-tenant chapter). FS-7 to FS-10 ask how much of the cloud setup, the security and the
+operations can follow from the code, and all four connect to Petti (FS-6).
 
 See [docs/future-scope.md](docs/future-scope.md).
 
@@ -296,6 +297,18 @@ See [docs/future-scope.md](docs/future-scope.md).
   planned 2026-10-28). One short box file, built on the open Score standard, becomes plain
   OpenTofu, shown with its monthly cost and built only after approval. Its own repository, and
   not started until the current Kaval phase closes.
+- **FS-7 — Infrastructure from code** ([KAV-118](https://roshanoommenreji.atlassian.net/browse/KAV-118),
+  planned 2026-11-01). The code and a short spec work out what an app needs. The plan, diagram and
+  cost stay current as you code, and the cloud is built only after approval, through Petti.
+- **FS-8 — Security from code** ([KAV-119](https://roshanoommenreji.atlassian.net/browse/KAV-119),
+  planned 2026-11-01). Each new route, secret, dependency or permission brings its rule and its
+  check in the same change, or the build fails. Feeds Petti's safety net; does not replace Phase 8.
+- **FS-9 — AI-DLC: spec and context driven development** ([KAV-120](https://roshanoommenreji.atlassian.net/browse/KAV-120),
+  planned 2026-11-01). A measured trial on real stories, light by default, with Petti as the full
+  pilot. Dropping it after the trial is an allowed outcome.
+- **FS-10 — AIOps for Kaval** ([KAV-121](https://roshanoommenreji.atlassian.net/browse/KAV-121),
+  planned 2026-11-01). Kaval already is AIOps at its core. This adds early warnings, learned normal
+  ranges, a number for noise and learning from outcomes, and is Day 2 for what Petti builds.
 
 ---
 
