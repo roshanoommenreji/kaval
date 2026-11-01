@@ -85,7 +85,43 @@ The alert on the login being guessed at is in `deploy/charts/kaval/files/kaval-a
 
 ## Part 6 — The live proof
 
-*(Written when it is run: one staging session, each step on its own go.)*
+One staging session on 2026-11-02 (about half an hour, a few cents at staging's $0.045 an hour), each step on its own go. All commands run on the staging server through Session Manager (`aws ssm send-command`, document `AWS-RunShellScript`); `KUBECONFIG=/etc/rancher/k3s/k3s.yaml`, namespace `kaval-staging`. The token is never printed anywhere: it is read on the server from the Secret and put straight into the request header.
+
+**1. Build staging.** `ASSUME_YES=1 make staging-up` (the script asks "Continue?" itself; without a terminal that switch answers it). 93 resources added, 9 pods Running in about 3 minutes. The node's start-up wrote the Secret from Parameter Store on its own.
+
+**2. Read-only checks.** Result:
+- `kubectl get networkpolicy -n kaval-staging` lists the 5 rules: `default-deny-ingress`, `metrics-from-prometheus`, `prometheus-from-the-poller`, `gateway-from-the-poller`, `ollama-from-the-diagnoser`.
+- `kubectl get secret kaval-approver -n kaval-staging` shows type Opaque with 1 entry (names only; never `-o yaml`).
+- The gateway Deployment's env names include `APPROVER_TOKEN`.
+- All 9 pods Running with 0 restarts with the rules on, so the kubelet's checks (they come from the node) still get through.
+- `systemctl cat k3s | grep -c disable-network-policy` prints 0: k3s's built-in controller was never switched off.
+
+**3. The blocked pod.** A throwaway pod in the demo namespace, then gone:
+
+```bash
+kubectl run netpol-probe -n kaval-demo-staging --image=busybox:1.36 --restart=Never --rm -i \
+  --command -- sh -c 'wget -T 5 -q -O- http://kaval-staging-gateway.kaval-staging:8000/healthz'
+```
+
+Result: `wget: can't connect to remote host (10.43.172.31): Connection refused`, `wget-exit=1`, pod deleted, 0 left behind. It is *refused* rather than timing out because k3s's controller answers a blocked connection with a rejection. A refusal alone could also mean "nothing is listening", so the control matters.
+
+**4. The control.** `kubectl get endpoints kaval-staging-gateway -n kaval-staging` shows a live address (`10.42.0.17:8000`), and from the server itself `curl -s -m 5 http://10.43.172.31:8000/healthz` answers `503 {"status":"degraded", ... "postgres":{"ok":true,"detail":"migrated to d4f7a2c9e815"}, "ollama":{"ok":false,"detail":"UnsupportedProtocol"}}`. That 503 is the documented steady state on AWS (no model on that path; [Lab 29](lab-29-staging-environment.md), [Lab 31](lab-31-phase-4-exit-gate.md)). So the gateway is up, the server reaches it, and the demo pod is turned away.
+
+**5. The smoke test.** `make staging-smoke`: 7 of 7 PASS (9 pods ready, 0 restarts, every service on `sha-feb7025`, running digests equal the registry's, the gateway reaches its migrated database, `GET /v1/incidents` and `GET /v1/signals` return 200). It records the pass in `deploy/promotion/passed-staging.json`.
+
+**6. The login.** Three calls to `POST /v1/actions/00000000-0000-4000-8000-000000000000/decisions` with body `{"verdict":"denied","actor":"proof"}` (a made-up id, so nothing can be recorded):
+
+| Call | Result |
+|---|---|
+| no `Authorization` header | `401 {"detail":"an approver token is required"}` |
+| `Authorization: Bearer <wrong>` | `401`, the same message (a guesser learns nothing about being close) |
+| `Authorization: Bearer <the real token>` | `404 {"detail":"action not found"}`: the login admitted it, then the route found no such action |
+
+**7. The alert.** Three more wrong-token calls (5 refused tries in all, over the alert's threshold of more than 2 in ten minutes). Prometheus's `/api/v1/alerts` then lists `KavalApprovalRefused` as `firing` (active from 16:32:32 UTC) and still firing at a second look 80 seconds later. The gateway log has `approval call refused (wrong) from <address>` for each try, and `grep -c -F "$TOKEN"` over the whole gateway log prints **0**: the token is never logged. Whether the Slack message that follows arrived was **not checked** in this session; the alert path from Prometheus to Slack has its own tests (`test_health_alerts.py`).
+
+**8. Tear down.** `ASSUME_YES=1 make staging-down`: 92 destroyed, the data volume deleted, `Left tagged Env=staging: 0 instances, 0 volumes, 0 VPCs`.
+
+**What this does not prove.** The poller's own door to the gateway (:8000) was not exercised by a pod of its own; the gateway's health page stayed readable to the server, and Prometheus read the gateway's metrics (the alert could not have fired otherwise), but nobody opened the poller's probe by hand. Slack delivery is above. Production has not run any of this yet: its token Secret is made at its next bring-up and, until then, its approval route answers 503 (shut), which is safe. Outbound traffic from pods is still unrestricted.
 
 ## Done when
 
@@ -94,7 +130,7 @@ The alert on the login being guessed at is in `deploy/charts/kaval/files/kaval-a
 - [x] The actor is stored as `api:<name>` *(2026-11-02)*
 - [x] The token's home is built and tested: the Terraform, the read permission, the bootstrap step and a runbook *(2026-11-02; applying it is a step of the live proof)*
 - [x] The network rules are in the chart, tested offline, with an alert on the login being guessed at *(2026-11-02)*
-- [ ] The live proof is recorded, and the threat-model row says Covered
+- [x] The live proof is recorded, and the threat-model row says Covered *(2026-11-02, on staging; production on promotion)*
 
 ## Cost
 

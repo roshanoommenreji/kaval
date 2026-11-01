@@ -21,8 +21,12 @@ Three facts about the code shaped the design:
 2. **Slack posts only proposals waiting for approval**, never incidents. Routing "Kaval stopped"
    through incident → proposal → Slack would never reach a person, and would route it through the
    very correlator and agent that may be the broken part.
-3. **The cluster's network (Flannel) cannot restrict which pod reads which port**, so anything a
-   service publishes about itself is readable by every pod.
+3. **The cluster's network cannot restrict which pod reads which port** (as believed on this
+   date), so anything a service publishes about itself is readable by every pod.
+   *Corrected 2026-11-02 ([ADR-0073](0073-the-approval-route-gets-a-login-and-the-namespace-gets-network-rules.md)):
+   k3s has a built-in network-policy controller that was on all along, and staging proved it enforces
+   rules. Staging and production now restrict the health pages to Prometheus. The design here is
+   unchanged: nothing sensitive is on the page.*
 
 ## Decision
 

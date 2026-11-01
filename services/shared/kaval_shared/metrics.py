@@ -15,10 +15,11 @@ than a few intervals", worked out in Prometheus from these two numbers (see
 `deploy/charts/kaval/files/kaval-alerts.rules.yaml`), and a pod that has died altogether shows up
 as `up == 0`.
 
-**Nothing sensitive goes in here, ever.** The cluster's network (Flannel) cannot restrict which
-pod may read another's port, so anything printed here is readable by every pod in the cluster.
-There are no incident ids, fingerprints, targets or error messages: only service names, counts
-and times. Adding a label with a value that comes from data is a bug.
+**Nothing sensitive goes in here, ever.** The chart's network rules let only Prometheus read this
+port on staging and production (KAV-115), but they are off locally and in the lab, and a rule can
+be switched off or loosened, so treat anything printed here as readable by every pod in the
+cluster. There are no incident ids, fingerprints, targets or error messages: only service names,
+counts and times. Adding a label with a value that comes from data is a bug.
 
 **A failure here never stops the work.** If the port cannot be opened (a second copy running on a
 laptop, say) the service says so once and carries on without it.

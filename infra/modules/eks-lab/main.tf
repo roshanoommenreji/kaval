@@ -283,8 +283,8 @@ resource "aws_eks_addon" "vpc_cni" {
   addon_name               = "vpc-cni"
   service_account_role_arn = aws_iam_role.irsa["vpc-cni"].arn
 
-  # Network policies are enforced by the network add-on itself on EKS (k3s's Flannel ignores them),
-  # so this switch is what makes the policies applied in the lab mean anything.
+  # Network policies are enforced by the network add-on itself on EKS (k3s has its own built-in
+  # controller), so this switch is what makes the policies applied in the lab mean anything.
   configuration_values = jsonencode({ enableNetworkPolicy = "true" })
 
   depends_on = [aws_iam_role_policy_attachment.irsa_managed]
