@@ -21,6 +21,12 @@ global:
   # The registry itself (the AWS account ID) is injected by Flux's HelmRelease, never committed.
   imagePullSecretName: ecr-cred
 
+# Close every way IN to the namespace except the doors Kaval itself uses (KAV-115, ADR-0073). Proved
+# on staging first: a pod in the demo namespace cannot reach the gateway, and the node's own health
+# checks and smoke test still can.
+networkPolicy:
+  enabled: true
+
 gateway:
   # One replica, unlike prod's two: staging proves the artifact, prod's second replica is what
   # lets a rollout proceed without a gap. No slackSecretName: staging has no Slack app of its

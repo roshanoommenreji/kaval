@@ -39,6 +39,22 @@ groups:
         annotations:
           summary: "{{ $labels.service }} cannot be reached."
 
+  # The approval route is being tried without the right token (KAV-115, ADR-0073). One or two wrong
+  # tries is a typo or an old token in your shell; a run of them is someone, or something, guessing.
+  # `switched_off` (no token configured) is left out on purpose: that is a setup state, not an attack,
+  # and a parked or freshly built environment has it. A counter that has only just appeared counts
+  # from its first value, so three tries are needed before this can fire (promtool-tested).
+  - name: kaval-approvals
+    rules:
+      - alert: KavalApprovalRefused
+        expr: >-
+          label_replace(
+            sum(increase(kaval_approval_refused_total{outcome=~"wrong|missing"}[10m])) > 2,
+            "service", "gateway", "", "")
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: The approval route has been refused several times in ten minutes (wrong or missing token).
+
   # The database server's two exporters (KAV-82, ADR-0050). Only meaningful where
   # `prometheus.database.enabled` is on; elsewhere the jobs do not exist and nothing matches.
   # No `absent()` here, deliberately: a parked server has no series and must not page anyone.

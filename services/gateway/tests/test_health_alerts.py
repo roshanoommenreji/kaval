@@ -84,6 +84,24 @@ def test_a_cost_reader_fault_reaches_a_person_with_its_own_runbook(
     assert "No fix is proposed" in text
 
 
+def test_repeated_refused_approvals_reach_a_person_with_the_approval_runbook(
+    db_session: Session,
+) -> None:
+    """KAV-115: the rule `KavalApprovalRefused` fires on a run of wrong or missing tokens. The post
+    is fixed words and a service name; nothing a caller sent can reach it."""
+    target = _target()
+    _alert(db_session, "KavalApprovalRefused", target)
+    slack = _Slack()
+
+    health_alerts.notify_pass(db_session, slack, "C1", now=NOW)
+
+    [post] = _about(slack, target)
+    text = post["blocks"][0]["text"]["text"]
+    assert "is refusing approval calls" in text
+    assert "docs/runbooks/approval-refused.md" in text
+    assert "No fix is proposed" in text
+
+
 def test_the_same_fault_is_not_repeated_until_the_reminder_period_passes(
     db_session: Session,
 ) -> None:

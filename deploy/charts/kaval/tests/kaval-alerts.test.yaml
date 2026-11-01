@@ -188,3 +188,37 @@ tests:
               server: database
             exp_annotations:
               summary: The database server's machine monitor is not answering.
+
+  - name: one or two refused approvals (a typo) never alert
+    interval: 30s
+    input_series:
+      - series: 'kaval_approval_refused_total{outcome="wrong",job="kaval-gateway"}'
+        values: "_x4 1 1 1 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2"
+    alert_rule_test:
+      - { eval_time: 3m, alertname: KavalApprovalRefused, exp_alerts: [] }
+      - { eval_time: 8m, alertname: KavalApprovalRefused, exp_alerts: [] }
+
+  - name: a run of wrong tokens alerts, and stops alerting once the run is over
+    interval: 30s
+    input_series:
+      - series: 'kaval_approval_refused_total{outcome="wrong",job="kaval-gateway"}'
+        values: "_x4 1 2 3 4 5 5+0x40"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: KavalApprovalRefused
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kaval_health: "true"
+              service: gateway
+            exp_annotations:
+              summary: The approval route has been refused several times in ten minutes (wrong or missing token).
+      - { eval_time: 25m, alertname: KavalApprovalRefused, exp_alerts: [] }
+
+  - name: a route that is only switched off (no token configured yet) never alerts
+    interval: 30s
+    input_series:
+      - series: 'kaval_approval_refused_total{outcome="switched_off",job="kaval-gateway"}'
+        values: "1+1x40"
+    alert_rule_test:
+      - { eval_time: 15m, alertname: KavalApprovalRefused, exp_alerts: [] }

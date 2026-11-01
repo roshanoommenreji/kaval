@@ -61,6 +61,11 @@ backup:
     requests: { cpu: 25m, memory: 32Mi }
     limits: { cpu: 100m, memory: 128Mi }
 
+# Who may open a connection to a Kaval pod (KAV-115, ADR-0073). Off by default so a plain local install
+# is unchanged; staging and production turn it on. See templates/networkpolicy.yaml.
+networkPolicy:
+  enabled: false
+
 gateway:
   image:
     repository: kaval/gateway

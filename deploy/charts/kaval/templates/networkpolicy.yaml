@@ -1,0 +1,140 @@
+{{- if .Values.networkPolicy.enabled }}
+# Who may open a connection TO a Kaval pod (KAV-115, ADR-0073, threat T-APPROVE-1).
+#
+# Before this, any pod in the cluster could reach the gateway's approval route, including the demo
+# workloads where untrusted text starts. Shape: close every way IN to the namespace, then open exactly
+# the doors Kaval itself uses. Each rule below says who knocks and why; there is no rule for anyone
+# else, and none uses an address range or another namespace.
+#
+# Only traffic INTO pods is restricted. Traffic out (the database, Slack, AWS, DNS, the Kubernetes API)
+# is not touched here; a second round could close that too.
+#
+# Enforced by k3s's built-in network-policy controller, which is on unless k3s is started with
+# --disable-network-policy (the node's unit file does not). The node itself (kubelet's health checks,
+# the smoke test and the game days, which run curl on the node) is verified live on staging to still get
+# through. Switch the whole file off with `networkPolicy.enabled: false` and redeploy.
+#
+# Pods are chosen by the chart's own selector labels (instance + component), the pair every pod
+# template carries (`kaval.selectorLabels`); `part-of` is NOT on the pods (found in Lab 66).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "kaval.fullname" . }}-default-deny-ingress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+{{- if .Values.prometheus.enabled }}
+---
+# Prometheus reads each service's health numbers on :9100.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "kaval.fullname" . }}-metrics-from-prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "kaval.selectorLabels" (dict "Release" .Release "component" "prometheus") | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: 9100 }
+---
+# The poller asks Prometheus what is firing (:9090) and times the services named in
+# `prometheus.probe.targets`, which in production includes the gateway's own health page.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "kaval.fullname" . }}-prometheus-from-the-poller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" "prometheus") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "kaval.selectorLabels" (dict "Release" .Release "component" "collector-prometheus") | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: 9090 }
+---
+# The gateway's port: the poller (its health-page probe) and nobody else. A person's `make approve`
+# reaches it through a tunnel and the game-day and smoke scripts run curl on the node; neither is a pod.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "kaval.fullname" . }}-gateway-from-the-poller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" "gateway") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "kaval.selectorLabels" (dict "Release" .Release "component" "collector-prometheus") | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: {{ .Values.gateway.port }} }
+{{- end }}
+{{- if and .Values.ollama.enabled .Values.diagnoser.enabled }}
+---
+# The model answers the diagnosis worker and nobody else (with no worker, nothing may reach it).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "kaval.fullname" . }}-ollama-from-the-diagnoser
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" "ollama") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "kaval.selectorLabels" (dict "Release" .Release "component" "diagnoser") | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: 11434 }
+{{- end }}
+{{- if .Values.postgres.enabled }}
+---
+# The chart's own database (local and lab only; staging and production use a separate server).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "kaval.fullname" . }}-postgres-from-kaval
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaval.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "kaval.selectorLabels" (dict "Release" .Release "component" "postgres") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - { protocol: TCP, port: 5432 }
+{{- end }}
+{{- end }}
