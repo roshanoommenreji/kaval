@@ -38,6 +38,7 @@ spec:
       imagePullSecretName: ecr-cred
     gateway:
       replicas: 1
+      approverSecretName: kaval-approver
       image:
         tag: sha-833002a
     agent:

@@ -26,6 +26,9 @@ gateway:
   # lets a rollout proceed without a gap. No slackSecretName: staging has no Slack app of its
   # own, and two environments sharing one Socket Mode app would split events between them.
   replicas: 1
+  # The login on the approval route (KAV-115, ADR-0073). `kaval-approver` (key APPROVER_TOKEN) is made
+  # on the node when staging comes up; until it exists the route is shut (503), which is safe.
+  approverSecretName: kaval-approver
   image:
     # Build once, promote the artifact (ADR-0004): the same sha-ffb436b digest prod runs, pushed
     # to the shared ECR by KAV-51's one-time bootstrap push. Never rebuilt for staging.

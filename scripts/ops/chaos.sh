@@ -198,7 +198,11 @@ cmd_approve() {
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 K=/usr/local/bin/kubectl
 IP=\$(\$K get svc -n ${NAMESPACE} -o jsonpath='{.items[?(@.spec.ports[0].port==8000)].spec.clusterIP}')
+# The approver token (KAV-115) is read from the cluster's own Secret on the node and used there;
+# it never reaches this laptop or the output.
+TOKEN=\$(\$K get secret -n ${NAMESPACE} kaval-approver -o jsonpath='{.data.APPROVER_TOKEN}' | base64 -d)
 curl -s -w ' HTTP %{http_code}' -X POST "http://\$IP:8000/v1/actions/${id}/decisions" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer \$TOKEN" \
   -d '{"verdict":"approved","actor":"${CHAOS_APPROVER:-roshan}","reason":"game day"}'
 SCRIPT
 }

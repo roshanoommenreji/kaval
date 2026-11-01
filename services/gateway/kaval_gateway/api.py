@@ -26,6 +26,7 @@ from kaval_shared.models import Action, Incident, Proposal, Signal, Verdict
 from sqlalchemy import Select, literal, select, text, tuple_
 from sqlalchemy.orm import InstrumentedAttribute, Session, selectinload
 
+from kaval_gateway.approver_auth import require_approver
 from kaval_gateway.decisions import DecisionOutcome, record_decision
 from kaval_gateway.schemas import (
     DecisionIn,
@@ -189,7 +190,12 @@ def get_incident(incident_id: uuid.UUID, db: DB) -> IncidentDetail:
 @router.post(
     "/actions/{action_id}/decisions", response_model=DecisionOut, status_code=201,
     tags=["actions"],
+    # Route-level dependencies run before the database session and the body are read, so a
+    # caller without the token costs a comparison and nothing else (KAV-115).
+    dependencies=[Depends(require_approver)],
     responses={
+        401: {"description": "Missing or wrong approver token"},
+        503: {"description": "No approver token is configured, so this route is shut"},
         404: {"description": "No such action"},
         409: {"description": "Already decided, expired, or policy class 'never'"},
     },
@@ -201,8 +207,10 @@ def decide(action_id: uuid.UUID, body: DecisionIn, db: WriteDB) -> DecisionOut:
     before the database is even asked, and why neither refusal is the real enforcement
     boundary (the executor re-checks policy independently either way).
     """
+    # The actor is free text the caller chose, so it is recorded under an `api:` prefix: it can
+    # name a person, but it can never pose as `slack:<name>`, which only Slack's path writes.
     outcome, decision = record_decision(
-        db, action_id, Verdict(body.verdict), body.actor, body.reason
+        db, action_id, Verdict(body.verdict), f"api:{body.actor}", body.reason
     )
     if outcome is DecisionOutcome.not_found:
         raise HTTPException(status_code=404, detail="action not found")

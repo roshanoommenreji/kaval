@@ -6,6 +6,7 @@ Nothing here talks to the database directly: it goes through the same API Slack'
 (`kaval_gateway.decisions.record_decision`), so the approval flow is exercised for real.
 
     make dev-tunnel                                  # in its own terminal
+    export KAVAL_APPROVER_TOKEN=...                  # the gateway's APPROVER_TOKEN (KAV-115)
     make approve ACTION=<uuid> VERDICT=approved
     make approve ACTION=<uuid> VERDICT=denied REASON="confidence too low for this blast radius"
 
@@ -21,9 +22,12 @@ import sys
 import urllib.error
 import urllib.request
 
+TOKEN_ENV = "KAVAL_APPROVER_TOKEN"
+
 
 def decide(
     base_url: str, action_id: str, verdict: str, actor: str, reason: str | None,
+    token: str,
 ) -> dict[str, object]:
     body = {"verdict": verdict, "actor": actor}
     if reason:
@@ -31,7 +35,7 @@ def decide(
     req = urllib.request.Request(
         f"{base_url}/v1/actions/{action_id}/decisions",
         data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
         method="POST",
     )
     try:
@@ -61,7 +65,13 @@ def main(argv: list[str] | None = None) -> int:
                         default=os.environ.get("KAVAL_GATEWAY_URL", "http://localhost:8000"))
     args = parser.parse_args(argv)
 
-    result = decide(args.gateway_url, args.action_id, args.verdict, args.actor, args.reason)
+    # From the environment only, never an argument: a command line is kept in shell history.
+    token = os.environ.get(TOKEN_ENV, "").strip()
+    if not token:
+        sys.exit(f"set {TOKEN_ENV} to the gateway's approver token first (it is never a "
+                 "command-line option, so it stays out of your shell history).")
+    result = decide(args.gateway_url, args.action_id, args.verdict, args.actor, args.reason,
+                    token)
     print(json.dumps(result, indent=2))
     return 0
 

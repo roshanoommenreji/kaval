@@ -55,7 +55,9 @@ app = FastAPI(
         "action (KAV-47). No inbound exposure: the server binds to 127.0.0.1 and is "
         "reached through an SSH tunnel for everything except approvals. Slack ChatOps "
         "(KAV-55, ADR-0026) connects outbound instead — no inbound endpoint is ever opened "
-        "for it either; `scripts/ops/approve.py` remains the fallback. Cognito JWTs would "
+        "for it either; `scripts/ops/approve.py` remains the fallback. "
+        "The approval route needs a bearer token (KAV-115, ADR-0073) and is shut when none is "
+        "configured. Cognito JWTs would "
         "arrive only if the deferred mobile app (Phase 9) is ever built."
     ),
     openapi_tags=[
