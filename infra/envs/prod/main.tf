@@ -126,6 +126,14 @@ module "still_alive" {
   alert_email = var.alert_email
 }
 
+# The login on the approval route (KAV-115, ADR-0073). Generated once and kept; the node's bootstrap
+# writes the Secret `kaval-approver` from it on every boot.
+module "approver_token" {
+  source = "../../modules/approver-token"
+
+  name_prefix = "kaval-prod"
+}
+
 module "iam" {
   source = "../../modules/iam"
 
@@ -145,6 +153,7 @@ module "iam" {
       aws_ssm_parameter.slack_bot_token.arn,
       aws_ssm_parameter.slack_app_token.arn,
       aws_ssm_parameter.slack_channel_id.arn,
+      module.approver_token.parameter_arn,
       # Not a secret: the daily waste scan's findings, which the server copies into the cluster.
       module.waste_scan.parameter_arn,
       # Not a secret: the removal worker's answer, which the server copies into the cluster.

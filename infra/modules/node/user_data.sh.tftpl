@@ -222,19 +222,15 @@ ACCOUNT=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254
   | sed -n 's/.*"accountId" *: *"\([0-9]\+\)".*/\1/p')
 REGISTRY="$ACCOUNT.dkr.ecr.$REGION.amazonaws.com"
 
-# The repo's own bootstrap manifests. Flux's own GitRepository (applied below, once) takes
-# over all reconciliation of these same files from here on — this apply only has to run
-# again if the node itself is replaced (spot reclamation), which is the self-healing
-# property the Phase 4 exit gate tests.
+# The repo's own bootstrap manifests. Flux (seeded below) takes over reconciling them; this only
+# has to run again when the node is replaced (the self-healing the Phase 4 exit gate tests).
 RAW="https://raw.githubusercontent.com/roshanoommenreji/kaval/main/deploy/gitops/${gitops_env}"
 curl -fsSL "$RAW/namespace.yaml" | kubectl apply -f -
 
 kubectl create configmap kaval-registry --from-literal=registry="$REGISTRY" \
   -n flux-system --dry-run=client -o yaml | kubectl apply -f -
 
-# Built and applied entirely via stdin, never a kubectl argument — `kubectl create secret
-# ... --docker-password=` would otherwise sit in this process's own argv (readable via
-# `ps aux` by anything else on the node) for as long as the command runs.
+# Via stdin, never a kubectl argument (see the note at the top of this script).
 ECR_PASSWORD=$(aws ecr get-login-password --region "$REGION")
 AUTH_B64=$(printf '%s' "AWS:$ECR_PASSWORD" | base64 -w0)
 DOCKERCONFIGJSON_B64=$(printf '{"auths":{"%s":{"username":"AWS","password":"%s","auth":"%s"}}}' \
@@ -251,10 +247,8 @@ data:
 MANIFEST
 unset ECR_PASSWORD AUTH_B64 DOCKERCONFIGJSON_B64
 
-# Database + Slack secrets (KAV-56): same refresh pattern as ecr-cred above -- read from
-# SSM, build the Secret entirely via stdin (never a kubectl argument, so nothing sits in
-# `ps aux`), apply it. Runs on every boot and on this same script's 6h timer, so a node
-# replacement (spot reclamation) never again needs a human to type kubectl create secret.
+# Database + Slack secrets (KAV-56): read from SSM and applied via stdin like ecr-cred above. Runs on
+# every boot and on this script's 6h timer, so a node replacement never needs a hand-typed secret.
 declare -A DB_ROLE_USERS=( [admin]=kaval [gateway]=kaval_gateway [agent]=kaval_agent [executor]=kaval_executor [collector]=kaval_collector )
 DB_HOST=$(aws ec2 describe-instances --region "$REGION" \
   --filters "Name=tag:Role,Values=database" "Name=tag:Name,Values=${name_prefix}-database" "Name=instance-state-name,Values=running" \
@@ -287,6 +281,14 @@ kubectl create secret generic kaval-slack -n ${name_prefix} \
   --from-literal=SLACK_CHANNEL_ID="$SLACK_CHANNEL_ID" \
   --dry-run=client -o yaml | kubectl apply -f -
 unset SLACK_BOT_TOKEN SLACK_APP_TOKEN SLACK_CHANNEL_ID
+
+# KAV-115: the gateway's approval login. Unreadable => no Secret, route stays shut (503); never fatal.
+if T=$(aws ssm get-parameter --region "$REGION" --with-decryption --name /kaval/${name_prefix}/approver/token \
+    --query Parameter.Value --output text 2>/dev/null | tr -d '[:space:]') && [ -n "$T" ]; then
+  kubectl create secret generic kaval-approver -n ${name_prefix} --from-literal=APPROVER_TOKEN="$T" \
+    --dry-run=client -o yaml | kubectl apply -f -
+else echo "approver token unreadable: approval route stays shut"; fi
+unset T
 
 %{ if seed_database ~}
 # Staging: fill an empty database from the cleaned copy BEFORE Flux is told about the release

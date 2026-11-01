@@ -58,7 +58,19 @@ Without the variable the script stops before it calls anything. `make chaos-appr
 
 ## Part 5 — Where the token comes from
 
-*(Built in the second pull request: generated once by Terraform, kept in Parameter Store, written into the Secret by the node's bootstrap on every boot. This lab is extended then.)*
+The token is not typed anywhere. `infra/modules/approver-token` makes it (`random_password`, 43 letters and digits) and stores it as a SecureString at `/kaval/<env>/approver/token`; the node's role is allowed to read exactly that parameter; the node's bootstrap, on every boot and every 6 hours, writes the Secret `kaval-approver` from it.
+
+```bash
+python -m pytest scripts/dev/test_approver_token_bootstrap.py -q
+```
+
+The bootstrap step is cut out of `infra/modules/node/user_data.sh.tftpl` and run with stand-ins for `aws` and `kubectl`. The negative cases are the point: a failed call, an empty value and a value of spaces all leave **no Secret** and let the bootstrap carry on (a shut route is the safe state), and the token is never printed. The last one was found by the test itself: a value of spaces used to make a Secret.
+
+Read-only look at what Terraform would do (production, 2026-11-02): `Plan: 2 to add, 3 to change, 0 to destroy`. The two additions are the parameter and the password; the three changes are the node's read permission (one more parameter), the launch template (the new bootstrap text) and the scaling group pointing at the new template version. Nothing is replaced, and the group is parked at zero, so no server is touched. Show the plan before any apply; production only when asked.
+
+To get the token into your shell for `make approve`, without showing it: see [the runbook](../runbooks/approval-refused.md).
+
+One thing to know before you add anything to that script: it must pack to under 16,384 bytes (EC2's limit on start-up text), and `scripts/dev/test_cost_pull.py` fails at 15,800 to make the next person notice. This step first pushed it to 16,060, so it was written shorter and two repeated comments were trimmed (15,744 now). Check with `python -m pytest scripts/dev/test_cost_pull.py -q -k ec2_limit`.
 
 ## Part 6 — The live proof
 
@@ -69,7 +81,7 @@ Without the variable the script stops before it calls anything. `make chaos-appr
 - [x] The route refuses a missing, wrong or malformed token, and is shut when none is configured *(2026-11-02)*
 - [x] A refusal is logged and counted with a fixed word, and never carries the token *(2026-11-02)*
 - [x] The actor is stored as `api:<name>` *(2026-11-02)*
-- [ ] The token's home exists and the Secret is made on every boot
+- [x] The token's home is built and tested: the Terraform, the read permission, the bootstrap step and a runbook *(2026-11-02; applying it is a step of the live proof)*
 - [ ] The network rules are in the chart
 - [ ] The live proof is recorded, and the threat-model row says Covered
 

@@ -116,6 +116,14 @@ module "still_alive" {
   silent_periods = 2
 }
 
+# The login on the approval route (KAV-115, ADR-0073): made with the environment, so staging's
+# route can be tried the moment it is up. Destroyed with it, which also rotates it.
+module "approver_token" {
+  source = "../../modules/approver-token"
+
+  name_prefix = local.name_prefix
+}
+
 module "iam" {
   source = "../../modules/iam"
 
@@ -125,6 +133,7 @@ module "iam" {
   secret_parameter_arns = concat(
     module.database.ssm_parameter_arns,
     [for p in aws_ssm_parameter.slack : p.arn],
+    [module.approver_token.parameter_arn],
     # Not a secret: the daily waste scan's findings, which the server copies into the cluster.
     [module.waste_scan.parameter_arn],
     # Not a secret: the removal worker's answer, which the server copies into the cluster.
