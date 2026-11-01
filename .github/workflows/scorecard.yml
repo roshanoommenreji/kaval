@@ -1,0 +1,47 @@
+# OpenSSF Scorecard: a weekly, read-only report card on how this repository is run (KAV-109,
+# ADR-0071). It checks things like pinned actions, branch protection, token permissions, a
+# security policy and dependency updates, and scores each from 0 to 10.
+#
+# It only reads. The result goes to the repository's own Security tab (Code scanning) and
+# nowhere else: `publish_results` is off, so nothing is sent to OpenSSF's public service. It is
+# not a required check on `main`, so a bad day here cannot block a merge.
+#
+# Two jobs' worth of power in one job, kept as small as the action allows:
+#   contents: read, actions: read   to read the repository and its workflows
+#   security-events: write          to put the result in the Security tab
+# The default token cannot read branch-protection settings, so that one check will read
+# "unknown" here; the rule it would check is verified by hand in docs/labs/lab-71-*.md.
+#
+# Every third-party action is pinned to a full commit SHA, as in ci.yml (the tag is a comment).
+# Dependabot proposes the bumps.
+
+name: scorecard
+
+on:
+  schedule:
+    - cron: "17 3 * * 0"   # Sundays, 03:17 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  scorecard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
+        with:
+          results_file: scorecard.sarif
+          results_format: sarif
+          publish_results: false
+      - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: scorecard.sarif
+          category: scorecard

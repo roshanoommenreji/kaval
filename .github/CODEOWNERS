@@ -1,0 +1,29 @@
+# Who owns what (KAV-109, ADR-0071).
+#
+# GitHub reads this file two ways: it asks the owner to review a pull request that touches their
+# paths, and the branch rule "Require review from Code Owners" can make that review mandatory.
+#
+# THAT RULE IS OFF HERE ON PURPOSE. This is a one-person repository, and GitHub does not let an
+# author approve their own pull request, so a mandatory owner review would lock the only person
+# out of merging. What stops a bad change today is the eleven required CI checks on `main`
+# (including the promotion guard), not this file. When a second maintainer joins, turn the rule
+# on: this file is already the list it needs.
+#
+# The paths below are the ones where a mistake costs the most. The last matching line wins.
+
+*                       @roshanoommenreji
+
+# The automation that holds credentials and can change production
+/.github/               @roshanoommenreji
+
+# What AWS is told to build, and how the cluster is told to run
+/infra/                 @roshanoommenreji
+/deploy/                @roshanoommenreji
+
+# What the agent is allowed to do, and the code that does it
+/policy/                @roshanoommenreji
+/services/executor/     @roshanoommenreji
+
+# The release path: what reaches production, and the record of what did
+/scripts/release/       @roshanoommenreji
+/deploy/promotion/      @roshanoommenreji
