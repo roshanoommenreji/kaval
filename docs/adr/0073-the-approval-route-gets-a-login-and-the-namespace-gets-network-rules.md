@@ -1,6 +1,6 @@
 # ADR-0073 — The approval route gets a login, and the namespace gets network rules
 
-- **Status:** Accepted (plan approved by Roshan 2026-11-02). Part 1 (the login) is built; parts 2 and 3 are in progress, see "Delivery"
+- **Status:** Accepted (plan approved by Roshan 2026-11-02). Part 1 (the login, #298) is merged; part 2 (the token's home) is built; part 3 (the network rules) is to do, see "Delivery"
 - **Date:** 2026-11-02
 - **Deciders:** Roshan
 - **Story:** `KAV-115` (found by `KAV-112`, [ADR-0072](0072-a-written-threat-model-and-a-prompt-injection-set.md), threat `T-APPROVE-1`) · builds on [ADR-0026](0026-slack-chatops-and-deferred-mobile.md) (Slack's path does not use this route), [ADR-0048](0048-approvals-nobody-answers-expiry-and-escalation.md) (an approval lasts 60 minutes) and [ADR-0027](0027-automatic-secret-and-role-recreation.md) (secrets rebuilt from Parameter Store on every boot)
@@ -23,7 +23,7 @@ Two independent controls, so that if one is wrong the other still holds, and one
    - A test fails if any other write route is added without it.
 2. **The actor is recorded as `api:<name>`.** The name is still the caller's word, but it can no longer pose as `slack:<name>`, which only Slack's path writes.
 3. **Network rules in the chart** (own pull request, `networkPolicy.enabled`, on for staging and production): ingress to the namespace is closed by default and opened only for what is needed. This also closes the *reads*, which carry no token.
-4. **The token's home** (own pull request): generated once by Terraform, kept in Parameter Store as a SecureString, written into the cluster's Secret by the node's bootstrap on every boot, the same path the database passwords and Slack tokens already take. Nobody types it into `kubectl`, and the node can rebuild it.
+4. **The token's home** (own pull request, `infra/modules/approver-token`): generated once by Terraform, kept in Parameter Store as a SecureString at `/kaval/<env>/approver/token`, written into the cluster's Secret by the node's bootstrap on every boot, the same path the database passwords and Slack tokens already take. Nobody types it into `kubectl`, and the node can rebuild it. **Unlike the Slack and database Secrets, a failure to read it does not stop the bootstrap**: a gateway with no token is shut, the safe state, and a login Secret is not worth taking the cluster's start-up down. The value is also in Terraform's state, the same position as the database passwords (state is a private, versioned, encrypted bucket, ADR-0058).
 
 Slack's buttons are not affected: that surface connects outward with its own tokens and calls `record_decision` directly.
 
