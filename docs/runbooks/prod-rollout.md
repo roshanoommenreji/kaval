@@ -8,7 +8,7 @@ the live run of 2026-10-14 (`KAV-83` Part 3, [Lab 50](../labs/lab-50-closing-pha
 the install and the permissions are handed out again once the release is Ready, so steps 5 and 6 are only for
 when that did not work. The new order was proven on staging (Lab 54) and then ran on production on 2026-10-21 (`KAV-98`,
 [Lab 61](../labs/lab-61-production-bring-up-for-phase-6.md)): the first boot applied the one waiting migration by itself,
-the permissions pass ran after Ready, and neither step 5 nor step 6 was needed.
+the permissions pass ran after Ready, and neither step 5 nor step 6 was needed. The bring-up of 2026-11-01 ([Lab 69](../labs/lab-69-production-runs-the-restricted-pods-and-the-notifier-lock.md)) was the first on a newer base image and with locked-down pods: no migration, no step 5 or 6, and `make prod-smoke` passed on its third try, six minutes after the apply (the first two tries failed while the services were still starting).
 
 ## Signals
 

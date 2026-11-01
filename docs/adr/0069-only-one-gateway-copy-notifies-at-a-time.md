@@ -1,6 +1,6 @@
 # ADR-0069 — Only one gateway copy notifies at a time
 
-- **Status:** Accepted (plan approved by Roshan 2026-10-31). Built and tested against a real Postgres; the live proof can only be seen in production, which is the only environment with a Slack app (staging has none, so its notifier loop never runs); it comes at production's next bring-up
+- **Status:** Accepted (plan approved by Roshan 2026-10-31). Built and tested against a real Postgres; the live proof can only be seen in production, which is the only environment with a Slack app (staging has none, so its notifier loop never runs); it came at production's next bring-up on 2026-11-01 ([Lab 69](../labs/lab-69-production-runs-the-restricted-pods-and-the-notifier-lock.md)): one copy logged the skipped round, the other did not. No approval was open, so the double alert itself was not re-created and the story stays open
 - **Date:** 2026-10-31
 - **Deciders:** Roshan
 - **Story:** `KAV-100`, found live in production on 2026-10-27 ([Lab 64](../labs/lab-64-closing-phase-6-on-production.md)) · builds on [ADR-0048](0048-approvals-nobody-answers-expiry-and-escalation.md) (the reminders) and [ADR-0026](0026-slack-chatops-and-deferred-mobile.md) (the notifier loop)

@@ -46,7 +46,7 @@ The in-cluster Postgres (local, k3d and the lab; staging and prod use a separate
 
 ## Consequences
 
-- Staging verifies it before production: the staging smoke test's "pods running and ready" check is the proof for the pages (a new image without `/readyz` would never become ready), and its other checks prove the locked-down pods start and work. Production picks it up through the normal promotion gate at its next bring-up.
+- Staging verifies it before production: the staging smoke test's "pods running and ready" check is the proof for the pages (a new image without `/readyz` would never become ready), and its other checks prove the locked-down pods start and work. Production picked it up through the normal promotion gate at its next bring-up (2026-11-01, `make prod-smoke` 9 of 9, [Lab 69](../labs/lab-69-production-runs-the-restricted-pods-and-the-notifier-lock.md)).
 - A gateway that loses its database now stops receiving traffic, instead of failing requests while looking healthy. With two copies and a shared database, both go unready together, which is the truth.
 - The chart now passes `restricted`. The lab's `baseline` enforcement can be raised to `restricted` the next time the lab runs; that is a lab-doc step, not a code change.
 - Cost: nothing in production; one staging run (about $1) shared with other changes.
