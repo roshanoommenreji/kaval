@@ -151,12 +151,13 @@ def test_the_servers_may_pull_aws_add_on_images_and_only_those_besides_kavals() 
     assert "ecr:PutImage" not in block and '"*"' not in block  # pull only, no wildcard repository
 
 
-def test_the_install_does_not_wait_because_the_migration_hook_runs_after_the_wait() -> None:
-    # Found live: with the chart's own Postgres the migration is a post-install hook. Helm runs it
-    # only after every Deployment is ready, and they cannot be ready before the tables exist.
-    chart_job = (CHART / "templates" / "migrate-job.yaml").read_text(encoding="utf-8")
-    assert "post-install" in chart_job  # the reason; if the chart changes, revisit disableWait
-    assert _release()["spec"]["install"]["disableWait"] is True
+def test_the_lab_waits_for_its_services_because_the_migration_runs_alongside_them() -> None:
+    # KAV-104. Lab 66 found a deadlock: with the chart's own Postgres the migration was a
+    # post-install hook, Helm runs it only after every Deployment is ready, and they cannot be
+    # ready before the tables exist, so the lab's release carried install.disableWait. The chart
+    # now makes the first-install migration an ordinary Job (see test_chart_migration.py), so the
+    # workaround must not come back: it would hide a real failure to start.
+    assert "disableWait" not in _release()["spec"]["install"]
 
 
 def test_subnet_tags_added_from_outside_are_not_stripped_by_the_next_apply() -> None:

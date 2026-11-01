@@ -37,7 +37,7 @@ new services needed.
 ## Decision
 
 1. **The migration is a `pre-install` hook when the database is a server of its own** (`postgres.enabled: false`:
-   staging and production). It stays `post-install` for the chart's own Postgres (local k3d and dev), where there is no
+   staging and production). It stays `post-install` for the chart's own Postgres (local k3d and dev; since 2026-11-01 only on upgrades, a first install has no hook, [ADR-0070](0070-the-first-install-over-the-charts-own-database-no-longer-waits-on-itself.md)), where there is no
    database until the release creates one. Both keep `pre-upgrade`. The hook's prerequisites (the namespace, `ecr-cred`,
    the admin Secret) are created by the node's bootstrap before Flux is told about the release.
 2. **The permissions are handed out a second time, once the release is Ready, on every boot** (ADR-0039 did it only for

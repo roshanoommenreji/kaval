@@ -69,7 +69,7 @@ kubectl apply -f deploy/gitops/lab-eks/source.yaml -f deploy/gitops/lab-eks/sync
 kubectl get helmrelease -A -w      # kaval-lab and aws-load-balancer-controller become Ready
 ```
 
-The lab's release is installed with `disableWait: true`. With the chart's own database the migration is a post-install hook that Helm runs only after every service is ready, and they cannot be ready before the tables exist: waiting deadlocks (Lab 66, finding 4). If a release shows "Stalled" or "cannot remediate", nudge it: `kubectl -n flux-system annotate helmrelease kaval-lab reconcile.fluxcd.io/requestedAt="$(date +%s)" reconcile.fluxcd.io/forceAt="$(date +%s)" --overwrite`.
+The lab's release waits for its services like any other. Until `KAV-104` it could not: with the chart's own database the migration was a post-install hook that Helm ran only after every service was ready, and they cannot be ready before the tables exist (Lab 66, finding 4), so the lab's release carried `disableWait: true`. On a first install with the chart's own database the migration is now an ordinary Job that starts together with the services (Lab 70), and that setting is gone. If a release shows "Stalled" or "cannot remediate", nudge it: `kubectl -n flux-system annotate helmrelease kaval-lab reconcile.fluxcd.io/requestedAt="$(date +%s)" reconcile.fluxcd.io/forceAt="$(date +%s)" --overwrite`.
 
 The chart installs **unmodified**. The only lab-only thing is the executor's IRSA label, added by the lab's own `HelmRelease`. If anything needs a *chart* edit to run on EKS, stop: that is a finding against the portability claim, not something to patch.
 
@@ -118,7 +118,7 @@ If the destroy fails part-way, run it again; the timer will also finish the job 
 | The nodes never become Ready | `kubectl get nodes`, then `kubectl describe node`; the network add-on is the usual suspect. The cluster still bills: do not stay stuck, destroy |
 | The pods cannot pull images | The servers' role allows only Kaval's repositories; check the image name and tag against ECR |
 | `kubectl` times out (it can look like a name-lookup error) | Your address changed. Update `api_allowed_cidrs`, `make lab-plan` (0 / 1 / 0), `make lab-up` (a small change in place), then the ConfigMap `kaval-lab-cluster` |
-| The agent, executor and poller crash with "relation does not exist" and the release keeps being removed and retried | The install is waiting for a migration that runs only after it. `install.disableWait: true` in the lab's release; nudge the release (step 3) |
+| The agent, executor and poller crash with "relation does not exist" and the release keeps being removed and retried | Should not happen since `KAV-104` (the migration Job now starts with the services). If it does, check `kubectl -n kaval-lab get jobs` for the `-migrate-1` Job and its logs; nudge the release (step 3) |
 | The load balancer says the gateway is unhealthy | Its health path must be `/openapi.json`, not `/healthz` |
 | The database pod crashes: "directory ... exists but is not empty" | The disk is `ext4`; the StorageClass must be `xfs` |
 | The sweep shows a load balancer | It was made by the controller. `aws elbv2 delete-load-balancer --load-balancer-arn <it>`, then re-run the sweep |
