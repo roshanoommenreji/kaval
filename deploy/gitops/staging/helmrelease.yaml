@@ -36,6 +36,8 @@ spec:
         migrate: kaval-postgres-admin
     global:
       imagePullSecretName: ecr-cred
+    networkPolicy:
+      enabled: true
     gateway:
       replicas: 1
       approverSecretName: kaval-approver

@@ -72,6 +72,17 @@ To get the token into your shell for `make approve`, without showing it: see [th
 
 One thing to know before you add anything to that script: it must pack to under 16,384 bytes (EC2's limit on start-up text), and `scripts/dev/test_cost_pull.py` fails at 15,800 to make the next person notice. This step first pushed it to 16,060, so it was written shorter and two repeated comments were trimmed (15,744 now). Check with `python -m pytest scripts/dev/test_cost_pull.py -q -k ec2_limit`.
 
+## Part 5b — The network rules, offline
+
+```bash
+python -m pytest scripts/dev/test_chart_netpol.py -q
+helm template kaval-prod deploy/charts/kaval -f deploy/environments/prod/values.yaml | grep -c "kind: NetworkPolicy"   # 5
+```
+
+Read `deploy/charts/kaval/templates/networkpolicy.yaml`: a default that denies every connection in, then one rule per door Kaval uses, each with a comment saying who knocks and why. The tests pin what matters: the gateway's port accepts the poller and no other pod; no rule uses an address range, another namespace, or a missing `from` or `ports` (which would mean "everyone"); every pod a rule names really exists (a rename cannot leave a door shut silently); Prometheus is the only reader of the health pages; the model answers the diagnosis worker only; `local` and `lab-eks` render none.
+
+The alert on the login being guessed at is in `deploy/charts/kaval/files/kaval-alerts.rules.yaml` (`KavalApprovalRefused`). `make rules-test` (needs Docker) runs three cases: one or two refused tries never alert; a run of five wrong tokens alerts and then stops; `switched_off` never alerts.
+
 ## Part 6 — The live proof
 
 *(Written when it is run: one staging session, each step on its own go.)*
@@ -82,7 +93,7 @@ One thing to know before you add anything to that script: it must pack to under 
 - [x] A refusal is logged and counted with a fixed word, and never carries the token *(2026-11-02)*
 - [x] The actor is stored as `api:<name>` *(2026-11-02)*
 - [x] The token's home is built and tested: the Terraform, the read permission, the bootstrap step and a runbook *(2026-11-02; applying it is a step of the live proof)*
-- [ ] The network rules are in the chart
+- [x] The network rules are in the chart, tested offline, with an alert on the login being guessed at *(2026-11-02)*
 - [ ] The live proof is recorded, and the threat-model row says Covered
 
 ## Cost

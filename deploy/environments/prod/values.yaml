@@ -33,6 +33,12 @@ global:
   # a repo fact, not a secret.
   imagePullSecretName: ecr-cred
 
+# Close every way IN to the namespace except the doors Kaval itself uses (KAV-115, ADR-0073). Proved
+# on staging first: a pod in the demo namespace cannot reach the gateway, and the node's own health
+# checks and smoke test still can.
+networkPolicy:
+  enabled: true
+
 gateway:
   # The one deliberate difference from staging that isn't just a namespace or a password:
   # prod runs two replicas. Staying at 1 everywhere would make "environments differ only by

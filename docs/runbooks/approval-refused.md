@@ -11,6 +11,7 @@ Slack approval fails. Nothing was approved by a refused call.
 - `make approve` stops before calling with `set KAVAL_APPROVER_TOKEN ...` (the variable is empty)
 - A gateway log line `approval call refused (switched_off|missing|wrong) from <address>`
 - The counter `kaval_approval_refused_total{outcome=...}` on the gateway's `:9100/metrics`
+- Slack: ":rotating_light: Kaval's own health: `gateway` is refusing approval calls: several wrong tokens in ten minutes" (the alert `KavalApprovalRefused`: more than two wrong or missing tokens in ten minutes; `switched_off` never triggers it)
 
 ## Likely causes
 
