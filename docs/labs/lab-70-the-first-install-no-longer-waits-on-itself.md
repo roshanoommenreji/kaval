@@ -43,6 +43,8 @@ Then run the tests: `python -m pytest scripts/dev/test_chart_migration.py script
 
 ## Part 4 — The live proof (not done yet)
 
+First the lab was moved to the build production runs (`sha-1d38be1`, pinned in `deploy/environments/lab-eks/values.yaml` and the lab's release). It was still on `sha-eb3f81a`, from before the two health pages (`/livez`, `/readyz`) that the chart now checks, so its gateway would never have become ready and the session would have failed for an unrelated reason. Found by reading, before any money was spent.
+
 One more EKS lab session, following [the lab runbook](../runbooks/lab-eks.md) exactly, with the release **without** `disableWait`. It passes if the release becomes Ready on its first try (no "removed and retried"), `kubectl -n kaval-lab get jobs` shows the `-migrate-1` Job complete, and all pods end ready. Each live step needs Roshan's own go. This part is written up here when it has run.
 
 ## Done when
