@@ -1,6 +1,6 @@
 # ADR-0070 — The first install over the chart's own database no longer waits on itself
 
-- **Status:** Accepted (plan approved by Roshan 2026-11-01). Built and tested locally; the live proof is one more EKS lab session, which needs its own go. Until it has run, `KAV-104` stays open
+- **Status:** Accepted (plan approved by Roshan 2026-11-01). Built and tested locally, then **proven live the same day** in one EKS lab session ([Lab 70](../labs/lab-70-the-first-install-no-longer-waits-on-itself.md)): the release installed on its first try in about 83 seconds with no `disableWait`, the migration Job completed in 24 seconds, 8 of 8 pods ready with 0 restarts
 - **Date:** 2026-11-01
 - **Deciders:** Roshan
 - **Story:** `KAV-104`, found live on 2026-10-30 in [Lab 66](../labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md) · amends [ADR-0067](0067-the-eks-lab-is-ephemeral-has-its-own-timer-and-is-proven-clean-by-a-label-sweep.md) (item 4 of its amendment) and builds on [ADR-0057](0057-the-database-is-brought-up-to-date-before-a-new-version-starts.md)
@@ -29,7 +29,7 @@ The condition is one line in `templates/migrate-job.yaml`: `postgres.enabled` **
 - **Staging and production are unchanged.** The rendered output of both is byte-for-byte what it was (checked by rendering before and after, for a first install and for an upgrade). The only rendered difference anywhere is the lab's and the local cluster's first-install Job losing its hook annotations.
 - **The services may restart while the tables are being made.** They crash and retry for the minute the migration takes; this is what the lab already did after its workaround, and it is the same shape as any service that starts before its database is ready.
 - **A failed migration is now visible in the install.** With the hook, a failed migration never started. Now the services stay not ready, so the install times out and Flux's retry shows it. That is the intended direction: the wait is back on.
-- **Honest limit:** the first-install behaviour is proven by rendering and by tests; that it removes the deadlock on a real cluster is proven only by the lab session. Until then `KAV-104` is open.
+- **Proven on a real cluster** (2026-11-01, Lab 70). The limit that remains: it is shown for a first install over the chart's own database on EKS; staging and production never took this path.
 
 ## Testing
 
