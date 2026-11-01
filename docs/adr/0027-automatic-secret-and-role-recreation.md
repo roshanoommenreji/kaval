@@ -38,7 +38,7 @@ and blocked by this environment's own classifier ("Security Weaken") for the rig
 cluster's CNI is **Flannel**, which doesn't enforce `NetworkPolicy` at all, so there is no way to
 raise the hop limit for ESO's pod without also raising it for every other pod in the cluster —
 gateway, agent, executor, collector would all gain the node's own AWS permissions, not just the
-one pod that needs them. *Corrected 2026-11-02 ([ADR-0073](0073-the-approval-route-gets-a-login-and-the-namespace-gets-network-rules.md)):
+one pod that needs them. *Corrected 2026-11-01 ([ADR-0073](0073-the-approval-route-gets-a-login-and-the-namespace-gets-network-rules.md)):
 the "doesn't enforce" part was wrong, because k3s's built-in controller enforces policy (proved on staging).
 The decision stands for its other reason, that the hop limit is node-wide and policy here only restricts
 traffic *into* pods; blocking a pod's way *out* to the metadata address would be a separate, untested change.*

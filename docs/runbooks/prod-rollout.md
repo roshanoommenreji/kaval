@@ -68,7 +68,7 @@ The first bring-up after `KAV-85` also shows the server's start-up script changi
 group's version of it, both in place, nothing destroyed). That is the new permissions step reaching production; no
 running server is touched because there is none.
 
-The first bring-up after `KAV-115` also shows the approval login's home arriving (read-only plan on 2026-11-02: 2 to add,
+The first bring-up after `KAV-115` also shows the approval login's home arriving (read-only plan on 2026-11-01: 2 to add,
 3 to change, 0 to destroy): a random token and its Parameter Store entry `/kaval/kaval-prod/approver/token` are created and
 the server's read permission for it widens. Nothing is destroyed. Until this apply and the first boot, production's
 approval route answers 503 (shut), which is safe. [ADR-0073](../adr/0073-the-approval-route-gets-a-login-and-the-namespace-gets-network-rules.md).

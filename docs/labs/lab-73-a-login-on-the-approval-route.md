@@ -66,7 +66,7 @@ python -m pytest scripts/dev/test_approver_token_bootstrap.py -q
 
 The bootstrap step is cut out of `infra/modules/node/user_data.sh.tftpl` and run with stand-ins for `aws` and `kubectl`. The negative cases are the point: a failed call, an empty value and a value of spaces all leave **no Secret** and let the bootstrap carry on (a shut route is the safe state), and the token is never printed. The last one was found by the test itself: a value of spaces used to make a Secret.
 
-Read-only look at what Terraform would do (production, 2026-11-02): `Plan: 2 to add, 3 to change, 0 to destroy`. The two additions are the parameter and the password; the three changes are the node's read permission (one more parameter), the launch template (the new bootstrap text) and the scaling group pointing at the new template version. Nothing is replaced, and the group is parked at zero, so no server is touched. Show the plan before any apply; production only when asked.
+Read-only look at what Terraform would do (production, 2026-11-01): `Plan: 2 to add, 3 to change, 0 to destroy`. The two additions are the parameter and the password; the three changes are the node's read permission (one more parameter), the launch template (the new bootstrap text) and the scaling group pointing at the new template version. Nothing is replaced, and the group is parked at zero, so no server is touched. Show the plan before any apply; production only when asked.
 
 To get the token into your shell for `make approve`, without showing it: see [the runbook](../runbooks/approval-refused.md).
 
@@ -85,7 +85,7 @@ The alert on the login being guessed at is in `deploy/charts/kaval/files/kaval-a
 
 ## Part 6 — The live proof
 
-One staging session on 2026-11-02 (about half an hour, a few cents at staging's $0.045 an hour), each step on its own go. All commands run on the staging server through Session Manager (`aws ssm send-command`, document `AWS-RunShellScript`); `KUBECONFIG=/etc/rancher/k3s/k3s.yaml`, namespace `kaval-staging`. The token is never printed anywhere: it is read on the server from the Secret and put straight into the request header.
+One staging session on 2026-11-01 (about half an hour, a few cents at staging's $0.045 an hour), each step on its own go. All commands run on the staging server through Session Manager (`aws ssm send-command`, document `AWS-RunShellScript`); `KUBECONFIG=/etc/rancher/k3s/k3s.yaml`, namespace `kaval-staging`. The token is never printed anywhere: it is read on the server from the Secret and put straight into the request header.
 
 **1. Build staging.** `ASSUME_YES=1 make staging-up` (the script asks "Continue?" itself; without a terminal that switch answers it). 93 resources added, 9 pods Running in about 3 minutes. The node's start-up wrote the Secret from Parameter Store on its own.
 
@@ -125,12 +125,12 @@ Result: `wget: can't connect to remote host (10.43.172.31): Connection refused`,
 
 ## Done when
 
-- [x] The route refuses a missing, wrong or malformed token, and is shut when none is configured *(2026-11-02)*
-- [x] A refusal is logged and counted with a fixed word, and never carries the token *(2026-11-02)*
-- [x] The actor is stored as `api:<name>` *(2026-11-02)*
-- [x] The token's home is built and tested: the Terraform, the read permission, the bootstrap step and a runbook *(2026-11-02; applying it is a step of the live proof)*
-- [x] The network rules are in the chart, tested offline, with an alert on the login being guessed at *(2026-11-02)*
-- [x] The live proof is recorded, and the threat-model row says Covered *(2026-11-02, on staging; production on promotion)*
+- [x] The route refuses a missing, wrong or malformed token, and is shut when none is configured *(2026-11-01)*
+- [x] A refusal is logged and counted with a fixed word, and never carries the token *(2026-11-01)*
+- [x] The actor is stored as `api:<name>` *(2026-11-01)*
+- [x] The token's home is built and tested: the Terraform, the read permission, the bootstrap step and a runbook *(2026-11-01; applying it is a step of the live proof)*
+- [x] The network rules are in the chart, tested offline, with an alert on the login being guessed at *(2026-11-01)*
+- [x] The live proof is recorded, and the threat-model row says Covered *(2026-11-01, on staging; production on promotion)*
 
 ## Cost
 
