@@ -57,8 +57,9 @@ What keeps it from being a way in:
   minute), and an init step compares each model's id with the pinned one and **refuses to start** on a mismatch
   (tested on the dev server: right id passes, wrong id exits 1 with `REFUSING`). Docker Hub's image is pinned by
   digest too. Tags move; a model whose weights changed upstream would otherwise be trusted by name.
-- The cluster's network cannot stop another pod from calling the model (Flannel enforces no NetworkPolicy, the same
-  fact `metrics.py` documents). The worst that does is spend the model pod's processor, which has a limit.
+- The cluster's network could not, at the time, be assumed to stop another pod from calling the model. The worst that
+  does is spend the model pod's processor, which has a limit. *Corrected 2026-11-02 ([ADR-0073](0073-the-approval-route-gets-a-login-and-the-namespace-gets-network-rules.md)):
+  k3s does enforce network policy, and staging and production now let only the diagnosis worker reach the model.*
 
 ## Decision 2 — a separate worker, not a step inside the correlator
 

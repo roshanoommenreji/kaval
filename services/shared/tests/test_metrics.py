@@ -39,8 +39,9 @@ def test_the_page_shows_the_loop_numbers_and_nothing_that_comes_from_data(
     assert 'kaval_build_info{service="pagetest",version="1.2.3"} 1.0' in body
     if sys.platform.startswith("linux"):  # the client reads /proc, so the images have it
         assert "process_resident_memory_bytes" in body  # the real memory of each service
-    # Anything on this page is readable by every pod in the cluster (Flannel enforces no
-    # NetworkPolicy), so the only labels allowed are the two that name the service, plus `outcome`
+    # Treat anything on this page as readable by every pod in the cluster (the chart's network
+    # rules limit it to Prometheus on staging and production, but they are off elsewhere and can be
+    # loosened), so the only labels allowed are the two that name the service, plus `outcome`
     # (KAV-87): the diagnosis worker's count of attempts, whose values are a fixed handful of words
     # (`ok`, `model_error`, ...) that services/agent/tests/test_diagnoser.py pins.
     labels = {name for line in body.splitlines() if line.startswith("kaval_")

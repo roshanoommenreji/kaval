@@ -1,5 +1,6 @@
 # Network policies for the lab (KAV-102, ADR-0067). On EKS the network add-on enforces them (enabled in
-# infra/modules/eks-lab); k3s's Flannel ignores them, which is why this can only be learned here.
+# infra/modules/eks-lab). (k3s enforces network policy too, with its built-in controller, proved on
+# staging in KAV-115; the lab is where the chart's rules met EKS's own network add-on.)
 # Not part of the chart: the chart is not edited for the lab. Anything these break is a finding to be
 # recorded and filed as its own story, never patched quietly (the lab's plan).
 #
