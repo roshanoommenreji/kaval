@@ -44,14 +44,30 @@ Undo with `-X DELETE`. This is a setting on GitHub, so it is shown first and don
 
 Run the workflow by hand: `gh workflow run scorecard.yml`, then open Security → Code scanning → filter on the "scorecard" tool. Record each check below with its score, and for every one under 10 whether it is worth fixing, cannot be fixed on a one-person repository, or is the known "unknown" (Branch-Protection).
 
-*(To be filled in with the first real result.)*
+### The first result (run by hand 2026-11-01, about two minutes, success)
+
+The report lists only checks that scored under 10, so a check that is missing passed or could not be judged. Nine findings, in six checks:
+
+| Check | Score | Verdict |
+|---|---|---|
+| Code-Review | 0 | **Cannot be fixed on a one-person repository.** It counts changes approved by someone other than the author (0 of 12). Honest and expected; it is the cost of working alone. |
+| Maintained | 0 | **Fixes itself.** The repository was created on 2026-09-26; the check wants 90 days of history, so it changes around 2026-12-25. |
+| SAST | 0 | **Worth fixing.** No static code analysis ran on any of the last 30 commits. CodeQL is free on a public repository. Story `KAV-110`. |
+| Pinned-Dependencies | 8 | **Worth a look.** Four Dockerfiles (gateway line 67, executor 81, collector 66, agent 98) run `pip install --no-deps .`, which installs Kaval's own code without a hash; every library before it is already hash-checked (`--require-hashes`). Story `KAV-111`. |
+| Fuzzing | 0 | **Not worth it now.** Fuzzing suits parsers and libraries that take hostile input; the nearest thing here is the model-output validation, which the golden-incident evals and the planned prompt-injection set (Phase 8) cover better. |
+| CII-Best-Practices | 0 | **Skipped for now.** A badge application that mostly restates what the policy, tests and ADRs already show. Revisit when the repository is announced. |
+
+Everything else was either 10 or not judged. Branch-Protection did not appear, as expected: the default token cannot read the setting, so it is checked by hand: `main` requires eleven status checks (verified through the GitHub API on 2026-11-01), administrators can still bypass, and no approving review is required (zero), because of the one-person limit above.
+
+No overall number is quoted here: the report in the Security tab lists findings, not the total, and a number I computed myself would be a guess.
+
 
 ## Done when
 
 - [x] `SECURITY.md`, `CODEOWNERS` and the Scorecard workflow exist, and the tests pass
-- [ ] Private vulnerability reporting is on (`{"enabled": true}`)
-- [ ] The Scorecard workflow ran and the result is recorded above, with every gap explained
-- [ ] The community profile shows a security policy
+- [x] Private vulnerability reporting is on *(2026-11-01, `enabled: true`; community health 57 to 71)*
+- [x] The Scorecard workflow ran and the result is recorded above, with every gap explained *(2026-11-01)*
+- [ ] The community profile lists a security policy (the API's file list did not show it on 2026-11-01; check the Security tab)
 
 ## Cost
 
