@@ -100,7 +100,7 @@ The first attempt could not be rescued. After the fix merged, Flux picked up the
 | Pods | 9 of 9 running and ready, the gateway included, so `/readyz` answers 200 once the database is migrated (it answered 503 before, correctly) |
 | `make staging-smoke` | 7 of 7 checks pass: pods ready, 0 restarts, every service on `sha-cc55f32`, running digests equal ECR, database migrated, `/v1/incidents` and `/v1/signals` answer 200 |
 
-The pass was recorded through PR #277; `promote.yml` accepted `sha-cc55f32` and opened the production pin (PR #278, merged). Production is parked, so it picks the images up at its next bring-up; `make prod-smoke` after that is the last step for `KAV-105` and `KAV-106`.
+The pass was recorded through PR #277; `promote.yml` accepted `sha-cc55f32` and opened the production pin (PR #278, merged). Production is parked, so it picked the images up at its next bring-up on 2026-11-01, and `make prod-smoke` passed 9 of 9 with 10 pods ready and 0 restarts ([Lab 69](lab-69-production-runs-the-restricted-pods-and-the-notifier-lock.md)): the last step for `KAV-105` and `KAV-106`, both closed.
 
 **Gotcha worth knowing:** when a Flux release's retries run out, it stays failed and fixing the cause in git does not bring it back (`MissingRollbackTarget` on a first install). This is the second time: production did the same on 2026-10-02 ([Lab 20](lab-20-flux-gitops.md)). The way out that is already proven is to delete the `HelmRelease` and let Flux's kustomization re-create it, which gives a clean install ([runbook step 4b](../runbooks/prod-rollout.md)); staging did not need a rebuild. Flux's own reset (`flux reconcile helmrelease <name> --reset`) should also work and has not been tried. **Correction, 2026-10-31:** this lab first said the release had no retries set. That was wrong; I had not read the file closely. An open question, not a change: whether setting `install.remediation.remediateLastFailure: true` would make the failed first install clean itself up so the release recovers on its own. It is a documented setting, unproven here ([KAV-108](https://roshanoommenreji.atlassian.net/browse/KAV-108)).
 
@@ -113,7 +113,7 @@ Not done: the EKS lab is not run again. When it next runs, its namespace can enf
 - The cluster's checker flags the old chart 9 times and the new chart 0 times (Part 4)
 - ADR-0068, the roadmap lines, the runbook, the repo guide, the journal are updated
 - Staging passed on a clean rebuild (Part 6) and the images are promoted (PR #278)
-- Still open: production's next bring-up and `make prod-smoke` (`KAV-105`, `KAV-106` stay open until then)
+- Done 2026-11-01: production's bring-up and `make prod-smoke` (`KAV-105`, `KAV-106` closed, Lab 69)
 
 ## Cost
 

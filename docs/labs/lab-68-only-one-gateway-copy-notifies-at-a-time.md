@@ -49,11 +49,16 @@ Re-run: 6 new tests pass; `pytest services` 871 passed, 19 skipped; ruff clean o
 1. **Staging** is the ordinary gate before promotion (`make staging-up`, `make staging-smoke`; needs the user's go, about $0.50 to $1). It proves the new gateway starts and passes the standard checks. **It cannot prove the lock:** staging has no Slack app, so its notifier loop never runs. (An earlier version of this plan promised a staging proof with two copies; that was wrong.)
 2. **Production** is the only place the fix can be seen, because it is the only place with Slack and two gateway copies. At its next bring-up, after `make prod-smoke`: one of the two gateway logs shows `another gateway copy is notifying, skipping this round` and the other does not; and no approval message is recorded twice (the query in `make approvals-report`, run against production's database).
 
+## Part 5 — Seen in production (2026-11-01)
+
+Production was brought up on this build ([Lab 69](lab-69-production-runs-the-restricted-pods-and-the-notifier-lock.md)). Both gateway copies connected at the same moment; one logged `another gateway copy is notifying, skipping this round` and the other did not, and no permission error appeared. No approval request was open, so nothing could have been sent twice: the lock is seen taking turns, not the double alert re-created. The story stays open until a real open approval has been through a production session.
+
 ## Done when
 
 - The six tests pass, and the first of them shows the bug without the lock
 - ADR-0069, this lab, the runbook note, the roadmap line, the journal and the repo guide are updated
-- Still open: the standard staging run, then production's next bring-up, where the lock is seen working
+- Done: the standard staging run, and production's bring-up where the lock was seen taking turns
+- Still open: an open approval through a production session, to see that nothing is sent twice
 
 ## Cost
 
