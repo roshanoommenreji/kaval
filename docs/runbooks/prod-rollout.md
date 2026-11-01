@@ -68,6 +68,11 @@ The first bring-up after `KAV-85` also shows the server's start-up script changi
 group's version of it, both in place, nothing destroyed). That is the new permissions step reaching production; no
 running server is touched because there is none.
 
+The first bring-up after `KAV-115` also shows the approval login's home arriving (read-only plan on 2026-11-02: 2 to add,
+3 to change, 0 to destroy): a random token and its Parameter Store entry `/kaval/kaval-prod/approver/token` are created and
+the server's read permission for it widens. Nothing is destroyed. Until this apply and the first boot, production's
+approval route answers 503 (shut), which is safe. [ADR-0073](../adr/0073-the-approval-route-gets-a-login-and-the-namespace-gets-network-rules.md).
+
 Never apply to production without showing this plan and being told to ([CLAUDE.md](../../CLAUDE.md)).
 
 ### 3. Apply, and wait for the server
@@ -92,6 +97,8 @@ kubectl get pods -n kaval-prod                       # agent, collector, collect
 kubectl get kustomization,helmrelease -A             # kaval-prod kustomization True
 kubectl exec -n kaval-prod deploy/<release>-gateway -- alembic current   # the head: c3e8a1d7f402 on 2026-10-14
 systemctl list-timers | grep kaval                   # heartbeat (2 min), gitops-bootstrap (6 h), db-backup (19:30 UTC)
+kubectl get networkpolicy -n kaval-prod              # KAV-115: 5 rules (default-deny, metrics, prometheus, gateway, ollama)
+kubectl get secret kaval-approver -n kaval-prod      # KAV-115: 1 entry (names only; never print it)
 free -m; kubectl top nodes; kubectl top pods -n kaval-prod
 kubectl get --raw /api/v1/namespaces/kaval-prod/services/<release>-prometheus:9090/proxy/api/v1/targets | grep -oE 'health.{3}[a-z]+' | sort | uniq -c
 ```
