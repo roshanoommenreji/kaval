@@ -34,10 +34,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
+from kaval_agent import policy
 from kaval_agent.context import Context, build_context
 from kaval_agent.correlate import correlate
 from kaval_agent.diagnose import DiagnosisError, diagnose, write_proposal
@@ -56,6 +58,19 @@ SCORED_OFFSET = timedelta(minutes=6)
 # Comfortably past the 15-minute quiet window relative to SCORED_OFFSET too, so a recurrence
 # case's history batch is fully closed before its scored batch is even written.
 HISTORY_OFFSET = timedelta(minutes=40)
+
+
+def require_opa() -> None:
+    """Stop before running anything if `opa` is not on the path. Without it `policy.classify` falls
+    back to `ask` for every action (and only logs a warning), so the action-safety gate would read
+    "0 never-class actions: OK" without ever having been checked. Found the hard way on 2026-11-01
+    (KAV-112)."""
+    if shutil.which(policy.DEFAULT_OPA_BIN) is None:
+        raise SystemExit(
+            f"{policy.DEFAULT_OPA_BIN!r} is not on the PATH. Without it every action is classified "
+            "as 'ask' and the action-safety gate means nothing. Install it "
+            "(docs/labs/lab-00-toolchain.md)."
+        )
 
 
 def _write_signals(
@@ -187,6 +202,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                              "one from before KAV-84 told the model which fixes exist (before), or "
                              "both, case by case, for a before-and-after in one run")
     args = parser.parse_args(argv)
+    require_opa()
 
     from kaval_shared.db import get_engine  # only a real run needs the database
 
