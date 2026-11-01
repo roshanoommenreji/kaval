@@ -203,20 +203,20 @@ First real spend. **Posture: paused between sessions** (`make down`).
 
 ---
 
-## Phase 7 — EKS chapter · week 21 · `[ ]`
+## Phase 7 — EKS chapter · week 21 · `[~]`
 
 - [x] `infra/envs/lab-eks` — real EKS via Terraform *(code, timer, sweep and plan done 2026-10-29, `KAV-101`, [Lab 65](docs/labs/lab-65-building-the-eks-lab-before-spending-anything.md); **applied live in two sessions 2026-10-29/30 and destroyed clean**, `KAV-102`, [Lab 66](docs/labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md))*
 - [x] IRSA for the executor — no static keys *(proven live 2026-10-30: reads one parameter with no key, refused on another, no credentials for another service account)*
 - [x] AWS Load Balancer Controller *(proven live: one balancer, reachable only from the laptop)*
 - [x] Deploy the **identical** Helm chart, unmodified *(proven live: no chart edit; the lab's own release needed `disableWait`, a story below)*
-- [ ] Screenshot and record everything
-- [ ] `terraform destroy`, verified clean 24 h later
+- [x] Screenshot and record everything *(done 2026-10-30/31: every step, command and result is in [Lab 65](docs/labs/lab-65-building-the-eks-lab-before-spending-anything.md), [Lab 66](docs/labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md) and [Lab 67](docs/labs/lab-67-two-health-pages-and-pods-that-pass-restricted.md), with the cost of each session)*
+- [x] `terraform destroy`, verified clean 24 h later *(destroyed 2026-10-30; `make lab-sweep` on 2026-11-01, more than 24 h later: nothing left, no billable resource)*
 - *Planning-standard additions (2026-10-11), each a checkbox below:*
 - [x] A time-to-live on the EKS cluster so it cannot be left running ($73/month for the control plane alone): an automatic destroy, like staging's idle stop *(proven live 2026-10-29/30: servers to zero at 4 h 09 m, all deleted by 6 h 39 m)*
 - [x] Network policies and Pod Security Standards applied, and the chart's behaviour under them checked (EKS enforces more than k3s) *(done live: passes `baseline`, fails `restricted`; policies block an outsider and keep the real paths working)*
 - [x] Observability parity: Prometheus and the poller run from the same chart by values only; the Kubernetes version and upgrade policy are written down *(proven live: 8 of 8 targets up; policy in the runbook)*
-- [ ] Terraform plan reviewed and recorded before every apply; teardown verified by a tag-based sweep, not by memory
-- [ ] `docs/learn/phase-7-eks-chapter.md` — flip **Written from** to `experience`
+- [x] Terraform plan reviewed and recorded before every apply; teardown verified by a tag-based sweep, not by memory *(both sessions; the sweep is `make lab-sweep`, `KAV-107`)*
+- [x] `docs/learn/phase-7-eks-chapter.md` — flip **Written from** to `experience` *(2026-11-01, with an assumed-versus-happened table)*
 - *Follow-ups found live (2026-10-30, [Lab 66](docs/labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md)), each its own story:*
 - [ ] The chart installs over its own in-cluster database without deadlocking on the migration hook, then the lab's `disableWait` goes (`KAV-104`)
 - [~] Every chart pod gets a security context so it passes Pod Security `restricted`, staging first (`KAV-105`, [ADR-0068](docs/adr/0068-two-health-pages-and-pods-that-pass-restricted.md), [Lab 67](docs/labs/lab-67-two-health-pages-and-pods-that-pass-restricted.md)) — **built and tested locally 2026-10-31; passed staging 2026-10-31 (`sha-cc55f32`, 9 of 9 pods ready, 0 restarts) and promoted (prod pin merged, PR #278)**: the cluster's own checker flags the old chart 9 times and the new one 0 times, and the database starts as its own user. The first staging run found a fourth fault (start-up waits, fixed in PR #276). Open until production's next bring-up and `make prod-smoke`
@@ -224,7 +224,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [x] `lab_sweep.py` confirms a tagged resource still exists before reporting it (`KAV-107`, 2026-10-31)
 - [~] A Flux release whose retries ran out can be recovered without a rebuild (`KAV-108`, [runbook step 4b](docs/runbooks/prod-rollout.md), [Lab 67](docs/labs/lab-67-two-health-pages-and-pods-that-pass-restricted.md) Part 6) — **record corrected and guard test added 2026-10-31**: staging and prod already retry three times (the first plan said they did not); the runbook has the proven way out (delete the release, clean install). Open: whether `install.remediation.remediateLastFailure: true` lets a failed first install heal itself, proven only by a deliberately broken first install on staging (about $0.50, needs a go)
 
-**Exit gate:** same chart runs on EKS with zero edits; teardown leaves zero billable resources.
+**Exit gate:** same chart runs on EKS with zero edits; teardown leaves zero billable resources. ✅ **Passed 2026-10-30/11-01** ([Lab 66](docs/labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md)): the unmodified chart ran on EKS (one lab-only setting, `disableWait`, until `KAV-104`), and `make lab-sweep` more than 24 h after the destroy found nothing left. The phase stays `[~]` while its follow-up stories (`KAV-104`, `KAV-105`, `KAV-106`, `KAV-108`) are open.
 
 ---
 

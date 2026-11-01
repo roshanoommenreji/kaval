@@ -1,8 +1,8 @@
 # Phase 7 — EKS chapter
 
-> **Written from:** theory
-> **Lab:** [Lab 65](../labs/lab-65-building-the-eks-lab-before-spending-anything.md) (the build); the live run's lab follows with `KAV-102`
-> **Cost:** about $1.2 to $2 per six-hour session, capped at $4, ephemeral — `terraform apply`, prove it, `terraform destroy` (priced against the AWS price list on 2026-10-28; a self-destruct timer enforces the six hours)
+> **Written from:** experience
+> **Labs:** [Lab 65](../labs/lab-65-building-the-eks-lab-before-spending-anything.md) (the build), [Lab 66](../labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md) (the two live sessions), [Lab 67](../labs/lab-67-two-health-pages-and-pods-that-pass-restricted.md) (two weaknesses the lab found, fixed on staging)
+> **Cost:** actually $1.60 and $0.85 for the two sessions (about $2.45), against an estimate of $1.2 to $2 each and a cap of $4; ephemeral — `terraform apply`, prove it, `terraform destroy` (priced against the AWS price list on 2026-10-28; a self-destruct timer enforces the six hours)
 
 ## Where this sits
 
@@ -164,6 +164,26 @@ nothing." **A portfolio project that quietly bills forever is an anti-credential
 
 ---
 
+## What we assumed, and what happened
+
+Every row is something this page or the plan assumed, next to what the two real sessions showed. The lesson that
+repeats: **a design that passed every static check still met nine surprises the first time it ran on the real
+thing**, and four of them were in code that had already been reviewed.
+
+| We assumed | What actually happened | Where |
+|---|---|---|
+| The servers can pull the cluster's own add-on images | They were refused: the servers' role allowed only Kaval's repositories, and AWS's own add-ons come from another account's registry. Fix: a second policy allowing only those three image families | Lab 66, finding 1 |
+| The chart's database just works on a new disk | A new `ext4` disk has a `lost+found` folder that Postgres refuses. Fix: an `xfs` storage class | Finding 2 |
+| A tag added from outside stays | The next plan wanted to remove it, because the subnet owns its tag set. Fix: ignore the controller's tag prefix | Finding 3 |
+| Installing the chart over its own database is the same as installing it over a separate one | A post-install migration hook waits for services that cannot be ready until the migration has run: a deadlock. The lab skips the wait; the real fix is a story | Finding 4 |
+| The load balancer can use the gateway's health page | That page also asks the language model, which the lab does not have, so it always said "degraded". Fix: two pages, "alive" and "ready" | Finding 5, [Lab 67](../labs/lab-67-two-health-pages-and-pods-that-pass-restricted.md) |
+| My network policies protect every pod | They matched one pod of seven; the deny-all rule hit all seven and the allow rules hit one. My own mistake, found by testing before and after | Finding 6 |
+| The laptop's address stays put | It changed twice, and the cluster's API only accepts the laptop's address | Finding 7 |
+| The chart passes the strict pod rules | It passed the middle level (`baseline`) and failed the strictest (`restricted`) on all seven. Fixed, and the first run on staging then found a start-up wait that failed under the new non-root user | Finding 9, Lab 67 |
+| IRSA works with no stored key | Confirmed live: the executor's pass read exactly one setting, was refused on a production setting, and another service account got nothing | Lab 66 |
+| A timer can be trusted to end the lab | Confirmed: servers to zero at 4 h 09 m, everything deleted by 6 h 39 m with nobody there. It left one disk behind, which was deleted by hand | Lab 66 |
+| `terraform destroy` removes everything | It removed what Terraform made. The disk made by the disk driver, and anything fixed by hand, needed separate handling | Lab 66, Part 3 |
+
 ## Common mistakes
 
 | Mistake | What it costs |
@@ -175,6 +195,8 @@ nothing." **A portfolio project that quietly bills forever is an anti-credential
 | Assuming `terraform destroy` removes everything | Controller-created load balancers survive and bill |
 | Not checking cost the next day | The orphaned resource is found on the statement |
 | Template changes to make the chart work on EKS | The portability claim silently becomes false |
+| Fixing something by hand in the live lab and not in the code before the teardown | The destroy fails on the hand-made object, and the next lab repeats the problem |
+| Believing a static check covers a pod that has never run | Settings that read as correct still failed on first start (the start-up wait under the non-root user) |
 | Assuming certified conformance covers cloud integrations | It covers the API surface, not LoadBalancer or storage |
 
 ## Glossary
