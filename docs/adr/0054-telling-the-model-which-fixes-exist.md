@@ -46,7 +46,7 @@ person (`disk_pressure`, `latency_high`, anything starting `kaval_`).
 ## Decision 2 — the model is shown the fix for this incident's cause, at the end of the message
 
 The incident's cause is not the model's to guess. The correlator names it from the signals (it is the first part of
-the incident's fingerprint), so the lookup is deterministic and a sentence planted in a log line cannot change it.
+the incident's fingerprint), so the lookup is deterministic and a sentence planted in a log line cannot make it up. *(Amended 2026-11-01, [ADR-0072](0072-a-written-threat-model-and-a-prompt-injection-set.md): text does have two switches, the phrase `exec format error` and a reason of `OOMKilled`; each only picks between causes that have a fix, aimed at the incident's own workload, and a person still approves.)*
 The message shows only the fixes that answer that cause, or "NO FIX AVAILABLE" when none does, **last** in the
 message. Position mattered a great deal: the same words in the system prompt were followed in 1 of 5 tries and
 at the end in 5 of 5 (Lab 51). The incident's own `namespace/name` is handed over too, because the model otherwise

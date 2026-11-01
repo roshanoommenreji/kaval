@@ -17,7 +17,9 @@ mind between identical runs; told only the right one, it still declined most of 
 reply format itself narrowed to the incident (`narrow_schema`) it was right 15 times in 15 (Lab 51).
 The cause is not the model's to guess: the correlator names it from the signals
 (`cause:domain:subject` in the incident's fingerprint), so the lookup below is deterministic and a
-sentence planted in a log line cannot change it. The model writes the diagnosis; the fix follows
+sentence planted in a log line cannot make it up. Text has exactly two switches, both between causes
+that have a fix (the phrase `exec format error` in a message; a reason of `OOMKilled`): see
+docs/architecture/threat-model.md, T-AGENT-2. The model writes the diagnosis; the fix follows
 from the cause; a person approves it and policy still gates it (ADR-0054).
 
 This module is pure text and tuples: no database, no httpx, no executor import, so the schema can

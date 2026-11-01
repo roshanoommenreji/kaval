@@ -15,7 +15,12 @@ sharing the same subject into two separate incidents, one already closed, in a s
 see that module's docstring. This harness only has to backdate its two batches far enough
 apart and call `correlate()` once at the end.
 
-    python -m evals.run [--only NAME] [--json PATH] [--prompt before|after|both]
+    python -m evals.run [--set golden|injection] [--only NAME] [--json PATH]
+                        [--prompt before|after|both]
+
+`--set injection` (KAV-112, ADR-0072) runs the prompt-injection set instead of the twenty golden
+incidents: the same pipeline and the same hard gate, with text planted where outside text can
+reach the model. It is a separate set so the golden twenty keep their history.
 
 `--prompt` (KAV-84, ADR-0054): `after` is the prompt Kaval runs today (the default). `before` is the
 prompt as it was before the model was told which fixes exist, kept frozen in `evals/baseline.py`.
@@ -42,6 +47,7 @@ from sqlalchemy.orm import Session
 
 from evals.baseline import BASELINE_SYSTEM_PROMPT, BaselineDiagnosis
 from evals.golden import GOLDEN_INCIDENTS, GoldenIncident
+from evals.injection import INJECTION_INCIDENTS
 from evals.scoring import CaseResult, Report, score_case
 
 # Comfortably past GROUP_WAIT (60s) and well inside the k8s QUIET window (15min): the scored
@@ -52,12 +58,14 @@ SCORED_OFFSET = timedelta(minutes=6)
 HISTORY_OFFSET = timedelta(minutes=40)
 
 
-def _write_signals(session: Session, now: datetime) -> dict[str, str]:
+def _write_signals(
+    session: Session, now: datetime, cases: list[GoldenIncident] | None = None,
+) -> dict[str, str]:
     """Write every case's signals (and, for recurrence cases, a backdated history batch
     first). Returns {case name: the scored batch's target}, for finding each case's incident
     again after `correlate()` runs."""
     targets: dict[str, str] = {}
-    for golden in GOLDEN_INCIDENTS:
+    for golden in cases if cases is not None else GOLDEN_INCIDENTS:
         if golden.expect_recurrence:
             session.add_all(golden.build(now - HISTORY_OFFSET))
         signals = golden.build(now - SCORED_OFFSET)
@@ -115,14 +123,16 @@ def run_case(
 
 def run_all(
     session: Session, *, only: str | None = None, variants: tuple[str, ...] = ("after",),
+    case_set: list[GoldenIncident] | None = None,
 ) -> dict[str, Report]:
     now = datetime.now(UTC)
-    cases = [g for g in GOLDEN_INCIDENTS if only is None or g.name == only]
+    chosen = case_set if case_set is not None else GOLDEN_INCIDENTS
+    cases = [g for g in chosen if only is None or g.name == only]
     if not cases:
         raise SystemExit(f"no golden incident named {only!r}")
     # Every case's signals are written regardless of `--only` -- correlate() runs the same
     # single pass either way, and `--only` just narrows which case gets diagnosed and scored.
-    targets = _write_signals(session, now)
+    targets = _write_signals(session, now, chosen)
     plan = correlate(session, now=now)
     if plan is None:
         raise SystemExit("another correlator holds the advisory lock; try again")
@@ -152,6 +162,7 @@ def _json_rows(report: Report, variant: str) -> list[dict[str, object]]:
             "keyword_ok": r.keyword_ok, "confidence_ok": r.confidence_ok,
             "recurrence_ok": r.recurrence_ok, "fix_ok": r.fix_ok,
             "fix_wrong_target": r.fix_wrong_target, "extra_fixes": r.extra_fixes,
+            "obeyed": r.obeyed,
             "action_types": list(r.action_types), "action_targets": list(r.action_targets),
             "history_len": r.history_len, "tokens_in": r.tokens_in, "tokens_out": r.tokens_out,
         }
@@ -165,7 +176,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Run every golden incident through the real pipeline and score it. "
                      "Run from the laptop with `make dev-tunnel` up.",
     )
-    parser.add_argument("--only", help="run a single golden incident by name")
+    parser.add_argument("--set", choices=("golden", "injection"), default="golden",
+                        dest="case_set",
+                        help="which cases: the 20 golden incidents (the default) or the "
+                             "prompt-injection set (KAV-112)")
+    parser.add_argument("--only", help="run a single incident by name")
     parser.add_argument("--json", help="also write the raw results as JSON to this path")
     parser.add_argument("--prompt", choices=("before", "after", "both"), default="after",
                         help="which diagnosis prompt to score: today's (after, the default), the "
@@ -177,7 +192,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     variants = ("before", "after") if args.prompt == "both" else (args.prompt,)
     with Session(get_engine()) as session:
-        reports = run_all(session, only=args.only, variants=variants)
+        reports = run_all(
+            session, only=args.only, variants=variants,
+            case_set=INJECTION_INCIDENTS if args.case_set == "injection" else None,
+        )
 
     for variant, report in reports.items():
         if len(reports) > 1:

@@ -67,7 +67,7 @@ No overall number is quoted here: the report in the Security tab lists findings,
 - [x] `SECURITY.md`, `CODEOWNERS` and the Scorecard workflow exist, and the tests pass
 - [x] Private vulnerability reporting is on *(2026-11-01, `enabled: true`; community health 57 to 71)*
 - [x] The Scorecard workflow ran and the result is recorded above, with every gap explained *(2026-11-01)*
-- [ ] The community profile lists a security policy (the API's file list did not show it on 2026-11-01; check the Security tab)
+- [x] GitHub recognises the security policy *(2026-11-01: the GraphQL field `isSecurityPolicyEnabled` is `true`; the REST community-profile file list did not show it, so that list is the unreliable one)*
 
 ## Cost
 

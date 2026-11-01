@@ -172,7 +172,7 @@ make context INCIDENT=<uuid>  # print the context (runbooks, history, changes) b
 make diagnose INCIDENT=<uuid> # ask the local model to diagnose it; writes a proposal, or nothing at all
 make diagnoser-once  # one pass of the diagnosis worker the cluster runs (KAV-87): diagnose the oldest waiting incident
 make policy-check TYPE= BLAST_RADIUS= CONFIDENCE= [REVERSIBLE=1]  # classify one hypothetical action against policy/, no database
-make evals [ONLY=name] [JSON=path] [PROMPT=before|after|both]  # score the 20 golden incidents against the real pipeline; PROMPT=both is a before-and-after of the model prompt (KAV-84)
+make evals [SET=golden|injection] [ONLY=name] [JSON=path] [PROMPT=before|after|both]  # score the 20 golden incidents (or, SET=injection, the 10 prompt-injection cases, KAV-112) against the real pipeline; PROMPT=both is a before-and-after of the model prompt (KAV-84)
 make bench         # measure the local model shortlist
 make test          # unit + policy tests
 make lint          # ruff + mypy, the same target CI runs
