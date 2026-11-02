@@ -1,6 +1,6 @@
 # ADR-0074 — The Atlassian scripts get a time limit, and only reads are retried
 
-- **Status:** Accepted (plan shown to Roshan 2026-11-02, who said "go"). Built on `fix/KAV-122-atlassian-time-limit`; the next real `make docs-sync` after the merge is its live proof
+- **Status:** Accepted (plan shown to Roshan 2026-11-02, who said "go"). Built on `fix/KAV-122-atlassian-time-limit` and merged as #309 (2026-11-02, 22:56 IST); the first real `make docs-sync` on the merged code ran clean (22:57 to 23:01 IST, 106 pages updated, 1 created, no failure, no retry), which was its live proof
 - **Date:** 2026-11-02
 - **Deciders:** Roshan
 - **Story:** `KAV-122` (found during the #307 refresh on 2026-11-01 and recorded in [the journal of 2026-11-02](../journal/2026-11-02.md)) · the redirect finding below is `KAV-123` · builds on [ADR-0011](0011-commit-convention-and-jira-link.md) (Jira is moved by `jira-sync.py`, so those scripts must be trustworthy)
@@ -46,4 +46,4 @@ Reading the callers turned up a second, quieter fault. `publish-confluence.py` p
 
 ## Delivery
 
-One pull request: `atlassian_http.py` and its 34 tests (`test_atlassian_http.py`), `call()` handing over to it, `guard(main)` in `jira-sync.py`, `jira-dashboards.py` and `publish-confluence.py`, the refused-page fix, the two new files added to `make lint`'s lists (ruff and strict mypy). Nothing is deployed: these are laptop tools, so there is no staging or production step, and it costs nothing. See [Lab 74](../labs/lab-74-a-sync-that-cannot-hang.md).
+One pull request (#309): `atlassian_http.py` and its 34 tests (`test_atlassian_http.py`), `call()` handing over to it, `guard(main)` in `jira-sync.py`, `jira-dashboards.py` and `publish-confluence.py`, the refused-page fix, the two new files added to `make lint`'s lists (ruff and strict mypy). Nothing is deployed: these are laptop tools, so there is no staging or production step, and it costs nothing. See [Lab 74](../labs/lab-74-a-sync-that-cannot-hang.md).

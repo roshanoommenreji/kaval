@@ -73,7 +73,7 @@ The same file runs the real `publish-confluence.py`, `jira-sync.py` and `jira-da
 python scripts/tracking/jira-sync.py show KAV-14
 ```
 
-It lists Phase 8's stories, `KAV-122` among them. Nothing is written. This is the check that a real answer still comes back as before; the full proof is the next real `make docs-sync`, which makes about two hundred calls.
+It lists Phase 8's stories, `KAV-122` among them. Nothing is written. This is the check that a real answer still comes back as before. The full proof is a real `make docs-sync`, which makes about two hundred calls; the first one on the merged code ran clean (see the last box below).
 
 ## When it says no answer
 
@@ -95,7 +95,7 @@ On a slow connection: `KAVAL_ATLASSIAN_TIMEOUT=120 make docs-sync`.
 - [x] `make docs-sync` exits non-zero on such a failure and prints no done line, proven by the negative test *(2026-11-02)*
 - [x] A 200, a 204 with an empty body and a 4xx come back as before, tested *(2026-11-02)*
 - [x] A sync no longer ends "done" when Confluence refused a page *(2026-11-02)*
-- [ ] The first real `make docs-sync` after the merge finishes normally *(ticked after the merge)*
+- [x] The first real `make docs-sync` after the merge finishes normally *(2026-11-02, 22:57 to 23:01 IST: `DONE exit=0`, 106 pages updated, 1 created, no failed page, no retry line)*
 
 ## Cost
 
