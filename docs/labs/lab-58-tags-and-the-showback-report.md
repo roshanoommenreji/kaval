@@ -71,7 +71,9 @@ the hard-stop job copies `Env` from the disk it snapshots.
   dev $2.30, staging $0.85 (`docs/cost/showback-2026-10.md`). The first try, four hours after the switch-on,
   read 100 % and was thrown away; the labels only reach the bill after a day. The 34 % is not yet explained line by
   line: the report covers the whole account, which `stock-trader` shares, and some charges (public addresses,
-  the cost tool's own calls) cannot carry a label
+  the cost tool's own calls) cannot carry a label. The finished month, rerun 2026-11-02, is $15.31 with $4.26 (28 %)
+  unlabelled, and $1.17 of its `prod` column is the other project's container service
+  ([October's record](../cost/actuals/2026-10.md))
 - [x] On the owner's go (2026-10-18): the 10 old snapshots and the staging server's root disk were labelled with
   `aws ec2 create-tags` (values read from the snapshots' source disks: 6 prod pre-stop `Env=prod ManagedBy=kaval-lambda`,
   3 staging pre-stop `ManagedBy=kaval-lambda`, 1 prod pre-migration backup `Env=prod ManagedBy=manual`, the root disk

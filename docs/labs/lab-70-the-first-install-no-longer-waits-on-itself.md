@@ -62,15 +62,15 @@ One EKS lab session, following [the lab runbook](../runbooks/lab-eks.md), each l
 
 In Lab 66 the same install looped forever. The fix is proven on a real cluster.
 
-Teardown followed the runbook's order: pause Flux, delete the Ingress and the release, then AWS showed 0 load balancers and 0 lab disks (the database's disk finished deleting by itself within a minute); the destroy plan was 0 to add, 0 to change, 45 to destroy, all lab resources; the apply took about 7 minutes. `make lab-sweep` straight afterwards: *nothing left, no billable resource, no leftover* (one note: the label index still listed a disk that AWS says no longer exists, the known lag). The 24-hour sweep and cost check are due 2026-11-02.
+Teardown followed the runbook's order: pause Flux, delete the Ingress and the release, then AWS showed 0 load balancers and 0 lab disks (the database's disk finished deleting by itself within a minute); the destroy plan was 0 to add, 0 to change, 45 to destroy, all lab resources; the apply took about 7 minutes. `make lab-sweep` straight afterwards: *nothing left, no billable resource, no leftover* (one note: the label index still listed a disk that AWS says no longer exists, the known lag). The 24-hour sweep, run on the evening of 2026-11-02 (more than a day later): `make lab-sweep` said *nothing left, no billable resource, no leftover*, and a direct look found no server running.
 
 ## Done when
 
 - [x] The chart renders as ADR-0070 says, and staging and production are unchanged (Part 3)
 - [x] Tests cover the three cases and fail if `disableWait` returns
 - [x] A lab session installs the release without `disableWait` on the first try *(2026-11-01, about 83 seconds, 8 of 8 pods ready, 0 restarts)*
-- [ ] The sweep 24 hours later is clean (due 2026-11-02)
+- [x] The sweep 24 hours later is clean *(2026-11-02, 20:27 IST: nothing left)*
 
 ## Cost
 
-The lab session ran for about one hour (built around 11:55 UTC, destroyed by 12:57 UTC): the control plane at $0.10 an hour plus two On-Demand `t4g.medium` servers, about $0.20 to $0.25 in all. Tomorrow's cost report confirms the figure. The two earlier sessions cost $1.60 and $0.85.
+The lab session ran for about one hour (built around 11:55 UTC, destroyed by 12:57 UTC): the control plane at $0.10 an hour plus two On-Demand `t4g.medium` servers, about $0.20 to $0.25 in all. The cost check on 2026-11-02 could not confirm the figure: Cost Explorer still marked 2026-11-01 an estimate ($0.09 so far, with no cluster line), so it stays an estimate from running hours until that day is final. The two earlier sessions cost $1.60 and $0.85.

@@ -403,3 +403,16 @@ A record holds four things:
 - one line comparing it with this plan, and why if they differ by more than 20%.
 
 `make cost-report` prints gross usage, credits and refunds left out (changed 2026-10-16, `KAV-91`: it used to print the net figure, which the account's credits turn into $0). Cost Explorer lags about a day, so write the record on the 2nd or later for final numbers.
+
+**Recorded so far** (both written 2026-11-02, final figures):
+
+| Month | Usage before credits | Credits | Billed | Not Kaval's | Plan | Record |
+|---|---:|---:|---:|---:|---|---|
+| 2026-09 | $1.39 | −$1.39 | $0.00 | $0.19 | about $0 | [2026-09](actuals/2026-09.md) |
+| 2026-10 | $15.31 | −$15.31 | $0.00 | $1.17 | about $5 | [2026-10](actuals/2026-10.md) |
+
+"Not Kaval's" is the bill's container-service line: Fargate use by `stock-trader`, the other project in this account
+([Lab 56](../labs/lab-56-reading-the-bill-before-credits.md)). The show-back files it under `prod`, so a record takes it
+out before comparing with this plan. October ran about 2.8 times the plan because the live work of Phases 4 to 7 fell
+in that month rather than in the later months the plan placed it; the record says where it went. Credits applied so far
+total $16.70 of the $140, about $123 left by arithmetic; read the console's Credits page at the start of each phase.
