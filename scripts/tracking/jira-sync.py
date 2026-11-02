@@ -29,7 +29,7 @@ from datetime import date
 
 import jira_adf as adf
 import jira_release
-from atlassian import BASE, ROOT, call
+from atlassian import BASE, ROOT, call, guard
 
 PROJECT = "KAV"
 BOARD = 1
@@ -422,4 +422,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    guard(main)

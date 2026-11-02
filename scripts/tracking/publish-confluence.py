@@ -25,10 +25,11 @@ import re
 import sys
 import urllib.parse
 
-from atlassian import BASE, ROOT, call
+from atlassian import BASE, ROOT, call, guard
 
 SPACE_KEY = "KAV"
 SPACE_NAME = "Kaval"
+NOT_UPDATED: list[str] = []  # titles of pages Confluence refused to update in this run (KAV-122)
 
 
 # ── minimal markdown -> Atlassian Document Format ──────────────────────────
@@ -202,6 +203,7 @@ def upsert_page(space_id: str, title: str, adf: dict, parent_id: str | None = No
         })
         if status not in (200, 201):
             print(f"UPDATE FAILED {title}", status, json.dumps(resp)[:500])
+            NOT_UPDATED.append(title)
         else:
             print(f"updated  : {title} ({page_id})")
         return page_id
@@ -373,8 +375,12 @@ def main() -> None:
     )
     upsert_page(space_id, "Release Notes", releases, home_id)
 
+    # Every page was tried, so one the site refused does not hide the rest; but a sync that left
+    # a page stale must not end "done" (KAV-122).
+    if NOT_UPDATED:
+        sys.exit(f"{len(NOT_UPDATED)} page(s) were not updated: {', '.join(NOT_UPDATED)}")
     print("\ndone. space home:", f"{BASE}/wiki/spaces/{SPACE_KEY}/overview")
 
 
 if __name__ == "__main__":
-    main()
+    guard(main)

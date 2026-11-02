@@ -2,14 +2,17 @@
 
 Jira and Confluence on the same site share one account and one API token, read from the
 repo's gitignored `.env` (JIRA_SITE_URL, JIRA_EMAIL, JIRA_API_TOKEN). Stdlib only.
+
+The request itself, with its time limit and its retry rule, is in atlassian_http.py (KAV-122).
 """
 from __future__ import annotations
 
-import json
-import urllib.error
-import urllib.request
 from base64 import b64encode
 from pathlib import Path
+
+from atlassian_http import AtlassianUnreachable, guard, send
+
+__all__ = ["BASE", "ENV", "ROOT", "AtlassianUnreachable", "call", "guard", "load_env"]
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -34,16 +37,9 @@ _HEADERS = {
 
 
 def call(method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
-    """Returns (status, parsed body). Never raises on an HTTP error — callers check status."""
-    data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(f"{BASE}{path}", data=data, headers=_HEADERS, method=method)
-    try:
-        with urllib.request.urlopen(req) as resp:
-            raw = resp.read()
-            return resp.status, (json.loads(raw) if raw else {})
-    except urllib.error.HTTPError as e:
-        raw = e.read()
-        try:
-            return e.code, json.loads(raw)
-        except json.JSONDecodeError:
-            return e.code, {"raw": raw.decode(errors="replace")[:800]}
+    """Returns (status, parsed body). Never raises on an HTTP error — callers check status.
+
+    If nothing answers (a time-out, a dropped connection) it raises AtlassianUnreachable, after
+    three tries for a read and one for a write, which is never repeated (KAV-122). A script's
+    `if __name__ == "__main__":` runs `guard(main)` so that ends it with one plain line."""
+    return send(method, BASE, path, _HEADERS, body)

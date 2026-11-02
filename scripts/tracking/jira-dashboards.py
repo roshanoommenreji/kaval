@@ -19,7 +19,7 @@ import tomllib
 import urllib.parse
 from typing import Any
 
-from atlassian import BASE, ROOT, call
+from atlassian import BASE, ROOT, call, guard
 
 CONFIG = ROOT / "scripts" / "tracking" / "jira-dashboards.toml"
 PROJECT = "KAV"
@@ -157,4 +157,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    guard(main)
