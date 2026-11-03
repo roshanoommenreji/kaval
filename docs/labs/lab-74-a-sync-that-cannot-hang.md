@@ -49,7 +49,7 @@ On the code before this lab (commit `be6689a`) the same request, through `call()
 python -m pytest scripts/tracking/test_atlassian_http.py -q
 ```
 
-34 tests, about 15 seconds, no login and no network beyond `127.0.0.1`. The server in the test file is a real socket that can accept and stay silent, hang up, reset the connection, send half an answer, or answer properly. What they prove:
+34 tests when this lab was written (the file has 57 now: `KAV-123` added 23, see [Lab 75](lab-75-a-login-that-stays-home.md)), about 15 seconds then, no login and no network beyond `127.0.0.1`. The server in the test file is a real socket that can accept and stay silent, hang up, reset the connection, send half an answer, or answer properly. What they prove:
 
 - **A time limit on every request.** `test_a_server_that_never_answers_ends_a_read_in_time_and_it_is_tried_three_times`. If the limit is ever removed, the test fails with "still waiting after 5 seconds" rather than freezing the build.
 - **Reads retried, writes never.** The same silent server gives three connections for a GET and exactly one for a POST, PUT or DELETE; a GET that fails once and then works returns the answer; the pauses are 1 and 3 seconds.
@@ -86,6 +86,10 @@ It lists Phase 8's stories, `KAV-122` among them. Nothing is written. This is th
 | `KAVAL_ATLASSIAN_TIMEOUT must be a number of seconds above zero, not 'soon'` | A setting is wrong | Fix it, or unset it for the default of 30 |
 
 On a slow connection: `KAVAL_ATLASSIAN_TIMEOUT=120 make docs-sync`.
+
+**Seen for real.** The table was written before the first real failure. It came on the night of 2026-11-02: the refresh after the last merge stopped after 15 pages with `GET /wiki/api/v2/spaces/…/pages?title=…: no answer from Atlassian (gaierror: [Errno 11001] getaddrinfo failed), tried 3 times`, no traceback and no done line (the second row above: a lookup failure, which usually points at the laptop's connection). The run had lasted from 23:24 to 00:32, so the laptop had probably gone to sleep. What fixed it was what the table says: check the connection with a read, run it again. The rerun (2026-11-03, 21:32 to 21:37) updated 107 pages with no failure and no retry.
+
+A redirect is the other thing a script can now stop on: [Lab 75](lab-75-a-login-that-stays-home.md).
 
 ## Done when
 

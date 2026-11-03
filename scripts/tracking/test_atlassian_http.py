@@ -1,9 +1,11 @@
-"""A request to Atlassian has a time limit, and no answer is a plain failure (KAV-122).
+"""A request to Atlassian has a time limit, and no answer is a plain failure (KAV-122); a redirect
+is never followed, so the login cannot be taken anywhere else (KAV-123).
 
 The server these tests talk to is a real socket on 127.0.0.1 that plays Atlassian well or
 badly: it can accept a connection and never answer (what a stalled network does to a client),
-hang up, reset the connection, or send half an answer. Nothing leaves the laptop, and the only
-"login" in here is built from pieces, so it can never be mistaken for a real one.
+hang up, reset the connection, send half an answer, or say "go there instead". Nothing leaves
+the laptop, and the only "login" in here is built from pieces, so it can never be mistaken for
+a real one.
 
 Each acceptance criterion of KAV-122 has tests here:
 
@@ -12,11 +14,18 @@ Each acceptance criterion of KAV-122 has tests here:
     3. reads retried, writes never .......... section 1
     4. docs-sync fails, no done line ........ section 6
     5. normal answers unchanged ............. section 3
+
+and each of KAV-123's:
+
+    6. the login never goes to another address ... section 7
+    7. a same-address redirect: decided, tested .. section 7
+    8. KAV-122's normal cases unchanged .......... sections 1 to 6, and the 304 in section 7
 """
 
 from __future__ import annotations
 
 import base64
+import contextlib
 import json
 import os
 import shutil
@@ -61,6 +70,15 @@ def reply(status: int, body: str = "", reason: str = "OK") -> bytes:
 def half_a_reply(status: int = 200) -> bytes:
     """A reply that promises 100 bytes, sends one, and hangs up."""
     return f"HTTP/1.1 {status} X\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{{".encode()
+
+
+def redirect(status: int, location: str, reason: str = "Found") -> bytes:
+    """An answer that says: go to `location` instead."""
+    head = (
+        f"HTTP/1.1 {status} {reason}\r\nLocation: {location}\r\n"
+        "Content-Length: 0\r\nConnection: close\r\n\r\n"
+    )
+    return head.encode()
 
 
 @dataclass
@@ -581,3 +599,139 @@ def test_the_docs_sync_recipe_does_not_swallow_a_failure() -> None:
         assert "|| true" not in step
         assert "; true" not in step
         assert "|| :" not in step
+
+
+# ── 7. a redirect is never followed (KAV-123) ────────────────────────────────
+
+# The answers Python's own redirect handler follows, taking the Authorization header with it.
+REDIRECT_STATUSES = [301, 302, 303, 307, 308]
+
+
+def nothing_came(fake: FakeAtlassian) -> None:
+    """Wait a moment for a request that must not come, then check that none did."""
+    fake.wait_for(1, seconds=0.3)
+    assert fake.seen == [], f"a request reached a server it should never have reached: {fake.seen}"
+
+
+@pytest.mark.parametrize("status", REDIRECT_STATUSES)
+def test_a_redirect_to_another_address_never_takes_the_login_there(
+    server: Start, status: int
+) -> None:
+    elsewhere = server(lambda seen: reply(200, '{"reached": "yes"}'))
+    fake = server(lambda seen: redirect(status, f"{elsewhere.base}/rest/api/3/myself"))
+    with contextlib.suppress(Exception):  # how the call ends is the next test's business
+        ask(fake)
+    nothing_came(elsewhere)  # not the login, and not even a request
+    assert len(fake.seen) == 1
+    assert fake.seen[0].headers["authorization"] == LOGIN  # the login went where it belongs
+
+
+@pytest.mark.parametrize("status", REDIRECT_STATUSES)
+def test_a_redirect_is_refused_with_one_plain_line_and_not_tried_again(
+    server: Start, status: int
+) -> None:
+    elsewhere = server(lambda seen: reply(200, "{}"))
+    fake = server(lambda seen: redirect(status, f"{elsewhere.base}/somewhere"))
+    with pytest.raises(ah.AtlassianRedirected) as caught:
+        ask(fake)
+    fake.wait_for(2, seconds=0.3)
+    assert len(fake.seen) == 1  # it is an answer, so a read is not tried three times
+    assert str(caught.value).startswith(
+        f"GET /rest/api/3/myself: Atlassian answered with a redirect (HTTP {status}). "
+        "It was not followed, so the login stays on this site."
+    )
+
+
+def test_a_redirect_to_the_same_address_is_not_followed_either(server: Start) -> None:
+    def script(seen: Seen) -> Action:
+        if seen.number == 1:  # back to the very address it came to, read from its Host header
+            return redirect(301, f"http://{seen.headers['host']}/rest/api/3/moved")
+        return reply(200, '{"followed": true}')
+
+    fake = server(script)
+    with pytest.raises(ah.AtlassianRedirected):
+        ask(fake)
+    fake.wait_for(2, seconds=0.3)
+    assert [s.path for s in fake.seen] == ["/rest/api/3/myself"]
+
+
+@pytest.mark.parametrize(
+    ("method", "status"),
+    [("POST", 301), ("POST", 302), ("POST", 303), ("POST", 307), ("PUT", 307), ("DELETE", 307)],
+)
+def test_a_write_that_is_redirected_is_not_followed_and_not_repeated(
+    server: Start, method: str, status: int
+) -> None:
+    elsewhere = server(lambda seen: reply(200, "{}"))
+    fake = server(lambda seen: redirect(status, f"{elsewhere.base}/rest/api/3/issue"))
+    with pytest.raises(ah.AtlassianRedirected) as caught:
+        ask(fake, method, "/rest/api/3/issue", {"fields": {"summary": "hello"}})
+    fake.wait_for(2, seconds=0.3)
+    assert len(fake.seen) == 1
+    nothing_came(elsewhere)
+    message = str(caught.value)
+    assert message.startswith(f"{method} /rest/api/3/issue: Atlassian answered with a redirect")
+    assert "may already have gone through" in message  # a 303 can follow a write that landed
+
+
+def test_the_redirect_message_never_shows_the_login_or_where_it_pointed(
+    server: Start, capsys: pytest.CaptureFixture[str]
+) -> None:
+    marker = "-".join(["signed", "link", "marker"])  # stands for a token in a redirect's address
+    elsewhere = server(lambda seen: reply(200, "{}"))
+    fake = server(lambda seen: redirect(302, f"{elsewhere.base}/{marker}?sig={marker}"))
+    with pytest.raises(ah.AtlassianRedirected) as caught:
+        ask(fake)
+    shown = "\n".join(
+        [
+            str(caught.value),
+            repr(caught.value),
+            "".join(traceback.format_exception(caught.value)),
+            capsys.readouterr().err,
+        ]
+    )
+    for hidden in (LOGIN, TOKEN, marker, elsewhere.base):
+        assert hidden not in shown
+    assert "Authorization" not in str(caught.value)
+
+
+def test_a_304_is_still_an_ordinary_answer_and_not_a_redirect(server: Start) -> None:
+    """Only the answers that point somewhere else are refused; every other status is unchanged."""
+    fake = server(lambda seen: reply(304, "", "Not Modified"))
+    assert ask(fake) == (304, {"raw": ""})
+    assert len(fake.seen) == 1
+
+
+def test_guard_turns_a_redirect_into_one_plain_line() -> None:
+    def main() -> None:
+        raise ah.AtlassianRedirected("GET", "/x", 302)
+
+    with pytest.raises(SystemExit) as caught:
+        ah.guard(main)
+    assert caught.value.code == (
+        "GET /x: Atlassian answered with a redirect (HTTP 302). It was not followed, so the "
+        "login stays on this site. If the site has moved, update JIRA_SITE_URL in .env."
+    )
+
+
+@pytest.mark.parametrize("script", sorted(QUIET))
+def test_each_script_stops_at_a_redirect_and_creates_nothing(
+    server: Start, tmp_path: Path, script: str
+) -> None:
+    """The reason a redirect is a stop and not an answer for the script to read: Confluence's
+    script takes any answer but a 200 for "that page is not there" and goes on to create it."""
+    elsewhere = server(lambda seen: reply(200, '{"results": []}'))
+    fake = server(lambda seen: redirect(302, f"{elsewhere.base}{seen.path}"))
+    args, path = QUIET[script]
+    root = make_repo(tmp_path, fake.base)
+    done = run_in(root, [sys.executable, f"scripts/tracking/{script}", *args])
+    shown = done.stdout + done.stderr
+    assert done.returncode != 0
+    assert f"GET {path}" in done.stderr
+    assert "answered with a redirect" in done.stderr
+    assert "Traceback" not in done.stderr
+    assert TOKEN not in shown
+    assert LOGIN not in shown
+    fake.wait_for(2, seconds=0.3)
+    assert [s.method for s in fake.seen] == ["GET"]  # it stopped there: nothing was created
+    nothing_came(elsewhere)

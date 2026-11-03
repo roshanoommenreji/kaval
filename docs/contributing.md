@@ -202,4 +202,4 @@ The migration runs *before* the new version starts, while the old version is sti
 
 Work is planned against the Planning standard in `CLAUDE.md` (what real companies do, the whole local → staging → prod path, security, failure, observability, cost, testing, people) before it is built. Merging is step one of the Definition of Done in `CLAUDE.md`. The rest follows in the same
 session: lab doc, journal entry, ADR if a decision was made, `jira-sync.py transition`, then
-`make docs-sync` to regenerate the dashboard and Confluence. If it stops with `no answer from Atlassian`, nothing is wrong with the repo: see [Lab 74](labs/lab-74-a-sync-that-cannot-hang.md) for what to do (a sync is safe to run again).
+`make docs-sync` to regenerate the dashboard and Confluence. If it stops with `no answer from Atlassian`, nothing is wrong with the repo: see [Lab 74](labs/lab-74-a-sync-that-cannot-hang.md) for what to do (a sync is safe to run again). If it stops with `answered with a redirect`, the site address in `.env` has probably moved: see [Lab 75](labs/lab-75-a-login-that-stays-home.md).
