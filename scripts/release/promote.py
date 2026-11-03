@@ -23,6 +23,7 @@ decide refuses: it never says yes by default.
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import re
@@ -34,7 +35,7 @@ import urllib.request
 from base64 import b64encode
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 from pin_staging import TAG_LINE, pin
 from staging_smoke import DIGEST_RE, RECORD, SERVICES, TAG_RE, Check
@@ -272,9 +273,32 @@ def _env_file() -> dict[str, str]:
     }
 
 
+class _NeverFollow(urllib.request.HTTPRedirectHandler):
+    """urllib's redirect handler, told never to follow. Left alone it passes Jira's login on to
+    wherever an answer points (KAV-123, ADR-0075). It is the rule scripts/tracking/atlassian_http.py
+    applies to the laptop scripts, copied here and not imported, so the release scripts stay
+    self-contained."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: http.client.HTTPMessage,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        return None
+
+
+_JIRA = urllib.request.build_opener(_NeverFollow)
+_REDIRECTS = (301, 302, 303, 307, 308)  # the answers that say "go there instead"
+
+
 def jira_issue(key: str) -> dict[str, Any] | None:
     """Labels and status of one issue, read-only. None when Jira has no such issue.
-    Credentials come from the environment (Actions secrets) or the git-ignored .env."""
+    Credentials come from the environment (Actions secrets) or the git-ignored .env.
+    A redirect is never followed, because the login would go with it: it stops the read."""
     env = {**_env_file(), **os.environ}
     site, email, token = (env.get(k) for k in ("JIRA_SITE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"))
     if not (site and email and token):
@@ -285,11 +309,17 @@ def jira_issue(key: str) -> dict[str, Any] | None:
         headers={"Authorization": f"Basic {auth}", "Accept": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with _JIRA.open(req, timeout=20) as resp:
             fields = json.loads(resp.read())["fields"]
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             return None
+        if exc.code in _REDIRECTS:
+            raise RuntimeError(
+                f"Jira answered the read of {key} with a redirect (HTTP {exc.code}). It was not "
+                "followed, so the login stays on this site. If the site has moved, update "
+                "JIRA_SITE_URL (the repository secret, or .env)."
+            ) from None
         raise RuntimeError(f"Jira answered {exc.code} for {key}") from exc
     except (urllib.error.URLError, TimeoutError) as exc:
         raise RuntimeError(f"cannot reach Jira: {exc}") from exc

@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import contextlib
+import http.server
 import json
+import threading
+import time
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import promote
@@ -236,3 +241,127 @@ def test_preflight_fails_and_says_what_to_do_when_ecr_no_longer_has_the_tag() ->
 
     check = promote.check_pinned_images("sha-1111111", gone)
     assert not check.ok and "promote.yml" in check.detail and "not found" in check.detail
+
+
+# ── Jira's login never follows a redirect (KAV-123, ADR-0075) ─────────────────────────
+# `verify` reads Jira with the real login from Actions secrets. These run against a local web
+# server standing in for Jira, with a login built from pieces so it can never pass for a real one.
+
+REDIRECT_STATUSES = [301, 302, 303, 307, 308]  # the answers urllib's own handler would follow
+ISSUE = '{"fields": {"labels": ["uat"], "status": {"name": "Done"}}}'
+TOKEN = "-".join(["not", "a", "real", "token"])
+
+Answer = Callable[[str], tuple[int, dict[str, str], str]]  # path -> status, headers, body
+
+
+class Site:
+    """A local web server. It records the path and Authorization header of every request and
+    answers as `answer(path)` says."""
+
+    def __init__(self, answer: Answer) -> None:
+        self.seen: list[tuple[str, str | None]] = []
+        site = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                site.seen.append((self.path, self.headers.get("Authorization")))
+                status, headers, body = answer(self.path)
+                payload = body.encode()
+                self.send_response(status)
+                for name, value in headers.items():
+                    self.send_header(name, value)
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, format: str, *args: object) -> None:
+                pass  # keep the test output quiet
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+
+
+Start = Callable[[Answer], Site]
+
+
+@pytest.fixture
+def site() -> Iterator[Start]:
+    started: list[Site] = []
+
+    def start(answer: Answer) -> Site:
+        made = Site(answer)
+        started.append(made)
+        return made
+
+    yield start
+    for made in started:
+        made.close()
+
+
+def point_jira_at(monkeypatch: pytest.MonkeyPatch, base: str) -> None:
+    monkeypatch.setenv("JIRA_SITE_URL", base)
+    monkeypatch.setenv("JIRA_EMAIL", "someone@example.invalid")
+    monkeypatch.setenv("JIRA_API_TOKEN", TOKEN)
+
+
+@pytest.mark.parametrize("status", REDIRECT_STATUSES)
+def test_a_redirected_jira_read_never_takes_the_login_to_another_address(
+    site: Start, monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    elsewhere = site(lambda path: (200, {}, ISSUE))
+    jira = site(lambda path: (status, {"Location": f"{elsewhere.base}{path}"}, ""))
+    point_jira_at(monkeypatch, jira.base)
+    with contextlib.suppress(Exception):  # how the read ends is the next test's business
+        promote.jira_issue("KAV-1")
+    time.sleep(0.2)  # a moment for a request that must not come
+    assert elsewhere.seen == []  # not the login, and not even a request
+    assert len(jira.seen) == 1
+
+
+def test_a_redirected_jira_read_stops_with_a_plain_message(
+    site: Start, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    marker = "-".join(["signed", "link", "marker"])  # stands for a token in a redirect's address
+    elsewhere = site(lambda path: (200, {}, ISSUE))
+    jira = site(lambda path: (302, {"Location": f"{elsewhere.base}/{marker}"}, ""))
+    point_jira_at(monkeypatch, jira.base)
+    with pytest.raises(RuntimeError) as caught:
+        promote.jira_issue("KAV-1")
+    message = str(caught.value)
+    assert message.startswith(
+        "Jira answered the read of KAV-1 with a redirect (HTTP 302). It was not followed, "
+        "so the login stays on this site."
+    )
+    for hidden in (jira.base, elsewhere.base, marker, TOKEN):
+        assert hidden not in message
+    assert caught.value.__cause__ is None  # nothing about the redirect is chained on
+    assert len(jira.seen) == 1
+
+
+def test_a_jira_read_still_returns_labels_and_status_and_sends_the_login(
+    site: Start, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    jira = site(lambda path: (200, {}, ISSUE))
+    point_jira_at(monkeypatch, jira.base)
+    assert promote.jira_issue("KAV-1") == {"labels": ["uat"], "status": "Done"}
+    path, authorization = jira.seen[0]
+    assert path == "/rest/api/3/issue/KAV-1?fields=labels,status"
+    assert authorization is not None and authorization.startswith("Basic ")
+
+
+def test_an_unknown_jira_issue_is_none(site: Start, monkeypatch: pytest.MonkeyPatch) -> None:
+    jira = site(lambda path: (404, {}, "{}"))
+    point_jira_at(monkeypatch, jira.base)
+    assert promote.jira_issue("KAV-9999") is None
+
+
+def test_any_other_jira_error_stops_the_read(site: Start, monkeypatch: pytest.MonkeyPatch) -> None:
+    jira = site(lambda path: (500, {}, "{}"))
+    point_jira_at(monkeypatch, jira.base)
+    with pytest.raises(RuntimeError, match="Jira answered 500 for KAV-1"):
+        promote.jira_issue("KAV-1")
