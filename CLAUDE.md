@@ -207,7 +207,7 @@ make staging-smoke   # smoke-test the tag staging runs (digest vs ECR, pods, dat
 make prod-smoke      # read-only smoke test of production once it is up (digests vs ECR and the staging record, pods, database, API, the server's timers); refuses when prod is parked (KAV-90)
 make staging-down    # destroy staging completely, data volume included
 make tf-init ENV=prod  # connect an environment (prod|staging|dev|state) to Terraform's remote state; the first step on a new laptop (KAV-86)
-make docs-sync     # regenerate dashboard + republish Confluence; every request has a 30 s limit and a failure ends it with one plain line (Lab 74, KAV-122)
+make docs-sync     # regenerate dashboard + republish Confluence; every request has a 30 s limit, a redirect is never followed, and a failure ends it with one plain line (Labs 74 and 75, KAV-122, KAV-123)
 make jira EPIC=KAV-6   # an epic's stories and status
 ```
 
