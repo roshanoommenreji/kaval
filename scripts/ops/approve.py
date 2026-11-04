@@ -16,13 +16,38 @@ Nothing here talks to the database directly: it goes through the same API Slack'
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import sys
 import urllib.error
 import urllib.request
+from typing import IO
 
 TOKEN_ENV = "KAVAL_APPROVER_TOKEN"
+_REDIRECTS = (301, 302, 303, 307, 308)  # the answers that say "go there instead"
+
+
+class _NeverFollow(urllib.request.HTTPRedirectHandler):
+    """urllib's redirect handler, told never to follow. Left alone it repeats the request at the
+    address a redirect names and copies its headers, so the approver token would go with it
+    (KAV-124, ADR-0075). It is the rule scripts/tracking/atlassian_http.py applies to the Atlassian
+    login and scripts/release/promote.py to the Jira read, copied here and not imported, so each
+    script stays self-contained."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: http.client.HTTPMessage,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NeverFollow)
 
 
 def decide(
@@ -39,10 +64,20 @@ def decide(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with _OPENER.open(req, timeout=10) as resp:
             result: dict[str, object] = json.loads(resp.read())
             return result
     except urllib.error.HTTPError as exc:
+        if exc.code in _REDIRECTS:
+            # Never followed, because the token would go with it. It names neither the token nor
+            # where the answer pointed. The first request did reach the gateway, so say so.
+            exc.close()
+            raise SystemExit(
+                f"the gateway answered with a redirect (HTTP {exc.code}). It was not followed, so "
+                "the approver token stays on this address. The decision may already have been "
+                "recorded: look before running it again. If the gateway has moved, update "
+                "KAVAL_GATEWAY_URL."
+            ) from None
         detail = exc.read().decode(errors="replace")
         sys.exit(f"{exc.code} {exc.reason}: {detail}")
     except urllib.error.URLError as exc:
