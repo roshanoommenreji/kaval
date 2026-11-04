@@ -145,6 +145,8 @@ The upload side, `upload_seed` and `seed_report` in `scripts/ops/staging.sh`, is
 `tf` and `on_node`: first time (uploads, pointer last), second time (`already handed over`), no cleaned copy
 (writes `seed/NONE`), and the report for `ok`, `skipped`, `failed` and nothing recorded.
 
+**Amended 2026-11-04 (`KAV-126`).** The script runs again in the permissions pass about 20 seconds after boot ([ADR-0057](../adr/0057-the-database-is-brought-up-to-date-before-a-new-version-starts.md)), finds the tables the first run made, and used to write `skipped` over `ok`. So `make staging-up` printed "Seed status: skipped" after a good seed on 2026-11-03 (probably on every fresh staging since 14 Oct; not checked), although the restore had run. A skip now never replaces a status already recorded; only `ok` or `failed` does. The one-off `seed-test.sh` harness in section 5 is now a committed test, `scripts/dev/test_seed_status.py`: it cuts the script out of the node template and runs it with stand-ins for `curl`, `aws` and `psql` (six cases, including a second run over a seeded database and a failed seed that a later skip must not hide). `uv run pytest scripts/dev/test_seed_status.py -v` runs it. A resumed staging (a new node with no earlier file) still reads `skipped`, which is true there. [ADR-0039](../adr/0039-staging-is-filled-from-a-copy-cleaned-on-the-laptop.md) is amended too.
+
 ## 6. What Terraform will do, and the size limit (read-only)
 
 ```bash

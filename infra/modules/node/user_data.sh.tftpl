@@ -131,14 +131,15 @@ flux install
 # environment's bucket (seed/) by `make staging-up` from the laptop that cleaned it; staging never
 # sees production's raw dump. Exit 0 = seeded, 10 = nothing to do (the database already has tables,
 # or no seed was provided), anything else = failed. Failed and skipped both leave staging with an
-# empty database, exactly as it was before this existed; the status file says which happened.
+# empty database; the status file says which happened (ADR-0039).
 # `set -x` stays off: the admin password is in this script's environment.
 install -d /var/lib/kaval
 cat > /usr/local/sbin/kaval-db-seed <<'SEEDSCRIPT'
 #!/bin/bash
 set -euo pipefail
 STATUS=/var/lib/kaval/seed-status.json
-status() { printf '{"status":"%s","detail":"%s","at":"%s"}\n' "$1" "$2" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATUS"; }
+# A skip never replaces a recorded status (KAV-126).
+status() { [ "$1" = skipped ] && [ -s "$STATUS" ] && return 0; printf '{"status":"%s","detail":"%s","at":"%s"}\n' "$1" "$2" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATUS"; }
 IMDS_TOKEN=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 300')
 AWS_DEFAULT_REGION=$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
 export AWS_DEFAULT_REGION

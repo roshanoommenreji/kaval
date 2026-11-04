@@ -131,10 +131,59 @@ EOF
 
 Nothing is written. This is the check that real answers still come back as before and that none of the calls these scripts make is answered with a redirect. On 2026-11-03 that included the issue read, the space lookup and the page lookups `publish-confluence.py` makes for every page. The full proof is a real `make docs-sync` on the merged code (see the last box below).
 
+## Part 6 — The approval command (`KAV-124`)
+
+The same protection for the approver token that `make approve` sends to the gateway. `scripts/ops/approve.py` has its own copy of the handler. Run its tests, which use two real local web servers (one plays the gateway and answers "go to the other one", the other records what it is sent):
+
+```bash
+uv run pytest scripts/ops/test_approve.py -v
+```
+
+Twelve pass. Against the file before the fix, five failed: the second server really received a request for 301, 302 and 303, the plain message was missing, and a redirect to the same address was followed. A 307 or a 308 already passed, because Python will not re-send a `POST` on those; the tests pin that it stays that way, and also pin that a 401, an unreachable gateway and a missing token are reported as before. On a redirect the command prints the line in the table below and exits.
+
+**The proof against the real thing, on your own computer, for $0.** (`approve.py` is not how approvals reach staging: there `make chaos-approve` runs `curl` on the node with the token from the cluster's own Secret. `approve.py` only talks to a gateway through the tunnel to the dev server, so no staging session is needed.) Start the Postgres of [Lab 77](lab-77-passwords-that-stay-out-of-the-logs.md) Part 1, migrated, then run the real gateway with a throwaway token and make one real pending action:
+
+```bash
+export POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_DB=kaval POSTGRES_USER=kaval \
+  POSTGRES_PASSWORD=ci-only-not-a-secret
+export APPROVER_TOKEN=$(python -c "print('k' * 43)")      # only for this lab
+uv run uvicorn kaval_gateway.main:app --host 127.0.0.1 --port 8765 &     # the real gateway
+uv run python - <<'EOF'
+import uuid
+from datetime import UTC, datetime
+from decimal import Decimal
+from kaval_shared.db import get_engine
+from kaval_shared.models import (Action, BlastRadius, Incident, PolicyClass, Proposal,
+                                 RiskLevel, Severity, Signal)
+from sqlalchemy.orm import Session
+now, target = datetime.now(UTC), f"lab/{uuid.uuid4().hex[:8]}"
+with Session(get_engine()) as db:
+    signal = Signal(source="kubernetes", kind="pod_back_off", target=target, value={}, observed_at=now)
+    incident = Incident(fingerprint=f"lab-{uuid.uuid4()}", severity=Severity.high, opened_at=now, signals=[signal])
+    proposal = Proposal(incident=incident, summary="restart it", root_cause="oom", confidence=0.8,
+                        risk=RiskLevel.low, model="m", tokens_in=1, tokens_out=1, cost_usd=Decimal("0"),
+                        created_at=now)
+    action = Action(proposal=proposal, type="restart_pod", target=target, params={}, reversible=True,
+                    blast_radius=BlastRadius.pod, policy_class=PolicyClass.ask, created_at=now)
+    db.add_all([incident, proposal, action]); db.commit()
+    print("ACTION", action.id)
+EOF
+```
+
+Then the real command, first with a wrong token, then with the right one (use the id printed above):
+
+```bash
+KAVAL_APPROVER_TOKEN=$(python -c "print('w' * 43)") uv run python scripts/ops/approve.py <id> approved --gateway-url http://127.0.0.1:8765
+KAVAL_APPROVER_TOKEN=$APPROVER_TOKEN uv run python scripts/ops/approve.py <id> approved --gateway-url http://127.0.0.1:8765
+```
+
+On 2026-11-04 the first printed `401 Unauthorized: {"detail":"an approver token is required"}` (exit 1, as before the change); the second printed the decision (`"verdict": "approved"`, exit 0), and exactly one decision row was in the database. Stop the gateway (`kill %1`) when you are done.
+
 ## When it says redirect
 
 | What you see | What it means | What to do |
 |---|---|---|
+| `the gateway answered with a redirect (HTTP 302). It was not followed, so the approver token stays on this address. The decision may already have been recorded: look before running it again. If the gateway has moved, update KAVAL_GATEWAY_URL.` (from `make approve`) | The address in `KAVAL_GATEWAY_URL` (or the tunnel) is no longer where the gateway answers, or something in front of it redirects | **Look first** at the incident: is the action decided? Then fix `KAVAL_GATEWAY_URL`. Do not make the command follow it |
 | `GET /…: Atlassian answered with a redirect (HTTP 301). It was not followed, so the login stays on this site. If the site has moved, update JIRA_SITE_URL in .env.` | The address in `.env` is no longer where the site answers (a renamed or moved site is the likeliest cause), or an endpoint moved | Open the address in a browser to see where it goes, then update `JIRA_SITE_URL` in `.env`. Do not make the script follow it: that is exactly what it refuses |
 | `POST /…: Atlassian answered with a redirect … The request may already have gone through, so look before running it again.` | A change was sent and the answer was a redirect (a 303 is what a server sends after a change that landed) | **Look first**: is the issue, the comment or the page there? Repeat only if it is not |
 | `cannot decide: Jira answered the read of KAV-n with a redirect (HTTP 302). …` (from `promote.py verify`, exit code 2) | The release workflow could not read Jira safely, so it refuses to promote | Update the repository secret `JIRA_SITE_URL` (and `.env` on the laptop), then run the promotion again |
@@ -146,6 +195,9 @@ Nothing is written. This is the check that real answers still come back as befor
 - [x] The cases from `KAV-122` are unchanged and its 34 tests still pass: a 200, a 204 with an empty body, a 4xx, no answer *(2026-11-03)*
 - [x] The release workflow's Jira read follows the same rule, tested *(2026-11-03)*
 - [x] Merged with CI green, and the first real `make docs-sync` on the merged code finishes normally *(2026-11-03: merged as #311 at 22:46 IST with all 11 checks green; the first real sync on the merged code ran 22:52:53 to 22:57:38, `DONE exit=0`, 107 pages updated, 1 created, no failure, retry or redirect)*
+- [x] `KAV-124`: the approval command follows the same rule, tested with two local servers (five of its tests seen failing first; a 307 and a 308 were already refused for a `POST`) *(2026-11-04)*
+- [x] `KAV-124`: proved end to end on the laptop against the real gateway: a wrong token gets 401 as before, the right token records the decision *(2026-11-04)*
+- [ ] `KAV-124`: merged with CI green *(after the merge)*
 
 ## Cost
 
