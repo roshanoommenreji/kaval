@@ -151,7 +151,7 @@ db-restore-snapshot: ## Restore the database's data volume from an EBS snapshot 
 	@SNAPSHOT=$(SNAPSHOT) TF_PROD=$(TF_PROD) bash scripts/ops/restore-snapshot.sh
 
 # ─────────────────────────────────────────────────────────────
-##@ Staging  (ADR-0004, ADR-0029 — ~\$0.045/hr while up, parks itself after 4 idle hours)
+##@ Staging  (ADR-0004, ADR-0029 — ~\$0.045/hr while up, parks itself after 4 idle hours; the nightly auto-stop ends it at 02:00 IST)
 
 .PHONY: staging-up
 staging-up: ## Build or resume staging and wait until its services answer (~5 min, STARTS BILLING)

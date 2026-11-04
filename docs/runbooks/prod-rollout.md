@@ -109,17 +109,29 @@ and the database server's `node_exporter` on 9100 and `postgres_exporter` on 918
 (`kaval-prod-still-alive`) stayed `OK` with 2 to 3 datapoints in every 5-minute reading
 ([still-alive-alarm.md](still-alive-alarm.md)).
 
-### 4b. Only if `kubectl get helmrelease -A` shows `kaval-prod` Failed or Stalled and fixing the cause in git changed nothing (reversible; blast radius: the Kaval release in its own namespace, not the database)
+### 4b. Only if `kubectl get helmrelease -A` shows `kaval-prod` Failed or Stalled and fixing the cause changed nothing (reversible; blast radius: the Kaval release in its own namespace, not the database)
 
-Flux retries a failed install or upgrade three times. When the three have run out on a broken chart, the release stays failed and is not tried again by itself, even once the fix is merged (production on 2026-10-02, staging on 2026-10-31; first installs show it as `MissingRollbackTarget`). Check first that the cause really is fixed and that a stuck migration job from the broken chart is gone (a running job cannot be edited: `kubectl -n kaval-prod delete job <release>-migrate-<n>`). Then, from the server:
+Flux tries an install four times (the first try and three retries; upgrades are set the same way, not measured). When they have run out, the release shows `Stalled=True` with the reason `RetriesExceeded` and Flux stops trying (production on 2026-10-02, staging on 2026-10-31). What brings it back depends on where the cause was. Measured on staging on 2026-11-04 ([ADR-0076](../adr/0076-a-stalled-flux-release-is-reset-not-rebuilt.md), [Lab 76](../labs/lab-76-what-flux-does-when-its-retries-run-out.md)):
+
+- **The cause was inside the release** (its own values changed): Flux starts counting again by itself and repairs the release within seconds, a failed first install included. Nothing to do. (A new chart version from Git is documented to do the same; not tested here.)
+- **The cause was outside the release** (a stuck migration job deleted by hand, a missing Secret, a quota): nothing Flux watches changed, so it does not try again, and a plain nudge (`flux reconcile helmrelease`) does not help either. Run the reset.
+
+Check first that the cause really is fixed and that a stuck migration job from the broken chart is gone (a running job cannot be edited: `kubectl -n kaval-prod delete job <release>-migrate-<n>`). Then, from the server:
 
 ```bash
-export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-kubectl -n flux-system delete helmrelease kaval-prod     # Flux's kustomization puts it back at its next sync as a clean install (or re-apply it: kubectl apply -f deploy/gitops/prod/helmrelease.yaml)
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml PATH=$PATH:/usr/local/bin
+flux reconcile helmrelease kaval-prod -n flux-system --reset   # forgets the earlier failures and tries again from zero
+kubectl get helmrelease -n flux-system -w                      # wait for Ready=True
+```
+
+On staging this repaired a failed first install in about 30 seconds with nothing deleted (Flux upgraded the leftover failed record). Only if the reset does not bring the release back, delete it; Flux's kustomization puts it back at its next sync as a clean install (or re-apply it: `kubectl apply -f deploy/gitops/prod/helmrelease.yaml`):
+
+```bash
+kubectl -n flux-system delete helmrelease kaval-prod
 kubectl get helmrelease -n flux-system -w                # wait for Ready=True
 ```
 
-This is the way that has worked in production. Flux's own reset, `flux reconcile helmrelease kaval-prod -n flux-system --reset`, is documented to clear the retry count and has not been tried here. Staging is cheaper to rebuild (`make staging-down`, `make staging-up`), but the same two steps work there with `kaval-staging`.
+Staging is the same with `kaval-staging`. Rebuilding staging is never needed for this: on 2026-10-31 it was rebuilt (about $1 and an hour) when deleting the release would have done ([journal](../journal/2026-10-31.md)). The exact state seen that day, `MissingRollbackTarget`, was not reproduced, so the reset is proven for the stalled states in Lab 76, not for that one. The setting `install.remediation.remediateLastFailure: true` was tried and is not used: it only removes the failed record when Flux gives up, and the reset works the same with or without it.
 
 ### 5. Only if the migration did not run by itself: run it by hand (reversible only from the snapshot; blast radius: the production database)
 

@@ -1,6 +1,6 @@
 # ADR-0075 — A redirect is never followed, so the Atlassian login stays home
 
-- **Status:** Accepted (plan shown to Roshan 2026-11-03, who said "go"). Built on `fix/KAV-123-no-login-on-redirect`; the pull request number and the live proof are added when it is merged
+- **Status:** Accepted (plan shown to Roshan 2026-11-03, who said "go"). Built on `fix/KAV-123-no-login-on-redirect`; merged as #311 (2026-11-03, 22:46 IST, all 11 checks green) and proven by the first real `make docs-sync` on the merged code (22:52:53 to 22:57:38, `DONE exit=0`, 107 pages updated, 1 created, no failure, retry or redirect)
 - **Date:** 2026-11-03
 - **Deciders:** Roshan
 - **Story:** `KAV-123` (found while building `KAV-122` and filed from [ADR-0074](0074-the-atlassian-scripts-get-a-time-limit-and-only-reads-are-retried.md), whose decision 5, "an answer is an answer", this amends) · the approval command's version of the same gap is `KAV-124`
