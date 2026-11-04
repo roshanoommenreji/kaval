@@ -251,7 +251,9 @@ constraint and a smaller staging node would miss precisely that.
 
 It exists **on demand**: `make staging-up` builds it in ~5 minutes, and it **parks itself** after
 four idle hours (a Lambda scales the node to zero and stops the database server;
-[ADR-0029](../adr/0029-staging-parks-itself-when-idle.md)). `make staging-down` destroys it.
+[ADR-0029](../adr/0029-staging-parks-itself-when-idle.md)). The nightly auto-stop
+([ADR-0008](../adr/0008-production-database-on-its-own-server.md)) also stops it at 02:00 IST if it is still up, and a
+resumed staging gets a new cluster. `make staging-down` destroys it.
 
 | | |
 |---|---|

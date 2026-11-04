@@ -98,6 +98,11 @@ tagged `Env=staging` in 206 s. Prod was untouched throughout.
 
 **Decision (Roshan, taking the recommendation).** Leave it. The account-wide nightly stop (ADR-0008) keeps stopping
 staging's database server but not its app node. Staging is not exempted with a tag.
+**Amended 2026-11-04:** since `KAV-96` ([ADR-0064](0064-the-spending-brake-names-every-server-group-and-is-proven-on-staging.md))
+the nightly stop also scales staging's node group to zero, so a staging left up past 02:00 IST now loses its cluster
+too (a resumed staging gets a new one, and anything installed on it is gone), not only its database. This cost an
+experiment on 2026-11-04 ([Lab 76](../labs/lab-76-what-flux-does-when-its-retries-run-out.md)): end a staging session
+before 02:00 IST.
 
 **Why.** Staging parks itself after four idle hours (this ADR), and the still-alive alarm now says when staging's
 node is running but silent ([ADR-0053](0053-the-still-alive-alarm-lives-in-aws.md), seen for real on 2026-10-13: the

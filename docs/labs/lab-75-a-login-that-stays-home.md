@@ -145,7 +145,7 @@ Nothing is written. This is the check that real answers still come back as befor
 - [x] A redirect to the same address is decided (not followed; one plain stop), written down and tested *(2026-11-03)*
 - [x] The cases from `KAV-122` are unchanged and its 34 tests still pass: a 200, a 204 with an empty body, a 4xx, no answer *(2026-11-03)*
 - [x] The release workflow's Jira read follows the same rule, tested *(2026-11-03)*
-- [ ] Merged with CI green, and the first real `make docs-sync` on the merged code finishes normally *(after the merge)*
+- [x] Merged with CI green, and the first real `make docs-sync` on the merged code finishes normally *(2026-11-03: merged as #311 at 22:46 IST with all 11 checks green; the first real sync on the merged code ran 22:52:53 to 22:57:38, `DONE exit=0`, 107 pages updated, 1 created, no failure, retry or redirect)*
 
 ## Cost
 

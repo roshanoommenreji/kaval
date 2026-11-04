@@ -200,7 +200,7 @@ make devbox-down   # stop it now
 make migrate       # apply database migrations
 make db-health-check     # run the database's start-up health check by hand (pg_isready + sanity query)
 make db-restore-snapshot # restore the database's data volume from an EBS snapshot (SNAPSHOT=<id>, else newest)
-make staging-up      # build or resume staging, wait for its pods (~5 min, ~$0.045/hr); it parks itself after 4 idle hours
+make staging-up      # build or resume staging, wait for its pods (~5 min, ~$0.045/hr); it parks itself after 4 idle hours, and the nightly auto-stop stops it at 02:00 IST (end a session before then)
 make staging-status  # database state and pods, read over Session Manager
 make version-plan    # the next component and product versions, worked out from the commits (nothing is written)
 make staging-smoke   # smoke-test the tag staging runs (digest vs ECR, pods, database, API); a pass is recorded in deploy/promotion/passed-staging.json

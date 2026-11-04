@@ -9,7 +9,8 @@
 #
 # Staging parks itself after four idle hours (infra/modules/idle-stop): the node's Auto Scaling
 # Group goes to zero and the database server stops. `up` resumes a parked staging; `down` is the
-# deliberate teardown. Both are safe to re-run.
+# deliberate teardown. Both are safe to re-run. The nightly auto-stop (ADR-0008, 02:00 IST) also
+# stops a staging that is still up, and a resumed staging gets a NEW cluster: end a session before 02:00.
 #
 # ASSUME_YES=1 skips the confirmation prompts (the plan is still printed first).
 # See docs/labs/lab-30-staging-up-down-and-idle-stop.md.
@@ -144,7 +145,7 @@ cmd_status() {
 
 cmd_up() {
   echo "Staging starts billing at roughly \$0.045/hr (node, database server, two public IPv4)."
-  echo "It parks itself after four idle hours; 'staging.sh down' destroys it."
+  echo "It parks itself after four idle hours, and the nightly auto-stop ends it at 02:00 IST; 'staging.sh down' destroys it."
   confirm "Continue?" || { echo "aborted"; exit 1; }
 
   bash "$ROOT/scripts/ops/tf-init.sh" staging >/dev/null   # remote state (KAV-86): finds the bucket itself

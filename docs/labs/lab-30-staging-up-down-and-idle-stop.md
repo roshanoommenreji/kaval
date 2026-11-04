@@ -10,6 +10,8 @@ of commands typed by hand, because nothing yet created it on request or noticed 
 "self-destructs after four idle hours". This lab builds them and runs the full cycle against real AWS.
 
 One word changed on the way: staging **parks** itself rather than destroying itself.
+
+**Added 2026-11-04:** the idle rule is not the only stop. The nightly auto-stop ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)) stops a staging that is still up at 02:00 IST, and since `KAV-96` it also scales the node group to zero, so a resumed staging gets a new cluster. End a session before 02:00 (see [ADR-0029](../adr/0029-staging-parks-itself-when-idle.md), amended).
 [ADR-0029](../adr/0029-staging-parks-itself-when-idle.md) explains why (nothing in AWS can run Terraform
 for us without a very broad role). `make staging-down` is the real destroy.
 
