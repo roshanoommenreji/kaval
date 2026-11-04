@@ -131,6 +131,7 @@ test cites an ID that is not in this file.
 | T-OPS-1 | **E.** The operator's AWS login is stolen or too broad. | The laptop is the only admin path; no inbound ports on the nodes (Session Manager only). A least-privilege review with IAM Access Analyzer is not done. | ROADMAP Phase 8 IAM line | **Gap** → ROADMAP line |
 | T-OPS-2 | **D.** Runaway spend, caused by an attacker or a bug. | Alerts at $42 and $46; a hard stop at $48 that scales the servers to zero. | [ADR-0064](../adr/0064-the-spending-brake-names-every-server-group-and-is-proven-on-staging.md) | Covered |
 | T-OPS-3 | **D.** Database lost or corrupted. | Snapshots, a monthly restore drill. | `docs/runbooks/restore-drill.md`; `docs/drills/` | Covered |
+| T-OPS-4 | **I.** A password is printed into a log. Was: `db-roles.sql` made `psql` print the four service-login passwords into the node's journal and boot log on every run (found on staging 2026-11-04; production's app server ran the same file). | `\gset` keeps each result out of the output; a test runs the real `psql` with fake passwords and fails if one is printed, another proves the roles still get the passwords, a third fails any new bare password line. The logs are readable by root and the `adm` group only and are shipped nowhere. | [ADR-0077](../adr/0077-the-database-roles-script-keeps-passwords-out-of-psqls-output.md); `services/shared/tests/test_db_roles_output.py` | Partly → built and tested; the staging proof is pending (`KAV-125`) |
 
 ## What is not covered yet
 
