@@ -70,6 +70,16 @@ scrub's own fail-closed step has dropped any restored tables, and the release co
 exactly as every release did before. `staging-up` reads that file and prints `Seed status: ...`, with a warning
 unless it says `ok`.
 
+**Amended 2026-11-04 (`KAV-126`): a skip never replaces a status that is already there.** The script runs more than
+once: at first boot, in the permissions pass about 20 seconds later ([ADR-0057](0057-the-database-is-brought-up-to-date-before-a-new-version-starts.md)),
+and every six hours. The later runs find the tables the first one made and used to write `skipped` over `ok` (or over
+`failed`), so a staging that really was seeded printed "Seed status: skipped" on 2026-11-03 although the restore had run
+(its log lines were there). Now only a real outcome, `ok` or `failed`, replaces a recorded status; a skip is written
+only when nothing is recorded yet. A resumed staging (a new node, no earlier file, a database with tables) still reads
+`skipped`, which is true there. The script has its first committed test, `scripts/dev/test_seed_status.py`, which cuts
+it out of the node template and runs it with stand-ins (six cases, two of them seen failing first). It is probably
+true that every fresh staging read `skipped` since the permissions pass was added on 14 Oct; that was not checked.
+
 **6. Staging only.** A new node-module switch `seed_database` (default false, set only in `infra/envs/staging`)
 installs the script and the bootstrap calls. Production's boot script has no seed call. It is not byte-identical
 to before, though: the permissions step in the shared bootstrap is now a function (a no-behaviour-change
