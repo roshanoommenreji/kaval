@@ -19,10 +19,17 @@
 -- having been blocked before it was ever built). set_config() runs substitution normally
 -- (it's plain top-level SQL, not inside $$ $$), then the DO block reads it back with
 -- current_setting() and applies it via format(..., %L) for safe, injection-proof quoting.
-SELECT set_config('kaval.gateway_password', :'gateway_password', false);
-SELECT set_config('kaval.agent_password', :'agent_password', false);
-SELECT set_config('kaval.executor_password', :'executor_password', false);
-SELECT set_config('kaval.collector_password', :'collector_password', false);
+--
+-- The result of each SELECT below IS the password, and psql prints the result of a SELECT: run
+-- bare, this file printed all four passwords into the journal and the boot log of every server
+-- that ran it (found on staging, KAV-125). `\gset` runs the query and keeps the result in a psql
+-- variable instead of printing it, so nothing is shown. Errors still reach stderr, and the DO
+-- blocks below read the passwords back with current_setting() exactly as before. A line that
+-- passes a password without `\gset` fails services/shared/tests/test_db_roles_output.py.
+SELECT set_config('kaval.gateway_password', :'gateway_password', false) AS discarded \gset
+SELECT set_config('kaval.agent_password', :'agent_password', false) AS discarded \gset
+SELECT set_config('kaval.executor_password', :'executor_password', false) AS discarded \gset
+SELECT set_config('kaval.collector_password', :'collector_password', false) AS discarded \gset
 
 DO $$
 BEGIN

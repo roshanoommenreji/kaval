@@ -24,12 +24,19 @@ def _apply_roles(db: Session) -> None:
     sql = SCRIPT.read_text(encoding="utf-8")
     sql = sql.replace(chr(92) + "set ON_ERROR_STOP on", "")  # a psql command, not SQL
     sql = re.sub(r":'(\w+_password)'", "'test-password'", sql)
+    # psql's "keep the result" command; read as plain SQL it is just the end of the statement.
+    sql = sql.replace(" " + chr(92) + "gset", ";")
     raw = db.connection().connection.dbapi_connection
     assert raw is not None
     try:
         raw.cursor().execute(sql)  # no parameters: the script's own % signs are left alone
-    except Exception as exc:  # noqa: BLE001 - roles need a database user allowed to create them
-        pytest.skip(f"cannot create roles here: {type(exc).__name__}")
+    except Exception as exc:  # noqa: BLE001 - see below: only one reason may skip
+        # Only "this database user may not create roles" (SQLSTATE 42501) is a reason to skip.
+        # Anything else, a syntax error after an edit to the script for one, must fail loudly:
+        # KAV-125 added a psql-only line and all five tests below skipped without anyone noticing.
+        if getattr(exc, "sqlstate", None) == "42501":
+            pytest.skip(f"cannot create roles here: {type(exc).__name__}")
+        raise
 
 
 def _can(db: Session, role: str, statement: str) -> bool:
