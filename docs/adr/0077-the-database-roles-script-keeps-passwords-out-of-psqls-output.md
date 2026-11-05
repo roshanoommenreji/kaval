@@ -1,6 +1,6 @@
 # ADR-0077 — The database-roles script keeps passwords out of psql's output
 
-- **Status:** Accepted (plan shown to Roshan 2026-11-04, who said "go"). Built on `fix/KAV-125-no-passwords-in-logs`; the pull request number, the live proof on staging and production's bring-up are added as they happen
+- **Status:** Accepted (plan shown to Roshan 2026-11-04, who said "go"). Merged as #313 on 2026-11-04 with all 11 checks green; **proved on staging on 2026-11-05** (see "Proof on staging" below). Production's bring-up, which needs nothing deployed, is still to come
 - **Date:** 2026-11-04
 - **Deciders:** Roshan
 - **Story:** `KAV-125` (found while reading staging's boot journal for `KAV-108`; evidence in [Lab 77](../labs/lab-77-passwords-that-stay-out-of-the-logs.md); threat model row T-OPS-4)
@@ -36,11 +36,27 @@
 ## Noticed, not changed
 
 - The node's bootstrap passes the passwords as `-v name=value` arguments, so they are visible in the process list for the moments `psql` runs (a root-only server). `db-monitoring.sh` already uses the environment and `\getenv` for the same reason. A later hardening, not part of this story.
-- The statement text, with the literal password, reaches the database server. Its own statement log is off: the database module sets no `log_statement` (only `log_connections`), and PostgreSQL's default is `none`. The live value is read during the staging proof.
+- The statement text, with the literal password, reaches the database server. Its own statement log is off: the database module sets no `log_statement` (only `log_connections`), and PostgreSQL's default is `none`. Read live during the staging proof of 2026-11-05: `log_statement = none`.
 - Searched the scripts and the infrastructure for any other place that prints a password variable: none (the rest pass passwords through the environment or a root-only file).
 
 ## Consequences
 
-- The threat model gains row T-OPS-4; it reads "built, staging proof pending" until the proof is done, then "covered".
-- `KAV-125`'s criteria are ticked after the merge and the staging proof (zero occurrences of each password in the node's boot log and journal, counted without printing), then production's bring-up. That proof shares one staging session with `KAV-124` and `KAV-126`.
-- Cost: $0 for the build; the proof shares a staging session.
+- The threat model gains row T-OPS-4. It read "built, staging proof pending" until the proof; after the proof of 2026-11-05 it reads "Partly" (proved on staging), and it becomes "Covered" when production's bring-up shows the same zero.
+- `KAV-125`'s criteria are ticked after the merge and the staging proof (zero occurrences of each password in the node's boot log and journal, counted without printing), then production's bring-up. That proof shared one staging session with `KAV-126`; `KAV-124` needed none.
+- Cost: $0 for the build; the proof shared a staging session, whose figure is in the journal of 2026-11-05.
+
+## Proof on staging, 2026-11-05
+
+After Roshan's "go", staging was built from nothing (93 resources, 22:02 to 22:08 IST) and its node downloaded the merged `db-roles.sql` from `main` while booting. A read-only script then ran on the node over Session Manager. It read each password from the parameter store and counted it in the two logs, printing counts only:
+
+| Password | Boot log (275 lines) | Journal (4,855 lines) | Control: a planted copy |
+|---|---|---|---|
+| gateway | 0 | 0 | 1 |
+| agent | 0 | 0 | 1 |
+| executor | 0 | 0 | 1 |
+| collector | 0 | 0 | 1 |
+| admin | 0 | 0 | 1 |
+
+Before the fix the four service passwords counted 1 and 3 (2026-11-04). The control is a file holding one copy of the password, counted with the same `grep`: it shows the method finds a password where one exists, so a zero cannot come from an empty search or a broken command. `SHOW log_statement` read `none`. The same session ran `make staging-smoke` (7 of 7 passed for `sha-b790720`) and then `make staging-down`.
+
+**Not proven here: production.** Its app server runs the same `db-roles.sql` from `main` at its next bring-up. The same count with `/kaval/kaval-prod/db/...` is the proof; the plan needs no infrastructure change.
