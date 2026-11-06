@@ -25,8 +25,10 @@ FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903c
 # libexpat1 comes in with postgresql-client: Debian fixed two HIGH CVEs (CVE-2025-59375,
 # CVE-2026-77214) in 2.5.0-1+deb12u5, and on 2026-10-24 Trivy failed the backup image on three open
 # Dependabot pull requests while the other four images passed. Same remedy, same reason.
+# apt, libapt-pkg6.0: Debian shipped 2.6.2 for CVE-2026-109518 (HIGH) after this digest was pinned;
+# Trivy flagged all five images on 2026-11-05. Same line, edited, so apt-get runs fresh.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 perl-base libperl5.36 libssl3 \
+ && apt-get install -y --no-install-recommends --only-upgrade libpcre2-8-0 perl-base libperl5.36 libssl3 apt libapt-pkg6.0 \
  && apt-get install -y --no-install-recommends postgresql-client awscli \
       python3.11 python3.11-minimal libpython3.11-minimal libpython3.11-stdlib libexpat1 \
  && rm -rf /var/lib/apt/lists/*

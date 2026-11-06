@@ -41,6 +41,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade 
 # images on 2026-10-26. A new instruction, so a cached layer cannot hide it.
 RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade libssl3  && rm -rf /var/lib/apt/lists/*
 
+# Same pattern once more: Debian shipped apt and libapt-pkg6.0 2.6.2 for CVE-2026-109518 (HIGH) after this
+# digest was pinned; Trivy flagged all five images on 2026-11-05. Another new instruction, so a cached
+# layer cannot hide it.
+RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg6.0 \
+ && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
