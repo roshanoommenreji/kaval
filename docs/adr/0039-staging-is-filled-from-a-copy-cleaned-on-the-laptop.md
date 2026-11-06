@@ -79,6 +79,7 @@ only when nothing is recorded yet. A resumed staging (a new node, no earlier fil
 `skipped`, which is true there. The script has its first committed test, `scripts/dev/test_seed_status.py`, which cuts
 it out of the node template and runs it with stand-ins (six cases, two of them seen failing first). It is probably
 true that every fresh staging read `skipped` since the permissions pass was added on 14 Oct; that was not checked.
+**Proved live on 2026-11-05:** a fresh staging (built from nothing, 22:02 to 22:08 IST) ended `make staging-up` with `Seed status: {... "status":"ok","seconds":2 ...}` where the same build had printed `skipped` on 2026-11-03. The resumed case is covered by the test `test_a_resumed_node_with_tables_and_no_earlier_status_says_skipped`; it last ran live on 2026-11-04 (before the fix, and unchanged by it) and printed `skipped` with its note.
 
 **6. Staging only.** A new node-module switch `seed_database` (default false, set only in `infra/envs/staging`)
 installs the script and the bootstrap calls. Production's boot script has no seed call. It is not byte-identical

@@ -190,8 +190,8 @@ flux reconcile helmrelease kav108-d -n flux-system --reset --timeout=90s
 - [x] Experiment 2 measured: a cause outside the release, fixed by hand; no retry by itself; a plain nudge does nothing; `--reset` repairs both *(2026-11-04)*
 - [x] The decision is recorded: [ADR-0076](../adr/0076-a-stalled-flux-release-is-reset-not-rebuilt.md); the setting is not adopted, nothing changes in the HelmReleases
 - [x] [Runbook step 4b](../runbooks/prod-rollout.md) starts with the reset; [Lab 67](lab-67-two-health-pages-and-pods-that-pass-restricted.md)'s claim is corrected
-- [ ] Merged with CI green *(after the merge)*
+- [x] Merged with CI green *(2026-11-04: merged as #312 with all 11 checks green; `KAV-108` Done in Jira on 2026-11-05)*
 
 ## Cost
 
-About $0.20: staging from 23:26 on 3 Nov to the nightly stop at 02:00 (about 2.6 hours) and from 21:20 to 22:25 on 4 Nov (about 1.1 hours), $0.045 an hour. The stopped database disk and three leftover 10 GB snapshots cost a few cents until they are deleted. Everything else was free. Nothing here touched production.
+About $0.20: staging from 23:26 on 3 Nov to the nightly stop at 02:00 (about 2.6 hours) and from 21:20 to 22:25 on 4 Nov (about 1.1 hours), $0.045 an hour. The stopped database disk and three leftover 10 GB snapshots cost a few cents until they were deleted (the snapshots on 2026-11-05, with Roshan's go). Everything else was free. Nothing here touched production.
