@@ -197,7 +197,7 @@ On 2026-11-04 the first printed `401 Unauthorized: {"detail":"an approver token 
 - [x] Merged with CI green, and the first real `make docs-sync` on the merged code finishes normally *(2026-11-03: merged as #311 at 22:46 IST with all 11 checks green; the first real sync on the merged code ran 22:52:53 to 22:57:38, `DONE exit=0`, 107 pages updated, 1 created, no failure, retry or redirect)*
 - [x] `KAV-124`: the approval command follows the same rule, tested with two local servers (five of its tests seen failing first; a 307 and a 308 were already refused for a `POST`) *(2026-11-04)*
 - [x] `KAV-124`: proved end to end on the laptop against the real gateway: a wrong token gets 401 as before, the right token records the decision *(2026-11-04)*
-- [ ] `KAV-124`: merged with CI green *(after the merge)*
+- [x] `KAV-124`: merged with CI green *(2026-11-04: merged as #314 with all 11 checks green; `KAV-124` Done in Jira on 2026-11-05; a denial, which no committed test names, was also checked by hand against a local fake gateway: one request, the bearer header present, a body of verdict, actor and reason)*
 
 ## Cost
 

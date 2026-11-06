@@ -278,6 +278,15 @@ root disk and 10 GB data volume: 18 GB × $0.0912/GB-month (gp3, Mumbai, Price L
 (ADR-0029), and `make staging-down` ends it. Lambda and EventBridge Scheduler for the idle check are
 inside the free tier (about 2,900 invocations a month).
 
+**Leftover snapshots (found 2026-11-04, `KAV-127`).** The nightly 02:00 stop snapshots staging's data volume
+if staging is still up, and `make staging-down` deletes snapshots by a name those do not carry, so three 10 GB
+copies (22 Oct, 27 Oct, 4 Nov) stayed in the account: at most **$1.50 a month** (30 GB × $0.05 per GB-month,
+Mumbai, Price List API, 2026-11-05; snapshots are incremental, so less in fact). They were deleted on
+2026-11-05 with Roshan's go. Until `KAV-127` is built, look for new ones after any teardown that follows a
+night's stop. A separate finding, `KAV-128`: staging's snapshot schedule also copies *production's* data disk
+(AWS matches any one tag, not all), one redundant incremental snapshot per staging build that spans 03:00 UTC:
+cents, but it should not happen.
+
 Always-on it would be ~$11/month and idle roughly 95% of the time — which would take the project
 total to ~$102 and require raising the ceiling. See
 [ADR-0004](../adr/0004-environment-strategy-and-promotion.md).

@@ -96,6 +96,8 @@ done; unset PW
 
 Before the fix this printed 1 and 3 for the four service passwords and 0 and 0 for the admin password. After it, every line must say 0 and 0. Also read the live value of the database server's statement log (`SHOW log_statement;`, expected `none`).
 
+**Result, 2026-11-05** (a fresh staging built from `main`; the script above plus a control per password and the two log sizes, so a zero cannot be an empty search): boot log 275 lines and journal 4,855 lines; gateway, agent, executor, collector and admin each counted **0 and 0**, and the planted copy of each counted 1; `log_statement = none`. The same session's `make staging-up` ended with `Seed status: ok` ([Lab 41](lab-41-filling-staging-from-a-cleaned-copy.md)). The control is worth copying: write the password into a temporary file, count it with the same `grep`, expect 1.
+
 ## Part 5 — Production, at its next bring-up
 
 Nothing to deploy: the script comes from `main`. After `make prod-smoke`, the same count with `/kaval/kaval-prod/db/...` must be 0 and 0.
@@ -105,12 +107,12 @@ Nothing to deploy: the script comes from `main`. After `make prod-smoke`, the sa
 - [x] The leak is reproduced with fake passwords and the tests were seen failing first *(2026-11-04)*
 - [x] The four statements use `\gset`; the roles get exactly the passwords they were given (the fingerprint test); a new bare line fails a test *(2026-11-04)*
 - [x] The older role test no longer turns a broken file into a skip *(2026-11-04)*
-- [ ] Merged with CI green (CI must not skip the new tests: `psql` has to be on the runner) *(after the merge)*
-- [ ] Proved on staging: zero occurrences of each password in the boot log and the journal, and `log_statement` read *(after the merge, in the next staging session)*
+- [x] Merged with CI green (CI must not skip the new tests: `psql` has to be on the runner) *(2026-11-04: merged as #313 with all 11 checks green; in CI's test job the four new psql tests ran and passed, 2045 passed)*
+- [x] Proved on staging: zero occurrences of each password in the boot log and the journal, and `log_statement` read *(2026-11-05: all five passwords 0 and 0, each control 1; `log_statement = none`; see Part 4)*
 - [ ] Production's next bring-up shows the same zero *(at that bring-up)*
 
 ## Cost
 
-$0 for the build and Parts 1 to 3. Part 4 shares a staging session with `KAV-124` and `KAV-126` (about $0.50 in all).
+$0 for the build and Parts 1 to 3. Part 4 shares a staging session with `KAV-126` (budgeted at $0.50 in all; the real figure is in the journal of 2026-11-05). `KAV-124` needed no staging session.
 
 Clean up when you are done: `docker rm -f kaval-lab77`.
