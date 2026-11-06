@@ -1,6 +1,6 @@
 # ADR-0078 — Backup copies are found by their labels, never by their names
 
-- **Status:** Accepted (plan shown to Roshan 2026-11-06, who said "go"). Built and tested 2026-11-06 (`KAV-127`, `KAV-128`). **Not yet proved live:** the staging proof needs one staging session and Roshan's go, and production's schedule change rides with its next bring-up (decision 6)
+- **Status:** Accepted (plan shown to Roshan 2026-11-06, who said "go"). Built and tested 2026-11-06 (`KAV-127`, `KAV-128`). **Not yet proved live:** the best proof is a staging left up through a night, so the nightly stop makes its real copy and the schedule's own 03:00 UTC run happens (about 15 cents; [Lab 78](../labs/lab-78-backup-copies-that-belong-to-the-right-environment.md) Part 4a), and it needs Roshan's go for the build and again for the morning teardown. Production's schedule change rides with its next bring-up (decision 6)
 - **Date:** 2026-11-06
 - **Deciders:** Roshan
 - **Story:** `KAV-127` (the staging teardown leaves backup copies behind) and `KAV-128` (a snapshot schedule covers the other environment's disk); evidence in [Lab 78](../labs/lab-78-backup-copies-that-belong-to-the-right-environment.md); amends the 2026-11-05 amendment of [ADR-0008](0008-production-database-on-its-own-server.md)
@@ -46,5 +46,5 @@ The second finding came from the same look at the list. AWS's Data Lifecycle Man
 
 ## Noticed, not changed
 
-- The stray copy of **production's disk made by staging's schedule on 2026-11-04** is still in the account (it carries production's labels, copied, so it looks like one of production's own). Nothing will expire it, because the schedule that made it is gone. A few cents a month; deleting it needs Roshan's go and a check of the policy id it was made by.
+- The stray copy of **production's disk made by staging's schedule on 2026-11-04** is still in the account (it carries production's labels, copied, so it looks like one of production's own). Nothing will expire it, because the schedule that made it is gone. It can be told apart: every copy a schedule makes carries an `aws:dlm:lifecycle-policy-id` tag, and on 2026-11-06 this was the only one of production's schedule-made copies whose policy id was not production's own. A few cents a month; keeping it costs nothing to decide, and deleting it needs Roshan's go.
 - `restore-snapshot.sh` and the other scripts that look for a copy by name are unchanged: they restore, they do not delete, and they need the environment's own name on purpose.

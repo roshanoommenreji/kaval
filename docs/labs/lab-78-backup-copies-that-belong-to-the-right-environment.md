@@ -95,11 +95,22 @@ The old teardown printed `Deleting snapshot snap-0a2`, `snap-0a3` and `snap-0a4`
 
 ## Part 4 — The proof on staging (after the merge; every step needs the owner's go)
 
-Staging must be gone before you start (`Left tagged Env=staging: 0 ...`) and the session must end before the nightly stop at 02:00 IST.
+Staging must be gone before you start (`Left tagged Env=staging: 0 ...`).
 
-1. `make staging-up` builds a fresh staging (about 7 minutes; the meter runs).
-2. **The schedule it made.** `aws dlm get-lifecycle-policies` now lists two. For the one whose description starts `kaval-staging`, `get-lifecycle-policy ... --query "Policy.PolicyDetails.TargetTags"` must print one line, `Name   kaval-staging-database-data`. Production's still prints both lines until it is applied.
-3. **Plant a copy that looks like the nightly stop's**, on staging's data disk, with the same labels the Lambda sets (this is an AWS write, a 10 GB copy for a few minutes):
+**4a — The real thing, across a night (recommended; about 15 cents).** A copy made by hand only shows that the teardown can find one. A night shows the real thing: the nightly stop's own copy (02:00 IST) and the schedule's own run (03:00 UTC, which is 08:30 IST). Normally a staging session ends before 02:00 IST, because the nightly stop ends the cluster; here that is the point.
+
+1. In the evening, `make staging-up` (about 7 minutes; the meter runs). Then leave it alone.
+2. **The schedule it made.** `aws dlm get-lifecycle-policies` now lists two. For the one whose description starts `kaval-staging`, `aws dlm get-lifecycle-policy --policy-id <id> --query "Policy.PolicyDetails.TargetTags" --output text` must print one line, `Name   kaval-staging-database-data`. Production's still prints both lines until it is applied.
+3. **Count by label** as in Part 1: staging 0, production 20. Note which of production's copies carry which schedule: `q --filters Name=tag:Env,Values=prod --query "Snapshots[].Tags[?Key=='aws:dlm:lifecycle-policy-id'].Value | []"` (every copy a schedule makes carries that tag; on 2026-11-06 production had eight made by its own schedule and one made by a different one, the stray copy of 4 Nov).
+4. Overnight there is nothing to do. At 02:00 IST the nightly stop copies staging's data disk under the name `kaval-hard-stop-pre-stop` and stops the node and the database server; at 03:00 UTC the schedules run (a schedule snapshots a disk whether or not its server is running).
+5. **Morning, after 08:45 IST, read-only.** Staging now has copies: the nightly stop's and the schedule's, plus one more from production's schedule while that is still unfixed (it covers any disk with `Role = database-data`), so expect three. Production's own disk must have gained **exactly one** copy since midnight UTC, made by production's own schedule and none by staging's (before the fix it would have been two): list the copies of production's data disk (`--filters Name=volume-id,Values=<its volume id>`) and read each one's `aws:dlm:lifecycle-policy-id`.
+6. `make staging-down`. It must print `Deleting snapshot ...` for each of staging's copies, the nightly stop's among them, and end `Left tagged Env=staging: 0 instances, 0 volumes, 0 VPCs, 0 snapshots`. The old script would have left the nightly stop's.
+7. Count again: staging 0, production exactly as in step 5.
+
+**4b — The quick version, with a copy made by hand (about 30 minutes, 2 cents).** It proves the teardown and the schedule's targets, not the schedule's own run.
+
+1. `make staging-up`, then step 2 above.
+2. **Plant a copy that looks like the nightly stop's**, on staging's data disk, with the same labels the Lambda sets (this is an AWS write, a 10 GB copy for a few minutes):
 
    ```bash
    VOL=$(aws ec2 describe-volumes --filters "Name=tag:Name,Values=kaval-staging-database-data" \
@@ -111,9 +122,9 @@ Staging must be gone before you start (`Left tagged Env=staging: 0 ...`) and the
    aws ec2 wait snapshot-completed --snapshot-ids "$SNAP"
    ```
 
-4. Count by label as in Part 1: staging 1, production still 20.
-5. `make staging-down`. It must print `Deleting snapshot <the planted one>` and end `Left tagged Env=staging: 0 instances, 0 volumes, 0 VPCs, 0 snapshots`. The old script would have left it.
-6. Count again: staging 0, production still 20 (and the same twenty ids).
+3. Count by label as in Part 1: staging 1, production still 20.
+4. `make staging-down`. It must print `Deleting snapshot <the planted one>` and end `Left tagged Env=staging: 0 instances, 0 volumes, 0 VPCs, 0 snapshots`. The old script would have left it.
+5. Count again: staging 0, production still 20 (and the same twenty ids).
 
 **Result:** not run yet. This section is filled in at the proof.
 
@@ -129,7 +140,7 @@ Nothing to deploy by itself: the schedule change is in production's Terraform an
 - [x] The schedule targets the `Name` tag alone, with a test that applies AWS's rule both ways *(2026-11-06)*
 - [x] Production's plan with the change read: one extra in-place change, nothing applied *(2026-11-06)*
 - [ ] Merged with CI green
-- [ ] Proved on staging: the schedule it builds targets staging's disk only, and the teardown deletes a planted nightly-stop copy and nothing of production's *(Part 4)*
+- [ ] Proved on staging: the schedule it builds targets staging's disk only, production's disk gains no copy from it at 03:00 UTC, and a real teardown after a night's stop deletes the nightly stop's copy and nothing of production's *(Part 4a; or 4b for the teardown alone)*
 - [ ] Production's schedule changed, at its next bring-up *(Part 5)*
 
 ## Cost
