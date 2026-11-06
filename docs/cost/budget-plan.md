@@ -287,10 +287,14 @@ inside the free tier (about 2,900 invocations a month).
 if staging is still up, and `make staging-down` deletes snapshots by a name those do not carry, so three 10 GB
 copies (22 Oct, 27 Oct, 4 Nov) stayed in the account: at most **$1.50 a month** (30 GB × $0.05 per GB-month,
 Mumbai, Price List API, 2026-11-05; snapshots are incremental, so less in fact). They were deleted on
-2026-11-05 with Roshan's go. Until `KAV-127` is built, look for new ones after any teardown that follows a
-night's stop. A separate finding, `KAV-128`: staging's snapshot schedule also copies *production's* data disk
-(AWS matches any one tag, not all), one redundant incremental snapshot per staging build that spans 03:00 UTC:
-cents, but it should not happen.
+2026-11-05 with Roshan's go. **Fixed 2026-11-06 (`KAV-127`, [ADR-0078](../adr/0078-backup-copies-are-found-by-their-labels-not-their-names.md)):**
+`make staging-down` now finds the copies by their labels (`Project=kaval`, `Env=staging`) whichever job made them,
+refuses to delete more than 30 in one go, and ends with a count of the copies left; until it has been seen working
+live (Lab 78, Part 4), look for new ones after any teardown that follows a night's stop. A separate finding,
+`KAV-128`: staging's snapshot schedule also copied *production's* data disk (AWS matches any one tag, not all), one
+redundant incremental snapshot per staging build that spans 03:00 UTC: cents. The module now targets the `Name` tag
+alone, so staging gets the fix at its next build; production's schedule changes at its next bring-up. The one stray
+copy made on 2026-11-04 is still in the account (a few cents a month).
 
 Always-on it would be ~$11/month and idle roughly 95% of the time — which would take the project
 total to ~$102 and require raising the ceiling. See
