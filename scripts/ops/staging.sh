@@ -5,7 +5,8 @@
 #                       until the services answer. STARTS BILLING (~$0.045/hr). On a fresh staging
 #                       it also hands over the cleaned copy from `make seed-refresh` (ADR-0039).
 #   staging.sh status   what is running, and the pods, read from the node over Session Manager.
-#   staging.sh down     destroy everything, including the database's data volume.
+#   staging.sh down     destroy everything, including the database's data volume and every backup
+#                       copy (snapshot) of it, whichever job made the copy (KAV-127).
 #
 # Staging parks itself after four idle hours (infra/modules/idle-stop): the node's Auto Scaling
 # Group goes to zero and the database server stops. `up` resumes a parked staging; `down` is the
@@ -129,6 +130,35 @@ pods_ready() {
        END { exit !(total >= 4 && ok == total) }'
 }
 
+# Staging's backup copies are found by what they ARE, their labels, never by what they are called
+# (KAV-127). The nightly stop names its copy "kaval-hard-stop-pre-stop" for every environment, so a
+# search by name missed it and three copies were left behind. Every copy carries Project and Env,
+# copied from the disk or set by the job that made it, and nothing labelled Env=prod can match.
+STAGING_COPY_FILTERS=("Name=tag:Project,Values=kaval" "Name=tag:Env,Values=staging")
+MAX_COPIES_AT_ONCE=30   # staging holds a handful; more means the search found what it should not
+
+staging_copy_ids() {
+  local listing
+  # Assigned on its own line: a failed listing (an expired login) must not read as "no copies".
+  listing="$(aws ec2 describe-snapshots --owner-ids self --filters "${STAGING_COPY_FILTERS[@]}" \
+    --query "Snapshots[].SnapshotId" --output text)" || return 1
+  printf '%s' "$listing" | tr '\t\r' '\n\n' | grep -E '^snap-[0-9a-f]+$' || true
+}
+
+delete_staging_copies() {
+  local ids count snap
+  ids="$(staging_copy_ids)" || { echo "Could not list staging's backup copies; nothing was deleted." >&2; return 1; }
+  count="$(printf '%s' "$ids" | grep -c . || true)"
+  if [ "$count" -gt "$MAX_COPIES_AT_ONCE" ]; then
+    echo "Found ${count} backup copies labelled Env=staging; refusing to delete more than ${MAX_COPIES_AT_ONCE} in one go. Look at them first." >&2
+    return 1
+  fi
+  for snap in $ids; do
+    echo "Deleting snapshot ${snap}"
+    aws ec2 delete-snapshot --snapshot-id "$snap"
+  done
+}
+
 # ── verbs ──────────────────────────────────────────────────────────────────
 
 cmd_status() {
@@ -191,7 +221,7 @@ cmd_down() {
     echo "Nothing in staging's Terraform state - nothing to destroy."
   else
     echo "This destroys staging: the node, the database server and its data volume, the VPC."
-    echo "Snapshots named ${PREFIX}-database* are deleted too."
+    echo "Every backup copy labelled Env=staging is deleted too (the daily schedule's, the idle stop's, the nightly stop's)."
     confirm "Destroy staging?" || { echo "aborted"; exit 1; }
 
     # The data volume has prevent_destroy (its address is wired into restore-snapshot.sh), so
@@ -219,19 +249,14 @@ cmd_down() {
   fi
 
   # Looked up by tag, not by state: this must work when a previous run died after the state rm.
-  local vol snap
+  local vol
   for vol in $(aws ec2 describe-volumes \
       --filters "Name=tag:Name,Values=${PREFIX}-database-data" "Name=tag:Env,Values=staging" "Name=status,Values=available" \
       --query "Volumes[].VolumeId" --output text); do
     echo "Deleting the detached data volume ${vol}"
     aws ec2 delete-volume --volume-id "$vol"
   done
-  for snap in $(aws ec2 describe-snapshots --owner-ids self \
-      --filters "Name=tag:Name,Values=${PREFIX}-database*" \
-      --query "Snapshots[].SnapshotId" --output text); do
-    echo "Deleting snapshot ${snap}"
-    aws ec2 delete-snapshot --snapshot-id "$snap"
-  done
+  delete_staging_copies
 
   local left
   left=$(aws ec2 describe-instances --filters "Name=tag:Env,Values=staging" \
@@ -239,7 +264,8 @@ cmd_down() {
     --query "length(Reservations[].Instances[])" --output text)
   left="$left instances, $(aws ec2 describe-volumes --filters "Name=tag:Env,Values=staging" \
     --query "length(Volumes)" --output text) volumes, $(aws ec2 describe-vpcs --filters "Name=tag:Env,Values=staging" \
-    --query "length(Vpcs)" --output text) VPCs"
+    --query "length(Vpcs)" --output text) VPCs, $(aws ec2 describe-snapshots --owner-ids self \
+    --filters "${STAGING_COPY_FILTERS[@]}" --query "length(Snapshots)" --output text) snapshots"
   echo "Left tagged Env=staging: ${left}"
 }
 
