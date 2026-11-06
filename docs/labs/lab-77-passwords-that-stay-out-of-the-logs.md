@@ -98,6 +98,8 @@ Before the fix this printed 1 and 3 for the four service passwords and 0 and 0 f
 
 **Result, 2026-11-05** (a fresh staging built from `main`; the script above plus a control per password and the two log sizes, so a zero cannot be an empty search): boot log 275 lines and journal 4,855 lines; gateway, agent, executor, collector and admin each counted **0 and 0**, and the planted copy of each counted 1; `log_statement = none`. The same session's `make staging-up` ended with `Seed status: ok` ([Lab 41](lab-41-filling-staging-from-a-cleaned-copy.md)). The control is worth copying: write the password into a temporary file, count it with the same `grep`, expect 1.
 
+**Result, 2026-11-06** (a different node: staging parked by hand and resumed, build `sha-978db36`, the same script): boot log 271 lines and journal 4,234 lines; the five passwords each counted **0 and 0**, each control 1; `log_statement = none`. The session's first node, the fresh build, was not counted.
+
 ## Part 5 — Production, at its next bring-up
 
 Nothing to deploy: the script comes from `main`. After `make prod-smoke`, the same count with `/kaval/kaval-prod/db/...` must be 0 and 0.
@@ -108,7 +110,7 @@ Nothing to deploy: the script comes from `main`. After `make prod-smoke`, the sa
 - [x] The four statements use `\gset`; the roles get exactly the passwords they were given (the fingerprint test); a new bare line fails a test *(2026-11-04)*
 - [x] The older role test no longer turns a broken file into a skip *(2026-11-04)*
 - [x] Merged with CI green (CI must not skip the new tests: `psql` has to be on the runner) *(2026-11-04: merged as #313 with all 11 checks green; in CI's test job the four new psql tests ran and passed, 2045 passed)*
-- [x] Proved on staging: zero occurrences of each password in the boot log and the journal, and `log_statement` read *(2026-11-05: all five passwords 0 and 0, each control 1; `log_statement = none`; see Part 4)*
+- [x] Proved on staging: zero occurrences of each password in the boot log and the journal, and `log_statement` read *(2026-11-05: all five passwords 0 and 0, each control 1; `log_statement = none`; repeated on a resumed node on 2026-11-06 with the same result; see Part 4)*
 - [ ] Production's next bring-up shows the same zero *(at that bring-up)*
 
 ## Cost

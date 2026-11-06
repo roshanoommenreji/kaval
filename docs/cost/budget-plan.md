@@ -272,6 +272,11 @@ First real use (`KAV-62`, Lab 33, 2026-10-08): one build, the smoke test and a d
 Rollback rehearsal (`KAV-66`, Lab 35, 2026-10-09): staging up for 1 h 45 min (a failed rollback, a database
 undo, a successful rollback), then destroyed: about $0.08.
 
+Resumed-staging proof (`KAV-126`, `KAV-129`, 2026-11-06): one fresh build, a health test, a park by hand, a
+resume, a password count and a second health test, then `make staging-down`. Staging existed from about 21:41
+to 22:08 IST (27 minutes, about 5 of them parked), so about $0.02 at the measured rate; the real figure appears
+when AWS closes the month. The sweep afterwards was identical to the one taken before the session.
+
 **Parked is not free.** After the idle stop the node is gone, but the database server keeps its 8 GB
 root disk and 10 GB data volume: 18 GB × $0.0912/GB-month (gp3, Mumbai, Price List API, 2026-10-08) =
 **~$1.64/month**, plus a few cents of pre-stop snapshot. That is the cost of parking over destroying

@@ -1,6 +1,6 @@
 # ADR-0077 — The database-roles script keeps passwords out of psql's output
 
-- **Status:** Accepted (plan shown to Roshan 2026-11-04, who said "go"). Merged as #313 on 2026-11-04 with all 11 checks green; **proved on staging on 2026-11-05** (see "Proof on staging" below). Production's bring-up, which needs nothing deployed, is still to come
+- **Status:** Accepted (plan shown to Roshan 2026-11-04, who said "go"). Merged as #313 on 2026-11-04 with all 11 checks green; **proved on staging on 2026-11-05, and again on a resumed node on 2026-11-06** (see "Proof on staging" below). Production's bring-up, which needs nothing deployed, is still to come
 - **Date:** 2026-11-04
 - **Deciders:** Roshan
 - **Story:** `KAV-125` (found while reading staging's boot journal for `KAV-108`; evidence in [Lab 77](../labs/lab-77-passwords-that-stay-out-of-the-logs.md); threat model row T-OPS-4)
@@ -58,5 +58,7 @@ After Roshan's "go", staging was built from nothing (93 resources, 22:02 to 22:0
 | admin | 0 | 0 | 1 |
 
 Before the fix the four service passwords counted 1 and 3 (2026-11-04). The control is a file holding one copy of the password, counted with the same `grep`: it shows the method finds a password where one exists, so a zero cannot come from an empty search or a broken command. `SHOW log_statement` read `none`. The same session ran `make staging-smoke` (7 of 7 passed for `sha-b790720`) and then `make staging-down`.
+
+**Repeated on a second, different node, 2026-11-06.** The session of 2026-11-06 (build `sha-978db36`) parked staging by hand and resumed it, which gave a new node on the same database. The same script, run on that resumed node: boot log 271 lines, journal 4,234 lines; the five passwords each counted **0 and 0**, each control 1, `log_statement = none`. The session's first node (the fresh build) was not counted.
 
 **Not proven here: production.** Its app server runs the same `db-roles.sql` from `main` at its next bring-up. The same count with `/kaval/kaval-prod/db/...` is the proof; the plan needs no infrastructure change.
