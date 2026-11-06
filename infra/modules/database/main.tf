@@ -252,10 +252,12 @@ resource "aws_dlm_lifecycle_policy" "database" {
   policy_details {
     resource_types = ["VOLUME"]
 
-    # Name as well as Role: with a staging database in the same account (KAV-57), Role alone
-    # made each environment's policy snapshot the other's volume too.
+    # The Name tag ALONE. The Data Lifecycle Manager covers a volume that has ANY ONE of these tags,
+    # not all of them, and every environment's disk carries Role = database-data. "Role as well as
+    # Name" (KAV-57) therefore still made each environment's policy snapshot the other's disk too:
+    # staging's copied production's on 2026-11-04 (KAV-128, ADR-0008). Only this environment's disk
+    # carries this Name. scripts/dev/test_snapshot_schedule_targets.py fails if that stops being true.
     target_tags = {
-      Role = "database-data"
       Name = "${var.name_prefix}-database-data"
     }
 
