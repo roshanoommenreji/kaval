@@ -52,9 +52,11 @@ Three verbs, behind `make staging-up`, `make staging-status` and `make staging-d
   `Running n/n`. Without `ASSUME_YES=1` it asks first and Terraform shows its own plan and prompt.
 - **`status`**: the database server's state, then the pods, read with `kubectl` through Session Manager.
 - **`down`**: stop the database, release its data volume from Terraform state (it has `prevent_destroy`,
-  see Lab 29), destroy, delete the detached volume and staging's snapshots, and print what is left
-  tagged `Env=staging`. The volume and snapshots are found by tag, not by state, so it still works
-  after a previous run died halfway.
+  see Lab 29), destroy, delete the detached volume and every backup copy (snapshot) labelled
+  `Project=kaval` and `Env=staging`, and print what is left tagged `Env=staging`. The volume and the
+  copies are found by tag, not by state, so it still works after a previous run died halfway. The copies
+  are found by their labels and not their names because the nightly stop names its copy the same for
+  every environment (`KAV-127`, [Lab 78](lab-78-backup-copies-that-belong-to-the-right-environment.md)).
 
 Note that `status` and `up`'s readiness polling are themselves Run Commands, so they count as activity.
 That is correct: someone looking at staging is using it.

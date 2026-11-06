@@ -181,7 +181,7 @@ flux reconcile helmrelease kav108-d -n flux-system --reset --timeout=90s
 - **My prediction for experiment 1 was wrong.** The control healed. Only experiment 2 reproduced "stuck until reset".
 - **I first looked for Helm's records in the wrong namespace** and read "release: not found" as "removed". Flux keeps them in `flux-system`. Nothing was concluded from that column before it was re-read.
 - **Staging was left up past 02:00 IST** and the nightly auto-stop stopped it, which also removed the test releases. The second experiment needed a resume (about 7 minutes) and the chart shortcut applied again. My own notes had only the idle rule.
-- **The nightly stop's snapshots are not cleaned by `make staging-down`** (it deletes by a name pattern they do not carry). Three were found afterwards: `KAV-127`.
+- **The nightly stop's snapshots are not cleaned by `make staging-down`** (it deletes by a name pattern they do not carry). Three were found afterwards: `KAV-127` (fixed on 2026-11-06 by finding the copies by their labels; [Lab 78](lab-78-backup-copies-that-belong-to-the-right-environment.md)).
 - **Reading the logs showed two real defects** unrelated to Flux: the four service-login passwords printed into the node's logs (`KAV-125`), and a fresh staging reporting "Seed status: skipped" after a good seed (`KAV-126`).
 
 ## Done when
