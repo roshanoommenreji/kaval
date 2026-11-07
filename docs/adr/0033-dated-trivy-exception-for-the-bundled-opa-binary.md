@@ -130,10 +130,10 @@ entry ends, and the end date makes the scan fail again by itself.
 **Revisit by 2026-11-21:** an OPA release built with x/net 0.62.0 or later (pin it in both Dockerfiles and `ci.yml`, check
 the checksums two ways, delete the entry), else the `KAV-131` decision.
 
-## Updated 2026-11-07 (KAV-131): the question decision 4 left open is written up
+## Updated 2026-11-07 (KAV-131): the question decision 4 left open is answered: build
 Decision 4's other route, building OPA from source, was tried on a laptop and compared with the alternatives in
-[ADR-0079](0079-where-the-opa-binary-comes-from.md) (status Proposed; Roshan decides before 2026-11-21). Two facts from the trial matter here. First,
+[ADR-0079](0079-where-the-opa-binary-comes-from.md), and **Roshan accepted it the same day (`decide build`)**. Two facts from the trial matter here. First,
 the flawed package behind the fifth entry, `x/net/html`, is **not in the OPA binary at all** (zero of its functions), so this entry's safety statement is now
-checked against the file itself and not only argued from how OPA is used. Second, the rules above stay in force until that decision: one entry per CVE,
-one file path, an end date, Roshan's approval. If the decision is to keep the download, ADR-0079 adds the limit that a library finding's entry must carry that
-same proof.
+checked against the file itself and not only argued from how OPA is used. Second, the rules above stay in force until the build (`KAV-132`) is live: one entry
+per CVE, one file path, an end date, Roshan's approval. When that story is merged the entry for CVE-2026-78661 is deleted and both image scans pass with no
+exception; the exception file stays, empty, for any other finding, under the same rules.

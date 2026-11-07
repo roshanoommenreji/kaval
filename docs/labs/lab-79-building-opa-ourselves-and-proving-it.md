@@ -4,6 +4,8 @@
 
 [ADR-0079](../adr/0079-where-the-opa-binary-comes-from.md) asks whether Kaval should keep downloading OPA's release file and excusing each scanner finding, or build OPA from its published source. This lab is the trial behind that decision: it builds OPA v1.21.4 (the version in use) from source with the flawed library raised, then checks five things: it is the commit OPA released, it is the same program, the scanner is satisfied with no exception, it can be built again to the byte, and what it costs.
 
+**Outcome:** Roshan chose to build (2026-11-07, ADR-0079 Accepted). The implementation, in both Dockerfiles, is `KAV-132`; this lab stays as the trial and the way to re-check a bump by hand.
+
 ## Prerequisites
 
 - Docker (Desktop on Windows or macOS) with about 8 GB of memory and 6 GB of free disk; the first run pulls the Go image (about 1 GB) and three small ones.
