@@ -94,7 +94,7 @@ releases each week (already part of each session). This was a recommendation for
 
 **2026-11-07: Roshan accepted it** (`decide build`, option C, about 17:10 IST, the same day the trial was written up). The recipe is the one in Lab 79 Part 5 and the
 story below is `KAV-132`. One detail is settled in that story rather than here: the `-ldflags` hostname stamp that the lab copied from OPA's own recipe does nothing
-in v1.21.4, so the implementation leaves it out and the checksums it pins are new ones, not the lab's.
+in v1.21.4, so the implementation leaves it out and the checksums it pins are new ones, not the lab's. Measured in the implementation's first CI run: the stage took 42 s to compile on the arm64 runner, and that runner produced the same checksum as the laptop ([Lab 80](../labs/lab-80-opa-built-in-the-images.md)).
 
 ## The story (`KAV-132`)
 

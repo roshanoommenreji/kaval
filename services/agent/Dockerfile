@@ -35,18 +35,47 @@ WORKDIR /src
 COPY pyproject.toml uv.lock ./
 RUN uv export --frozen --no-dev --no-emit-project --extra diagnoser -o /requirements.txt
 
-# ── Stage 1b: the opa binary, downloaded and checksum-verified like gitleaks/Trivy in CI ────
-# (ci.yml installs the linux_amd64 build the same way, for the runner that runs `opa test`
-# and the pytest suite; this is the arm64 build, for the image that actually runs on Graviton.)
-FROM python:3.11-slim-bookworm@sha256:f06d01d4ba3f8ad5af45a3ec87df19c1d317d8e8961edc0fabda61811af6f7cf AS opa
+# ── Stage 1b: the opa binary, built from OPA's release commit (KAV-132, ADR-0079, Lab 80) ────
+# Built here instead of downloaded, so that a fix for a scanner finding in one of OPA's libraries reaches the image on the
+# day it exists, not with OPA's next release 10 to 14 days later. The executor's Dockerfile carries the identical stage and
+# scripts/dev/test_opa_build_pins.py fails if the two ever differ. Every input is pinned and checked:
+#   - the Go toolchain: the digest on the FROM line (Dependabot proposes new digests; golang minor and major bumps are ignored);
+#   - the source: OPA_COMMIT, the commit the release tag v${OPA_VERSION} points at. The stage stops if anything else is checked
+#     out, then tags the checkout: without the tag Go stamps a made-up version and scanners report OPA itself as old;
+#   - the overrides: OPA_GO_GET, libraries raised above the versions in OPA's own go.mod (Go's checksum database verifies them).
+#     The stage stops if one is missing from the finished binary. Delete an entry when OPA's go.mod catches up:
+#       golang.org/x/net@v0.62.0  CVE-2026-78661 (HTML parser); OPA v1.22.2 and main still use v0.60.0 (read 2026-11-07);
+#   - the result: OPA_SHA256_ARM64, checked in its own step after the compile, so a changed value never recompiles. Builds are
+#     byte-reproducible, so a changed value means an input changed; the failing build prints the new one.
+# The images are linux/arm64 only (CLAUDE.md constraint 2). This stage runs on the build machine and cross-compiles: native on
+# CI's arm64 runner, fast on a laptop. ci.yml installs OPA's own linux_amd64 release for `opa test` and the pytest suite; that
+# file is neither shipped nor scanned.
+FROM --platform=$BUILDPLATFORM golang:1.27.3-trixie@sha256:af1bfc2614ebb1dbd31af514b78740fd678850e76498762b425ecee4c5c6ea80 AS opa
+ARG TARGETARCH
 ARG OPA_VERSION=1.21.4
-ARG OPA_SHA256=810aa96e44f1f852d044888cf830324e44eafd0f510345339011347ab4deaab1
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
- && rm -rf /var/lib/apt/lists/* \
- && curl -fsSLo /opa \
-      "https://github.com/open-policy-agent/opa/releases/download/v${OPA_VERSION}/opa_linux_arm64_static" \
- && echo "${OPA_SHA256}  /opa" | sha256sum -c - \
- && chmod +x /opa
+ARG OPA_COMMIT=05c845177c80747a2aabb607f9318f981993cc76
+ARG OPA_GO_GET="golang.org/x/net@v0.62.0"
+ENV GOTOOLCHAIN=local GOPROXY=https://proxy.golang.org CGO_ENABLED=0 GOOS=linux GOFLAGS=-buildmode=exe
+WORKDIR /src
+RUN set -eu; \
+    test "${TARGETARCH}" = arm64 || { echo "the images are linux/arm64 only: build with --platform linux/arm64"; exit 1; }; \
+    git init -q; \
+    git fetch -q --depth 1 https://github.com/open-policy-agent/opa.git "${OPA_COMMIT}"; \
+    git checkout -q --detach FETCH_HEAD; \
+    test "$(git rev-parse HEAD)" = "${OPA_COMMIT}"; \
+    git tag "v${OPA_VERSION}"; \
+    go get ${OPA_GO_GET}; \
+    GOARCH="${TARGETARCH}" go build -trimpath -tags=opa_wasm -o /opa .; \
+    go clean -cache -modcache
+ARG OPA_SHA256_ARM64=f6850f6c6b1335f62918bdb281f627a1b029ae16ecf8811e2ccefa174c228ba3
+RUN set -eu; \
+    for spec in ${OPA_GO_GET}; do \
+      mod="${spec%@*}"; ver="${spec#*@}"; \
+      go version -m /opa | grep -Eq "[[:space:]]${mod}[[:space:]]+${ver}[[:space:]]" || { echo "override not applied: ${spec}"; exit 1; }; \
+    done; \
+    got="$(sha256sum /opa | cut -d' ' -f1)"; \
+    test "${got}" = "${OPA_SHA256_ARM64}" || { echo "opa checksum differs: expected ${OPA_SHA256_ARM64}, built ${got}"; exit 1; }; \
+    echo "opa ${OPA_VERSION} built from ${OPA_COMMIT}, overrides applied, sha256 ${got}"
 
 # ── Stage 2: the runtime image ──────────────────────────────────────────────
 FROM python:3.11-slim-bookworm@sha256:f06d01d4ba3f8ad5af45a3ec87df19c1d317d8e8961edc0fabda61811af6f7cf
