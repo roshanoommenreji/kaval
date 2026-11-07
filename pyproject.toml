@@ -4,10 +4,10 @@ version = "0.1.0"
 description = "Autonomous ops agent with human-in-the-loop approval"
 requires-python = ">=3.11"
 dependencies = [
-    "sqlalchemy>=2.1.6",
+    "sqlalchemy>=2.1.8",
     "alembic>=1.20.1",
-    "psycopg[binary]>=3.3.6",
-    "pydantic>=2.14.1",
+    "psycopg[binary]>=3.3.7",
+    "pydantic>=2.14.2",
     # The Vector column type (KAV-40). Core, not an extra: kaval_shared.models imports it,
     # and every image — gateway, collector, agent — imports kaval_shared.models.
     "pgvector>=0.5.1",
@@ -24,7 +24,7 @@ gateway = [
     # Slack ChatOps (KAV-55, ADR-0026): the outbound Socket Mode connection and chat.postMessage.
     # Pure stdlib-plus-websocket-client under the hood — no aiohttp needed, since this gateway
     # is sync SQLAlchemy throughout and the builtin Socket Mode client runs its own threads.
-    "slack_sdk>=3.33",
+    "slack_sdk>=3.46.0",
 ]
 agent = [
     # Calls Ollama for embeddings (KAV-40) and chat (KAV-41). The correlator image does not
@@ -38,8 +38,8 @@ agent = [
     # profile, or an instance role — never a key committed anywhere), so boto3 is a real runtime
     # dependency here, not incidental. Laptop-only for the same reason httpx above is: nothing
     # decides how the deployed agent gets triggered yet (ADR-0016).
-    "anthropic>=2.3.0",
-    "boto3>=1.43.120",
+    "anthropic>=2.4.0",
+    "boto3>=1.43.123",
 ]
 diagnoser = [
     # The diagnosis worker that runs in the agent image (KAV-87, ADR-0055): it calls Ollama for
@@ -65,7 +65,7 @@ collector = [
 dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.3",
-    "mypy>=2.4.0",
+    "mypy>=2.4.1",
     "httpx2>=2.16.0",     # Starlette's TestClient (successor to httpx; Tom Christie, maintained by Pydantic)
 ]
 
