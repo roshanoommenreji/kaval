@@ -8,7 +8,7 @@ the live run of 2026-10-14 (`KAV-83` Part 3, [Lab 50](../labs/lab-50-closing-pha
 the install and the permissions are handed out again once the release is Ready, so steps 5 and 6 are only for
 when that did not work. The new order was proven on staging (Lab 54) and then ran on production on 2026-10-21 (`KAV-98`,
 [Lab 61](../labs/lab-61-production-bring-up-for-phase-6.md)): the first boot applied the one waiting migration by itself,
-the permissions pass ran after Ready, and neither step 5 nor step 6 was needed. The bring-up of 2026-11-01 ([Lab 69](../labs/lab-69-production-runs-the-restricted-pods-and-the-notifier-lock.md)) was the first on a newer base image and with locked-down pods: no migration, no step 5 or 6, and `make prod-smoke` passed on its third try, six minutes after the apply (the first two tries failed while the services were still starting).
+the permissions pass ran after Ready, and neither step 5 nor step 6 was needed. The bring-up of 2026-11-01 ([Lab 69](../labs/lab-69-production-runs-the-restricted-pods-and-the-notifier-lock.md)) was the first on a newer base image and with locked-down pods: no migration, no step 5 or 6, and `make prod-smoke` passed on its third try, six minutes after the apply (the first two tries failed while the services were still starting). The bring-up of 2026-11-07 ([Lab 77](../labs/lab-77-passwords-that-stay-out-of-the-logs.md) Part 5, [Lab 78](../labs/lab-78-backup-copies-that-belong-to-the-right-environment.md) Part 5) applied the six waiting changes over the same pinned version, `sha-feb7025` (`2 to add, 4 to change, 0 to destroy`: the approval login's token and its Parameter Store home, the server's read permission, the start-up script and its group, and the backup schedule's targets). `make prod-smoke` passed on its third try, six minutes after the apply, and the password count on the new server was 0 for all five logins.
 
 ## Signals
 
@@ -71,7 +71,7 @@ running server is touched because there is none.
 The first bring-up after `KAV-115` also shows the approval login's home arriving (read-only plan on 2026-11-01: 2 to add,
 3 to change, 0 to destroy): a random token and its Parameter Store entry `/kaval/kaval-prod/approver/token` are created and
 the server's read permission for it widens. Nothing is destroyed. Until this apply and the first boot, production's
-approval route answers 503 (shut), which is safe. [ADR-0073](../adr/0073-the-approval-route-gets-a-login-and-the-namespace-gets-network-rules.md).
+approval route answers 503 (shut), which is safe. (Applied on 2026-11-07: the parameter and the `kaval-approver` Secret exist, and the Secret has one entry.) [ADR-0073](../adr/0073-the-approval-route-gets-a-login-and-the-namespace-gets-network-rules.md).
 
 Never apply to production without showing this plan and being told to ([CLAUDE.md](../../CLAUDE.md)).
 
