@@ -1,0 +1,16 @@
+# DELIBERATELY UNSAFE. A detection control for KAV-110, never merged. It only ever sits on a
+# throwaway pull request, and it cannot run there: the `issues` event reads workflow files from
+# the default branch, which does not have this one. CodeQL reads it anyway, as it should.
+name: codeql-control
+
+on:
+  issues:
+    types: [opened]
+
+permissions: {}
+
+jobs:
+  unsafe:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "${{ github.event.issue.title }}"
