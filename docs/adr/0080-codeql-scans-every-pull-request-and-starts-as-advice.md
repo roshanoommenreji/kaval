@@ -1,6 +1,6 @@
 # ADR-0080: CodeQL scans every pull request, and starts as advice, not a gate
 
-**Status:** Accepted on 2026-11-07 (started on Roshan's `go`). Decision 4, when the scan becomes a required check, is a default he can change. Built and proved in `KAV-110`; it changes only CI, so it may merge at any time.
+**Status:** Accepted on 2026-11-07 (started on Roshan's `go`). Decision 4, when the scan becomes a required check, is a default he can change. Built and proved in `KAV-110` and merged on 2026-11-07 (pull request #333); it changed only CI.
 **Date:** 2026-11-07
 **Related:** [ADR-0071](0071-the-public-repo-gets-a-security-policy-owners-and-a-weekly-scorecard.md) (the first Scorecard reading found this gap),
 [ADR-0072](0072-a-written-threat-model-and-a-prompt-injection-set.md) (threat T-SUPPLY-5), [ADR-0010](0010-ci-pipeline-and-supply-chain.md) (pinned actions),
@@ -30,8 +30,8 @@ The repository is public, so CodeQL costs nothing.
    written reason). Then Roshan adds the two checks, `codeql python (static analysis)` and `codeql actions (static analysis)`, to the branch rule: a
    GitHub setting, shown first and done only on his own go. Whether to also require GitHub's own `CodeQL` check (it fails a pull request that adds
    a serious new alert; seen going red on the throwaway pull request, "4 new alerts including 2 critical") is decided then, from the first weeks' numbers.
-5. **Findings are decided, not ignored.** The ones the first scan raised were triaged in the pull request that added the workflow: fixed when small and safe,
-   otherwise dismissed in the Security tab with a reason (`false positive`, `won't fix` or `used in tests`) and a sentence of why. They are listed in Lab 81.
+5. **Findings are decided, not ignored.** Each one is decided: fixed when small and safe,
+   otherwise dismissed in the Security tab with a reason (`false positive`, `won't fix` or `used in tests`) and a sentence of why. The first full scan raised one, dismissed the same evening; it is listed in Lab 81.
 
 ## What real companies do, and why this one
 
@@ -49,9 +49,13 @@ The repository is public, so CodeQL costs nothing.
 - **Cost $0.** Code scanning and the hosted runners are free for a public repository.
 - **More checks on every pull request**, running next to CI and not blocking it. Lab 81 records how long they take.
 - **A new kind of alert to decide.** Some will be false positives. Every dismissal stays in the Security tab with its reason and can be reopened.
-- **Scorecard's SAST check should read about 7 once this is on `main`, and rise to 10.** Scorecard gives 7 of the 10 points for having a CodeQL workflow
+- **A pull request is scanned only where it changes the code.** On a pull request CodeQL reports just the alerts in the lines the pull request adds or changes
+  (GitHub calls it diff-informed analysis, and the action does it by itself), so a green pull request says nothing about code it did not touch. The scans of
+  `main` after each merge and on Mondays see all of it: old problems surface there, not on a pull request. That is why Decision 4 asks that every open alert
+  has a decision, and why the first full scan, not the first pull request, was the real first reading (Lab 81, Part 4b).
+- **Scorecard's SAST check read 7 on its first run after the merge ("3 commits out of 30 are checked"), and rises toward 10.** Scorecard gives 7 of the 10 points for having a CodeQL workflow
   and the other 3 for the share of the last 30 merged pull requests that ran a scanner, so about one tenth of a point for each merged pull request that
-  ran it. Lab 81 records the real number after the first run on `main`.
+  ran it. Lab 81 records the reading.
 - **Python is read as written.** `build-mode: none` is the supported way to scan Python and does not install the project's libraries. A gap shows up as a
   missed path, not a false alarm; the prompt-injection set and the evals cover the model side separately.
 - **Dependabot's own pull requests are scanned too.** GitHub allows the result upload on the `pull_request` event. A merge commit *authored by Dependabot*
@@ -69,8 +73,10 @@ languages with no build, one release for `init` and `analyze`, one category per 
 `test_repo_hygiene.py` already fails on any action that is not pinned to a full commit SHA and now covers the new file. The negative case: breaking the
 workflow thirteen different ways (a path filter, a push trigger on every branch, a daily schedule, a broad token, a job that can write the code, a missing
 language, a build step, fail-fast on, `init` and `analyze` on different releases, one category for both languages, a checkout that keeps credentials, no
-real time limit, a moving tag) was caught every time by the test meant to catch it. The live proof was the first run on the pull request that adds it: nothing
-found in 268 Python files and 8 workflow files, which proves little alone, so a throwaway pull request planted four mistakes (a query and a shell command built
+real time limit, a moving tag) was caught every time by the test meant to catch it. The live proof came in three parts. The pull request's own scan found nothing, which proves little: it read 268 Python files and 8 workflow files but reports
+only the lines the pull request changes. The first full scan, of `main` after the merge, raised one alert (medium, in a test that opens a port on purpose),
+dismissed as used in tests. And so that a scan is seen finding something as well as nothing,
+a throwaway pull request planted four mistakes (a query and a shell command built
 from a web request, the Flask debugger left on, a workflow pasting an issue title into a shell command) and CodeQL caught all four, two critical; GitHub's
 `CodeQL` check went red. One surprise is recorded in Lab 81: the planted workflow was missed while its token was empty, because CodeQL calls an injection
 critical only where the job has something worth stealing.

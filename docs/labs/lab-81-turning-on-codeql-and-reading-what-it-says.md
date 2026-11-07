@@ -65,7 +65,23 @@ gh api "repos/OWNER/REPO/code-scanning/analyses?ref=refs/pull/<N>/merge" --jq '.
 
 Result on 2026-11-07 (pull request 333): both jobs passed, **0 alerts**. `codeql python (static analysis)` took 1 min 2 s and `codeql actions (static analysis)` 38 s; the whole set of checks finished in about two and a half minutes, so a pull request waits no longer than before. GitHub's own check, named `CodeQL`, passed in 2 s.
 
-"Nothing found" means little if nothing was looked at, so check that it looked. In the Python job's log (`gh run view <run> --job <job> --log`): the extractor read **268 files** (count the lines that say "Extracted file") and **45 queries** were loaded (SQL injection, unsafe file paths, unsafe deserialisation, the Flask debugger and so on). In the workflow job: **18 queries** over the 8 workflow files.
+**Read that 0 with care.** On a pull request CodeQL reports only the alerts in the lines the pull request adds or changes (GitHub calls this diff-informed analysis, and the action does it by itself; see [Incremental analysis](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/scan-from-the-command-line/incremental-analysis)). So a clean pull request says nothing about the code it did not touch, and pull request 333 changed a single Python file. The first version of this lab, and of the pull request description, read that 0 as "the repository is clean". It is not: Part 4b shows what the whole repository held.
+
+The scan did read everything, which is worth checking. In the Python job's log (`gh run view <run> --job <job> --log`): the extractor read **268 files** (count the lines that say "Extracted file") and **45 queries** were loaded (SQL injection, unsafe file paths, unsafe deserialisation, the Flask debugger and so on). In the workflow job: **18 queries** over the 8 workflow files.
+
+## Part 4b — The first full scan: `main`, after the merge
+
+Once the pull request is merged, the `push` trigger scans `main` and reports **everything**, old code included. This is the real first reading.
+
+```bash
+gh api "repos/OWNER/REPO/code-scanning/analyses?ref=refs/heads/main&tool_name=CodeQL" --jq '.[] | {category, results_count, rules_count}'
+gh api "repos/OWNER/REPO/code-scanning/alerts?state=open&tool_name=CodeQL" \
+  --jq '.[] | {number, rule: .rule.id, severity: (.rule.security_severity_level // .rule.severity), path: .most_recent_instance.location.path, line: .most_recent_instance.location.start_line}'
+```
+
+Result on 2026-11-07 (the scan of `main` at the merge commit, 1 min 27 s): the workflow files, **0 alerts**; the Python, **1 alert**. It is `py/bind-socket-all-network-interfaces` (medium) in `services/shared/tests/test_metrics.py` line 86: "Binding a socket to all interfaces (using '0.0.0.0') is a security risk." The pull request's scan had not shown it because that pull request did not touch the file.
+
+**Triage.** The line is in a test that takes a port on purpose, on the same all-interfaces address the metrics server binds, so that the server's "port already taken" path is exercised; it listens for one test on a random port. It is a false alarm of the `used in tests` kind. A fix would mean editing `services/`, and any change there starts `release.yml` (a rebuild of every image and a new release pull request), which is not worth doing for a test. It was dismissed with a written reason (Part 6).
 
 ## Part 5 — Prove it can find something
 
@@ -99,7 +115,7 @@ gh api -X PATCH repos/OWNER/REPO/code-scanning/alerts/<N> \
   -f state=dismissed -f "dismissed_reason=used in tests" -f "dismissed_comment=<one sentence of why>"
 ```
 
-The first real scan had nothing to decide. The four planted alerts (numbers 10 to 13) were dismissed as `used in tests` with the comment "KAV-110 detection control (pull request 334): unsafe on purpose, never merged", which also proved the command.
+The first full scan raised one alert (number 14, Part 4b). It was dismissed as `used in tests` with the comment "Test only: it takes a port on purpose, on the same all-interfaces address the metrics server binds, so that the 'port already taken' path is exercised. It listens for one test on a random port." The four planted alerts (numbers 10 to 13) were dismissed the same way with the comment "KAV-110 detection control (pull request 334): unsafe on purpose, never merged", which also proved the command.
 
 ## Part 7 — Scorecard, after the merge
 
@@ -109,6 +125,8 @@ Scorecard gives a CodeQL workflow 7 of the 10 points for being there, and the ot
 gh workflow run scorecard.yml
 gh api "repos/OWNER/REPO/code-scanning/alerts?state=open&per_page=100" --jq '.[] | select(.rule.id == "SASTID") | .most_recent_instance.message.text'
 ```
+
+Recorded on 2026-11-07, run by hand after the merge (it took 30 seconds): **SAST 7** (it was 0), with the message "SAST tool detected but not run on all commits: 3 commits out of 30 are checked with a SAST tool", as predicted. The alert (number 6) stays open until the score reaches 10.
 
 ## Part 8 — Making it a required check, later
 
@@ -127,7 +145,9 @@ Not today. [ADR-0080](../adr/0080-codeql-scans-every-pull-request-and-starts-as-
 | What | Result |
 |---|---|
 | Tests | 9 written first and seen failing; with the workflow 22 pass (9 new, 13 existing); 13 deliberate breakages all caught |
-| First scan | 0 alerts; 268 Python files read with 45 queries; 8 workflow files with 18 queries |
+| Scan on the pull request | 0 alerts, but only the changed lines are reported; it read 268 Python files with 45 queries and the 8 workflow files with 18 |
+| First full scan (`main`) | 1 alert (medium, in a test that opens a port on purpose), dismissed as used in tests; the workflow files 0 |
+| Scorecard SAST | 7 (it was 0): "3 commits out of 30 are checked with a SAST tool" |
 | Time | Python job 1 min 2 s, workflow job 38 s, alongside the other checks (whole set about 2.5 minutes) |
 | Detection control | 4 of 4 planted mistakes caught (2 critical, 2 high); `CodeQL` check red; first workflow version missed (empty token), second caught |
 | Cost | $0 |
@@ -135,11 +155,12 @@ Not today. [ADR-0080](../adr/0080-codeql-scans-every-pull-request-and-starts-as-
 ## Done when
 
 - [x] `codeql.yml` exists and its tests pass
-- [x] The first scan ran on the pull request and found nothing, and the log shows it looked
+- [x] The scan ran on the pull request (nothing in the changed lines) and on `main` after the merge (one alert, a test-only false alarm, dismissed with a reason)
 - [x] A throwaway pull request proved it finds planted mistakes; the four alerts were dismissed with a reason and the branch deleted
 - [x] The decision on a required check is recorded (advice first, a gate after a clean week: ADR-0080)
-- [ ] Merged; the first scan of `main` and the first Monday scan have run
-- [ ] Scorecard's SAST reading after the first run on `main` is recorded (expected about 7)
+- [x] Merged (pull request #333) and the first scan of `main` has run
+- [ ] The first scheduled Monday scan (2026-11-09, 04:41 UTC) has been seen
+- [x] Scorecard's SAST reading after the first run on `main` is recorded: 7
 
 ## Clean up
 
