@@ -7,8 +7,19 @@
 #     again by itself, so an exception cannot be forgotten;
 #   - `statement` says why it is safe and what ends it.
 
-# No entries (KAV-65, ADR-0033 amendment of 2026-10-30). The last one, CVE-2026-111943 (a crypto/x509 flaw
-# fixed in Go 1.27.3), ended when OPA v1.21.4 (built with Go 1.27.3, checked by running it) was pinned. The file is
-# kept with an empty list because both image scans pass it with `--ignorefile`; the next exception goes here under
-# the rules above. A fifth entry in this binary means stop adding them and build OPA from source (ADR-0033).
-vulnerabilities: []
+# One entry (KAV-130, ADR-0033 amendment of 2026-11-07). Four exceptions for the bundled OPA came before it
+# (CVE-2026-78667, -97031, -78669 and -111943); the last ended when OPA v1.21.4 (Go 1.27.3) was pinned on 2026-10-30.
+# This is the fifth, which ADR-0033 names as the point to stop adding them and decide whether to build OPA from
+# source. That decision is KAV-131 and is due before this entry ends; if nothing is done the scan fails again by itself.
+vulnerabilities:
+  # golang.org/x/net v0.60.0 inside the OPA binary: the html package's parser does quadratic work on crafted input
+  # (GHSA-75pg-wvh3-34jr, published 2026-10-28). Fixed in x/net v0.62.0. OPA v1.22.2 (2026-11-06) and OPA's main branch
+  # still use v0.60.0, so no pinned OPA can clear it yet (checked 2026-11-07). OPA runs in the agent and executor as a
+  # short-lived command (`opa eval`) on Kaval's own policy and data: it is given no HTML and serves nothing.
+  # Ends when an OPA release built with x/net 0.62.0 or later is pinned (both Dockerfiles and ci.yml). Added with
+  # Roshan's approval (ADR-0033 amendment).
+  - id: CVE-2026-78661
+    paths:
+      - usr/local/bin/opa
+    statement: x/net html parser denial of service; opa is a one-shot command given no HTML, not a server
+    expired_at: 2026-11-21

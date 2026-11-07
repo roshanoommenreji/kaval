@@ -105,3 +105,27 @@ OPA v1.21.4 (2026-10-23) is built with Go 1.27.3 (`.go-version` in the release t
 Dockerfiles (arm64 build) and `ci.yml` (amd64 build), the checksums are the ones GitHub publishes for those two
 files, and the exception was removed. The file stays, with an empty list. Because the agent and executor images
 change, they go through staging before prod like any other image. The deadline of 2026-11-04 was met five days early.
+
+## Updated 2026-11-07 (KAV-130): a fifth finding, and why one more entry is allowed once
+**A library this time, not the Go standard library.** On 2026-11-07 `image agent` and `image executor` began failing on
+every pull request (a docs-only one included). Trivy reports CVE-2026-78661 (GHSA-75pg-wvh3-34jr, published 2026-10-28):
+`golang.org/x/net` v0.60.0 inside `usr/local/bin/opa`. The `html` package's parser does quadratic work on crafted input.
+It is fixed in x/net v0.62.0 (tagged 2026-10-27). OPA v1.22.2 (2026-11-06) and OPA's main branch both still have
+`golang.org/x/net v0.60.0` in `go.mod` (read at each tag on 2026-11-07), so no OPA release carries the fix, and the pinned
+v1.21.4 has it too: without a change every image scan fails and nothing can merge or publish.
+
+Roshan approved ONE entry on the same terms (only `usr/local/bin/opa`; a one-shot `opa eval` on Kaval's own policy and
+data, given no HTML and serving nothing), ending **2026-11-21**, two weeks. Reproduced locally first: the pinned binary,
+its checksum agreeing three ways (the Dockerfile's pin, OPA's published file, the downloaded bytes), scanned with the
+Trivy version CI pins. With no exception the scan fails with this CVE; with the entry it passes; the same entry with a
+wrong path, an end date in the past, or a different CVE id still fails.
+
+**This is the fifth entry in this binary, the signal decision 4 names.** It was weighed, not skipped. The first four were
+Go standard-library flaws that only an OPA built with a newer Go can clear. This one is a library that OPA updates in
+batches (the most recent batch found was merged 2026-09-24), and its fix has been out since 2026-10-27. Building OPA from
+source means a second supply chain (a toolchain pin, our own checksum, build time, someone to bump it) for a flaw that
+cannot be reached, so it is not done now. It is not left to luck either: `KAV-131` is the decision story, due before this
+entry ends, and the end date makes the scan fail again by itself.
+
+**Revisit by 2026-11-21:** an OPA release built with x/net 0.62.0 or later (pin it in both Dockerfiles and `ci.yml`, check
+the checksums two ways, delete the entry), else the `KAV-131` decision.
