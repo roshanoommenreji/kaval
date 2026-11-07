@@ -36,6 +36,9 @@ env:
   TRIVY_VERSION: "0.74.0"
   TRIVY_SHA256: "b94ce1976bbf3c15b514b605ee88be7c6d94a29be2302847ff01cb794d47aad5" # Linux-ARM64
   TERRAFORM_VERSION: "1.11.4"
+  # The runner's own opa, for `opa test` and the pytest suite: OPA's release file, neither shipped nor scanned. The images build
+  # theirs from source (stage 1b of the agent and executor Dockerfiles, KAV-132); scripts/dev/test_opa_build_pins.py fails if
+  # this version and the Dockerfiles' disagree.
   OPA_VERSION: "1.21.4"
   OPA_SHA256: "2ab571f367f293bb19523b76f92f1945bbf245003392c7f392903f95c2b9b630" # linux_amd64_static
   HELM_VERSION: "4.3.0"
@@ -292,7 +295,20 @@ jobs:
         if: matrix.service == 'agent' || matrix.service == 'executor'
         run: |
           image=kaval/${{ matrix.service }}:ci
-          docker run --rm --entrypoint opa "$image" version
+          # The opa in the image is built from source (KAV-132, ADR-0079): it must report the version, commit and Go
+          # version its own Dockerfile pins, so a stage that quietly built something else cannot pass.
+          df=services/${{ matrix.service }}/Dockerfile
+          want_version=$(sed -n 's/^ARG OPA_VERSION=//p' "$df")
+          want_commit=$(sed -n 's/^ARG OPA_COMMIT=//p' "$df")
+          want_go=$(sed -n 's/^FROM --platform=\$BUILDPLATFORM golang:\([0-9.]*\)-.*/\1/p' "$df")
+          test -n "$want_version" && test -n "$want_commit" && test -n "$want_go"
+          v=$(docker run --rm --entrypoint opa "$image" version)
+          echo "$v"
+          echo "$v" | grep -qx "Version: ${want_version}"
+          echo "$v" | grep -q "^Build Commit: ${want_commit}"
+          echo "$v" | grep -qx "Go Version: go${want_go}"
+          echo "$v" | grep -qx "WebAssembly: available"
+          echo "opa is ${want_version} at ${want_commit}, built with go${want_go}"
           docker run --rm --entrypoint python "$image" -c "
           from kaval_agent import policy
           from kaval_shared.models import BlastRadius
@@ -316,7 +332,8 @@ jobs:
           tar -xzf trivy.tgz trivy && rm trivy.tgz
       # Fails on HIGH or CRITICAL vulnerabilities that have a fix available. Unfixed ones
       # are reported but can't be acted on until the base image publishes a patch. The only
-      # exceptions are the dated, path-scoped ones in .github/trivy-ignore.yaml (ADR-0033).
+      # exceptions are the dated, path-scoped ones in .github/trivy-ignore.yaml (ADR-0033);
+      # there are none today (KAV-132: OPA is built from source, so its findings are fixed, not excused).
       - name: Trivy scan
         run: |
           ./trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
