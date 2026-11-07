@@ -100,9 +100,11 @@ Before the fix this printed 1 and 3 for the four service passwords and 0 and 0 f
 
 **Result, 2026-11-06** (a different node: staging parked by hand and resumed, build `sha-978db36`, the same script): boot log 271 lines and journal 4,234 lines; the five passwords each counted **0 and 0**, each control 1; `log_statement = none`. The session's first node, the fresh build, was not counted.
 
-## Part 5 — Production, at its next bring-up
+## Part 5 — Production
 
-Nothing to deploy: the script comes from `main`. After `make prod-smoke`, the same count with `/kaval/kaval-prod/db/...` must be 0 and 0.
+Nothing to deploy: the script comes from `main`, and the app server is replaced at every bring-up, so a new server runs the fixed script. After `make prod-smoke`, the same count with `/kaval/kaval-prod/db/...` must be 0 and 0 (the method of Part 4, with production's parameters and its database server).
+
+**Result, 2026-11-07** (production's bring-up of `sha-feb7025`; the new app server, up since 12:16 IST): boot log 267 lines and journal 4,313 lines; the five passwords each counted **0 and 0**, each control 1; `log_statement = none` on the database server. The server was a fresh machine, so the old log lines had gone with the server that held them.
 
 ## Done when
 
@@ -111,7 +113,7 @@ Nothing to deploy: the script comes from `main`. After `make prod-smoke`, the sa
 - [x] The older role test no longer turns a broken file into a skip *(2026-11-04)*
 - [x] Merged with CI green (CI must not skip the new tests: `psql` has to be on the runner) *(2026-11-04: merged as #313 with all 11 checks green; in CI's test job the four new psql tests ran and passed, 2045 passed)*
 - [x] Proved on staging: zero occurrences of each password in the boot log and the journal, and `log_statement` read *(2026-11-05: all five passwords 0 and 0, each control 1; `log_statement = none`; repeated on a resumed node on 2026-11-06 with the same result; see Part 4)*
-- [ ] Production's next bring-up shows the same zero *(at that bring-up)*
+- [x] Production's bring-up shows the same zero *(2026-11-07: all five passwords 0 and 0, each control 1; `log_statement = none`; see Part 5)*
 
 ## Cost
 
