@@ -206,7 +206,7 @@ phase closes.
 
 1. FS-9, Stages 0 and 1: a one-page spec on the next real stories. It costs nothing and helps
    everything after it.
-2. FS-8, Stages 0 to 2: score Kaval, finish the scanners (Stage 1 is `KAV-110`, already in Phase 8),
+2. FS-8, Stages 0 to 2: score Kaval, finish the scanners (Stage 1's code scanner, CodeQL, is `KAV-110`, built 2026-11-07),
    widen the route check.
 3. FS-10, Stages 0 to 2: a baseline, then early warnings. This improves the product itself.
 4. Petti, Stages 0 to 3, alongside FS-7, Stages 0 to 2. The two meet at Petti's Stage 4.
@@ -333,7 +333,7 @@ for every kind of thing the code can add, before a review has to find the gap.
 | Layer | In place | Missing |
 |---|---|---|
 | Design | A STRIDE threat model: 33 threats, each with its proof, and a test that keeps the file honest | Written at the end, in Phase 8. Adding a row for new code is a rule, not a check |
-| Code | Types and lint, model output checked against a schema, a prompt-injection test set | No security scanner (`KAV-110`) |
+| Code | Types and lint, model output checked against a schema, a prompt-injection test set, CodeQL on every pull request (`KAV-110`, [ADR-0080](adr/0080-codeql-scans-every-pull-request-and-starts-as-advice.md)) | CodeQL is advice, not yet a required check; nothing scans the infrastructure code |
 | Secrets | gitleaks before commit and over all history, Parameter Store | A rotation schedule |
 | Dependencies | Lock file, pinned actions, Dependabot, Trivy on images | Four unhashed installs (`KAV-111`) |
 | Infrastructure | No inbound ports, network rules in the chart for staging and production, a database role per service | Terraform and Helm are checked for validity, not security. IAM review (Phase 8 line). Outgoing pod traffic is not limited |
@@ -369,14 +369,14 @@ and an alarm.
 | AI review of each change | Claude Code's `/security-review` and similar | An extra layer, never the only one |
 
 **The recommendation:** reuse the FS-7 detector, so one list of needs drives both the infrastructure and
-its security rows. Finish the scanners first, because they are cheap and `KAV-110` is already open.
+its security rows. Finish the scanners first, because they are cheap; the one for code, `KAV-110`, is built.
 
 **Stages** (each is an acceptance criterion on KAV-119):
 
 | # | Stage | Gate |
 |---|---|---|
 | 0 | Score Kaval against NIST SSDF and OWASP ASVS Level 1 | Every gap links to a story; Phase 8's lines are not duplicated |
-| 1 | Scanners in CI: Semgrep (`KAV-110`), Checkov or Trivy's config scan | Warning-only, then required, with dated exceptions like `.github/trivy-ignore.yaml` |
+| 1 | Scanners in CI: CodeQL for code (`KAV-110`, built 2026-11-07; Semgrep stays an option for rules CodeQL lacks), Checkov or Trivy's config scan | Warning-only, then required, with dated exceptions like `.github/trivy-ignore.yaml` |
 | 2 | Widen the route check: every route declares who may call it, reads included | A test pull request with an undeclared route is refused |
 | 3 | The FS-7 list drives a security map | A new secret, table, connection, AWS call or outside text with no rule fails CI, naming what is missing |
 | 4 | Threat rows proposed from the same list | Try pytm and Threagile first, else keep today's Markdown and test; a new component with no row fails CI |

@@ -230,6 +230,7 @@ you have spent seven months earning the right to answer.
 | **Prompt injection** | Attacker-controlled text in the context altering model behaviour |
 | **`git filter-repo`** | Rewrites git history; the modern replacement for `filter-branch` |
 | **gitleaks** | Scans commits and history for credentials |
+| **SAST / CodeQL** | Static application security testing: a program reads the source code without running it and looks for known kinds of mistake. CodeQL is GitHub's, and free on a public repository. A scan that finds nothing proves little until it has been seen finding something |
 
 ## Check yourself
 

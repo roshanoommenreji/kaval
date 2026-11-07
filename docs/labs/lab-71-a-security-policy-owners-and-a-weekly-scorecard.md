@@ -52,7 +52,7 @@ The report lists only checks that scored under 10, so a check that is missing pa
 |---|---|---|
 | Code-Review | 0 | **Cannot be fixed on a one-person repository.** It counts changes approved by someone other than the author (0 of 12). Honest and expected; it is the cost of working alone. |
 | Maintained | 0 | **Fixes itself.** The repository was created on 2026-09-26; the check wants 90 days of history, so it changes around 2026-12-25. |
-| SAST | 0 | **Worth fixing.** No static code analysis ran on any of the last 30 commits. CodeQL is free on a public repository. Story `KAV-110`. |
+| SAST | 0 | **Worth fixing.** No static code analysis ran on any of the last 30 commits. CodeQL is free on a public repository. Story `KAV-110`, **built 2026-11-07** ([Lab 81](lab-81-turning-on-codeql-and-reading-what-it-says.md)). |
 | Pinned-Dependencies | 8 | **Worth a look.** Four Dockerfiles (gateway line 67, executor 81, collector 66, agent 98) run `pip install --no-deps .`, which installs Kaval's own code without a hash; every library before it is already hash-checked (`--require-hashes`). Story `KAV-111`. |
 | Fuzzing | 0 | **Not worth it now.** Fuzzing suits parsers and libraries that take hostile input; the nearest thing here is the model-output validation, which the golden-incident evals and the planned prompt-injection set (Phase 8) cover better. |
 | CII-Best-Practices | 0 | **Skipped for now.** A badge application that mostly restates what the policy, tests and ADRs already show. Revisit when the repository is announced. |

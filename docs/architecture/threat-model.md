@@ -127,7 +127,7 @@ test cites an ID that is not in this file.
 | T-SUPPLY-2 | **T.** Images are not signed and nothing verifies a signature before deploy. | Build once, promote the digest that passed staging; the promotion guard blocks hand edits. No SBOM, signing or admission check yet. | [ADR-0032](../adr/0032-promote-workflow-and-the-promotion-guard.md); ROADMAP Phase 8 supply-chain line | **Gap** → ROADMAP line |
 | T-SUPPLY-3 | **T.** An unreviewed change reaches `main`. | A pull request with eleven required checks. Administrators can bypass and there is no second reviewer (one person), recorded as accepted. | [ADR-0071](../adr/0071-the-public-repo-gets-a-security-policy-owners-and-a-weekly-scorecard.md) | Partly (accepted) |
 | T-SUPPLY-4 | **I.** A secret enters git. | gitleaks before commit and over the full history in CI; the repository has a security policy and private reporting. | `.github/SECURITY.md`; `.github/workflows/ci.yml` | Covered |
-| T-SUPPLY-5 | **T.** No static code analysis runs. | None yet. | Scorecard result, Lab 71 | **Gap** → `KAV-110` |
+| T-SUPPLY-5 | **T.** No static code analysis runs. Was: nothing read the code for known kinds of security mistake (Scorecard's SAST check scored 0). | CodeQL scans the Python and the workflow files on every pull request, after each merge and every Monday, and files what it finds in the Security tab. It is advice, not a gate: it becomes a required check after a clean week. | `.github/workflows/codeql.yml`; `scripts/dev/test_codeql_workflow.py`; [ADR-0080](../adr/0080-codeql-scans-every-pull-request-and-starts-as-advice.md); [Lab 81](../labs/lab-81-turning-on-codeql-and-reading-what-it-says.md) | Partly (advice until it is required, ADR-0080) → built 2026-11-07 (`KAV-110`) |
 | T-OPS-1 | **E.** The operator's AWS login is stolen or too broad. | The laptop is the only admin path; no inbound ports on the nodes (Session Manager only). A least-privilege review with IAM Access Analyzer is not done. | ROADMAP Phase 8 IAM line | **Gap** → ROADMAP line |
 | T-OPS-2 | **D.** Runaway spend, caused by an attacker or a bug. | Alerts at $42 and $46; a hard stop at $48 that scales the servers to zero. | [ADR-0064](../adr/0064-the-spending-brake-names-every-server-group-and-is-proven-on-staging.md) | Covered |
 | T-OPS-3 | **D.** Database lost or corrupted. | Snapshots, a monthly restore drill. | `docs/runbooks/restore-drill.md`; `docs/drills/` | Covered |
@@ -142,7 +142,7 @@ test cites an ID that is not in this file.
 | Signal text is not flattened or capped | `KAV-113` | Low: the fix list is last and the reply is checked. |
 | The gateway can update a decision | `KAV-116` | Low: nothing does, but the design says append-only. |
 | The model's summary is shown as if it were reliable, and the model obeys "already approved" text | `KAV-117` | Medium: measured, 2 of 7 in each of two runs. |
-| No code scanning | `KAV-110` | A hole in the review pipeline. |
+| Code scanning is advice, not a gate | [ADR-0080](../adr/0080-codeql-scans-every-pull-request-and-starts-as-advice.md) | Low: a finding is seen on the pull request and in the Security tab but does not block a merge until the scan becomes a required check. |
 | Own code installed without a hash | `KAV-111` | Low. |
 | No image signing or admission check; no IAM review; no secret rotation schedule | ROADMAP Phase 8 lines | Already planned. |
 

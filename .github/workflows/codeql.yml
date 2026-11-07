@@ -1,0 +1,66 @@
+# CodeQL: GitHub's own code scanner, run on every pull request, on main after each merge and once
+# a week (KAV-110, ADR-0080). It reads the code and looks for known kinds of mistake (input that
+# reaches a database query or a shell command, an unsafe file path, a workflow that lets a pull
+# request run code with the repository's token) and puts what it finds in the repository's
+# Security tab.
+#
+# It scans two things, each in its own job:
+#   python    the services, scripts and migrations
+#   actions   the workflow files themselves: CI is code, and it holds a token
+# Neither needs a build (`build-mode: none`), so there is nothing to compile and no image to make.
+#
+# It is not a required check on `main` yet: a new scanner starts as advice, and ADR-0080 says
+# when it becomes a gate. It has no path filter, on purpose, so that it can become one later
+# without a docs-only pull request waiting for a result that never comes.
+#
+# The job gets only what it needs:
+#   contents: read           to read the repository
+#   security-events: write   to put the result in the Security tab
+# Every third-party action is pinned to a full commit SHA, as in ci.yml (the tag is a comment).
+# Dependabot proposes the bumps; `init` and `analyze` must always move together.
+
+name: codeql
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 4 * * 1"   # Mondays, 04:41 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+# A newer push to a pull request cancels the scan it makes obsolete. A scan of main is never
+# cancelled: it is the one that opens and closes the alerts.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: codeql ${{ matrix.language }} (static analysis)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            build-mode: none
+          - language: actions
+            build-mode: none
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: "/language:${{ matrix.language }}"
