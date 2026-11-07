@@ -1,13 +1,18 @@
 # DELIBERATELY UNSAFE. A detection control for KAV-110, never merged. It only ever sits on a
 # throwaway pull request, and it cannot run there: the `issues` event reads workflow files from
 # the default branch, which does not have this one. CodeQL reads it anyway, as it should.
+#
+# The first version had `permissions: {}` and was NOT flagged: CodeQL calls an injection
+# "critical" only where the job has something to steal. This one can write to issues, like a
+# triage bot would.
 name: codeql-control
 
 on:
   issues:
     types: [opened]
 
-permissions: {}
+permissions:
+  issues: write
 
 jobs:
   unsafe:
