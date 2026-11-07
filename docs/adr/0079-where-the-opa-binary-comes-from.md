@@ -1,10 +1,10 @@
 # ADR-0079: Where the OPA binary in the images comes from
 
-**Status:** Proposed. Roshan decides before 2026-11-21, the day the current scanner exception ends.
+**Status:** Accepted on 2026-11-07. Roshan chose option C (`decide build`). It is built in `KAV-132`, whose merge waits until after the 8 November morning teardown.
 **Date:** 2026-11-07
 **Related:** [ADR-0033](0033-dated-trivy-exception-for-the-bundled-opa-binary.md) (the dated exceptions; its decision 4 asks this question),
 [ADR-0017](0017-opa-policy-engine-and-earned-autonomy.md) (why OPA), [ADR-0010](0010-ci-pipeline-and-supply-chain.md) (supply chain and
-scanning), `KAV-64`, `KAV-65`, `KAV-130`, `KAV-131`, [Lab 79](../labs/lab-79-building-opa-ourselves-and-proving-it.md)
+scanning), `KAV-64`, `KAV-65`, `KAV-130`, `KAV-131`, `KAV-132`, [Lab 79](../labs/lab-79-building-opa-ourselves-and-proving-it.md)
 
 ## Context
 
@@ -88,14 +88,19 @@ checksum.** B's `govulncheck` check is a good later addition, not a substitute.
    checksum database for every library, all pinned in a repository Roshan reviews.
 
 What it asks of us: a twenty-line recipe written in two Dockerfiles, a recorded checksum to update whenever the toolchain moves, and a look at OPA's
-releases each week (already part of each session). This is a recommendation for Roshan to accept, change or decline; the story below is ready either way.
+releases each week (already part of each session). This was a recommendation for Roshan to accept, change or decline.
 
-## If accepted: the story
+## Decision
 
-If Roshan chooses C, it becomes its own Jira story (`KAV-131`'s second criterion asks for the plan to exist before the decision is made).
-Its images change, so the merge waits until after any staging session already planned; the path is the usual one. To be live before the
-exception ends on 2026-11-21 it needs about a week (build and merge after the 8 November teardown, one staging session, promotion), so a decision by
-2026-11-14 keeps a margin.
+**2026-11-07: Roshan accepted it** (`decide build`, option C, about 17:10 IST, the same day the trial was written up). The recipe is the one in Lab 79 Part 5 and the
+story below is `KAV-132`. One detail is settled in that story rather than here: the `-ldflags` hostname stamp that the lab copied from OPA's own recipe does nothing
+in v1.21.4, so the implementation leaves it out and the checksums it pins are new ones, not the lab's.
+
+## The story (`KAV-132`)
+
+Roshan chose C, so it is its own Jira story, `KAV-132` (`KAV-131`'s second criterion asked for the plan to exist before the decision was made).
+Its images change, so the merge waits until after the 8 November morning teardown (tonight's staging reads `main`); the path is the usual one. To be live before the
+exception ends on 2026-11-21 it needs about a week (build and merge after the teardown, one staging session, promotion); deciding on 7 November leaves a margin.
 
 | Question | Plan |
 |---|---|
@@ -110,10 +115,10 @@ exception ends on 2026-11-21 it needs about a week (build and merge after the 8 
 | Rollback | Revert the Dockerfile commit (back to the download), or `rollback.yml` to the previous image. |
 | Exit | The overrides list empties as OPA catches up. The stage stays: the speed of taking a new Go patch is the point. Going back to the download needs a new ADR. |
 
-**If A is chosen instead,** [ADR-0033](0033-dated-trivy-exception-for-the-bundled-opa-binary.md)'s rules stand (one CVE per entry, one file path, an end
-date, Roshan's approval) with a new limit: an exception for a *library* finding must carry the proof from Lab 79 Part 1 (the flawed package's symbols are
-absent from the binary, or `govulncheck -mode=binary` reports it not called), and a sixth finding that an OPA release has not cleared inside its fourteen
-days starts the story above anyway.
+**Had A been chosen instead,** [ADR-0033](0033-dated-trivy-exception-for-the-bundled-opa-binary.md)'s rules would have stood (one CVE per entry, one file path, an end
+date, Roshan's approval) with a new limit: an exception for a *library* finding would have had to carry the proof from Lab 79 Part 1 (the flawed package's symbols
+absent from the binary, or `govulncheck -mode=binary` reporting it not called), and a sixth finding that an OPA release had not cleared inside its fourteen
+days would have started the story above anyway.
 
 ## Consequences
 
