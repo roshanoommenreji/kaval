@@ -4,7 +4,8 @@ ADR-0004 says nothing reaches prod without passing staging. KAV-62 made "passed 
 Git (deploy/promotion/passed-staging.json). This is what asks that question, three ways:
 
     verify --tag T   Is T on the record, do the digests still match ECR, is T newer than what prod
-                     runs, and is every `uat` story in the release signed off in Jira? (ADR-0012)
+                     runs, is it a tagged release with a version prod has not run (KAV-135), and
+                     is every `uat` story in the release signed off in Jira? (ADR-0012)
     pin --tag T      Re-check the record, then point prod's two files at T. Edits files only.
     body --tag T     The text of the promotion pull request (record, digests, the verify output).
     guard --base S   For a pull request: if prod's image tags changed against commit S, the new tag
@@ -37,6 +38,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import IO, Any
 
+import versions
 from pin_staging import TAG_LINE, pin
 from staging_smoke import DIGEST_RE, RECORD, SERVICES, TAG_RE, Check
 
@@ -152,6 +154,56 @@ def check_direction(prod_tag: str, tag: str, is_ancestor: bool) -> Check:
     if is_ancestor:
         return Check(name, False, f"{tag} is older than prod's {prod_tag}: that is a rollback")
     return Check(name, True, f"prod runs {prod_tag}; {tag} is ahead of it")
+
+
+def _numbers(version: str) -> tuple[int, ...]:
+    return tuple(int(p) for p in version.split("."))
+
+
+def check_release(
+    release_tags: list[str], code_version: str, prod_version: str, on_main: bool
+) -> Check:
+    """A promotion is a release, and a release has a version nobody has used before (KAV-135).
+
+    `release_tags` are the annotated `vX.Y.Z` tags on the build's commit, `code_version` the product
+    version written in the code at that commit, `prod_version` the one at the commit prod runs.
+    Every refusal says what to do, because the usual cause is a step nobody ran."""
+    name = "build is a tagged release"
+    if not on_main:
+        return Check(name, False, "the build's commit is not on main, so it cannot be a release")
+    if not release_tags:
+        return Check(
+            name,
+            False,
+            f"no version tag on the build's commit. Run release-prepare (Actions tab), merge "
+            f"its pull request, and promote the build that one makes (code says {code_version})",
+        )
+    if f"v{code_version}" not in release_tags:
+        return Check(
+            name,
+            False,
+            f"tagged {', '.join(release_tags)} but the code at that commit says {code_version}",
+        )
+    if _numbers(code_version) == _numbers(prod_version):
+        return Check(
+            name, False, f"prod already runs v{prod_version}: a promotion needs a new version"
+        )
+    if _numbers(code_version) < _numbers(prod_version):
+        return Check(name, False, f"v{code_version} is not newer than prod's v{prod_version}")
+    return Check(name, True, f"v{code_version} (prod runs v{prod_version})")
+
+
+release_tags_at = versions.release_tags_at  # one definition, shared with release.yml's PR text
+
+
+def is_on_main(commit: str, root: Path = ROOT) -> bool:
+    """promote.yml runs on main, so HEAD is main."""
+    return (
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", commit, "HEAD"], cwd=root, check=False
+        ).returncode
+        == 0
+    )
 
 
 def pr_body(entry: dict[str, Any], prod_tag: str, evidence: str) -> str:
@@ -334,8 +386,8 @@ def prod_history_tags(rev: str, root: Path = ROOT) -> frozenset[str]:
     )
 
 
-def commit_of(tag: str) -> str | None:
-    out = git("rev-parse", "--verify", f"{tag[4:]}^{{commit}}")
+def commit_of(tag: str, root: Path = ROOT) -> str | None:
+    out = git("rev-parse", "--verify", f"{tag[4:]}^{{commit}}", root=root)
     return out.strip() if out else None
 
 
@@ -393,6 +445,14 @@ def cmd_verify(args: argparse.Namespace) -> int:
             == 0
         )
         checks.append(check_direction(prod_tag, args.tag, ancestor))
+        checks.append(
+            check_release(
+                release_tags_at(new_commit, args.root),
+                versions.versions_at(new_commit, args.root)[1],
+                versions.versions_at(prod_commit, args.root)[1],
+                is_on_main(new_commit, args.root),
+            )
+        )
         checks.append(check_ecr(entry, ecr_digests(args.tag)))
 
         keys = release_keys(git("log", "--format=%s", f"{prod_commit}..{new_commit}") or "")

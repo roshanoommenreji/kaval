@@ -182,6 +182,14 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           python3 scripts/release/versions.py tag --commit "$GITHUB_SHA" --push
 
+      # Is this build a release? Only a tagged build can be promoted (promote.py, ADR-0081), and the
+      # staging pull request says so, so nobody spends a staging session on one that cannot go on.
+      - name: is this build a release
+        id: release
+        run: |
+          version=$(python3 scripts/release/versions.py release-of --commit "$GITHUB_SHA")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: point staging at the new tag
         id: pin
         run: |
@@ -200,6 +208,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.pin.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           branch="release/staging-${TAG#sha-}"
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
@@ -208,6 +217,12 @@ jobs:
           fi
           {
             echo "Publishes \`$TAG\` (commit ${GITHUB_SHA}) and points staging at it."
+            echo
+            if [ -n "$VERSION" ]; then
+              echo "**This build is release \`$VERSION\`.** It can be tested on staging and then promoted."
+            else
+              echo "**This build is NOT a release (no version tag).** It can run on staging but \`promote.yml\` will refuse it. To make a release: run \`release-prepare\` (Actions tab), merge its pull request, and use the build that makes (ADR-0081, \`docs/runbooks/release-a-version.md\`)."
+            fi
             echo
             echo "| image | digest in ECR |"
             echo "|---|---|"

@@ -376,6 +376,23 @@ def on_node(instance: str, script: str | None = None) -> str:
     )  # fmt: skip
 
 
+def release_check_for(commit: str, root: Path = ROOT) -> Check:
+    """Is this build a tagged release prod has not run? A pass for a build that is not could never
+    be promoted (promote.py refuses it, KAV-135), so it is not worth recording."""
+    import promote  # imported here because promote imports this module
+    import versions
+
+    prod_commit = promote.commit_of(promote.current_prod_tag(root), root)
+    if not prod_commit:
+        raise RuntimeError("prod's commit is not in this clone (fetch full history and tags)")
+    return promote.check_release(
+        promote.release_tags_at(commit, root),
+        versions.versions_at(commit, root)[1],
+        versions.versions_at(prod_commit, root)[1],
+        promote.is_on_main(commit, root),
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--tag", help="expect this tag (default: the tag in staging's HelmRelease)")
@@ -417,6 +434,19 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(f"\n{tag} passed staging.")
+    try:
+        release = release_check_for(commit, args.root) if commit else None
+    except (RuntimeError, OSError) as exc:
+        print(f"cannot tell whether {tag} is a tagged release: {exc}", file=sys.stderr)
+        return 2
+    if release is None or not release.ok:
+        why = release.detail if release else "the build's commit is not in this clone"
+        print(f"  FAIL  build is a tagged release: {why}")
+        if not args.no_record:
+            print(f"Nothing recorded: {tag} could not be promoted. Tag it first (ADR-0081).")
+            return 1
+    else:
+        print(f"  PASS  {release.name}: {release.detail}")
     if args.no_record:
         return 0
     path = args.root / RECORD

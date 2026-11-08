@@ -106,7 +106,53 @@ def plan_for(**by_component: list[Commit]) -> versions.Plan:
 
 
 def test_nothing_changed_nothing_moves() -> None:
-    p = plan_for(gateway=[commit("docs: x", "services/gateway/a.py")])
+    p = plan_for(gateway=[commit("docs: x", "docs/adr/0001.md")])
+    assert p.next == {} and p.product_next is None
+
+
+# KAV-135: a change to a file an image carries always moves a version, so two different builds
+# can never carry the same one. Tests, the release robot's own commits and files no image
+# carries do not.
+
+
+def test_an_image_file_is_one_an_image_carries() -> None:
+    assert versions.is_image_file("services/gateway/kaval_gateway/a.py")
+    assert versions.is_image_file("uv.lock") and versions.is_image_file("services/agent/Dockerfile")
+    assert not versions.is_image_file("services/gateway/tests/test_a.py")
+    assert not versions.is_image_file("services/shared/kaval_shared/test_models.py")
+    assert not versions.is_image_file("docs/adr/0001.md")
+
+
+def test_a_library_update_is_a_patch_for_every_service_that_ships_it() -> None:
+    c = commit("chore(deps): bump boto3", "pyproject.toml", "uv.lock")
+    p = plan_for(**{svc: [c] for svc in versions.COMPONENTS})
+    assert set(p.next) == set(versions.APP)
+    assert p.next["gateway"] == "0.1.1" and p.product_next == "0.1.1"
+
+
+def test_a_docs_commit_that_edits_an_image_file_still_moves_a_patch() -> None:
+    p = plan_for(gateway=[commit("docs: reword", "services/gateway/kaval_gateway/a.py")])
+    assert p.next == {"gateway": "0.1.1"}
+
+
+def test_a_feature_beats_the_default_patch() -> None:
+    p = plan_for(gateway=[commit("feat: x", "services/gateway/kaval_gateway/a.py")])
+    assert p.next == {"gateway": "0.2.0"}
+
+
+def test_a_change_to_tests_alone_moves_nothing() -> None:
+    p = plan_for(gateway=[commit("feat: tests", "services/gateway/tests/test_a.py")])
+    assert p.next == {} and p.product_next is None
+
+
+def test_the_release_robots_own_commit_moves_nothing() -> None:
+    bump = commit(
+        "chore(release): Kaval 0.2.0",
+        "pyproject.toml",
+        "uv.lock",
+        "services/gateway/kaval_gateway/__init__.py",
+    )
+    p = plan_for(**{svc: [bump] for svc in versions.COMPONENTS})
     assert p.next == {} and p.product_next is None
 
 
@@ -250,7 +296,11 @@ def test_tag_then_plan_then_bump_then_tag_again(repo: Path) -> None:
     assert versions.load_plan(root=repo).product_next is None  # nothing since the baseline
 
     change(repo, "gateway", "fix(gateway): a bug")
-    change(repo, "agent", "docs(agent): words")
+    tests = repo / "services/agent/tests/test_x.py"  # tests are not in the image: no version moves
+    tests.parent.mkdir(parents=True)
+    tests.write_text("x\n", encoding="utf-8")
+    run(repo, "add", "-A")
+    run(repo, "commit", "-q", "-m", "test(agent): a check")
     plan = versions.load_plan(root=repo)
     assert plan.next == {"gateway": "0.1.1"} and plan.product_next == "0.1.1"
 
@@ -295,3 +345,25 @@ def test_an_older_release_may_lack_a_component_that_did_not_exist_yet(repo: Path
     comps, _ = versions.versions_at(older, repo, partial=True)
     assert "backup" not in comps and comps["gateway"] == "0.1.0"
     assert "backup" in versions.versions_at(first, repo)[0]
+
+
+def test_release_of_names_the_version_tag_on_a_commit_and_nothing_on_an_untagged_one(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    versions.main(["--root", str(repo), "tag"])
+    assert versions.main(["--root", str(repo), "release-of"]) == 0
+    assert capsys.readouterr().out.split()[-1] == "v0.1.0"
+    change(repo, "gateway", "chore: tidy")
+    assert versions.main(["--root", str(repo), "release-of"]) == 0
+    assert capsys.readouterr().out.strip() == ""  # a build after the tag is not a release
+
+
+def test_a_library_update_after_a_release_asks_for_the_next_version(repo: Path) -> None:
+    """The gap KAV-135 closes: two different builds used to share v0.1.0."""
+    versions.main(["--root", str(repo), "tag"])
+    (repo / "uv.lock").write_text(
+        '[[package]]\nname = "kaval"\nversion = "0.1.0"\n# boto3 1.2.3\n', encoding="utf-8"
+    )
+    run(repo, "commit", "-q", "-am", "chore(deps): bump boto3")
+    plan = versions.load_plan(root=repo)
+    assert set(plan.next) == set(versions.APP) and plan.product_next == "0.1.1"

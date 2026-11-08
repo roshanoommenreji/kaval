@@ -8,10 +8,13 @@ commits that touched each component since its last tag and says what the next ve
     bump                Write the new versions into the files (release-prepare.yml opens the PR).
     tag --commit C      Tag every version at C that has no tag yet (release.yml, after a publish).
     show --rev R        The versions as they were at R.
+    release-of --commit C   The product version tag on C, or nothing: is this build a release?
 
 The rules (ADR-0013, with the 0.x note in its 2026-10-10 amendment):
     fix -> patch, feat -> minor, `!` or a BREAKING CHANGE footer -> major (minor while the version
     is 0.x, so 1.0.0 is something a person decides). Other types change nothing.
+    Any other change to a file an image carries is at least a patch (KAV-135, ADR-0081): if the
+    bytes differ the version must differ. Tests and the release robot's own commits move nothing.
     A change under services/shared/ and the like bumps every component that ships it; SHIPS below
     is checked against the Dockerfiles by a test, so it cannot drift from what the images hold.
     The product bumps by the largest change among its components.
@@ -86,6 +89,21 @@ def components_of(path: str) -> set[str]:
     return {c for prefix, comps in SHIPS.items() if path.startswith(prefix) for c in comps}
 
 
+def is_image_file(path: str) -> bool:
+    """A file some image carries. Tests sit under a component's folder but are never copied into
+    an image (the Dockerfiles copy only `kaval_<svc>/`), so changing them changes no bytes."""
+    name = path.rsplit("/", 1)[-1]
+    if "/tests/" in path or name.startswith("test_") or name == "conftest.py":
+        return False
+    return bool(components_of(path))
+
+
+def is_release_commit(subject: str) -> bool:
+    """The release robot's own commits (the version bump, the staging pin). They are how versions
+    move, so counting them would make every release ask for the next one (KAV-135)."""
+    return subject.startswith("chore(release): ")
+
+
 def largest(levels: list[str]) -> str | None:
     return max(levels, key=LEVELS.index) if levels else None
 
@@ -108,13 +126,15 @@ def bump(version: str, level: str) -> str:
 
 
 def levels_by_component(commits: list[Commit]) -> dict[str, list[tuple[str, Commit]]]:
-    """For each component, the commits that move it, with how far each moves it."""
+    """For each component, the commits that move it, with how far each moves it. A change to a file
+    the component's image carries always moves it, by a patch at least (KAV-135): if the bytes
+    differ, the version must differ, or two builds would share one name."""
     found: dict[str, list[tuple[str, Commit]]] = {}
     for c in commits:
-        level = level_of(c.subject, c.body)
-        if level is None:
+        if is_release_commit(c.subject):
             continue
-        for comp in sorted({k for f in c.files for k in components_of(f)}):
+        level = level_of(c.subject, c.body) or "patch"
+        for comp in sorted({k for f in c.files if is_image_file(f) for k in components_of(f)}):
             found.setdefault(comp, []).append((level, c))
     return found
 
@@ -261,6 +281,21 @@ def tag_exists(name: str, root: Path = ROOT) -> bool:
     return git("rev-parse", "--verify", "--quiet", f"refs/tags/{name}", root=root) is not None
 
 
+VERSION_TAG_RE = re.compile(r"^v\d+\.\d+\.\d+$")
+
+
+def release_tags_at(commit: str, root: Path = ROOT) -> list[str]:
+    """The product's version tags on `commit`. Only annotated ones: release.yml makes those, with
+    the bill of materials in the message, and a bare tag is how someone would fake one."""
+    out = git("tag", "--points-at", commit, "--list", "v*", root=root) or ""
+    return [
+        t
+        for t in out.split()
+        if VERSION_TAG_RE.match(t)
+        and (git("cat-file", "-t", f"refs/tags/{t}", root=root) or "").strip() == "tag"
+    ]
+
+
 def load_plan(rev: str = "HEAD", root: Path = ROOT) -> Plan:
     """Count each component's commits from the tag that names the version it has now."""
     current, product = versions_at(rev, root)
@@ -359,6 +394,13 @@ def cmd_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_release_of(args: argparse.Namespace) -> int:
+    """Print the product version tag on a commit (nothing if it has none). Exit 0 either way:
+    an untagged build is a fact to report, not an error."""
+    print(" ".join(release_tags_at(args.commit, args.root)))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", type=Path, default=ROOT, help="repository root")
@@ -374,6 +416,9 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("show")
     p.add_argument("--rev", default="HEAD")
     p.set_defaults(fn=cmd_show)
+    p = sub.add_parser("release-of")
+    p.add_argument("--commit", default="HEAD")
+    p.set_defaults(fn=cmd_release_of)
     args = parser.parse_args(argv)
     rc: int = args.fn(args)
     return rc
