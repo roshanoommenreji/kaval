@@ -1,0 +1,80 @@
+# Lab 83 — Every promotion is a tagged release
+
+**Phase:** 8 (hardening) · **Story:** `KAV-135` · **Time:** about 45 minutes · **Cost:** $0 for Parts 1 to 4 (local and CI). Part 5 is the live proof: about 1 cent for a staging smoke test, and production's next start-up (about 2 cents, shared with other work).
+
+By 8 November 2026 production had been promoted twelve times and still read `v0.1.0`. The readable version tags come only from a step a person must remember (`release-prepare`), and nothing checked that it had been run. A second hole sat behind it: a library update changed every image and moved no version, so two different builds could share a name. This lab closes both: the version rule, and a gate that refuses a build that is not a tagged release. Read [ADR-0081](../adr/0081-a-promotion-must-be-a-tagged-release.md) for the reasoning.
+
+## Prerequisites
+
+- The repository checked out, `make sync`
+- Git history **and tags** fetched (`git fetch --tags`)
+
+## Part 1 — See the problem
+
+```bash
+make version-plan
+git tag --list "v*"                 # only v0.1.0
+ls docs/releases/ | grep -- "-2"    # records that needed a "-2" because a version was reused
+```
+
+`make version-plan` says `0.1.0 -> 0.2.0` on all five components: dozens of changes since the 9 Oct baseline, never released.
+
+## Part 2 — The rule (tests first)
+
+`scripts/release/test_versions.py` gained tests that failed first:
+
+| Test | What it pins down |
+|---|---|
+| `test_a_library_update_is_a_patch_for_every_service_that_ships_it` | `chore(deps)` on `uv.lock` and `pyproject.toml` is a patch for the four services |
+| `test_a_docs_commit_that_edits_an_image_file_still_moves_a_patch` | if the bytes differ the version differs |
+| `test_a_change_to_tests_alone_moves_nothing` | tests are not in any image |
+| `test_the_release_robots_own_commit_moves_nothing` | otherwise each release would ask for the next one |
+| `test_a_library_update_after_a_release_asks_for_the_next_version` | the gap that caused the `-2` records |
+
+```bash
+python -m pytest scripts/release/test_versions.py -q
+```
+
+The code is `is_image_file`, `is_release_commit` and `levels_by_component` in `scripts/release/versions.py`.
+
+## Part 3 — The gate (tests first)
+
+`promote.py` gained `check_release(release_tags, code_version, prod_version, on_main)`, called by `verify`. It passes only for a build whose commit is on `main`, carries an **annotated** `vX.Y.Z` tag, whose tag equals the version in the code, and whose version is newer than the one prod runs. `staging_smoke.py` runs the same check before it records a pass; `release.yml` writes "release vX.Y.Z" or "NOT a release" into the staging pull request using `versions.py release-of`.
+
+```bash
+python -m pytest scripts/release/test_promote.py scripts/release/test_staging_smoke.py -q -k "release or tagged or untagged"
+```
+
+The negative cases are the point: no tag, a tag that disagrees with the code, the version prod already runs, an older version, a commit off `main`, a lightweight (bare) tag. Each refusal tells you which step to run.
+
+## Part 4 — Rehearse on the real history, in a throwaway clone
+
+Nothing here pushes or touches AWS. Clone, then do by hand what `release-prepare` and `release.yml` do:
+
+```bash
+git clone --no-hardlinks . /tmp/kav135-rehearsal && cd /tmp/kav135-rehearsal
+python scripts/release/versions.py plan        # Kaval 0.1.0 -> 0.2.0
+python scripts/release/versions.py bump
+git commit -am "chore(release): Kaval 0.2.0"
+python scripts/release/versions.py tag --commit HEAD
+python scripts/release/versions.py plan        # "nothing has changed that moves a version": no loop
+python scripts/release/versions.py release-of  # v0.2.0
+```
+
+Then ask the gate about the tagged commit and about the commit before it. On 2026-11-08 the first said `v0.2.0 (prod runs v0.1.0)` and the second said `no version tag on the build's commit. Run release-prepare ...`.
+
+## Part 5 — The live proof (each step on Roshan's own go)
+
+1. Actions → **release-prepare** → Run workflow on `main`. Approve and merge its pull request. `release.yml` makes the first real tags (`v0.2.0`, `gateway-v0.2.0`, ...) and its staging pull request must say "This build is release v0.2.0".
+2. `make staging-up`, `make staging-smoke`, which now prints `PASS build is a tagged release: v0.2.0 (prod runs v0.1.0)` and records the pass; `make staging-down`.
+3. **Negative, live:** `promote.yml` with the previous (untagged) staging build must stop at the gate with the plain message.
+4. `promote.yml` with the tagged build; merge the pull request. The change record is named `...-v0.2.0.md`, no `-2`.
+5. At production's next start-up, `make prod-smoke` runs against it; production now reads `v0.2.0`.
+
+Results are in `docs/journal/2026-11-08.md` (and later days) as they happen.
+
+## What to take away
+
+- A version has to identify one build. The rule that every image change moves one is what makes that true; the gate is what makes it checked rather than hoped.
+- A gate that says "refused" without saying what to do just moves the confusion. Every refusal here names the step.
+- The earlier a check runs, the cheaper it is: the staging pull request says it, the smoke test refuses to record it, and only then does the promotion gate refuse.

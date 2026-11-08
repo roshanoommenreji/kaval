@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from datetime import UTC, datetime
+from pathlib import Path
 
+import promote
 import staging_smoke as s
+import versions
 
 TAG = "sha-2459417"
 D = {name: "sha256:" + f"{i}" * 64 for i, name in enumerate(s.SERVICES, start=1)}
@@ -181,3 +185,60 @@ def test_the_remote_script_has_no_stray_newline_inside_a_jsonpath() -> None:
     # returns nothing (found live: the gateway address came back empty).
     for line in (s.REMOTE % {"ns": "kaval-staging"}).splitlines():
         assert line.count("'") % 2 == 0, line
+
+
+# ── a pass is only worth recording for a tagged release (KAV-135) ─────────────────────
+
+
+def _scratch_release_repo(tmp_path: Path) -> tuple[Path, str, str]:
+    """A repo where prod runs the build at commit A (version 0.1.0). Commit B moves no version;
+    commit C bumps to 0.2.0 and carries the tag. Returns (root, B, C)."""
+
+    def vcs(*a: str) -> str:
+        return subprocess.run(
+            ["git", *a], cwd=tmp_path, capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+    vcs("init", "-q", "-b", "main")
+    for k, v in (("user.email", "t@example.com"), ("user.name", "t"), ("commit.gpgsign", "false")):
+        vcs("config", k, v)
+    vcs("config", "tag.gpgsign", "false")
+
+    def write_versions(version: str) -> None:
+        for c in versions.COMPONENTS:
+            p = tmp_path / versions.init_path(c)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(f'__version__ = "{version}"\n', encoding="utf-8")
+        (tmp_path / "pyproject.toml").write_text(f'version = "{version}"\n', encoding="utf-8")
+
+    write_versions("0.1.0")
+    vcs("add", "-A")
+    vcs("commit", "-q", "-m", "feat: a")
+    a = vcs("rev-parse", "HEAD")
+    for f in promote.PROD_FILES:
+        p = tmp_path / f
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
+            "".join(f"{svc}:\n  image:\n    tag: sha-{a[:7]}\n" for svc in s.SERVICES),
+            encoding="utf-8",
+        )
+    vcs("add", "-A")
+    vcs("commit", "-q", "-m", "chore(release): promote")
+    b = vcs("rev-parse", "HEAD")
+    write_versions("0.2.0")
+    vcs("add", "-A")
+    vcs("commit", "-q", "-m", "chore(release): Kaval 0.2.0")
+    vcs("tag", "-a", "v0.2.0", "-m", "Kaval 0.2.0")
+    return tmp_path, b, vcs("rev-parse", "HEAD")
+
+
+def test_a_tagged_new_version_may_be_recorded(tmp_path: Path) -> None:
+    root, _, tagged = _scratch_release_repo(tmp_path)
+    check = s.release_check_for(tagged, root)
+    assert check.ok and "v0.2.0" in check.detail
+
+
+def test_an_untagged_build_is_not_worth_recording(tmp_path: Path) -> None:
+    root, untagged, _ = _scratch_release_repo(tmp_path)
+    check = s.release_check_for(untagged, root)
+    assert not check.ok and "no version tag" in check.detail

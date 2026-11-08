@@ -10,6 +10,7 @@ from pathlib import Path
 
 import promote
 import pytest
+from staging_smoke import Check
 
 D = {
     s: "sha256:" + str(i) * 64 for i, s in enumerate(("gateway", "agent", "executor", "collector"))
@@ -365,3 +366,69 @@ def test_any_other_jira_error_stops_the_read(site: Start, monkeypatch: pytest.Mo
     point_jira_at(monkeypatch, jira.base)
     with pytest.raises(RuntimeError, match="Jira answered 500 for KAV-1"):
         promote.jira_issue("KAV-1")
+
+
+# ── a promotion is a tagged release (KAV-135) ─────────────────────────────────────────
+
+
+def release_check(
+    tags: list[str], code: str = "0.2.0", prod: str = "0.1.0", on_main: bool = True
+) -> Check:
+    return promote.check_release(tags, code, prod, on_main)
+
+
+def test_a_new_tagged_version_on_main_may_go() -> None:
+    c = release_check(["v0.2.0"])
+    assert c.ok and "v0.2.0" in c.detail and "v0.1.0" in c.detail
+
+
+def test_an_untagged_build_is_refused_and_told_what_to_do() -> None:
+    c = release_check([])
+    assert not c.ok and "no version tag" in c.detail and "release-prepare" in c.detail
+
+
+def test_a_tag_that_disagrees_with_the_code_is_refused() -> None:
+    c = release_check(["v9.9.9"])
+    assert not c.ok and "v9.9.9" in c.detail and "0.2.0" in c.detail
+
+
+def test_the_version_prod_already_runs_is_refused() -> None:
+    c = release_check(["v0.1.0"], code="0.1.0", prod="0.1.0")
+    assert not c.ok and "already runs" in c.detail
+
+
+def test_an_older_version_is_refused() -> None:
+    c = release_check(["v0.1.9"], code="0.1.9", prod="0.2.0")
+    assert not c.ok and "newer" in c.detail
+
+
+def test_versions_compare_as_numbers_not_text() -> None:
+    assert release_check(["v0.10.0"], code="0.10.0", prod="0.9.0").ok
+
+
+def test_a_commit_off_main_is_refused() -> None:
+    c = release_check(["v0.2.0"], on_main=False)
+    assert not c.ok and "main" in c.detail
+
+
+def test_release_facts_read_only_annotated_version_tags_on_the_commit(tmp_path: Path) -> None:
+    import subprocess
+
+    def git(*a: str) -> str:
+        return subprocess.run(
+            ["git", *a], cwd=tmp_path, capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+    git("init", "-q", "-b", "main")
+    for k, v in (("user.email", "t@example.com"), ("user.name", "t"), ("commit.gpgsign", "false")):
+        git("config", k, v)
+    git("config", "tag.gpgsign", "false")
+    (tmp_path / "f").write_text("x", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "feat: x")
+    git("tag", "-a", "v0.2.0", "-m", "Kaval 0.2.0")
+    git("tag", "v0.3.0")  # lightweight: anyone can push one, so it does not count
+    git("tag", "gateway-v0.2.0", "-m", "x")  # a component tag is not the product's
+    commit = git("rev-parse", "HEAD")
+    assert promote.release_tags_at(commit, tmp_path) == ["v0.2.0"]
+    assert promote.is_on_main(commit, tmp_path)

@@ -148,8 +148,15 @@ version and lists the components inside it
   ([Lab 42](labs/lab-42-a-jira-release-per-product-version.md)).
 - **Where a version shows:** `/healthz`, `--version`, and each image's
   `org.opencontainers.image.version` label. CI fails if the label and the code disagree.
-- **Who bumps them:** `release.yml` computes and applies the bumps from Phase 4. Until then
-  everything stays `0.1.0`, because nothing has been released.
+- **Any change to a file an image carries moves a version, a patch at least** (a library update included),
+  so two different builds never share one. Tests and the release robot's own `chore(release)` commits
+  move nothing ([ADR-0081](adr/0081-a-promotion-must-be-a-tagged-release.md)).
+- **Only a tagged release can go to production.** `promote.yml` refuses a build whose commit has no
+  `vX.Y.Z` tag, and the staging smoke test will not record a pass for one. To make a release: run
+  `release-prepare`, merge its pull request, use the build it makes
+  ([runbook](runbooks/release-a-version.md)).
+- **Who bumps them:** `release-prepare.yml` computes and writes the bumps in a pull request;
+  `release.yml` tags the commit after the images are pushed. Nobody types a version.
 
 ### User acceptance (UAT)
 

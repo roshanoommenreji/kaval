@@ -57,7 +57,7 @@ python scripts/release/versions.py tag --commit 24594177dfc5a3cb8ccde837bf1b9b01
 # gateway-v0.1.0 ... backup-v0.1.0, v0.1.0: tagged 2459417
 ```
 
-A release from then on: **Actions → release-prepare → Run workflow** (on `main`). If a commit since the last tags
+A release from then on (and, since `KAV-135`, **required** before a promotion: [Lab 83](lab-83-every-promotion-is-a-tagged-release.md)): **Actions → release-prepare → Run workflow** (on `main`). If a commit since the last tags
 moves a version it opens `chore(release): Kaval 0.2.0` with a table of what moves and why; merge it, approve the
 bot's first CI run, and `release.yml` builds the images with the new versions on them and tags them. If nothing
 moves the job says so and opens nothing.
