@@ -109,3 +109,7 @@ snapshot) and **RTO 30 minutes**, with the measured pieces. The drill is judged 
   parked at 19:30 UTC on every night since, and the tool refuses to count a drill on a dump more than a
   week old. The failure is the hole above, not the restore. A failed record does not satisfy the 35-day
   check, so a passing drill is owed: after `KAV-134`, or on any night production runs through 19:30 UTC.
+- **Third drill, the same evening: passed, on a dump taken by hand.** During the production session of 2026-11-08 I started the
+  server's own dump service by hand (22:38 IST) and ran the drill 1 min 19 s later: strict restore 1 s with no errors, schema
+  `d4f7a2c9e815`, 188 signals, estimated recovery 5 min 5 s ([record](../drills/restore-2026-11-08.md)). This meets the 35-day check,
+  but it is a stopgap that needs production to be up; the hole above (no dump when parked) is closed only by `KAV-134`.
