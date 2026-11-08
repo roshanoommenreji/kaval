@@ -74,5 +74,10 @@ Post-deploy check result, recorded after the fact.
 | **Staging evidence** | *What* passed, not merely that something was tested |
 | **UAT** | Each `uat` story's sign-off, from its Jira comment. `promote.yml` refuses the release if one is missing ([ADR-0012](../adr/0012-user-acceptance-testing.md)) |
 
+Until `KAV-135` (2026-11-08) several records shared `v0.1.0` and the second of a day got a `-2` suffix
+(`2026-10-31-v0.1.0-2.md`, `2026-11-08-v0.1.0-2.md`). Since then a promotion must be a tagged release with a
+version production has not run ([ADR-0081](../adr/0081-a-promotion-must-be-a-tagged-release.md)), so the
+suffix should not appear again; the old records keep their names.
+
 See [ADR-0004](../adr/0004-environment-strategy-and-promotion.md) and
 [the release engineering concepts](../learn/release-engineering.md).

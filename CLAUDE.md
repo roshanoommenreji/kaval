@@ -68,7 +68,7 @@ promotion tier.
 that passed staging is the digest deployed to prod — never a rebuild, because a rebuild is a
 different artifact and staging then tested something else. `promote.yml` refuses any digest that
 did not pass staging (built: [ADR-0032](docs/adr/0032-promote-workflow-and-the-promotion-guard.md);
-the `promotion-guard` CI check blocks hand edits of prod's tags; each promotion also carries a generated change record in `docs/releases/`, [ADR-0035](docs/adr/0035-computed-versions-tags-and-the-generated-change-record.md)). Going back is `rollback.yml`
+the `promotion-guard` CI check blocks hand edits of prod's tags; each promotion also carries a generated change record in `docs/releases/`, [ADR-0035](docs/adr/0035-computed-versions-tags-and-the-generated-change-record.md); only a tagged release can be promoted, [ADR-0081](docs/adr/0081-a-promotion-must-be-a-tagged-release.md)). Going back is `rollback.yml`
 ([ADR-0034](docs/adr/0034-rollback-workflow-and-what-a-rollback-may-go-back-to.md), runbook
 `docs/runbooks/rollback-prod.md`): only to a version prod already ran or that passed staging.
 

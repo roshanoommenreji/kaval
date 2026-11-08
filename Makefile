@@ -162,7 +162,7 @@ staging-status: ## Is staging running? Database state and the pods, read over Se
 	@bash scripts/ops/staging.sh status
 
 .PHONY: staging-smoke
-staging-smoke: ## Smoke-test the tag staging runs (digest vs ECR, pods, database, API) and record a pass. Needs staging up (TAG=, NO_RECORD=1)
+staging-smoke: ## Smoke-test the tag staging runs (digest vs ECR, pods, database, API) and record a pass (refuses to record a build that is not a tagged release, KAV-135). Needs staging up (TAG=, NO_RECORD=1)
 	@python scripts/release/staging_smoke.py $(if $(TAG),--tag $(TAG)) $(if $(NO_RECORD),--no-record)
 
 .PHONY: prod-smoke

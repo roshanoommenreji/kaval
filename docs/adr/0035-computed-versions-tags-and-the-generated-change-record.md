@@ -1,6 +1,6 @@
 # ADR-0035: Versions are computed from commits, tagged after the images exist, and the change record rides in the promotion pull request
 
-**Status:** Accepted
+**Status:** Accepted (amended by [ADR-0081](0081-a-promotion-must-be-a-tagged-release.md): every image change moves a version, and a promotion must be a tagged release)
 **Date:** 2026-10-10
 **Related:** [ADR-0013](0013-component-versions-and-release-naming.md) (what a version is and how a release
 is named), [ADR-0011](0011-commit-convention-and-jira-link.md) (the commit convention it reads),
