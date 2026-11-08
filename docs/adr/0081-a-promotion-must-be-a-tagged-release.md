@@ -93,8 +93,9 @@ now a plain refusal naming the step.
   record can only be written by the staging smoke test, which now refuses untagged builds, and the gate
   refuses them again. A hand-written record is already a different, louder problem.
 - A rollback is unaffected: it goes back to a version prod ran, which was tagged or is grandfathered.
-- The first live run of the tag step with a new version is the proof (Lab 83, Part 3); until then the tag
-  step has only ever found "already exists".
+- The first live run of the tag step with a new version is the proof (Lab 83, Part 3). It happened on
+  2026-11-08: `v0.2.0` and the five per-part tags were made, and the staging smoke test accepted the build
+  as a tagged release. The refusal at the real gate and the promotion are still to prove.
 
 **Revisit when** `release-prepare` is forgotten again despite the refusals (then the standing release
 pull request), or a second person releases and "who runs it" needs an owner.

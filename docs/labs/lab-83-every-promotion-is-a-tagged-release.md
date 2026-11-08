@@ -71,7 +71,9 @@ Then ask the gate about the tagged commit and about the commit before it. On 202
 4. `promote.yml` with the tagged build; merge the pull request. The change record is named `...-v0.2.0.md`, no `-2`.
 5. At production's next start-up, `make prod-smoke` runs against it; production now reads `v0.2.0`.
 
-Results are in `docs/journal/2026-11-08.md` (and later days) as they happen.
+**Result so far (steps 1 and 2 done, 2026-11-08 and 2026-11-09).** The release round ran: pull request #350 (`Kaval 0.2.0`) made all five parts 0.2.0, and `release.yml` made the first real tags (`v0.2.0` plus one per part). Its staging pull request (#351) said "This build is release `v0.2.0`". The staging smoke test on `sha-1ff61c8` passed 7 of 7 at about 00:18 IST on 9 November, including the new line `PASS build is a tagged release: v0.2.0 (prod runs v0.1.0)`, and recorded the pass; staging was deleted afterwards (about 1 cent, sweep clean). Steps 3 to 5 are still to do, each on his own go.
+
+Results are in `docs/journal/2026-11-08.md` and `docs/journal/2026-11-09.md` as they happen.
 
 ## What to take away
 
