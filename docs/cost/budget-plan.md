@@ -130,6 +130,8 @@ snapshots of the 20 GB data volume add a few cents a month while they are kept.
 
 **The production bring-up of 2026-11-07 (`KAV-125`, `KAV-126`, `KAV-128`)** cost about 1 to 2 cents (my estimate, not yet on the bill): the database server ran from 12:05 to 12:30 IST ($0.0112 an hour plus a public address at $0.005) and the app server from 12:16 to about 12:28 ($0.0224 plus $0.005), and parking took one more copy of the 20 GB data volume (a few cents a month while it is kept). No new recurring cost: the six changes were a random token and its one standard Parameter Store entry (free), a permission change, the start-up script and the backup schedule's targets.
 
+**The overnight staging proof of 2026-11-07 to 2026-11-08 (`KAV-127`, `KAV-128`)** cost about 15 to 20 cents (my estimate, not yet on the bill): staging ran from about 23:00 until the nightly stop at 02:00 IST (three hours at about $0.045 an hour, about 14 cents), then sat stopped, with its data disk and two copies of it, until the teardown at 16:40 IST (a few cents), and the teardown ended all of it. No new recurring cost; the closing count read 0 copies left.
+
 **Phase 6 (`KAV-91`, [ADR-0059](../adr/0059-always-on-cost-model-and-measuring-usage-before-credits.md), 2026-10-16) redoes this table for always-on and finds it holds.** Expected about $39 a month, worst case about $42.10: the $41.50 above plus the cost reader, whose Cost Explorer calls ($0.01 each, [AWS's pricing page](https://aws.amazon.com/aws-cost-management/aws-cost-explorer/pricing/), read 2026-10-16) are capped at 60 a month, $0.60 at most, about 35 expected. Waste scans use free read calls. The ceiling and the alerts are unchanged; the first alert ($42) now sits at the top of the worst case, which would be information, not noise.
 
 **The waste scan (`KAV-94`, [ADR-0062](../adr/0062-waste-is-found-daily-by-a-read-only-scan-and-reported-to-a-person.md), 2026-10-18)** adds **$0 a month**: one Lambda run a day (30 a month, free tier), four free Describe calls, one standard parameter (free), one more ConfigMap read by the cost reader's existing pod (no new pod). Proving it on staging plants a 1 GiB disk for a day or two, about $0.09 a month while it exists. No ceiling or alert change.
@@ -291,11 +293,11 @@ copies (22 Oct, 27 Oct, 4 Nov) stayed in the account: at most **$1.50 a month** 
 Mumbai, Price List API, 2026-11-05; snapshots are incremental, so less in fact). They were deleted on
 2026-11-05 with Roshan's go. **Fixed 2026-11-06 (`KAV-127`, [ADR-0078](../adr/0078-backup-copies-are-found-by-their-labels-not-their-names.md)):**
 `make staging-down` now finds the copies by their labels (`Project=kaval`, `Env=staging`) whichever job made them,
-refuses to delete more than 30 in one go, and ends with a count of the copies left; until it has been seen working
-live (Lab 78, Part 4), look for new ones after any teardown that follows a night's stop. A separate finding,
+refuses to delete more than 30 in one go, and ends with a count of the copies left; it was seen working
+live across a night (Lab 78, Part 4a, 2026-11-07 to 08): the teardown deleted the nightly stop's copy and staging's own schedule's copy, and the count left read 0. A separate finding,
 `KAV-128`: staging's snapshot schedule also copied *production's* data disk (AWS matches any one tag, not all), one
 redundant incremental snapshot per staging build that spans 03:00 UTC: cents. The module now targets the `Name` tag
-alone, so staging gets the fix at its next build; production's schedule was changed at its bring-up of 2026-11-07. The one stray
+alone; staging got the fix at its overnight build, production's schedule was changed at its bring-up of 2026-11-07, and a night's run (2026-11-08) showed each schedule copying only its own disk. The one stray
 copy made on 2026-11-04 is still in the account (a few cents a month).
 
 Always-on it would be ~$11/month and idle roughly 95% of the time — which would take the project
