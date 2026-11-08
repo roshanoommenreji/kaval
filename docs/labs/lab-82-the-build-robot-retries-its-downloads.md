@@ -60,7 +60,7 @@ Watched failing first: with the workflow files as they were, six checks failed (
 
 - [x] All six download lines retry on any error and keep their checksum check
 - [x] The tests above fail without the change and pass with it
-- [ ] CI is green on the pull request and it is merged
+- [x] CI is green on the pull request and it is merged (14 of 14 checks, merged as #342 on 2026-11-08)
 - [ ] A later release round finishes without a manual re-run of a download step (watch the next one; this is evidence, not a gate)
 
 ## Clean up
