@@ -102,4 +102,10 @@ snapshot) and **RTO 30 minutes**, with the measured pieces. The drill is judged 
 - The production role was applied and the two repository variables (`AWS_BACKUP_WATCH_ROLE_ARN`,
   `PROD_BACKUP_BUCKET`) were set on 2026-10-13; the daily check's first live run passed.
 - Not built: a Slack message for a missing dump (production's Slack is the only one); a dump at park
-  time; a drill with real data (needs real data).
+  time (filed as `KAV-134`); a drill with real data (needs real data).
+- **Second drill, 2026-11-08: restore clean, drill recorded as failed.** The restore into a throwaway
+  Postgres took 1 s with no errors, the schema matched the repository's newest and the tables held rows
+  (101 signals, 2 incidents). But the newest dump was from 27 Oct (284 h old), because production had been
+  parked at 19:30 UTC on every night since, and the tool refuses to count a drill on a dump more than a
+  week old. The failure is the hole above, not the restore. A failed record does not satisfy the 35-day
+  check, so a passing drill is owed: after `KAV-134`, or on any night production runs through 19:30 UTC.
