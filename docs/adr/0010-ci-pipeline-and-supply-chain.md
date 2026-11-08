@@ -101,3 +101,10 @@ Only a merged commit should produce an artifact.
   the collector's `poll()` takes a small `EventSource` protocol so its test fake still fits, and the library's two
   untyped config loaders carry a one-line ignore. The executor then ran on staging against a real cluster (Lab 38):
   found, recorded and deleted a pod, saw its controller replace it, and reported a missing pod as "not found".
+- **Downloads retry (2026-11-08, KAV-133).** Seven jobs failed in one day only because GitHub's
+  download servers answered 503 or 504 or dropped the connection while the robot fetched Trivy,
+  gitleaks, OPA, helm or kubeconform. The six `curl` lines now use `--retry 5 --retry-all-errors`.
+  This does not weaken the rule above: the checksum check after each download is unchanged and is
+  what decides, so a retry can only fetch the real file, never let a wrong one through. A test
+  (`scripts/dev/test_workflow_downloads.py`) keeps both the retry and the checksum in place
+  ([Lab 82](../labs/lab-82-the-build-robot-retries-its-downloads.md)).

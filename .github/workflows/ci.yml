@@ -109,7 +109,7 @@ jobs:
       - run: uv sync --locked --all-extras
       - name: install opa (checksum-verified) — KAV-42, joins this job per ADR-0010
         run: |
-          curl -fsSLo opa \
+          curl -fsSL --retry 5 --retry-all-errors -o opa \
             "https://github.com/open-policy-agent/opa/releases/download/v${OPA_VERSION}/opa_linux_amd64_static"
           echo "${OPA_SHA256}  opa" | sha256sum --check --strict
           chmod +x opa
@@ -141,7 +141,7 @@ jobs:
           persist-credentials: false
       - name: install gitleaks (checksum-verified)
         run: |
-          curl -fsSLo gitleaks.tgz \
+          curl -fsSL --retry 5 --retry-all-errors -o gitleaks.tgz \
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum --check --strict
           tar -xzf gitleaks.tgz gitleaks && rm gitleaks.tgz
@@ -200,14 +200,14 @@ jobs:
           persist-credentials: false
       - name: install helm (checksum-verified)
         run: |
-          curl -fsSLo helm.tgz \
+          curl -fsSL --retry 5 --retry-all-errors -o helm.tgz \
             "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
           echo "${HELM_SHA256}  helm.tgz" | sha256sum --check --strict
           tar -xzf helm.tgz linux-amd64/helm
           sudo install -m 0755 linux-amd64/helm /usr/local/bin/helm
       - name: install kubeconform (checksum-verified)
         run: |
-          curl -fsSLo kubeconform.tgz \
+          curl -fsSL --retry 5 --retry-all-errors -o kubeconform.tgz \
             "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
           echo "${KUBECONFORM_SHA256}  kubeconform.tgz" | sha256sum --check --strict
           tar -xzf kubeconform.tgz kubeconform
@@ -326,7 +326,7 @@ jobs:
           test "$label" = "$WANT" && test "$code" = "$WANT"
       - name: install Trivy (checksum-verified)
         run: |
-          curl -fsSLo trivy.tgz \
+          curl -fsSL --retry 5 --retry-all-errors -o trivy.tgz \
             "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-ARM64.tar.gz"
           echo "${TRIVY_SHA256}  trivy.tgz" | sha256sum --check --strict
           tar -xzf trivy.tgz trivy && rm trivy.tgz

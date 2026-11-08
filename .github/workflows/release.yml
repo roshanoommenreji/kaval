@@ -103,7 +103,7 @@ jobs:
 
       - name: install Trivy (checksum-verified)
         run: |
-          curl -fsSLo trivy.tgz \
+          curl -fsSL --retry 5 --retry-all-errors -o trivy.tgz \
             "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-ARM64.tar.gz"
           echo "${TRIVY_SHA256}  trivy.tgz" | sha256sum --check --strict
           tar -xzf trivy.tgz trivy && rm trivy.tgz
