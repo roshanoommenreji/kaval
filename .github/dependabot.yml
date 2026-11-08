@@ -40,6 +40,12 @@ updates:
       # of 3.11-slim-bookworm, never a jump to 3.12+.
       - dependency-name: python
         update-types: [version-update:semver-minor, version-update:semver-major]
+      # The Go image that builds OPA (KAV-132, ADR-0079) moves by patch and digest only: a new minor or major of Go changes
+      # the binary and the toolchain OPA's own release is tested with, so it is a decision (and a new checksum in both
+      # Dockerfiles), not a weekly bump. A patch bump needs the new OPA_SHA256_ARM64 in the same pull request; the failing
+      # build prints it.
+      - dependency-name: golang
+        update-types: [version-update:semver-minor, version-update:semver-major]
     commit-message: { prefix: chore }
 
   - package-ecosystem: terraform

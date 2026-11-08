@@ -175,3 +175,12 @@ before this story began. OPA's own documentation on data file loading (`docs.ope
 — data files merge into `data` at a path derived from the load root and the file's own
 top-level keys, not the filename; confirmed directly against `opa eval` while building this, not
 assumed — see Lab 12).
+
+## Updated 2026-11-07 (KAV-132): where the binary comes from
+
+The "download-and-verify" in the Decision above no longer describes the images. The `opa` in the agent's and the executor's
+images is built from OPA's release commit, in a Go image pinned by digest, with the libraries the scanner flagged raised, and
+checked against a recorded checksum, so a library fix reaches the images the day it exists instead of with OPA's next release
+([ADR-0079](0079-where-the-opa-binary-comes-from.md), [Lab 80](../labs/lab-80-opa-built-in-the-images.md)). `ci.yml` still
+installs OPA's own release for `opa test` and the pytest suite (that file is neither shipped nor scanned). Nothing about how the
+agent or the executor call OPA changed.
