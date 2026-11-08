@@ -191,6 +191,8 @@ systemctl start kaval-db-backup.service           # the node's own dump to the b
 aws s3 ls s3://<prod backup bucket>/postgres/ | tail -3
 ```
 
+From the laptop, send the first line with `aws ssm send-command` (document `AWS-RunShellScript`) to the one running server of the group `kaval-prod`, and read the result with `aws ssm get-command-invocation`. On Windows set `PYTHONUTF8=1` first, or reading the output fails on the arrow character in the dump service's log (seen 2026-11-08).
+
 ### 8. Park it
 
 ```bash

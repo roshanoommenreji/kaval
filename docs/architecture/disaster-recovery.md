@@ -55,7 +55,7 @@ Recovery time, from the pieces that were measured:
    the snapshots' promise, not the dump's. A dump taken at the moment production is parked would close
    it; not built (filed as `KAV-134`). It showed up again on 2026-11-08: the drill restored the newest
    dump cleanly, but that dump was 12 days old, so the drill was recorded as failed
-   ([record](../drills/restore-failed-2026-11-08.md)) and does not count as a drill done.
+   ([record](../drills/restore-failed-2026-11-08.md)) and does not count as a drill done. The same evening a dump taken by hand on the running production server (22:38 IST) let a second drill pass ([record](../drills/restore-2026-11-08.md)); that is a stopgap, not the fix, and `KAV-134` stays open.
 
 ## Drilling it
 
