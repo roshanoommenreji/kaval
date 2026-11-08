@@ -1,6 +1,6 @@
 # ADR-0079: Where the OPA binary in the images comes from
 
-**Status:** Accepted on 2026-11-07. Roshan chose option C (`decide build`). It is built in `KAV-132`, whose merge waits until after the 8 November morning teardown.
+**Status:** Accepted on 2026-11-07. Roshan chose option C (`decide build`). It is built in `KAV-132`, merged on 2026-11-08 after the morning teardown (#332), and the first release built this way (`sha-791c44d`) passed staging that evening ([Lab 80](../labs/lab-80-opa-built-in-the-images.md) Part 11); promotion to production is next.
 **Date:** 2026-11-07
 **Related:** [ADR-0033](0033-dated-trivy-exception-for-the-bundled-opa-binary.md) (the dated exceptions; its decision 4 asks this question),
 [ADR-0017](0017-opa-policy-engine-and-earned-autonomy.md) (why OPA), [ADR-0010](0010-ci-pipeline-and-supply-chain.md) (supply chain and
@@ -96,11 +96,18 @@ releases each week (already part of each session). This was a recommendation for
 story below is `KAV-132`. One detail is settled in that story rather than here: the `-ldflags` hostname stamp that the lab copied from OPA's own recipe does nothing
 in v1.21.4, so the implementation leaves it out and the checksums it pins are new ones, not the lab's. Measured in the implementation's first CI run: the stage took 42 s to compile on the arm64 runner, and that runner produced the same checksum as the laptop ([Lab 80](../labs/lab-80-opa-built-in-the-images.md)).
 
+**2026-11-08: merged, released and proved on staging.** Roshan merged #332 at 17:09 IST, after the morning teardown. The release run built, scanned and published all five images with the exception list empty;
+the bot's pull request pinned staging at `sha-791c44d` (#338, merged 17:54). A fresh staging built from `main` at 18:18 passed the smoke test at 18:26: nine apps running and ready with no restarts, every
+service on `sha-791c44d`, the four running digests equal to the registry's, the database at its latest migration, and two API requests answered (7 of 7; [Lab 80](../labs/lab-80-opa-built-in-the-images.md) Part 11).
+`deploy/promotion/passed-staging.json` holds the record, and that is what `promote.yml` checks before it will touch production. What the smoke test does not show is OPA classifying inside staging's agent: that is
+asserted per image in CI (`opa version`, a real classification, the Go version and commit), and a game day (`make chaos-run`) would exercise it end to end; the smoke test does not.
+
 ## The story (`KAV-132`)
 
 Roshan chose C, so it is its own Jira story, `KAV-132` (`KAV-131`'s second criterion asked for the plan to exist before the decision was made).
-Its images change, so the merge waits until after the 8 November morning teardown (tonight's staging reads `main`); the path is the usual one. To be live before the
-exception ends on 2026-11-21 it needs about a week (build and merge after the teardown, one staging session, promotion); deciding on 7 November leaves a margin.
+Its images change, so the merge waited until after the 8 November morning teardown (the overnight staging proof read `main`); the path is the usual one. To be live before the
+exception ended on 2026-11-21 it needed about a week (build and merge after the teardown, one staging session, promotion); in the event the merge, the release and the staging session all
+happened on 8 November, and the exception was deleted in the same pull request, so the date no longer presses.
 
 | Question | Plan |
 |---|---|
@@ -111,7 +118,7 @@ exception ends on 2026-11-21 it needs about a week (build and merge after the te
 | Build time on the CI runner | In the trial: 2 min 2 s to 2 min 22 s per build on 4 CPUs (about what the runner has) with the libraries cached, 3 min 3 s fully cold. CI builds on native arm64 runners with the GitHub layer cache, so the compile is skipped whenever the stage's inputs are unchanged. The image jobs allow 20 minutes. |
 | Who bumps it | Go: Dependabot. OPA release and overrides: when the scan goes red, and at the weekly look at OPA's releases that already happens each session (`gh api repos/open-policy-agent/opa/releases`). A scheduled workflow that opens an issue on a new release is a later option. |
 | Tests | (1) A pytest that both Dockerfiles carry identical pins and that `ci.yml`'s `OPA_VERSION` agrees. (2) The CI image check that already runs `opa version` and a real classification inside each image gains an assertion on the Go version and commit it reports. (3) Trivy with no entry for OPA. (4) The comparison script in Lab 79, re-run on every OPA or toolchain bump. `ci.yml` keeps downloading OPA's amd64 release for `opa test` and the pytest suite: that file is neither shipped nor scanned. |
-| Path | Local (done, Lab 79) -> merge, held until after the 8 November teardown because the images change -> CI builds both images -> the release pull request pins staging -> staging smoke test -> `promote.yml` to production. |
+| Path | Local (done, Lab 79) -> merge, after the 8 November teardown because the images change (done: #332) -> the release builds and scans the images (done) -> the release pull request pins staging (done: #338) -> staging smoke test (done: passed 2026-11-08, [Lab 80](../labs/lab-80-opa-built-in-the-images.md) Part 11) -> `promote.yml` to production (next, on Roshan's go). |
 | Rollback | Revert the Dockerfile commit (back to the download), or `rollback.yml` to the previous image. |
 | Exit | The overrides list empties as OPA catches up. The stage stays: the speed of taking a new Go patch is the point. Going back to the download needs a new ADR. |
 

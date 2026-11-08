@@ -183,4 +183,5 @@ images is built from OPA's release commit, in a Go image pinned by digest, with 
 checked against a recorded checksum, so a library fix reaches the images the day it exists instead of with OPA's next release
 ([ADR-0079](0079-where-the-opa-binary-comes-from.md), [Lab 80](../labs/lab-80-opa-built-in-the-images.md)). `ci.yml` still
 installs OPA's own release for `opa test` and the pytest suite (that file is neither shipped nor scanned). Nothing about how the
-agent or the executor call OPA changed.
+agent or the executor call OPA changed. Merged 2026-11-08 (#332); the first release built this way, `sha-791c44d`, passed staging that evening
+(production still runs the earlier download until it is promoted).

@@ -1,8 +1,8 @@
 # Lab 80 — OPA built inside the images: the pins, the checks, and how to bump them
 
-**Phase:** 8 (hardening) · **Story:** `KAV-132` · **Time:** about 45 minutes, most of it waiting for builds · **Cost:** $0. Everything runs on a laptop with Docker; nothing touches AWS.
+**Phase:** 8 (hardening) · **Story:** `KAV-132` · **Time:** about 45 minutes, most of it waiting for builds · **Cost:** $0 for Parts 1 to 10 (a laptop with Docker; nothing touches AWS). Part 11 follows the first release built this way through a real staging, about 1 cent of AWS (my estimate, not yet on the bill).
 
-[ADR-0079](../adr/0079-where-the-opa-binary-comes-from.md) decided on 2026-11-07 that Kaval builds OPA itself, and [Lab 79](lab-79-building-opa-ourselves-and-proving-it.md) was the trial that showed it could. This lab is the result. Stage 1b of `services/agent/Dockerfile` and `services/executor/Dockerfile` no longer downloads OPA's release file: it compiles OPA from the commit that release was cut from, inside a Go image pinned by digest, with the one library the scanner flagged raised, and stops unless the result is the file recorded in the Dockerfile. You will read what is pinned, build the stage by hand and get the recorded checksum, make it refuse three wrong things, check the finished image the way CI does, scan it with **no** exception, and learn the four routine changes (a Go patch, an OPA release, a new scanner finding, an emptied override list).
+[ADR-0079](../adr/0079-where-the-opa-binary-comes-from.md) decided on 2026-11-07 that Kaval builds OPA itself, and [Lab 79](lab-79-building-opa-ourselves-and-proving-it.md) was the trial that showed it could. This lab is the result. Stage 1b of `services/agent/Dockerfile` and `services/executor/Dockerfile` no longer downloads OPA's release file: it compiles OPA from the commit that release was cut from, inside a Go image pinned by digest, with the one library the scanner flagged raised, and stops unless the result is the file recorded in the Dockerfile. You will read what is pinned, build the stage by hand and get the recorded checksum, make it refuse three wrong things, check the finished image the way CI does, scan it with **no** exception, and learn the four routine changes (a Go patch, an OPA release, a new scanner finding, an emptied override list). Part 11 then follows the first release built this way through the release run, the staging pin and a smoke test on a real staging.
 
 ## Prerequisites
 
@@ -185,3 +185,31 @@ docker image rm kaval/agent:ci kaval/executor:ci kaval/agent:main-control 2>/dev
 docker volume rm kaval-kav131-gomod kaval-trivy-cache 2>/dev/null          # the Go module cache and the Trivy database cache
 docker image rm golang:1.27.3-trixie aquasec/trivy:$TRIVY debian:bookworm-slim   # about 2.5 GB; they are pulled again when needed
 ```
+
+## Part 11 — On the real thing: the release, the staging pin and a smoke test
+
+Parts 1 to 10 prove the build on a laptop. This part follows the first release built this way, `sha-791c44d`, along the path every release takes. The GitHub steps (1 and 2) need no one's go; the steps that touch AWS (3 to 6) need the owner's go. The run below was done on Roshan's `go staging smoke` at 18:18 IST on 2026-11-08 and cost about 1 cent.
+
+1. **Merge, then the release.** #332 (this story) was merged at 17:09. Because it changed `services/`, `release.yml` ran by itself: it builds the five images, scans each with Trivy against `.github/trivy-ignore.yaml` (an empty list, so nothing is excused) and pushes them to the registry by digest. Watch it with `gh run list --workflow release.yml --limit 3`. Its last job, "propose the staging pin", opens a pull request that points staging at the new tag.
+   If a job stops with `HTTP 504` or `Connection died` in the step that downloads the scanner (GitHub's download server, not the build), re-run only the failed jobs with `gh run rerun <run-id> --failed`. That happened four times that afternoon (one image check on #332, two release jobs, one image check on the pin) and every job passed on its second try.
+2. **The pin.** The bot's pull request (#338) changes two files, `deploy/environments/staging/values.yaml` and `deploy/gitops/staging/helmrelease.yaml`, to `sha-791c44d`. Its checks are held until a person chooses "Approve and run" ([ADR-0030](../adr/0030-ci-publishes-images-by-oidc-and-staging-is-pinned-by-pull-request.md)); then it is merged like any other pull request (17:54).
+3. **A fresh staging,** from `main` with the pin merged: `make staging-up`. The saved plan read exactly `Plan: 93 to add, 0 to change, 0 to destroy.` with no mention of production. It started at 18:18; at 18:25 all nine apps were `Running 1/1`, none had restarted, and the start-up report said `ok` (about 7 minutes, about $0.045 an hour).
+4. **`make staging-smoke`** (18:25:39 to 18:26:04, 25 seconds). Seven checks, all PASS:
+
+   | Check | Result |
+   |---|---|
+   | pods running and ready | 9 running |
+   | no crash loop | 0 restarts |
+   | every service runs `sha-791c44d` | ok |
+   | running digest equals the registry's digest | all four match (agent, collector, executor, gateway) |
+   | gateway reaches the database, migrated | at `d4f7a2c9e815` |
+   | `GET /v1/incidents?limit=1` | HTTP 200 |
+   | `GET /v1/signals?limit=1` | HTTP 200 |
+
+   A pass appends a record to `deploy/promotion/passed-staging.json`: the tag, the commit, the four digests, the checks, and what the test does not cover. The record is committed through a pull request, and `promote.yml` refuses a tag that is not on it. The backup image is published but not deployed to staging, so the record lists it as "published, not exercised".
+5. **`make staging-down`** (18:26 to 18:30): `Apply complete! Resources: 0 added, 0 changed, 92 destroyed.`, then the detached data volume, and the closing line `Left tagged Env=staging: 0 instances, 0 volumes, 0 VPCs, 0 snapshots`. No backup copy of staging's disk existed yet: the session was shorter than a day.
+6. **Count and sweep (read-only).** Production's 21 backup copies are the same 21 as before the session (none missing, none new), and a sweep of the account found nothing of staging: no server, volume, copy, schedule, network, address, bucket, function, log group, parameter, role or rule. The account held only production's stopped database server and its disk, the stopped dev box, and production's schedule.
+
+**What this settles, and what it does not.** The images built from source run in the real cluster: nine apps, no restarts, and the four running digests identical to the registry's. The release path needed no change for the new build stage. The smoke test does **not** show OPA classifying inside staging's agent: CI asserts that per image (`opa version`, a real classification, the Go version and commit), and a game day (`make chaos-run`) would exercise it end to end. The next step is production: `promote.yml` with `tag=sha-791c44d`, on the owner's go.
+
+**Cost.** About 1 cent (my estimate, not yet on the bill): staging existed from 18:19 to 18:30, about eleven minutes at about $0.045 an hour. GitHub's minutes are free for a public repository.
