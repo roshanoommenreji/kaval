@@ -137,3 +137,8 @@ the flawed package behind the fifth entry, `x/net/html`, is **not in the OPA bin
 checked against the file itself and not only argued from how OPA is used. Second, the rules above stay in force until the build (`KAV-132`) is live: one entry
 per CVE, one file path, an end date, Roshan's approval. When that story is merged the entry for CVE-2026-78661 is deleted and both image scans pass with no
 exception; the exception file stays, empty, for any other finding, under the same rules.
+
+## Updated 2026-11-08 (KAV-132): the entry is gone
+The build merged as #332 on 2026-11-08 and deleted the entry for CVE-2026-78661 in the same pull request; `.github/trivy-ignore.yaml` is now an empty list. The release scan of the five images passed
+with no exception, and the first release built this way (`sha-791c44d`) passed staging the same evening ([ADR-0079](0079-where-the-opa-binary-comes-from.md), [Lab 80](../labs/lab-80-opa-built-in-the-images.md) Part 11).
+The rules above apply unchanged to any future entry.
