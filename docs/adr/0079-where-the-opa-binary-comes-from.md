@@ -1,6 +1,6 @@
 # ADR-0079: Where the OPA binary in the images comes from
 
-**Status:** Accepted on 2026-11-07. Roshan chose option C (`decide build`). It is built in `KAV-132`, merged on 2026-11-08 after the morning teardown (#332), and the first release built this way (`sha-791c44d`) passed staging that evening ([Lab 80](../labs/lab-80-opa-built-in-the-images.md) Part 11); promotion to production is next.
+**Status:** Accepted on 2026-11-07. Roshan chose option C (`decide build`). It is built in `KAV-132`, merged on 2026-11-08 after the morning teardown (#332), and the first release built this way (`sha-791c44d`) passed staging that evening ([Lab 80](../labs/lab-80-opa-built-in-the-images.md) Part 11) and was promoted to production the same evening (#340, 19:05 IST); production is parked, so it runs the new build from its next start-up.
 **Date:** 2026-11-07
 **Related:** [ADR-0033](0033-dated-trivy-exception-for-the-bundled-opa-binary.md) (the dated exceptions; its decision 4 asks this question),
 [ADR-0017](0017-opa-policy-engine-and-earned-autonomy.md) (why OPA), [ADR-0010](0010-ci-pipeline-and-supply-chain.md) (supply chain and
@@ -102,6 +102,10 @@ service on `sha-791c44d`, the four running digests equal to the registry's, the 
 `deploy/promotion/passed-staging.json` holds the record, and that is what `promote.yml` checks before it will touch production. What the smoke test does not show is OPA classifying inside staging's agent: that is
 asserted per image in CI (`opa version`, a real classification, the Go version and commit), and a game day (`make chaos-run`) would exercise it end to end; the smoke test does not.
 
+**Promoted the same evening.** On Roshan's `go promote sha-791c44d` (18:51) `promote.yml` repeated its four checks (the tag is on the record, it is ahead of production's `sha-feb7025`, the registry's digests still equal the ones that passed, and none of the 16 stories in the release
+carries an unsigned `uat` sign-off) and opened #340, which changed production's four image tags and added the change record `docs/releases/2026-11-08-v0.1.0.md`. Roshan approved its checks and merged it at 19:05. Production is parked, so the new build first runs there at its next start-up,
+where `make prod-smoke` is the first look at it.
+
 ## The story (`KAV-132`)
 
 Roshan chose C, so it is its own Jira story, `KAV-132` (`KAV-131`'s second criterion asked for the plan to exist before the decision was made).
@@ -118,7 +122,7 @@ happened on 8 November, and the exception was deleted in the same pull request, 
 | Build time on the CI runner | In the trial: 2 min 2 s to 2 min 22 s per build on 4 CPUs (about what the runner has) with the libraries cached, 3 min 3 s fully cold. CI builds on native arm64 runners with the GitHub layer cache, so the compile is skipped whenever the stage's inputs are unchanged. The image jobs allow 20 minutes. |
 | Who bumps it | Go: Dependabot. OPA release and overrides: when the scan goes red, and at the weekly look at OPA's releases that already happens each session (`gh api repos/open-policy-agent/opa/releases`). A scheduled workflow that opens an issue on a new release is a later option. |
 | Tests | (1) A pytest that both Dockerfiles carry identical pins and that `ci.yml`'s `OPA_VERSION` agrees. (2) The CI image check that already runs `opa version` and a real classification inside each image gains an assertion on the Go version and commit it reports. (3) Trivy with no entry for OPA. (4) The comparison script in Lab 79, re-run on every OPA or toolchain bump. `ci.yml` keeps downloading OPA's amd64 release for `opa test` and the pytest suite: that file is neither shipped nor scanned. |
-| Path | Local (done, Lab 79) -> merge, after the 8 November teardown because the images change (done: #332) -> the release builds and scans the images (done) -> the release pull request pins staging (done: #338) -> staging smoke test (done: passed 2026-11-08, [Lab 80](../labs/lab-80-opa-built-in-the-images.md) Part 11) -> `promote.yml` to production (next, on Roshan's go). |
+| Path | Local (done, Lab 79) -> merge, after the 8 November teardown because the images change (done: #332) -> the release builds and scans the images (done) -> the release pull request pins staging (done: #338) -> staging smoke test (done: passed 2026-11-08, [Lab 80](../labs/lab-80-opa-built-in-the-images.md) Part 11) -> `promote.yml` to production (done: #340, merged 2026-11-08 19:05 IST; production is parked, so it runs the new build from its next start-up). |
 | Rollback | Revert the Dockerfile commit (back to the download), or `rollback.yml` to the previous image. |
 | Exit | The overrides list empties as OPA catches up. The stage stays: the speed of taking a new Go patch is the point. Going back to the download needs a new ADR. |
 
