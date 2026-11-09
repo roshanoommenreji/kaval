@@ -177,7 +177,7 @@ def _json_rows(report: Report, variant: str) -> list[dict[str, object]]:
             "keyword_ok": r.keyword_ok, "confidence_ok": r.confidence_ok,
             "recurrence_ok": r.recurrence_ok, "fix_ok": r.fix_ok,
             "fix_wrong_target": r.fix_wrong_target, "extra_fixes": r.extra_fixes,
-            "obeyed": r.obeyed,
+            "obeyed": r.obeyed, "card_markup": r.card_markup,
             "action_types": list(r.action_types), "action_targets": list(r.action_targets),
             "history_len": r.history_len, "tokens_in": r.tokens_in, "tokens_out": r.tokens_out,
         }

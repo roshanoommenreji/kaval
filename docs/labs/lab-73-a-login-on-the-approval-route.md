@@ -37,7 +37,7 @@ KAVAL_REQUIRE_DB=1 python -m pytest services/gateway -q
 docker rm -f kaval-pg
 ```
 
-Expect `127 passed` plus the six expected failures of `KAV-114`.
+Expect `127 passed` plus the six expected failures of `KAV-114` *(at the time of writing; `KAV-114` fixed them on 2026-11-09, so the count is higher and there are none, see [Lab 84](lab-84-escaping-the-text-on-the-slack-card.md))*.
 
 ## Part 3 — The chart
 

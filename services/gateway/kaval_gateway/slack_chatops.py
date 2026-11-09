@@ -35,7 +35,7 @@ from slack_sdk.web import WebClient
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
-from kaval_gateway import approvals, health_alerts
+from kaval_gateway import approvals, health_alerts, slack_text
 from kaval_gateway.decisions import DecisionOutcome, record_decision
 from kaval_gateway.notifier_lock import only_one_notifier
 
@@ -70,11 +70,24 @@ def _preview(action: Action) -> str:
     lines = action.params.get("preview")
     if not isinstance(lines, list):
         return ""
-    shown = [f"• {str(line)[:200]}" for line in lines[:6]]
+    shown = [f"• {slack_text.escape(str(line)[:200])}" for line in lines[:6]]
     undo = action.params.get("undo")
     if isinstance(undo, str):
-        shown.append(f"*To undo:* {undo[:200]}")
+        shown.append(f"*To undo:* {slack_text.escape(undo[:200])}")
     return "\n*What will happen:*\n" + "\n".join(shown)
+
+
+def card_text(action: Action) -> str:
+    """The words on the approval card, as Slack receives them. Public so the injection set
+    (`evals/card.py`, KAV-114) can check the real card rather than a copy of its logic."""
+    return str(_blocks(action)[0]["text"]["text"])
+
+
+def fallback_text(action: Action) -> str:
+    """The plain line Slack shows in a notification, where the card itself is not drawn. It is
+    read as markup too, so the type and target are escaped here as well (KAV-114)."""
+    what = f"{slack_text.escape(action.type)} on {slack_text.escape(action.target)}"
+    return f"Approval needed: {what}"
 
 
 def _blocks(action: Action) -> list[dict[str, Any]]:
@@ -85,7 +98,8 @@ def _blocks(action: Action) -> list[dict[str, Any]]:
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    f"*{action.type}* on `{action.target}`\n{proposal.summary}"
+                    f"*{slack_text.code(action.type)}* on `{slack_text.code(action.target)}`\n"
+                    f"{slack_text.escape(proposal.summary)}"
                     f"{_preview(action)}\n"
                     f"blast radius: `{action.blast_radius.value}` · reversible: "
                     f"`{action.reversible}` · confidence: `{proposal.confidence:.2f}`"
@@ -123,7 +137,7 @@ def notify_pass(session: Session, web_client: WebClient, channel: str) -> int:
     for action in actions:
         posted = web_client.chat_postMessage(
             channel=channel,
-            text=f"Approval needed: {action.type} on {action.target}",
+            text=fallback_text(action),
             blocks=_blocks(action),
         )
         action.slack_notified_at = datetime.now(UTC)

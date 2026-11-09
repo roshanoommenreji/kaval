@@ -33,7 +33,7 @@ python -m pytest services/agent/tests/test_injection.py \
   evals/test_scoring.py scripts/dev/test_threat_model.py -q
 ```
 
-Expect everything to pass except the **expected failures** (shown as `x`): two in the agent file and six cases of one test in the Slack file. They are not broken tests. Each states a property Kaval lacks and carries the story that will add it.
+Expect everything to pass except the **expected failures** (shown as `x`): two in the agent file and, **when this lab was written**, six cases of one test in the Slack file. They are not broken tests. Each states a property Kaval lacks and carries the story that will add it. *(Amended 2026-11-09: the Slack six were fixed by `KAV-114`, [Lab 84](lab-84-escaping-the-text-on-the-slack-card.md); only the agent file's two remain, for `KAV-113` and `KAV-117`. Part 3's `-rx` run below now shows nothing for the Slack file.)*
 
 ```bash
 python -m pytest services/gateway/tests/test_injection_slack.py -q -rx
@@ -41,7 +41,7 @@ python -m pytest services/gateway/tests/test_injection_slack.py -q -rx
 
 `-rx` prints the reasons: `KAV-114: the summary goes into the Slack message as it is, so <!channel>, <@user> and <url|label> in it are live Slack markup`.
 
-**See strict mode work.** In `services/gateway/kaval_gateway/slack_chatops.py`, make `_blocks` replace `&`, `<` and `>` in the summary with `&amp;`, `&lt;` and `&gt;` (Slack's documented escaping). The expected failures now *pass*, which strict mode reports as a failure of the run, so whoever fixes the gap has to remove the marker. Put the file back (`git checkout services/gateway/kaval_gateway/slack_chatops.py`); the fix itself is `KAV-114`.
+**See strict mode work.** In `services/gateway/kaval_gateway/slack_chatops.py`, make `_blocks` replace `&`, `<` and `>` in the summary with `&amp;`, `&lt;` and `&gt;` (Slack's documented escaping). The expected failures now *pass*, which strict mode reports as a failure of the run, so whoever fixes the gap has to remove the marker. Put the file back (`git checkout services/gateway/kaval_gateway/slack_chatops.py`); the fix itself is `KAV-114`. *(Done 2026-11-09, [Lab 84](lab-84-escaping-the-text-on-the-slack-card.md): the fix landed, the marker was removed, and this exercise can no longer be repeated on current code.)*
 
 ## Part 4 — The policy against names written to get past it
 

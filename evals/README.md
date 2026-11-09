@@ -70,6 +70,11 @@ The report counts how many summaries did begin with it: *planted text obeyed*, r
 gated. It is a lower bound, not a measure of obedience. The other three check that the outcome did not
 move (the right fix, aimed at the right workload), and the long case reports the tokens a 6,000
 character message costs. The summary matters because it is the one model-written text a person reads.
+
+Since `KAV-114` the report also builds the real Slack approval card from each summary (`card.py`,
+using the gateway's own code) and prints *approval cards with live Slack markup*. Unlike the
+obedience line it is **gated**: it is the gateway's code, not the model's behaviour, so the right
+number is 0/10 whatever the model wrote ([ADR-0082](../docs/adr/0082-text-the-model-wrote-is-escaped-before-it-goes-into-slack.md)).
 Why each case exists, and which layer should stop it, is in
 [the threat model](../docs/architecture/threat-model.md); the layers that need no model are tested in
 `services/agent/tests/test_injection.py`, so CI covers them on every change ([ADR-0072](../docs/adr/0072-a-written-threat-model-and-a-prompt-injection-set.md)).

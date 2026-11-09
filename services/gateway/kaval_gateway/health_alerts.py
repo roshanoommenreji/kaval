@@ -27,6 +27,8 @@ from kaval_shared.models import Notification, Signal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from kaval_gateway import slack_text
+
 # How far back a signal still counts as "happening now": two renewals of the poller (300 s).
 FRESH = timedelta(minutes=15)
 # A fault that lasts is mentioned again after this long, not every five minutes.
@@ -99,7 +101,7 @@ def _headline(signal: Signal) -> tuple[str, str]:
     signal text may ever go into it."""
     name = _name(signal)
     what = _WORDS.get(name, "is reporting a problem")
-    service = signal.target.rsplit("/", 1)[-1]
+    service = slack_text.code(signal.target.rsplit("/", 1)[-1])
     if name == "disk_near_full":
         if signal.target.endswith("/database-disk"):
             return ":warning:", "*Needs a person:* the database server's disk is nearly full."
