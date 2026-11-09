@@ -159,7 +159,7 @@ Not today. [ADR-0080](../adr/0080-codeql-scans-every-pull-request-and-starts-as-
 - [x] A throwaway pull request proved it finds planted mistakes; the four alerts were dismissed with a reason and the branch deleted
 - [x] The decision on a required check is recorded (advice first, a gate after a clean week: ADR-0080)
 - [x] Merged (pull request #333) and the first scan of `main` has run
-- [ ] The first scheduled Monday scan (2026-11-09, 04:41 UTC) has been seen
+- [x] The first scheduled Monday scan (2026-11-09; GitHub started it at 13:19 UTC, later than the scheduled 04:41 UTC) has been seen: both parts passed and no new alert opened (the only CodeQL alert is the dismissed test one; the nine open alerts are Scorecard's)
 - [x] Scorecard's SAST reading after the first run on `main` is recorded: 7
 
 ## Clean up
