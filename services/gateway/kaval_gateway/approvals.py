@@ -32,6 +32,8 @@ from kaval_shared.models import Action, Notification, PolicyClass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from kaval_gateway import slack_text
+
 logger = logging.getLogger("kaval_gateway.approvals")
 
 # Roshan's slowest answers so far were 74 s twice and 273 s once; these leave room for a person
@@ -107,7 +109,7 @@ def _minutes(delta: timedelta) -> int:
 
 
 def _what(action: Action) -> str:
-    return f"*{action.type}* on `{action.target}`"
+    return f"*{slack_text.code(action.type)}* on `{slack_text.code(action.target)}`"
 
 
 def _reminder_text(action: Action, now: datetime, timing: Timing) -> str:

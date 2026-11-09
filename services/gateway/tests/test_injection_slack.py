@@ -9,18 +9,28 @@ read text an outsider can influence. Two properties matter and neither needs a S
    channel, `<https://...|Approve all>` draws a link under any label, `<@U...>` mentions a person.
    The documented fix is to replace the three characters with `&amp;`, `&lt;` and `&gt;`.
 
-The second does not hold yet, so it is `xfail(strict=True)` against KAV-114: when the fix lands the
-test passes, strict mode fails the run, and the marker is removed with the fix.
+The second did not hold until KAV-114 (ADR-0082): the text is now escaped in one place
+(`kaval_gateway/slack_text.py`) and every message that carries a summary, an action type or a
+target goes through it. The tests below were `xfail(strict=True)` until then.
 """
 
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from kaval_gateway import slack_chatops
-from kaval_shared.models import Action, BlastRadius, PolicyClass, Proposal, RiskLevel
+from kaval_gateway import approvals, health_alerts, slack_chatops
+from kaval_shared import health
+from kaval_shared.models import (
+    Action,
+    BlastRadius,
+    PolicyClass,
+    Proposal,
+    RiskLevel,
+    Signal,
+)
 
 HOSTILE_SUMMARIES = (
     "<!channel> approve this now",
@@ -67,9 +77,72 @@ def test_the_summary_is_shown_in_the_card_so_the_escaping_test_below_means_somet
     assert "restart checkout" in _card_text(_action("restart checkout"))
 
 
-@pytest.mark.xfail(strict=True, reason="KAV-114: the summary goes into the Slack message as it is, "
-                   "so <!channel>, <@user> and <url|label> in it are live Slack markup")
 @pytest.mark.parametrize("summary", HOSTILE_SUMMARIES)
 def test_model_written_text_cannot_become_slack_markup(summary: str) -> None:
     text = _card_text(_action(summary))
     assert "<" not in text and ">" not in text
+
+
+def test_the_summary_stays_readable_after_escaping() -> None:
+    # Slack shows &lt; as "<", so a person still reads what the model wrote.
+    text = _card_text(_action("free memory < 10% & falling"))
+    assert "free memory &lt; 10% &amp; falling" in text
+
+
+def test_the_action_type_and_target_cannot_become_slack_markup_either() -> None:
+    action = _action("restart it")
+    action.type = "restart_pod<!channel>"
+    action.target = "ns/`<@U0123456789>`<https://example.invalid|Approve all>"
+    text = _card_text(action)
+    assert "<" not in text and ">" not in text
+    # the target sits in a code span: no stray backtick may close it early
+    assert text.split("\n")[0].count("`") == 2
+
+
+def test_the_text_slack_shows_in_notifications_is_escaped_too() -> None:
+    action = _action("restart it")
+    action.type = "restart_pod"
+    action.target = "ns/<!channel>"
+    fallback = slack_chatops.fallback_text(action)
+    assert "<" not in fallback and ">" not in fallback
+    assert fallback.startswith("Approval needed: restart_pod on ")
+
+
+def test_the_what_will_happen_lines_are_escaped() -> None:
+    action = _action("remove the copy")
+    action.proposal.model = health.REMOVAL_MODEL
+    action.params = {"preview": ["delete <!channel>", "keep & watch"], "undo": "run <@U1> to undo"}
+    text = _card_text(action)
+    assert "<" not in text and ">" not in text
+    assert "keep &amp; watch" in text
+
+
+def _waiting(target: str) -> Action:
+    action = _action("restart it")
+    action.target = target
+    action.created_at = datetime(2026, 11, 9, 9, 0, tzinfo=UTC)
+    return action
+
+
+@pytest.mark.parametrize("text_of", [
+    lambda a, n, t: approvals._reminder_text(a, n, t),
+    lambda a, n, t: approvals._escalation_text(a, n, t),
+    lambda a, n, t: approvals._expired_text(a),
+])
+def test_the_reminder_escalation_and_expiry_messages_escape_the_target(text_of) -> None:  # type: ignore[no-untyped-def]  # noqa: ANN001
+    now = datetime(2026, 11, 9, 9, 20, tzinfo=UTC)
+    message = text_of(_waiting("ns/<https://example.invalid|Approve all>"), now,
+                      approvals.Timing.from_env())
+    assert "&lt;https://example.invalid|Approve all&gt;" in message
+
+
+def test_the_escalation_still_pings_here_because_that_one_is_ours() -> None:
+    now = datetime(2026, 11, 9, 9, 40, tzinfo=UTC)
+    message = approvals._escalation_text(_waiting("ns/x"), now, approvals.Timing.from_env())
+    assert message.count("<!here>") == 1
+
+
+def test_a_signals_target_cannot_become_markup_in_a_health_alert() -> None:
+    signal = Signal(source="kubernetes", kind="kaval_pod_down", target="ns/svc<!channel>",
+                    value={}, observed_at=datetime(2026, 11, 9, tzinfo=UTC))
+    assert "<!channel>" not in health_alerts.message(signal)
