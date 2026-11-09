@@ -95,7 +95,10 @@ now a plain refusal naming the step.
 - A rollback is unaffected: it goes back to a version prod ran, which was tagged or is grandfathered.
 - The first live run of the tag step with a new version is the proof (Lab 83, Part 3). It happened on
   2026-11-08: `v0.2.0` and the five per-part tags were made, and the staging smoke test accepted the build
-  as a tagged release. The refusal at the real gate and the promotion are still to prove.
+  as a tagged release. On 2026-11-09 the real gate then refused the old build `sha-ba87981` (two plain
+  reasons: prod already runs it, and no version tag on its commit; the second job did not run, no pull
+  request opened), and accepted `sha-1ff61c8` (`v0.2.0`); the change record is `2026-11-09-v0.2.0.md`, no
+  `-2`. Still to see: production reading `v0.2.0` at its next start-up.
 
 **Revisit when** `release-prepare` is forgotten again despite the refusals (then the standing release
 pull request), or a second person releases and "who runs it" needs an owner.
