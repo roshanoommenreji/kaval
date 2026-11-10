@@ -64,20 +64,20 @@ spec:
       slackSecretName: kaval-slack
       approverSecretName: kaval-approver
       image:
-        tag: sha-1ff61c8
+        tag: sha-5ec8e6a
     agent:
       correlateEverySeconds: 60
       image:
-        tag: sha-1ff61c8
+        tag: sha-5ec8e6a
     executor:
       demoNamespace: kaval-demo-prod
       executeEverySeconds: 30
       image:
-        tag: sha-1ff61c8
+        tag: sha-5ec8e6a
     collector:
       watchEverySeconds: 30
       image:
-        tag: sha-1ff61c8
+        tag: sha-5ec8e6a
     # Prometheus, the database server's exporters and a check on Kaval's own gateway (KAV-83,
     # ADR-0051) - hand-kept copy of deploy/environments/prod/values.yaml's own comment block.
     prometheus:
