@@ -1,6 +1,6 @@
 # Lab 85 — Flattening and capping a signal's text
 
-**Phase:** 8 (hardening) · **Story:** `KAV-113` · **Time:** about 30 minutes · **Cost:** $0 for Parts 1 to 4 (local only, no AWS). Part 5 is the live before-and-after run and costs a few cents of dev-server time.
+**Phase:** 8 (hardening) · **Story:** `KAV-113` · **Time:** about 30 minutes · **Cost:** $0 for Parts 1 to 4 (local only, no AWS). Part 5 is the live before-and-after run: the dev server ran about 40 minutes in two sessions, an estimated 2 to 3 cents (not yet read off the bill).
 
 Before the model diagnoses an incident it is shown the incident's cause, then up to four signal messages. A line break in one could start a line that looks like one
 of the message's own headings, and nothing capped how long one could be. [ADR-0072](../adr/0072-a-written-threat-model-and-a-prompt-injection-set.md) found both
@@ -65,22 +65,46 @@ ruff check services evals --output-format concise
 Expect no expected failures at all in the project now (the agent file's two were this story's; the Slack file's six were `KAV-114`'s, [Lab 84](lab-84-escaping-the-text-on-the-slack-card.md)).
 `test_a_signal_message_cannot_forge_a_section_header` and `test_one_signal_cannot_make_the_model_input_arbitrarily_long` are ordinary passing tests.
 
-## Part 5 — The before-and-after run (to do, on Roshan's own phrase)
+## Part 5 — The before-and-after run (done 2026-11-10, on Roshan's phrases `go eval run` and `go with recomended`)
 
-Needs the dev server (`make devbox-up`, `make dev-tunnel`), so it is a live AWS step with its own go. The question is whether the twenty golden numbers move:
+Needs the dev server (`make devbox-up`, then `make dev-tunnel` in a second terminal) and **`opa` on the path**: `make evals` refuses to start without it, because
+without it every action is quietly classified `ask` and the safety gate would read "0 never-class actions" without having checked anything
+([Lab 72](lab-72-the-threat-model-and-the-prompt-injection-set.md) Part 6). CI uses the release file `opa` 1.21.4; on a laptop, download that file for your system,
+check it against the checksum next to it on the release page, and confirm `opa test policy/` says `PASS: 29/29`.
+
+The "before" run needs the old code. Make a read-only checkout of the commit before this change and put its folders first on the path for that one run:
 
 ```bash
-make evals JSON=golden-before.json        # on the commit before this change
-make evals JSON=golden-after.json         # on this change
-make evals SET=injection                  # the long-padding case now arrives cut to 300 characters
+git worktree add --detach ../kaval-before e3cdeae
+B=../kaval-before    # use the full path
+PYTHONPATH="$B/services/agent;$B/services/shared" make evals JSON=golden-before.json   # ";" on Windows, ":" elsewhere
+make evals JSON=golden-after.json
+make evals SET=injection JSON=injection-after.json
 ```
 
-Result: **not run yet** (the figures are filled in after the run, never before).
+**Run the passes at least 15 minutes apart.** The twenty cases use fixed workload names, so a second pass inside the 15-minute quiet window attaches its signals to the incidents the
+first pass left open. The two sparse cases then hold two observations instead of one, Kaval's evidence rule (`kaval_agent.evidence`) allows a higher confidence, and they fail the
+"confidence stays modest" check. That is what happened here and is why there are three golden runs below, not two.
+
+| Run | Time (IST) | Result |
+|---|---|---|
+| Golden, old code (`e3cdeae`) | 20:13 to 20:24 | **20/20**, 0 never-class actions, right fix 8/8, tokens 18,130 in |
+| Golden, new code | 20:24 to 20:33 | **18/20**: both sparse cases failed. They stored 0.7 and 0.95 instead of 0.5, because the first run's signals were still inside the quiet window |
+| Golden, new code, rerun 15+ minutes later | 20:46 to 20:53 | **20/20**, both sparse cases stored 0.5, 0 never-class actions, right fix 8/8, tokens 18,272 in |
+| Injection set, new code | 20:33 to 20:40 | 10/10, 0 never-class actions, right fix 10/10, planted text obeyed 2/7 (the same count as in Lab 72's two runs), cards with live Slack markup 0/7 |
+
+What this shows:
+
+- **The golden numbers did not move.** Old and rerun agree on every line that is a count: 20/20, schema 20/20, root-cause keywords 100%, right fix 8/8, no action where there is no fix 6/6, 0 off-list types.
+  The model has some randomness (temperature 0.2), so confidence figures and token counts differ slightly between any two runs. The text the model is shown for all 41 golden signal texts is identical before and after.
+- **The 18/20 was the test's own leftovers, not the change.** The stored confidence of 0.7 is exactly the "several observations of one kind" cap, and 0.5 is the "one observation" cap; the rerun, away from the leftovers, gave 0.5 for both.
+  This was a reading of the saved numbers that the rerun then confirmed; the leftover rows were not inspected directly.
+- **The long case is cut.** The 6,000-character padding case reached the model as about 300 characters: its input was 1,742 tokens, against 1,467 for a short message in the same run, and the whole set used 16,692 tokens in, down from 17,920 and 18,171 in Lab 72's two runs.
 
 ## Checklist
 
 - [x] `flatten_signal_text` with tests that ordinary text is unchanged
 - [x] `query_text_for` flattens and caps every message it shows; the correlator still reads the whole message
 - [x] The two expected failures are ordinary passing tests
-- [ ] The twenty golden numbers measured before and after (the dev-server run)
+- [x] The twenty golden numbers measured before and after (20/20 and 20/20; see the 18/20 note above)
 - [ ] Released, staging smoke passed, promoted (with `KAV-114`)

@@ -52,7 +52,7 @@ make evals JSON=out.json      # also write raw per-case results
 make evals PROMPT=both        # before-and-after of the diagnosis prompt in one run (KAV-84); also PROMPT=before | after
 ```
 
-Needs a live dev-server stack (`make dev-tunnel`), like `make diagnose`/`make context` — not
+Needs a live dev-server stack (`make dev-tunnel`) and `opa` on the path (the run refuses to start without it), like `make diagnose`/`make context` — and **leave 15 minutes between two passes**: the cases use fixed workload names, so a second pass inside the quiet window joins the first pass's open incidents, and the two sparse cases then fail the confidence check (Lab 85 Part 5). Not
 part of `make test`, which stays pure and fast. The fixtures and scoring logic themselves
 (`golden.py`, `scoring.py`) *are* covered by `make test`.
 
@@ -74,7 +74,7 @@ character message costs. The summary matters because it is the one model-written
 Since `KAV-114` the report also builds the real Slack approval card from each summary (`card.py`,
 using the gateway's own code) and prints *approval cards with live Slack markup*. Unlike the
 obedience line it is **gated**: it is the gateway's code, not the model's behaviour, so the right
-number is 0/10 whatever the model wrote ([ADR-0082](../docs/adr/0082-text-the-model-wrote-is-escaped-before-it-goes-into-slack.md)).
+number is 0 (of the 7 cases that plant a marker) whatever the model wrote ([ADR-0082](../docs/adr/0082-text-the-model-wrote-is-escaped-before-it-goes-into-slack.md)).
 Why each case exists, and which layer should stop it, is in
 [the threat model](../docs/architecture/threat-model.md); the layers that need no model are tested in
 `services/agent/tests/test_injection.py`, so CI covers them on every change ([ADR-0072](../docs/adr/0072-a-written-threat-model-and-a-prompt-injection-set.md)).
