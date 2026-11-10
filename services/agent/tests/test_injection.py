@@ -5,10 +5,11 @@ true *whatever the model says*: the parts of the pipeline that are plain code. E
 row of `docs/architecture/threat-model.md` it backs. The live question (does the real model obey?)
 is `make evals SET=injection`.
 
-Two tests here (and one in the gateway's `test_injection_slack.py`) are `xfail(strict=True)`: they
-state a property Kaval does NOT have yet, each tied to the
-story that adds it. When the story lands the test starts passing, strict mode fails the run, and
-whoever fixed it removes the marker. A known gap is therefore written in code, not just in prose.
+A known gap is written in code, not just in prose: a test that states a property Kaval does not have
+yet is marked `xfail(strict=True)` and tied to the story that adds it. When the story lands the test
+starts passing, strict mode fails the run, and whoever fixed it removes the marker. None are left
+here: KAV-113 (the signal text is flattened and capped, `test_signal_text.py`) removed the last two,
+after KAV-114 removed the Slack ones.
 """
 
 from __future__ import annotations
@@ -109,8 +110,6 @@ def test_the_fix_target_and_cause_are_the_incidents_not_the_texts() -> None:
     assert f"the target is exactly: {TARGET}" in dg.user_message(ctx)
 
 
-@pytest.mark.xfail(strict=True, reason="KAV-113: a newline in a signal's text can start a line "
-                   "that looks like one of the message's own headers; the text is not flattened")
 def test_a_signal_message_cannot_forge_a_section_header() -> None:
     incident = Incident(fingerprint="container_error:k8s:kaval-demo/checkout",
                         severity=Severity.medium, opened_at=NOW)
@@ -120,9 +119,6 @@ def test_a_signal_message_cannot_forge_a_section_header() -> None:
     assert rendered.count("\nRUNBOOKS:") == 1
 
 
-@pytest.mark.xfail(strict=True, reason="KAV-113: nothing caps the length of a signal's text before "
-                   "it is put in front of the model (Kubernetes caps an event near 1,000 "
-                   "characters, Kaval's own code does not)")
 def test_one_signal_cannot_make_the_model_input_arbitrarily_long() -> None:
     incident = Incident(fingerprint="container_error:k8s:kaval-demo/checkout",
                         severity=Severity.medium, opened_at=NOW)

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import unicodedata
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -68,15 +69,45 @@ def _signal_text(signal: Signal) -> str | None:
     return None
 
 
+# What the model is shown of one signal's text (KAV-113, ADR-0083, threat-model rows T-AGENT-4 and
+# T-AGENT-5). The longest message among the twenty golden incidents is 203 characters; Kubernetes
+# itself cuts an event message near 1,000. 300 keeps every real message whole and stops a planted
+# one from filling the input.
+SIGNAL_TEXT_LIMIT = 300
+_CUT_MARK = "…"
+# Control characters (Cc) and the two Unicode line/paragraph separators (Zl, Zp) count as blanks.
+# Invisible format characters (Cf, e.g. a zero-width space) stay: they cannot start a line.
+_BLANK_CATEGORIES = frozenset({"Cc", "Zl", "Zp"})
+
+
+def flatten_signal_text(text: str, limit: int = SIGNAL_TEXT_LIMIT) -> str:
+    """One line, at most `limit` characters: what the model is shown of a signal's text.
+
+    Every kind of line break, tab and control character becomes a space and runs of blanks collapse,
+    so text from outside can never start a line of its own and pass for one of the message's
+    headings. A text longer than `limit` (measured after flattening) is cut and ends in "…", so the
+    model can see it was cut. This is applied only where the model's text is built; the correlator
+    that picks the cause still reads the whole message."""
+    flat = " ".join(
+        "".join(" " if ch.isspace() or unicodedata.category(ch) in _BLANK_CATEGORIES else ch
+                for ch in text).split()
+    )
+    if len(flat) <= limit:
+        return flat
+    return flat[: limit - len(_CUT_MARK)].rstrip() + _CUT_MARK
+
+
 def query_text_for(incident: Incident, signals: Sequence[Signal]) -> str:
     """A short, embeddable description: the fingerprint in words, plus up to four distinct
-    signal messages. Used to find matching runbooks; also worth reading on its own, so
-    `Context.render()` shows it first."""
+    signal messages, each flattened to one line and capped (`flatten_signal_text`, KAV-113).
+    Used to find matching runbooks; also worth reading on its own, so `Context.render()` shows
+    it first."""
     cause, domain, subject = incident.fingerprint.split(":", 2)
     bits = [f"{cause.replace('_', ' ')} on {subject} ({domain})"]
     seen: set[str] = set()
     for signal in signals:
-        text = _signal_text(signal)
+        raw = _signal_text(signal)
+        text = flatten_signal_text(raw) if raw else None
         if text and text not in seen:
             seen.add(text)
             bits.append(text)
