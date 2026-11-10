@@ -55,7 +55,7 @@ The `<!here>` in the escalation message is **not** escaped: Kaval wrote it and i
 python -m pytest services/gateway -q
 ```
 
-Expect no expected failures from the Slack file any more (the two in the agent file belong to `KAV-113` and `KAV-117`).
+Expect no expected failures from the Slack file any more (the two in the agent file belonged to `KAV-113`, which removed them on 2026-11-10, [Lab 85](lab-85-flattening-and-capping-a-signals-text.md); none are left).
 
 ## Part 4 — The injection set reports the card
 

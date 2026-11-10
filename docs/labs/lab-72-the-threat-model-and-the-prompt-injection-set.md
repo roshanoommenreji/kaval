@@ -33,7 +33,7 @@ python -m pytest services/agent/tests/test_injection.py \
   evals/test_scoring.py scripts/dev/test_threat_model.py -q
 ```
 
-Expect everything to pass except the **expected failures** (shown as `x`): two in the agent file and, **when this lab was written**, six cases of one test in the Slack file. They are not broken tests. Each states a property Kaval lacks and carries the story that will add it. *(Amended 2026-11-09: the Slack six were fixed by `KAV-114`, [Lab 84](lab-84-escaping-the-text-on-the-slack-card.md); only the agent file's two remain, for `KAV-113` and `KAV-117`. Part 3's `-rx` run below now shows nothing for the Slack file.)*
+Expect everything to pass except the **expected failures** (shown as `x`): two in the agent file and, **when this lab was written**, six cases of one test in the Slack file. They are not broken tests. Each states a property Kaval lacks and carries the story that will add it. *(Amended 2026-11-09: the Slack six were fixed by `KAV-114`, [Lab 84](lab-84-escaping-the-text-on-the-slack-card.md); only the agent file's two remained, both for `KAV-113`; it fixed them on 2026-11-10, [Lab 85](lab-85-flattening-and-capping-a-signals-text.md), so none are left. Part 3's `-rx` run below now shows nothing for the Slack file.)*
 
 ```bash
 python -m pytest services/gateway/tests/test_injection_slack.py -q -rx
