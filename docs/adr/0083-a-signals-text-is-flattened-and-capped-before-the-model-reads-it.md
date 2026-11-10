@@ -52,4 +52,4 @@ tests, and none are left in the project; the runbook search gets a bounded, sing
 - The flattening does not judge the words: `RUNBOOKS:` in the middle of a line still reaches the model as plain text. That is acceptable: it is no longer a heading,
   and the model's answer is still checked. Labelling the text as data is `KAV-117`.
 - Measured 2026-11-10 ([Lab 85](../labs/lab-85-flattening-and-capping-a-signals-text.md) Part 5): the twenty golden incidents scored 20/20 before and 20/20 after, the injection set 10/10, and the 6,000-character case reached the model cut to about 300 characters. One golden pass read 18/20 because two passes were run too close together against the same dev database; the passes must be at least 15 minutes apart.
-- It reaches production through the usual release round (ADR-0081), together with `KAV-114`: release-prepare, staging smoke, promote, each on Roshan's phrase.
+- It went through the usual release round (ADR-0081) on 2026-11-10 together with `KAV-114`, each step on Roshan's phrase: release-prepare (#361, `v0.3.0`, build `sha-5ec8e6a`), staging smoke (7 of 7), promotion (#364). Production runs it from its next start-up.

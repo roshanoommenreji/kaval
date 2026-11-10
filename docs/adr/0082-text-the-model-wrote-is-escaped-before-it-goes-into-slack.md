@@ -47,6 +47,6 @@ adds a new Slack message with model text has one helper to call and a test shape
 - Formatting characters other than the three (`*`, `_`, `~`) in a summary still format, which Slack's documentation does not treat as a control risk.
   They cannot ping or link.
 - A raw `&amp;` the model really wrote shows as `&amp;`, not `&`. Rare, and it is the faithful rendering of what the model wrote.
-- Staging has no Slack, so the staging proof is the injection set run against the real pipeline, which now reports the card result. The first real
+- Staging has no Slack, so the proof of the card is the injection set run against the real pipeline, which now reports the card result. That run was made on the dev server (0/7 cards with live markup, 2026-11-10), not on staging; the staging smoke test checks the build, not the text. The first real
   card seen in Slack is production's, at its next start-up.
-- It reaches production through the usual release round (ADR-0081): release-prepare, staging smoke, promote, each on Roshan's phrase.
+- It went through the usual release round (ADR-0081) on 2026-11-10, each step on Roshan's phrase: release-prepare (#361, `v0.3.0`, build `sha-5ec8e6a`), staging smoke (7 of 7), promotion (#364).

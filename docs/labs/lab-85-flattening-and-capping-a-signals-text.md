@@ -107,4 +107,4 @@ What this shows:
 - [x] `query_text_for` flattens and caps every message it shows; the correlator still reads the whole message
 - [x] The two expected failures are ordinary passing tests
 - [x] The twenty golden numbers measured before and after (20/20 and 20/20; see the 18/20 note above)
-- [ ] Released, staging smoke passed, promoted (with `KAV-114`)
+- [x] Released, staging smoke passed, promoted (with `KAV-114`): `v0.3.0`, build `sha-5ec8e6a`, staging smoke 7 of 7, promotion #364 (2026-11-10)

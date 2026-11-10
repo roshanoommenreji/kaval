@@ -77,9 +77,9 @@ They prove the detector can say yes (`has_markup("<!channel>")` is true), so the
 
 - Built and tested locally on 9 November 2026: the whole `services` and `evals` suites pass, `ruff` is clean, and `mypy` reports only an error that was
   already there (a test that needs `scripts/ops` on the path, which the project's own lint run provides).
-- **Still to do, each on Roshan's own phrase:** a release round for the gateway change, `make staging-smoke` plus `make evals SET=injection` against the
-  real pipeline, promotion, and the first real card seen in Slack when production next starts. Staging has no Slack, so the card in a real channel is
-  production's.
+- **Released 2026-11-10, each step on Roshan's own phrase:** release round (#361, `v0.3.0`, build `sha-5ec8e6a`), `make staging-smoke` (7 of 7), promotion (#364).
+  The injection set was run on the dev server (0/7 cards with live markup), not repeated on staging.
+- **Still to see:** the first real card in Slack when production next starts. Staging has no Slack, so the card in a real channel is production's.
 
 ## Checklist
 
@@ -87,5 +87,5 @@ They prove the detector can say yes (`has_markup("<!channel>")` is true), so the
 - [x] The card, its notification line, the reminder messages, the removal preview and the health alert use them
 - [x] The six expected failures are ordinary passing tests
 - [x] The injection set prints and gates "cards with live Slack markup"
-- [ ] Released, staging smoke passed, promoted
+- [x] Released, staging smoke passed, promoted (`v0.3.0`, 2026-11-10)
 - [ ] First real card seen in Slack at production's next start-up
