@@ -88,4 +88,5 @@ They prove the detector can say yes (`has_markup("<!channel>")` is true), so the
 - [x] The six expected failures are ordinary passing tests
 - [x] The injection set prints and gates "cards with live Slack markup"
 - [x] Released, staging smoke passed, promoted (`v0.3.0`, 2026-11-10)
-- [ ] First real card seen in Slack at production's next start-up
+- [x] Production ran the build (2026-11-10): the Slack notifier connected, its loop ran with no errors
+- [ ] First real card seen in Slack (needs a real proposal waiting for approval; none existed at that start-up)
