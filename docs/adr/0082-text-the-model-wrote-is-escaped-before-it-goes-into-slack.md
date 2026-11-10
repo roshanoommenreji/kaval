@@ -48,5 +48,7 @@ adds a new Slack message with model text has one helper to call and a test shape
   They cannot ping or link.
 - A raw `&amp;` the model really wrote shows as `&amp;`, not `&`. Rare, and it is the faithful rendering of what the model wrote.
 - Staging has no Slack, so the proof of the card is the injection set run against the real pipeline, which now reports the card result. That run was made on the dev server (0/7 cards with live markup, 2026-11-10), not on staging; the staging smoke test checks the build, not the text. The first real
-  card seen in Slack is production's, at its next start-up.
+  card seen in Slack is production's. Production started on 2026-11-10 (23:32 IST) running this build; the gateway's
+  Slack notifier connected and ran its 30-second loop with no errors, but no card appeared because production had
+  no proposal waiting for approval. The first real card still waits for one.
 - It went through the usual release round (ADR-0081) on 2026-11-10, each step on Roshan's phrase: release-prepare (#361, `v0.3.0`, build `sha-5ec8e6a`), staging smoke (7 of 7), promotion (#364).

@@ -98,7 +98,9 @@ now a plain refusal naming the step.
   as a tagged release. On 2026-11-09 the real gate then refused the old build `sha-ba87981` (two plain
   reasons: prod already runs it, and no version tag on its commit; the second job did not run, no pull
   request opened), and accepted `sha-1ff61c8` (`v0.2.0`); the change record is `2026-11-09-v0.2.0.md`, no
-  `-2`. Still to see: production reading `v0.2.0` at its next start-up.
+  `-2`. The last step was seen on 2026-11-10 at production's start-up: it ran the next release, `v0.3.0`
+  (`sha-5ec8e6a`), and the gateway's own health answer read `"version":"0.3.0"` (the pins are in
+  `make prod-smoke`'s nine passing lines, which also show all four digests equal to the registry's).
 
 **Revisit when** `release-prepare` is forgotten again despite the refusals (then the standing release
 pull request), or a second person releases and "who runs it" needs an owner.
