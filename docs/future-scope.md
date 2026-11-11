@@ -335,7 +335,7 @@ for every kind of thing the code can add, before a review has to find the gap.
 | Design | A STRIDE threat model: 33 threats, each with its proof, and a test that keeps the file honest | Written at the end, in Phase 8. Adding a row for new code is a rule, not a check |
 | Code | Types and lint, model output checked against a schema, a prompt-injection test set, CodeQL on every pull request (`KAV-110`, [ADR-0080](adr/0080-codeql-scans-every-pull-request-and-starts-as-advice.md)) | CodeQL is advice, not yet a required check; nothing scans the infrastructure code |
 | Secrets | gitleaks before commit and over all history, Parameter Store | A rotation schedule |
-| Dependencies | Lock file, pinned actions, Dependabot, Trivy on images | Four unhashed installs (`KAV-111`) |
+| Dependencies | Lock file, pinned actions, Dependabot, Trivy on images, and the packing tool for Kaval's own code installed by hash (`KAV-111`, [ADR-0086](adr/0086-kavals-own-code-is-packed-by-a-hash-checked-tool-and-installed-as-a-wheel.md)) | Nothing unhashed in the build; the repository's own source is the thing being built. Staging has not built it yet |
 | Infrastructure | No inbound ports, network rules in the chart for staging and production, a database role per service | Terraform and Helm are checked for validity, not security. IAM review (Phase 8 line). Outgoing pod traffic is not limited |
 | Release | The digest that passed staging is promoted, and a guard blocks hand edits | SBOM, signing and checking the signature before deploy (Phase 8 line) |
 | Running | Alert on login guessing, a spending brake, the `never` list, restore drills | Nothing else watches for attacks while running; not needed at this size yet |

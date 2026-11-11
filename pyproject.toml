@@ -69,6 +69,13 @@ dev = [
     "httpx2>=2.16.0",     # Starlette's TestClient (successor to httpx; Tom Christie, maintained by Pydantic)
 ]
 
+# The packing tool, listed a second time so uv.lock holds it with hashes (KAV-111): the images'
+# `wheel` stage installs it from the lock and builds with --no-build-isolation, so pip never
+# fetches it (or its helpers) unchecked. Not installed by `uv sync`; the same version as
+# [build-system] below, and scripts/dev/test_pip_install_pins.py fails if they drift apart.
+[dependency-groups]
+build = ["hatchling==1.33.0"]
+
 [build-system]
 requires = ["hatchling==1.33.0"]   # pinned: it builds our wheel inside every image (KAV-24)
 build-backend = "hatchling.build"

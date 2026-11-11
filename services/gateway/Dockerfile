@@ -18,7 +18,27 @@ COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
 COPY pyproject.toml uv.lock ./
 # --frozen: use the lock exactly, and fail rather than re-resolve.
-RUN uv export --frozen --no-dev --extra gateway --no-emit-project -o /requirements.txt
+RUN uv export --frozen --no-dev --extra gateway --no-emit-project -o /requirements.txt \
+ && uv export --frozen --only-group build --no-emit-project -o /build-requirements.txt
+
+# ── Stage 1b: Kaval's own code, packed into one wheel (KAV-111, ADR-0086, Lab 88) ──────────
+# The packing tool (hatchling) and its helpers come from uv.lock, every file hash-checked, and
+# the build is told not to fetch anything else (--no-build-isolation, --no-deps). Before this
+# stage `pip install .` let pip download the tool unchecked on every build. The runtime image
+# below receives only the finished wheel, so it never holds the tool or a second copy of the code.
+FROM python:3.11-slim-bookworm@sha256:f06d01d4ba3f8ad5af45a3ec87df19c1d317d8e8961edc0fabda61811af6f7cf AS wheel
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /app
+COPY --from=lock /build-requirements.txt /tmp/build-requirements.txt
+RUN pip install --require-hashes -r /tmp/build-requirements.txt
+# pyproject.toml lists every service package, so all of them must be present for the build.
+COPY pyproject.toml ./
+COPY services/shared/kaval_shared services/shared/kaval_shared
+COPY services/gateway/kaval_gateway services/gateway/kaval_gateway
+COPY services/collector/kaval_collector services/collector/kaval_collector
+COPY services/agent/kaval_agent services/agent/kaval_agent
+RUN pip wheel --no-deps --no-build-isolation --wheel-dir /wheels .
 
 # ── Stage 2: the runtime image ──────────────────────────────────────────────
 FROM python:3.11-slim-bookworm@sha256:f06d01d4ba3f8ad5af45a3ec87df19c1d317d8e8961edc0fabda61811af6f7cf
@@ -59,18 +79,15 @@ WORKDIR /app
 COPY --from=lock /requirements.txt /tmp/requirements.txt
 RUN pip install --require-hashes -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
-# Then our own code, with --no-deps so nothing outside the lock can sneak in.
-# pyproject.toml lists every service package, so all of them must be present for the build.
-COPY pyproject.toml ./
-COPY services/shared/kaval_shared services/shared/kaval_shared
-COPY services/gateway/kaval_gateway services/gateway/kaval_gateway
-COPY services/collector/kaval_collector services/collector/kaval_collector
-COPY services/agent/kaval_agent services/agent/kaval_agent
+# Then our own code, as the finished wheel from stage 1b: installing a built file needs no
+# packing tool, and --no-deps means nothing outside the lock can sneak in.
+COPY --from=wheel /wheels /wheels
 # Then drop the packaging tools the base image ships: nothing runs them after this line,
 # and setuptools vendors old copies of jaraco.context and wheel that Trivy flags HIGH
 # (CVE-2026-23949, CVE-2026-24049; found by the first CI run, KAV-24). pip goes too: the
 # running service never installs anything, and a shell in the container gets no installer.
-RUN pip install --no-deps . \
+RUN pip install --no-deps /wheels/*.whl \
+ && rm -rf /wheels \
  && pip uninstall -y setuptools wheel pip
 COPY migrations migrations
 

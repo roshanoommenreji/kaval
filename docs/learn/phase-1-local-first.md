@@ -110,7 +110,7 @@ The gateway's Dockerfile, simplified:
 COPY --from=lock /requirements.txt /tmp/requirements.txt
 RUN pip install --require-hashes -r /tmp/requirements.txt   # cached until uv.lock changes
 COPY services/ services/                                    # changes on every edit
-RUN pip install --no-deps .
+RUN pip install --no-deps .                                 # (today: a wheel built in its own stage, KAV-111)
 ```
 
 Reverse them and every source edit reinstalls every dependency. The rule is: **least

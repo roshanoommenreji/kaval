@@ -41,7 +41,7 @@ Only a merged commit should produce an artifact.
 | Least-privilege token | `permissions: contents: read` for the whole workflow. No job reads a secret; checkout doesn't keep the token (`persist-credentials: false`) |
 | Actions pinned to a commit SHA | `uses: actions/checkout@3d3c42e…  # v7.0.1`. A tag can be moved; a SHA can't |
 | Tool binaries checked against a pinned checksum | gitleaks and Trivy are downloaded straight from their releases and checked against a sha256 written into `ci.yml`, not through wrapper actions. A replaced release asset fails the job |
-| Locked dependencies | `uv.lock` (46 packages, each with its file hashes). CI runs `uv sync --locked`, which fails if the lock and `pyproject.toml` disagree. Both images install from the same lock with `pip --require-hashes`, then our own package with `--no-deps` |
+| Locked dependencies | `uv.lock` (46 packages, each with its file hashes). CI runs `uv sync --locked`, which fails if the lock and `pyproject.toml` disagree. Both images install from the same lock with `pip --require-hashes`, then our own package with `--no-deps` (since `KAV-111`, [ADR-0086](0086-kavals-own-code-is-packed-by-a-hash-checked-tool-and-installed-as-a-wheel.md), as a wheel built in its own stage by a packing tool that also comes from the lock, by hash) |
 | Pinned base images | `python:3.11-slim-bookworm@sha256:…` and the `uv` build stage, pinned by digest. The build backend (`hatchling`) is pinned too |
 | Updates are proposed, never automatic | Dependabot, weekly, one grouped PR per ecosystem (actions, uv, Docker, Terraform), each going through CI like any other change |
 
