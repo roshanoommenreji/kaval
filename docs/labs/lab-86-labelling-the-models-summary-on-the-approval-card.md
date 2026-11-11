@@ -100,6 +100,7 @@ What this shows, and what it does not:
 - **Release round.** `release-prepare.yml` opened #370 "Kaval 0.4.0" (gateway 0.3.0 to 0.4.0, agent 0.3.0 to 0.4.0, collector 0.2.0 to 0.3.0, executor 0.2.0 to 0.3.0); he approved its checks and merged it (main 14311a9). `release.yml` built the five images once and tagged `v0.4.0`; the bot's staging pin #371 says "This build is release `v0.4.0`" and he merged it (main 5818e0a). The older bot pin #368 (a build that was not a release) was closed unmerged with a comment.
 - **Staging smoke on `sha-14311a9`: 7 of 7 passed**, and the "build is a tagged release" check passed (`v0.4.0`; production runs `v0.3.0`). The record is in `deploy/promotion/passed-staging.json`. Staging was then deleted and the read-only sweep came back clean; production's 23 backup copies were identical before and after.
 - **What went sideways.** The first build stopped partway: AWS had no spare `t4g.medium` in one zone (ap-south-1b). The server group retried and got a server in another zone within seconds, but Terraform had already given up and marked the group "failed" in its record. The fix was two steps, each shown to him first and run only on his phrase: `terraform untaint` on that one group (a record edit, nothing changed in AWS), then the same `make staging-up`. The safety check refused the first re-run because the plan had one change I had not shown him (a free group graph, `GroupDesiredCapacity`, that the interrupted build had not yet switched on); he approved the corrected numbers (6 to add, 1 to change, 0 to destroy) and the build finished with all nine apps running.
+- **Promoted.** On his phrase `go promote sha-14311a9`, `promote.yml` passed all five gate checks (on the passed-staging record, newer than production, a tagged release, ECR digests equal, no unsigned acceptance stories among `KAV-113`, `KAV-114`, `KAV-117`, `KAV-135`) and opened #373, which he approved and merged (main b8202a2). Production's pin files say `sha-14311a9`; production is parked and picks it up at its next start-up, when the migration also runs. Jira `KAV-117` is ticked and Done.
 - **Not covered, as always on staging:** the Slack card itself (staging has no Slack app of its own). The first real card with the new label is seen only in a production session.
 
 ## Checklist
@@ -110,4 +111,5 @@ What this shows, and what it does not:
 - [x] The injection set gates "cards without the label or the not-approved line" at zero
 - [x] The golden twenty still 20/20 with the new prompt (20/20); the obeyed count measured (2/7 before, 1/7 after; not shown to be better, Part 5)
 - [x] Released (`v0.4.0`) and the staging smoke passed (7 of 7, Part 6)
-- [ ] Promoted to production (and the first real card seen in Slack)
+- [x] Promoted to production (Part 6, #373; production is parked, so it runs `v0.4.0` at its next start-up)
+- [ ] The first real card, with the label, seen in Slack (a production session with a real proposal waiting)
