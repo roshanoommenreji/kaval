@@ -24,12 +24,12 @@ from __future__ import annotations
 
 import argparse
 import sys
-import unicodedata
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from kaval_shared.models import Incident, Outcome, RunbookChunk, Signal
+from kaval_shared.text import flatten_line
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -74,27 +74,15 @@ def _signal_text(signal: Signal) -> str | None:
 # itself cuts an event message near 1,000. 300 keeps every real message whole and stops a planted
 # one from filling the input.
 SIGNAL_TEXT_LIMIT = 300
-_CUT_MARK = "…"
-# Control characters (Cc) and the two Unicode line/paragraph separators (Zl, Zp) count as blanks.
-# Invisible format characters (Cf, e.g. a zero-width space) stay: they cannot start a line.
-_BLANK_CATEGORIES = frozenset({"Cc", "Zl", "Zp"})
 
 
 def flatten_signal_text(text: str, limit: int = SIGNAL_TEXT_LIMIT) -> str:
     """One line, at most `limit` characters: what the model is shown of a signal's text.
 
-    Every kind of line break, tab and control character becomes a space and runs of blanks collapse,
-    so text from outside can never start a line of its own and pass for one of the message's
-    headings. A text longer than `limit` (measured after flattening) is cut and ends in "…", so the
-    model can see it was cut. This is applied only where the model's text is built; the correlator
-    that picks the cause still reads the whole message."""
-    flat = " ".join(
-        "".join(" " if ch.isspace() or unicodedata.category(ch) in _BLANK_CATEGORIES else ch
-                for ch in text).split()
-    )
-    if len(flat) <= limit:
-        return flat
-    return flat[: limit - len(_CUT_MARK)].rstrip() + _CUT_MARK
+    The cleaner itself is `kaval_shared.text.flatten_line` (moved there in KAV-117 so the gateway
+    can use it on the card's summary). It is applied only where the model's text is built; the
+    correlator that picks the cause still reads the whole message."""
+    return flatten_line(text, limit)
 
 
 def query_text_for(incident: Incident, signals: Sequence[Signal]) -> str:

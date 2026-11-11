@@ -61,6 +61,12 @@ def pending_actions(session: Session) -> list[Action]:
     return list(session.scalars(query))
 
 
+def _by_model(action: Action) -> bool:
+    """True unless the proposal came from the removal planner, whose summary Kaval's rules wrote
+    (the same test `_preview` uses). Only a model's words are labelled 'not checked' (KAV-117)."""
+    return action.proposal.model != health.REMOVAL_MODEL
+
+
 def _preview(action: Action) -> str:
     """What a removal will do and how to undo it (KAV-95), for the person deciding. Shown only for a
     proposal the removal planner made by rule: its preview is text Kaval wrote, whereas anything a
@@ -99,10 +105,11 @@ def _blocks(action: Action) -> list[dict[str, Any]]:
                 "type": "mrkdwn",
                 "text": (
                     f"*{slack_text.code(action.type)}* on `{slack_text.code(action.target)}`\n"
-                    f"{slack_text.escape(proposal.summary)}"
+                    f"{slack_text.summary_line(proposal.summary, by_model=_by_model(action))}"
                     f"{_preview(action)}\n"
                     f"blast radius: `{action.blast_radius.value}` · reversible: "
-                    f"`{action.reversible}` · confidence: `{proposal.confidence:.2f}`"
+                    f"`{action.reversible}` · confidence: `{proposal.confidence:.2f}`\n"
+                    f"{slack_text.not_approved_line()}"
                 ),
             },
         },
