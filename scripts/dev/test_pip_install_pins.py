@@ -187,3 +187,56 @@ def test_the_build_group_is_not_installed_by_default() -> None:
     pyproject = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
     defaults = pyproject.get("tool", {}).get("uv", {}).get("default-groups", ["dev"])
     assert "build" not in defaults, "the packing tool belongs in the wheel stage, not in every sync"
+
+
+# --- What the installed code does not carry, and the image must still hold -------------------
+#
+# The first version of this change dropped /app/pyproject.toml from the runtime image along with
+# the second copy of the source. Alembic reads its settings from `[tool.alembic]` in that file
+# (`script_location = "%(here)s/migrations"`), so the migrate job failed on staging with "No
+# 'script_location' key found in configuration" and staging never came up (KAV-111, 2026-11-12).
+# The wheel holds the Python packages only; a file read at run time has to be copied in by hand.
+
+MIGRATE_JOB = ROOT / "deploy" / "charts" / "kaval" / "templates" / "migrate-job.yaml"
+
+
+def _copied_into(instructions: list[str]) -> set[str]:
+    """What a stage copies in from the build context (not from another stage), by source path."""
+    copied: set[str] = set()
+    for instruction in instructions:
+        words = instruction.split()
+        if words[:1] == ["COPY"] and not any(w.startswith("--from") for w in words[1:]):
+            copied.update(w for w in words[1:-1] if not w.startswith("--"))
+    return copied
+
+
+def test_the_chart_runs_the_migration_from_the_gateway_image() -> None:
+    """The premise of the next tests: if this changes, they must be revisited."""
+    job = MIGRATE_JOB.read_text(encoding="utf-8")
+    assert '["alembic", "upgrade", "head"]' in job
+    assert ".Values.gateway.image.repository" in job, (
+        "the migrate job no longer uses the gateway image"
+    )
+
+
+def test_alembic_finds_its_settings_and_migrations_next_to_pyproject() -> None:
+    pyproject = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    assert pyproject["tool"]["alembic"]["script_location"] == "%(here)s/migrations"
+
+
+def test_the_gateway_image_holds_what_the_migration_job_reads() -> None:
+    runtime = _stages(DOCKERFILES["gateway"].read_text(encoding="utf-8"))["runtime"]
+    copied = _copied_into(runtime)
+    assert "pyproject.toml" in copied, "alembic's [tool.alembic] settings are in pyproject.toml"
+    assert "migrations" in copied, "the migration scripts"
+    assert any(i.startswith("WORKDIR /app") for i in runtime), "both are read from /app"
+
+
+def test_the_copied_files_rule_sees_what_it_should() -> None:
+    """The rule itself: it must notice a file that is not copied, and ignore a stage copy."""
+    assert _copied_into(["COPY pyproject.toml ./", "COPY migrations migrations"]) == {
+        "pyproject.toml",
+        "migrations",
+    }
+    assert _copied_into(["COPY --from=wheel /wheels /wheels"]) == set()
+    assert "pyproject.toml" not in _copied_into(["COPY --from=wheel /wheels /wheels", "COPY a b"])

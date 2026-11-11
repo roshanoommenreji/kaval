@@ -89,6 +89,12 @@ COPY --from=wheel /wheels /wheels
 RUN pip install --no-deps /wheels/*.whl \
  && rm -rf /wheels \
  && pip uninstall -y setuptools wheel pip
+
+# What the wheel does not carry: the migration job runs `alembic upgrade head` in this image, and
+# alembic reads its settings ([tool.alembic], script_location = "%(here)s/migrations") from the
+# pyproject.toml next to the migrations. Leaving it out broke staging's first build of the wheel
+# (KAV-111, 2026-11-12: "No 'script_location' key found in configuration").
+COPY pyproject.toml ./
 COPY migrations migrations
 
 # The component version, passed in by CI from kaval_gateway.__version__ (ADR-0013). A local build
