@@ -110,7 +110,15 @@ GRANT SELECT ON incident, proposal, action, execution, outcome TO kaval_gateway;
 -- line the post succeeded and the bookkeeping update was refused, so the same approval would have
 -- been posted again every 30 seconds (found by running this file against a scratch database).
 GRANT UPDATE (slack_notified_at, slack_ts) ON action TO kaval_gateway;
-GRANT SELECT, INSERT, UPDATE ON decision TO kaval_gateway;
+-- decision: write once (KAV-116, threat model T-APPROVE-4). A verdict is recorded and read, never
+-- changed; the code only ever INSERTs one (decisions.record_decision) and a second verdict on the
+-- same action is refused by a unique constraint. The gateway was also granted UPDATE here, which
+-- nothing used but which would have let a confused or hijacked gateway turn a "denied" into an
+-- "approved" afterwards. The REVOKE is not decoration: a GRANT is never undone by deleting its
+-- line, and production's database was given UPDATE by an earlier run of this very file, so this
+-- file takes it back on every run (a no-op where the right is already absent).
+GRANT SELECT, INSERT ON decision TO kaval_gateway;
+REVOKE UPDATE, DELETE, TRUNCATE ON decision FROM kaval_gateway;
 -- signal and incident_signal: /v1/signals and /v1/incidents read them. alembic_version: /healthz
 -- runs `SELECT version_num FROM alembic_version`. All three were missing, so on the deployed
 -- gateway /healthz failed with a permissions error (reported as ProgrammingError) and the

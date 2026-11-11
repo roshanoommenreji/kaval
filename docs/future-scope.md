@@ -346,7 +346,7 @@ for every kind of thing the code can add, before a review has to find the gap.
 |---|---|---|---|
 | A web route | Decide who may call it, deny by default. Limit input size, set timeouts | A network rule naming its callers; a tunnel, not a public address | A test that walks the route table; chart tests on the rendered rules |
 | A secret | Read it at start-up, never log it or put it in an error | Parameter Store, encrypted, with a rotation date | gitleaks; a test that it never reaches a log or metric |
-| A table or query | Parameters only, no SQL built from strings. A role with only the rights it needs | Database reachable only from the app server, encrypted on disk and in transit, backed up and restore-tested | A code scanner rule; a test of each role's rights (`KAV-116`) |
+| A table or query | Parameters only, no SQL built from strings. A role with only the rights it needs | Database reachable only from the app server, encrypted on disk and in transit, backed up and restore-tested | A code scanner rule; a test of each role's rights (built in `KAV-116`: `test_db_roles.py` lists every login's rights table by table) |
 | Outside text reaching the model | Flatten it, cap it, label it as data. Check the reply against a schema | Limit where that pod can connect | The injection set and `test_threat_model.py` |
 | A call to AWS or Kubernetes | Only the executor writes, never the agent | A role that allows exactly those calls, no wildcards | Calls compared with the role; IAM Access Analyzer |
 | A dependency or image | Pin it, hash it | SBOM, signature checked before deploy, runs as non-root | Trivy, Dependabot, an admission policy |

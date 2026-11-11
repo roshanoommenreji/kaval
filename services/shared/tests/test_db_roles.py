@@ -76,6 +76,142 @@ def test_the_gateway_can_record_what_it_told_people_but_not_rewrite_it(
     assert not _can(db_session, "kaval_gateway", "DELETE FROM notification")
 
 
+def test_the_gateway_records_and_reads_decisions_but_can_never_change_one(
+    db_session: Session,
+) -> None:
+    """KAV-116 (threat model T-APPROVE-4): a verdict is written once. The gateway's login could
+    also UPDATE the table, though no code does, so a confused or hijacked gateway could have turned
+    a "denied" into an "approved" after the fact. Recording and reading is all it gets."""
+    _apply_roles(db_session)
+
+    # `WHERE false` / `SELECT ... WHERE false`: the right is checked before any row is touched, so
+    # no action row is needed for this to tell "refused" from "allowed".
+    assert _can(db_session, "kaval_gateway",
+                "INSERT INTO decision (id, action_id, verdict, actor, decided_at) "
+                "SELECT gen_random_uuid(), gen_random_uuid(), 'approved', 'x', now() WHERE false")
+    assert _can(db_session, "kaval_gateway", "SELECT id, verdict, actor FROM decision WHERE false")
+    assert not _can(db_session, "kaval_gateway", "UPDATE decision SET verdict = 'approved'")
+    assert not _can(db_session, "kaval_gateway", "UPDATE decision SET actor = 'x' WHERE false")
+    assert not _can(db_session, "kaval_gateway", "DELETE FROM decision")
+    assert not _can(db_session, "kaval_gateway", "TRUNCATE decision")
+
+
+def test_the_real_approval_code_still_works_as_the_gateways_own_login(db_session: Session) -> None:
+    """The point of the change is to take UPDATE away without breaking the one thing the gateway
+    does with this table. So the real `record_decision` runs here as `kaval_gateway` itself (not as
+    the all-powerful test user, which could not see a missing right, KAV-95): it must record a
+    verdict, read it back, and refuse a second one."""
+    from datetime import UTC, datetime
+    from decimal import Decimal
+
+    from kaval_gateway.decisions import DecisionOutcome, record_decision
+    from kaval_shared.models import (
+        Action,
+        BlastRadius,
+        Incident,
+        PolicyClass,
+        Proposal,
+        RiskLevel,
+        Severity,
+        Verdict,
+    )
+
+    _apply_roles(db_session)
+    incident = Incident(fingerprint="kav116-role-test", severity=Severity.high,
+                        opened_at=datetime.now(UTC), signals=[])
+    proposal = Proposal(incident=incident, summary="restart checkout", root_cause="memory",
+                        confidence=0.8, risk=RiskLevel.low, model="test", tokens_in=1,
+                        tokens_out=1, cost_usd=Decimal("0"))
+    action = Action(proposal=proposal, type="rollout_restart", target="ns/deploy/x", params={},
+                    reversible=True, blast_radius=BlastRadius.pod, policy_class=PolicyClass.ask)
+    db_session.add_all([incident, proposal, action])
+    db_session.flush()
+    action_id = action.id
+
+    db_session.execute(text("SET LOCAL ROLE kaval_gateway"))
+    outcome, decision = record_decision(db_session, action_id, Verdict.denied, actor="roshan")
+    assert outcome is DecisionOutcome.recorded and decision is not None
+    assert decision.verdict == Verdict.denied
+    again, _ = record_decision(db_session, action_id, Verdict.approved, actor="someone-else")
+    assert again is DecisionOutcome.already_decided
+    stored = db_session.execute(
+        text("SELECT verdict FROM decision WHERE action_id = :a"), {"a": action_id}).scalar_one()
+    assert stored == "denied"  # and the second, "approved", never overwrote it
+
+
+def test_a_database_that_already_has_the_old_update_right_loses_it(db_session: Session) -> None:
+    """The case a fresh test database hides. Production's database was given UPDATE on `decision`
+    by an earlier run of the script, and a GRANT is never undone by deleting its line. So the script
+    must say REVOKE out loud. This starts from the old state, runs the script, and checks it is
+    gone."""
+    _apply_roles(db_session)
+    # How the database used to be:
+    db_session.execute(text("GRANT UPDATE, DELETE ON decision TO kaval_gateway"))
+    assert _can(db_session, "kaval_gateway",
+                "UPDATE decision SET verdict = 'approved' WHERE false")
+
+    _apply_roles(db_session)  # the next start-up runs the script again
+
+    assert not _can(db_session, "kaval_gateway", "UPDATE decision SET verdict = 'approved'")
+    assert not _can(db_session, "kaval_gateway", "DELETE FROM decision")
+    # ...and it did not take away what the gateway does need.
+    assert _can(db_session, "kaval_gateway", "SELECT id FROM decision WHERE false")
+
+
+def test_the_script_never_grants_the_gateway_update_on_decision() -> None:
+    """The cheap guard, readable without a database: a line that hands UPDATE on `decision` to the
+    gateway fails here even on a laptop where the database tests above are skipped."""
+    for raw in SCRIPT.read_text(encoding="utf-8").splitlines():
+        line = raw.split("--", 1)[0].strip().upper()
+        if line.startswith("GRANT") and " ON DECISION" in line and "KAVAL_GATEWAY" in line:
+            words = set(line.split(" ON DECISION", 1)[0].replace(",", " ").split())
+            assert not words & {"UPDATE", "DELETE", "TRUNCATE", "ALL"}, raw
+
+
+# Everything each service's login may do, table by table (ADR-0008). A table or right missing here
+# means "none": so a new table, or a right added by a slip, fails this test until someone writes it
+# down on purpose. Column-level grants (the gateway's two columns on `action`) are not table rights
+# and are checked on their own above.
+_S, _I, _U, _D = "SELECT", "INSERT", "UPDATE", "DELETE"
+EXPECTED_RIGHTS: dict[str, dict[str, set[str]]] = {
+    "kaval_collector": {"signal": {_S, _I}},
+    "kaval_agent": {
+        "signal": {_S}, "incident": {_S, _I, _U}, "proposal": {_S, _I, _U},
+        "action": {_S, _I, _U}, "incident_signal": {_S, _I},
+        "runbook_chunk": {_S, _I, _U, _D}, "outcome": {_S},
+        "decision": {_S}, "execution": {_S},
+    },
+    "kaval_executor": {
+        "action": {_S}, "decision": {_S}, "execution": {_S, _I, _U}, "outcome": {_S, _I, _U},
+        "signal": {_S}, "incident": {_S}, "incident_signal": {_S}, "proposal": {_S},
+    },
+    "kaval_gateway": {
+        "incident": {_S}, "proposal": {_S}, "action": {_S}, "execution": {_S}, "outcome": {_S},
+        "decision": {_S, _I}, "signal": {_S}, "incident_signal": {_S}, "alembic_version": {_S},
+        "notification": {_S, _I},
+    },
+}
+
+
+def test_every_login_has_exactly_the_table_rights_written_down(db_session: Session) -> None:
+    _apply_roles(db_session)
+    tables = [row[0] for row in db_session.execute(text(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY 1"))]
+    assert tables, "no tables found, so this test would prove nothing"
+
+    actual: dict[str, dict[str, set[str]]] = {}
+    for role in EXPECTED_RIGHTS:
+        for table in tables:
+            for right in (_S, _I, _U, _D):
+                allowed = db_session.execute(
+                    text("SELECT has_table_privilege(:r, :t, :p)"),
+                    {"r": role, "t": f"public.{table}", "p": right}).scalar()
+                if allowed:
+                    actual.setdefault(role, {}).setdefault(table, set()).add(right)
+
+    assert actual == EXPECTED_RIGHTS
+
+
 def test_the_executor_cannot_approve_anything(db_session: Session) -> None:
     _apply_roles(db_session)
 
