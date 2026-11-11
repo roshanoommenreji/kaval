@@ -196,6 +196,8 @@ Measured, 2026-10-14 (`KAV-84`, Lab 51): about two to two and a half hours of th
 before-and-after eval passes (about 200 diagnoses) and the probes in between cost about 6 cents of server and address time. The surplus-CPU line
 above is the part not yet read off the bill; the model runs the CPU flat out, so up to about 8 cents an hour is possible.
 
+Measured, 2026-11-11 (`KAV-117`, Lab 86): the before-and-after eval run took two sessions of the dev server (the first stopped itself after an hour idle between runs), about two to two and a half hours in all, so an estimated 7 cents of server and address time at the rates above. An estimate: the first session's stop time and the surplus-CPU part were not read off the bill.
+
 **The model in the cluster (KAV-87, [ADR-0055](../adr/0055-the-model-runs-in-the-cluster-and-diagnoses-new-incidents.md)).**
 Recurring AWS cost: **$0**. It runs on the app node and uses its existing root disk (about 1.1 GB of the 20 GB); no
 new machine, volume or address. The only variable cost is surplus CPU: a diagnosis uses up to 1.5 vCPUs for 10 to 60

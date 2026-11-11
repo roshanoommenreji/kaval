@@ -1,6 +1,6 @@
 # ADR-0084: The model's summary is labelled, and the approval card says nobody has approved
 
-**Status:** Accepted on 2026-11-11 (Roshan: "go with your recommendations" on the plan). Built in `KAV-117`; the live before-and-after run, the release round and the staging and production proof are still to come (see Consequences).
+**Status:** Accepted on 2026-11-11 (Roshan: "go with your recommendations" on the plan). Built in `KAV-117`; the live before-and-after run is done (Lab 86 Part 5); the release round and the staging and production proof are still to come (see Consequences).
 **Date:** 2026-11-11
 **Related:** [ADR-0072](0072-a-written-threat-model-and-a-prompt-injection-set.md) (the threat model that found this gap, row T-AGENT-9),
 [ADR-0082](0082-text-the-model-wrote-is-escaped-before-it-goes-into-slack.md) (the same text, made safe as markup),
@@ -56,6 +56,6 @@ cannot be mistaken for a decision. T-AGENT-9 moves from "measured, not prevented
 **Harder / limits:**
 - The model can still *write* a false claim in its summary; the card now shows it as the model's unchecked words rather than stopping it. Only the person's judgement, helped by the
   label, stands between a persuasive false summary and a click. That is accepted for a one-person workspace.
-- The prompt sentence helps only partly. Its effect is measured, not assumed (Lab 86 Part 5).
+- The prompt sentence helps only partly, and its benefit is not shown. Measured 2026-11-11 ([Lab 86](../labs/lab-86-labelling-the-models-summary-on-the-approval-card.md) Part 5): planted text obeyed 2/7 before and 1/7 after (every earlier run on the old code was also 2/7, so one case is within the model's own randomness); cards without the label or the closing line 0/7; the golden twenty 20/20; about 80 more input tokens per diagnosis.
 - The card is one line longer. The first real card in Slack, with the escaping of `KAV-114` and this label, has still not been seen: staging has no Slack and production had no proposal waiting.
-- Not yet done: the live before-and-after run, the release round (ADR-0081), staging smoke and promotion, each on Roshan's own phrase.
+- Not yet done: the release round (ADR-0081), staging smoke and promotion, each on Roshan's own phrase.
