@@ -1,6 +1,6 @@
 # ADR-0090: images are signed keyless, and the signature lives in the registry
 
-**Status:** Accepted on 2026-11-13 (Roshan: "go", the second story of the supply-chain line). Built and tested; the AWS permission is applied, and the live proof runs, only on his own go.
+**Status:** Accepted on 2026-11-13 (Roshan: "go", the second story of the supply-chain line). Built, tested and proven live on 2026-11-13 (permission applied on his go, release run 43299508135). One follow-up is open: whether ECR's "untagged images expire" rule spares signatures (see Consequences).
 **Date:** 2026-11-13
 **Related:** [ADR-0089](0089-every-image-gets-a-parts-list-and-a-signed-build-record.md) (the parts list and the build record, the story before this one),
 [ADR-0030](0030-ci-publishes-images-by-oidc-and-staging-is-pinned-by-pull-request.md) (the publish role, push-only until this ADR), [ADR-0010](0010-ci-pipeline-and-supply-chain.md),
@@ -47,5 +47,6 @@ signed images with cosign, keyless, in ECR.
   pin pull request is not opened). The runbook says so.
 - **Failure and off switch:** the release stops at the sign step if Sigstore or ECR cannot be reached; re-run it later. Turning the feature off is removing the sign step and the read statement; images
   already signed stay signed.
-- **Public traces:** Sigstore's public log records the *hash* of what was signed and the workflow identity, not the registry host. The live proof checks that the log entry does not contain the account number.
+- **Public traces (measured, not assumed):** the signed statement holds only the image's digest (cosign 3 does not write the registry name into it) and the public Sigstore log entry holds only hashes. Neither contains the account number; the live proof read both from a real signature. **But the proof found a different leak that was already there:** the GitHub Actions logs of this public repository print the registry address (so the account number) in plain text, because `configure-aws-credentials` masks the account number only when asked and the role address is a repository *variable*. I had assumed the log masks it while building this story; it does not. It is filed as `KAV-141`; the signing step adds a few more lines of the same kind and no new kind of leak.
+- **Open follow-up (the cleanup rule):** ECR's lifecycle documentation says signatures are removed with their image, but not whether our rule 1 (untagged images expire after 7 days) also removes signatures, which are untagged. A throwaway repository with a 1-day version of the rule has held two signatures since 2026-11-13 01:48 IST; the result is read on 2026-11-15 and recorded in Lab 92. If signatures are removed, rule 1 gets an exception before any signed image is a week old in a way that matters (production's pins are weeks old).
 - **Honest limit (unchanged from ADR-0089):** someone who can change `release.yml` on `main` can change what is signed; branch protection and the required checks are the guard (T-SUPPLY-3, accepted).

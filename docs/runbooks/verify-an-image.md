@@ -30,7 +30,7 @@ This is how a person reads and checks them. It only reads: nothing here changes 
    A pass exits 0 (piped, it prints nothing; add `--format json` to see the signer workflow, the commit and the run). A wrong signer exits 1. Take the digest from ECR (`aws ecr describe-images`), not from a tag you were told.
 5. **Check the signature kept in the registry** (cosign; same login as step 4; the workflow uses cosign 3.1.4, see `COSIGN_VERSION`):
    `cosign verify <account>.dkr.ecr.ap-south-1.amazonaws.com/kaval/gateway@sha256:<digest> --certificate-identity https://github.com/<owner>/<repo>/.github/workflows/release.yml@refs/heads/main --certificate-oidc-issuer https://token.actions.githubusercontent.com`.
-   A pass prints the signature as JSON and exits 0. The same command with another identity (for example `…/ci.yml@refs/heads/main`) must exit 1. Spell the identity out; never use a pattern. The output contains the registry host: do not paste it anywhere public.
+   A pass prints the signature as JSON and exits 0. The same command with another identity (for example `…/ci.yml@refs/heads/main`) must exit 1. Spell the identity out; never use a pattern. The output contains the registry host (the account number): do not paste it anywhere public. A pass looks like `The cosign claims were validated` and `The code-signing certificate was verified`; a refusal ends with an error and exit 1 (shown on 2026-11-13 for the wrong workflow, the wrong branch and the wrong issuer).
 6. **The parts list bound to the digest:** `gh api -X GET repos/<owner>/<repo>/attestations/sha256:<digest> -f predicate_type=https://cyclonedx.org/bom --jq '.attestations | length'` is 1 or more.
 
 ## Remediation
