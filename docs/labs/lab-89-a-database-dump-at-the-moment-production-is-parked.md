@@ -40,7 +40,7 @@ and in the Makefile the order is dump, then the marker, then `terraform apply`, 
 
 ## Part 4 — The live proof (at production's next park)
 
-Do these on production's next start-up, with his go. They are not done yet.
+Done on 2026-11-12 (his `go production start-up`, `apply production`); the first live run. The script was run through the park script rather than `make down` (which asks for a typed yes at `terraform apply`), but it is the same dump step.
 
 1. Before parking, note the newest dump: `aws s3 ls s3://<backup bucket>/postgres/ | tail -2` (the bucket name comes from `terraform output backup_bucket_name`; do not write it into git).
 2. Park with `make down` (or the runbook's step 8 with `bash scripts/ops/dump-before-park.sh` first). Expect the script to print the unit's log ending in `done.` and "Dump taken and uploaded. Safe to park."
@@ -57,4 +57,4 @@ Do these on production's next start-up, with his go. They are not done yet.
 ## Done when
 
 - [x] The script, the `make down` step and the runbook step exist; 10 tests pass
-- [ ] The first live run at production's next park is recorded (new dump listed, `LATEST` moved, a same-day restore drill passing)
+- [x] The first live run at production's next park is recorded *(2026-11-12 23:48 IST: dump uploaded, `LATEST` moved to `kaval-20261112T181813Z.dump`, restore drill PASS the same night, [record](../drills/restore-2026-11-12.md))*
