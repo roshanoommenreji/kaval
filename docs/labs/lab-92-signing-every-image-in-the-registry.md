@@ -71,9 +71,27 @@ To see that the last test bites, delete the second `check` line from the step an
 4. **Negative, by hand:** the same with `--certificate-identity` set to `…/ci.yml@refs/heads/main` is refused.
 5. **Re-run:** run release again for the same commit; the sign step says `already carries a valid signature` and adds nothing.
 6. **Public log:** fetch the Sigstore log entry of the signature and confirm it does not contain the account number.
-7. **Cleanup rule:** run `aws ecr start-lifecycle-policy-preview` for one repository and read the result: signatures of existing images must not be listed.
+7. **Cleanup rule:** ECR's lifecycle *preview* only judges what is old enough today, so it cannot answer this on the day (a signature pushed minutes ago is never old enough). Use a throwaway test instead: Part 6.
 
-Results of the live proof are added to this lab when it is done.
+### What the live proof showed (2026-11-13, release run 43299508135, commit 152b59e)
+
+- All five `publish` jobs and `propose` succeeded. Each job's sign step ended `sha256:… signed, and the signature checked`, and the store check found one record of each kind (`slsa.dev/provenance` and `cyclonedx`) for the new digests.
+- **By hand, right identity:** `cosign verify <registry>/kaval/gateway@<digest> --certificate-identity …/release.yml@refs/heads/main --certificate-oidc-issuer https://token.actions.githubusercontent.com` exited 0 and found one signature.
+- **Negative, by hand (all exit 1):** the identity `…/ci.yml@refs/heads/main`; the identity on a different branch (`refs/heads/other`); the right identity with a different issuer (`https://accounts.google.com`).
+- **Re-run** (run 43300302606, same commit): every job said `is already published; reusing it` and then `already carries a valid signature from this workflow; nothing to add`. Nothing was signed twice.
+- **What ECR holds:** the signature is an untagged item whose manifest has `subject` set to the image's digest and `artifactType` `application/vnd.dev.sigstore.bundle.v0.3+json`. Its signed statement holds only the digest; the public log entry holds only hashes. Neither contains the account number.
+- **Parts list:** `gh api -X GET repos/<owner>/<repo>/attestations/<digest> -f predicate_type=https://cyclonedx.org/bom` returns one record.
+- **Not as expected:** the proof showed the AWS account number in the public Actions log (the registry address in several steps, the role address as an input). That is not new with this story; it is filed as `KAV-141`.
+- Both runs opened a staging-pin pull request for the merge commit (#399, closed unmerged; the second run found the branch already there).
+
+## Part 6 — The cleanup-rule test (a throwaway repository, 3 KB)
+
+1. Create a repository with immutable tags and the tags `Env=dryrun`, `ManagedBy=manual-throwaway`; push any small image; sign it twice with a local key (`cosign generate-key-pair`, `cosign sign --key cosign.key --yes <repo>@<digest>`). Two signature items appear in `aws ecr describe-images` with `artifactMediaType` `application/vnd.dev.sigstore.bundle.v0.3+json` and no tag. Verify with `cosign verify --key cosign.pub`; a different key must be refused.
+2. Give the repository a lifecycle rule with `tagStatus: untagged`, `sinceImagePushed`, 1 day (the smallest allowed).
+3. After a day plus up to 24 hours, list the repository again. **Both signatures still there** means the untagged rule spares signatures; **gone** means it removes them and rule 1 needs an exception.
+4. Delete the repository (`aws ecr delete-repository --force`).
+
+Result: _to be filled in on 2026-11-15._
 
 ## What to take away
 
