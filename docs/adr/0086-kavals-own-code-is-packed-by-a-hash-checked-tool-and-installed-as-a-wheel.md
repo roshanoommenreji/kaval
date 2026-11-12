@@ -35,8 +35,9 @@ Option 3, in all four service images (gateway, collector, agent, executor):
 2. **The `lock` stage exports the group** (`uv export --frozen --only-group build`) to `/build-requirements.txt`, the same way it already exports the libraries.
 3. **A new `wheel` stage** (same digest-pinned Python base as the runtime image) installs that file with `pip install --require-hashes`, copies the repository's service packages, and runs
    `pip wheel --no-deps --no-build-isolation`. `--no-build-isolation` is the important flag: it forbids pip from fetching its own packing tool, and `--no-deps` forbids fetching libraries.
-4. **The runtime image copies in the wheel and installs it** (`pip install --no-deps /wheels/*.whl`), deletes it, then drops pip and setuptools as before. It no longer copies the source packages at all, so the
-   image holds one copy of the code (the installed one) and never holds the packing tool.
+4. **The runtime image copies in the wheel and installs it** (`pip install --no-deps /wheels/*.whl`), deletes it, then drops pip and setuptools as before. It no longer copies the source packages, so the
+   image holds one copy of the code (the installed one) and never holds the packing tool. **Files the code reads at run time are not in the wheel and are still copied in by hand:** the gateway image keeps
+   `pyproject.toml` and `migrations/`, because the migration job runs `alembic upgrade head` there and alembic reads `[tool.alembic]` from that file (see "What went wrong first" below).
 5. **A test keeps it this way** (`scripts/dev/test_pip_install_pins.py`): every `pip install` in the four Dockerfiles is either hash-checked or a finished `.whl`; the wheel stage installs the tool by hash before
    building and builds with `--no-build-isolation --no-deps`; the runtime stage has no packing tool; the wheel stage uses the same base-image digest as the runtime stage; and the version of `hatchling` is the same in `pyproject.toml`'s
    `build-system`, its `build` group and `uv.lock`. The rule itself is tested with the cases it must refuse (the old line, an editable install, a bare name, an unhashed requirements file).
@@ -44,8 +45,12 @@ Option 3, in all four service images (gateway, collector, agent, executor):
 ## Consequences
 
 - **The build is now closed:** every file the build installs or runs comes from the lock with a hash or from the pinned base image. The only thing not hash-checked is the repository's own source, which is what is being built.
-- **The image is slightly different inside, on purpose:** the copy of the source under `/app/services` is gone (the installed copy in `site-packages` is the one that ran all along; `KAVAL_POLICY_DIR` and the runbooks path were
+- **The image is slightly different inside, on purpose:** the copy of the source under `/app/services` is gone (and `/app/pyproject.toml` in the agent, collector and executor, which never read it; the gateway keeps it) (the installed copy in `site-packages` is the one that ran all along; `KAVAL_POLICY_DIR` and the runbooks path were
   already set explicitly for that reason, [ADR-0017](0017-opa-policy-engine-and-earned-autonomy.md)). A before-and-after listing of each image is in Lab 88.
+- **What went wrong first (2026-11-12):** the first version of this change also dropped `/app/pyproject.toml` from every image, and the before-and-after listing showed it, but it was waved through because the search for
+  "what reads these files" looked only at the source folders. The gateway's migration job then failed on staging ("No 'script_location' key found in configuration"), staging never came up, and release v0.4.1 was
+  never promoted. Production was not affected. The fix keeps `pyproject.toml` in the gateway image, adds tests that the gateway image holds what the migration job reads (and that the chart still runs alembic from it), and makes
+  `docker run … alembic heads` on the built image a step of the lab. Lesson: when an image is cut down, every removed file needs its reader found by search, and the real proof is a staging build, not a file list.
 - **A new image means a release round.** The change merges, the bot opens the release pull request, the images build, staging smoke tests them, and promotion to production waits for its own go. Nothing runs in AWS because of this change itself.
 - **Dependabot keeps working:** its `uv` update reads `pyproject.toml` and rewrites `uv.lock`, so a new `hatchling` arrives in both places at once; if only the `build-system` line is bumped, the version test goes red rather than letting the two drift.
 - **The Scorecard's Pinned-Dependencies row** should rise now that the four lines are gone; the real number is read from the first weekly run after this is on `main` (Sundays), not promised here.

@@ -54,7 +54,8 @@ Each of the four Dockerfiles (`services/gateway`, `collector`, `agent`, `executo
    RUN pip wheel --no-deps --no-build-isolation --wheel-dir /wheels .
    ```
    `--no-build-isolation` is the one that matters: pip may not fetch a packing tool of its own, so it uses the checked one already installed. `--no-deps` stops it fetching libraries.
-3. The runtime stage no longer copies the source. It copies `/wheels` from the `wheel` stage, runs `pip install --no-deps /wheels/*.whl`, deletes `/wheels`, and drops pip and setuptools as before.
+3. The runtime stage no longer copies the source. It copies `/wheels` from the `wheel` stage, runs `pip install --no-deps /wheels/*.whl`, deletes `/wheels`, and drops pip and setuptools as before. A wheel holds the Python packages only,
+   so a file read at run time must still be copied in by hand: the **gateway** image keeps `pyproject.toml` and `migrations/` (the migration job runs `alembic upgrade head` there).
 
 ## Part 4 — The test that keeps it this way
 
@@ -62,14 +63,15 @@ Each of the four Dockerfiles (`services/gateway`, `collector`, `agent`, `executo
 python -m pytest scripts/dev/test_pip_install_pins.py -v
 ```
 
-27 tests. They fail on the commit before this change for the right reasons (17 about the real files) and pass after. They check that:
+31 tests. They fail on the commit before this change for the right reasons (17 about the real files) and pass after; the four added after the staging failure (below) fail on the first version of the gateway image. They check that:
 
 - every `pip install` in the four Dockerfiles is hash-checked or installs only finished `.whl` files;
 - the `wheel` stage installs the tool by hash **before** building, and builds with `--no-build-isolation --no-deps`;
 - the runtime stage copies the wheel, installs it, and has no packing tool in it;
 - the `wheel` and runtime stages use the same base-image digest;
 - `hatchling` has one version in `pyproject.toml`'s `build-system`, its `build` group and `uv.lock`;
-- the rule itself refuses the lines it must refuse: `pip install --no-deps .`, an editable install, a bare `hatchling==1.33.0`, an unhashed requirements file, a wheel plus an unchecked name.
+- the rule itself refuses the lines it must refuse: `pip install --no-deps .`, an editable install, a bare `hatchling==1.33.0`, an unhashed requirements file, a wheel plus an unchecked name;
+- the gateway image still copies `pyproject.toml` and `migrations/` into `/app`, alembic's settings still say `script_location = "%(here)s/migrations"`, and the chart's migrate job still runs `alembic upgrade head` from the gateway image.
 
 ## Part 5 — Build the new images and compare them with the old
 
@@ -88,17 +90,28 @@ id=$(docker create --platform linux/arm64 kav-old-gateway); docker export "$id" 
 diff old.txt new.txt
 ```
 
-**Result (2026-11-11, all four built for arm64 on the laptop, old and new):**
+**Result (2026-11-11, all four built for arm64 on the laptop, old and new; the gateway row is the corrected build, see Part 5b):**
 
 | Image | Files added | Files removed | What was removed | Packing tool fetched during the build (old → new) | Starts, imports its code from `site-packages` |
 |---|---|---|---|---|---|
-| gateway | 0 | 52 | `/app/pyproject.toml`, `/app/services/…` | yes → no | yes (0.4.0) |
-| collector | 0 | 52 | the same | yes → no | yes (0.3.0) |
+| gateway | 0 | 51 | `/app/services/…` (it keeps `/app/pyproject.toml` and `/app/migrations`) | yes → no | yes (0.4.0); `alembic heads` answers |
+| collector | 0 | 52 | `/app/pyproject.toml`, `/app/services/…` | yes → no | yes (0.3.0) |
 | agent | 0 | 52 | the same | yes → no | yes (0.4.0); `opa` 1.21.4 runs; `/app` still holds `policy` and `runbooks` |
 | executor | 0 | 63 | the same, plus the executor's own source copy | yes → no | yes (0.3.0) |
 
-the installed code under `site-packages` and every dependency is the same list of files. Nothing reads the removed copy: `KAVAL_POLICY_DIR` and `KAVAL_RUNBOOKS_DIR` point at `/app/policy` and `/app/runbooks`, which are still there, and
-the code runs from `site-packages` ([ADR-0017](../adr/0017-opa-policy-engine-and-earned-autonomy.md)).
+The installed code under `site-packages` and every dependency is the same list of files (comparing builds of different versions also shows the `kaval-<version>.dist-info` folder renamed, nothing else). The removed source copy is
+never imported: the code runs from `site-packages` ([ADR-0017](../adr/0017-opa-policy-engine-and-earned-autonomy.md)), and `KAVAL_POLICY_DIR` and `KAVAL_RUNBOOKS_DIR` point at `/app/policy` and `/app/runbooks`, which are still there.
+
+## Part 5b — Run the thing the image is for (this step was missing the first time)
+
+A file list proves what is inside an image, not that the image still works. The first version of this change also removed `/app/pyproject.toml` from the gateway image. The list showed it; the lab said "nothing reads it" because the search had
+only covered the source folders; and staging's migration job then failed with `No 'script_location' key found in configuration` (alembic reads `[tool.alembic]` from that file). Run the migration tool in the built image:
+
+```bash
+docker run --rm --platform linux/arm64 --entrypoint alembic kav-new-gateway heads
+```
+
+A good image prints the current migration head (`d4f7a2c9e815 (head)` on 2026-11-12). The broken image printed the `script_location` error, on the laptop, in a second. For every file an image drops, search the whole repository, not only the Python, for what reads it (alembic, the chart, the entrypoints) before calling it unused.
 
 ## Part 6 — Prove the new rule refuses
 
@@ -110,9 +123,13 @@ python -m pytest scripts/dev/test_pip_install_pins.py -q     # fails: gateway ha
 git checkout services/gateway/Dockerfile
 ```
 
-## Part 7 — The live proof (staging; still to come)
+## Part 7 — The live proof (staging; the first attempt failed, the second is still to come)
 
-The images change, so the change goes through the normal release round: merge, the bot's release pull request, staging smoke (7 of 7), and promotion to production on its own go. `make staging-up` builds
+**First attempt, 2026-11-12 00:00 (release v0.4.1, never promoted):** staging built, but the migration job failed in the first version of the gateway image (the missing `pyproject.toml`, Part 5b), so no app started and the
+smoke test could not pass. The KAV-116 database check run on that copy was inconclusive (read and insert also answered false, because the permissions are applied only after the release is ready). Staging was deleted at 00:09 (about 2 cents),
+the sweep was clean and production's 23 backup copies were unchanged. This is staging doing its job: nothing reached production.
+
+**Second attempt:** a corrected gateway image goes through the release round again (v0.4.2), then a fresh staging session. The images change, so the change goes through the normal release round: merge, the bot's release pull request, staging smoke (7 of 7), and promotion to production on its own go. `make staging-up` builds
 staging from the new images and `make staging-smoke` runs the checks; no new command is needed. The staging session is shared with the `KAV-116` proof ([Lab 87](lab-87-a-decision-is-written-once.md)),
 about 5 cents.
 
@@ -121,7 +138,7 @@ After the first weekly Scorecard run on `main` (Sundays), read the Pinned-Depend
 ## Done when
 
 - [x] The four images build, with no "Installing build dependencies" step, and hold the same installed code as before
-- [x] 27 tests in `scripts/dev/test_pip_install_pins.py` pass, and fail on the old Dockerfiles
+- [x] 31 tests in `scripts/dev/test_pip_install_pins.py` pass, and fail on the old Dockerfiles and on the first gateway image
 - [ ] CI is green on the pull request (14 checks, including the image build and Trivy for all four images)
 - [ ] The release round has run, staging smoke passed 7 of 7 on the new images, and production has been promoted on its own go
 - [ ] The Scorecard's Pinned-Dependencies row has been re-read and recorded

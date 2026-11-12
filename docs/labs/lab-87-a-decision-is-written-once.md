@@ -75,6 +75,7 @@ The file is fetched from `main` by the app server on every start and every six h
 - **Production:** at its next start-up. Its database had the right, so this proves the `REVOKE`. The same question confirms it.
 
 The staging proof rides on the next staging build (the `KAV-111` release) rather than costing its own session. If you would rather have it separately it is a normal staging session, about 5 cents.
+The first attempt (2026-11-12, release v0.4.1) did not count: that staging copy never became ready (the `KAV-111` gateway image was missing a file the migration job reads, [Lab 88](lab-88-packing-our-own-code-with-a-hash-checked-tool.md)), and the database answered `false` to read and insert as well as to update, so the check proved nothing. Always read the `(expect t)` lines too: the answer only counts when read and insert are `true` and update, delete and truncate are `false`.
 
 **Rolling back:** revert the file. A database that already lost the right keeps losing nothing it needs; nothing uses the right.
 
