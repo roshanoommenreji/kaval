@@ -1,6 +1,6 @@
 # ADR-0091: the account number is hidden in public logs, and the role addresses are secrets
 
-**Status:** Accepted on 2026-11-13 (Roshan: "go 141"). Built, tested and proven live on 2026-11-13 (secrets set on his go; release run 43304245593: account number found 0 times in the log). Open: his decision on deleting older run logs.
+**Status:** Accepted on 2026-11-13 (Roshan: "go 141"). Built, tested and proven live on 2026-11-13 (secrets set on his go; release run 43304245593: account number found 0 times in the log). On his decision ("delete the old logs") the 130 older runs of the four workflows were deleted the same day.
 **Date:** 2026-11-13
 **Related:** [ADR-0030](0030-ci-publishes-images-by-oidc-and-staging-is-pinned-by-pull-request.md) (put the role address in a repository *variable*; amended by this ADR),
 [ADR-0049](0049-backups-watched-and-restores-drilled.md) (same for the backup check), [ADR-0090](0090-images-are-signed-keyless-and-the-signature-lives-in-the-registry.md) (the live proof that found the leak),

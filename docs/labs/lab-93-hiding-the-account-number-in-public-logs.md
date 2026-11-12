@@ -58,7 +58,7 @@ the tests: that workflow's test fails.
 - **release** (run 43304245593, on `main`): all jobs succeeded. The account number appears **0 times in 9,320 log lines**; the registry shows as `***.dkr.ecr.ap-south-1.amazonaws.com` (27 lines). The run opened a staging-pin pull request (#402), closed unmerged with its branch deleted.
 - The two old variables were deleted after the proof; only `PROD_BACKUP_BUCKET` remains (a bucket name, not the account number).
 - **Not run:** `promote` and `rollback` (same two-line change, same test); they are proved by the test and by their first real use.
-- **Older logs:** earlier runs still show the number: release 77 runs, promote 19, rollback 3, backup-watch 33 (counts on 2026-11-13). Deleting them is the owner's decision (Part 5).
+- **Older logs:** earlier runs still show the number: release 77 runs, promote 19, rollback 3, backup-watch 33 (counts on 2026-11-13). Deleted on the owner's decision the same day: 130 runs (the 129 listed plus the KAV-138 re-run), leaving only the two clean proof runs; zero runs of release, promote, rollback or backup-watch other than those two remain. Run ids quoted in older docs (for example Lab 92's 43299508135) no longer open.
 
 ## Part 5 — The old logs (a decision, not a step)
 
