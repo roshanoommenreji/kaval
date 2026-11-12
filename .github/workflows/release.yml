@@ -63,7 +63,8 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     permissions:
-      id-token: write # to ask GitHub for the OIDC token AWS checks
+      id-token: write # to ask GitHub for the OIDC token AWS checks, and to sign the build record
+      attestations: write # to store the signed build record (KAV-137)
       contents: read
     strategy:
       fail-fast: false
@@ -115,6 +116,28 @@ jobs:
             --ignorefile .github/trivy-ignore.yaml \
             --exit-code 1 --no-progress kaval/${{ matrix.service }}:release
 
+      # The parts list (KAV-137, ADR-0089): every package inside the image that was just scanned,
+      # as CycloneDX JSON. Made from the same local image the push below uploads, and before any
+      # AWS access, so a failure here stops the release with nothing published.
+      - name: parts list (SBOM) of the scanned image
+        run: |
+          mkdir -p sbom
+          ./trivy image --format cyclonedx --no-progress --skip-version-check \
+            --output "sbom/${{ matrix.service }}.cdx.json" kaval/${{ matrix.service }}:release
+          python3 - "sbom/${{ matrix.service }}.cdx.json" <<'PY'
+          import json, sys
+          bom = json.load(open(sys.argv[1]))
+          assert bom["bomFormat"] == "CycloneDX", bom.get("bomFormat")
+          assert len(bom["components"]) >= 20, f"suspiciously short parts list: {len(bom['components'])}"
+          print(f"{len(bom['components'])} parts listed")
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-${{ matrix.service }}
+          path: sbom/${{ matrix.service }}.cdx.json
+          if-no-files-found: error
+          retention-days: 90
+
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           # A repository variable, not a secret and not a file in git: the ARN holds the
@@ -146,6 +169,40 @@ jobs:
           mkdir -p digests
           echo "${{ matrix.service }} $digest" > "digests/${{ matrix.service }}.txt"
           echo "- \`${{ matrix.service }}\` \`$TAG\` \`$digest\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      # The build record (KAV-137, ADR-0089): a signed statement, made with this run's own
+      # identity (Sigstore, no key to keep), that THIS digest was built by THIS workflow from
+      # THIS commit. It lives in GitHub's attestation store, not in ECR, so it needs no AWS
+      # permission. The name has no registry host on purpose: the record is public, and the
+      # host would put the AWS account number in it. Running again for a commit that is already
+      # published just adds another record for the same digest.
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: kaval/${{ matrix.service }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+
+      # Ask GitHub's store for the record by the exact digest, so a record that was never stored
+      # stops the release. This only proves the record EXISTS: checking its signature needs a
+      # read of the image in ECR, which this push-only role must not have. The signature is
+      # checked where a read is allowed: by hand (docs/runbooks/verify-an-image.md) and, in
+      # KAV-139, at the promotion gate. Retries because the store can lag the signing by seconds.
+      - name: the build record is in GitHub's store
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            n=$(gh api "repos/$GITHUB_REPOSITORY/attestations/$DIGEST" --jq '.attestations | length' || echo 0)
+            if [ "$n" -ge 1 ]; then
+              echo "$n build record(s) stored for $DIGEST"
+              exit 0
+            fi
+            echo "attempt $attempt: no record stored yet; waiting"
+            sleep 6
+          done
+          echo "no build record is stored for $DIGEST" >&2
+          exit 1
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
