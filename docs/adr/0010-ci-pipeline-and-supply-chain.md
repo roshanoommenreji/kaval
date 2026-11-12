@@ -108,3 +108,8 @@ Only a merged commit should produce an artifact.
   what decides, so a retry can only fetch the real file, never let a wrong one through. A test
   (`scripts/dev/test_workflow_downloads.py`) keeps both the retry and the checksum in place
   ([Lab 82](../labs/lab-82-the-build-robot-retries-its-downloads.md)).
+
+- **Amendment, 2026-11-13 (`KAV-137`):** the "SBOM and signing are `release.yml`'s job" line is now
+  partly true. Each release builds a parts list (SBOM) and a signed build record for every image
+  ([ADR-0089](0089-every-image-gets-a-parts-list-and-a-signed-build-record.md)); signatures in the
+  registry and the checks that refuse an unsigned image are the next three stories (`KAV-138`..`KAV-140`).
