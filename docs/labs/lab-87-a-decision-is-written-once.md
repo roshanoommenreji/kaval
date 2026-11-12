@@ -74,7 +74,7 @@ The file is fetched from `main` by the app server on every start and every six h
   `SELECT has_table_privilege('kaval_gateway', 'public.decision', 'UPDATE')` returns `false`.
 - **Production:** at its next start-up. Its database had the right, so this proves the `REVOKE`. The same question confirms it.
 
-The staging proof rides on the next staging build (the `KAV-111` release) rather than costing its own session. If you would rather have it separately it is a normal staging session, about 5 cents.
+The staging proof rode on the `KAV-111` release (v0.4.2) rather than costing its own session, and it passed on 2026-11-12 (see the checklist). If you would rather have it separately it is a normal staging session, about 5 cents.
 The first attempt (2026-11-12, release v0.4.1) did not count: that staging copy never became ready (the `KAV-111` gateway image was missing a file the migration job reads, [Lab 88](lab-88-packing-our-own-code-with-a-hash-checked-tool.md)), and the database answered `false` to read and insert as well as to update, so the check proved nothing. Always read the `(expect t)` lines too: the answer only counts when read and insert are `true` and update, delete and truncate are `false`.
 
 **Rolling back:** revert the file. A database that already lost the right keeps losing nothing it needs; nothing uses the right.
@@ -90,5 +90,5 @@ The first attempt (2026-11-12, release v0.4.1) did not count: that staging copy 
 - [x] The permissions file takes the right back on every run, and a test starts from a database that still has it *(Part 4)*
 - [x] The real approval code works as the gateway's own login *(Part 4)*
 - [x] Every login's table rights are listed in one test *(Part 4)*
-- [ ] Staging applied the file and the live question returns `false` (rides on the next staging build)
+- [x] Staging applied the file and the live question returns `false` *(2026-11-12, release v0.4.2: read `t`, insert `t`, update `f`, delete `f`, truncate `f`; the positive controls are what make the `false` answers count)*
 - [ ] Production applied it at its next start-up and the live question returns `false`
