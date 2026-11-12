@@ -51,7 +51,14 @@ the tests: that workflow's test fails.
    a pass for this lab as long as the login step succeeded and the log search is 0.
 6. Only after a clean proof, delete the two old repository variables (`gh variable delete AWS_PUBLISH_ROLE_ARN`, `gh variable delete AWS_BACKUP_WATCH_ROLE_ARN`).
 
-Result: _to be filled in after the live proof._
+### What the live proof showed (2026-11-13)
+
+- Secrets set first (`gh secret list` shows the two names, never the values); PR #401 merged afterwards (the owner merged before the secrets were set, so for a few minutes `main` pointed at secrets that did not exist; nothing that logs in to AWS ran in that window).
+- **backup-watch** (run 43304091637, by hand): success. The login step's header shows `role-to-assume: ***`. The account number appears 0 times in the log.
+- **release** (run 43304245593, on `main`): all jobs succeeded. The account number appears **0 times in 9,320 log lines**; the registry shows as `***.dkr.ecr.ap-south-1.amazonaws.com` (27 lines). The run opened a staging-pin pull request (#402), closed unmerged with its branch deleted.
+- The two old variables were deleted after the proof; only `PROD_BACKUP_BUCKET` remains (a bucket name, not the account number).
+- **Not run:** `promote` and `rollback` (same two-line change, same test); they are proved by the test and by their first real use.
+- **Older logs:** earlier runs still show the number: release 77 runs, promote 19, rollback 3, backup-watch 33 (counts on 2026-11-13). Deleting them is the owner's decision (Part 5).
 
 ## Part 5 — The old logs (a decision, not a step)
 
