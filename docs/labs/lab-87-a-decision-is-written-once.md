@@ -91,4 +91,4 @@ The first attempt (2026-11-12, release v0.4.1) did not count: that staging copy 
 - [x] The real approval code works as the gateway's own login *(Part 4)*
 - [x] Every login's table rights are listed in one test *(Part 4)*
 - [x] Staging applied the file and the live question returns `false` *(2026-11-12, release v0.4.2: read `t`, insert `t`, update `f`, delete `f`, truncate `f`; the positive controls are what make the `false` answers count)*
-- [ ] Production applied it at its next start-up and the live question returns `false`
+- [x] Production applied it at its next start-up and the live question returns `false` *(2026-11-12, v0.4.2: read `t`, insert `t`, update `f`, delete `f`, truncate `f`; this database had the update right before, so it proves the `REVOKE`)*

@@ -139,7 +139,7 @@ After the first weekly Scorecard run on `main` (Sundays), read the Pinned-Depend
 
 - [x] The four images build, with no "Installing build dependencies" step, and hold the same installed code as before
 - [x] 31 tests in `scripts/dev/test_pip_install_pins.py` pass, and fail on the old Dockerfiles and on the first gateway image
-- [ ] CI is green on the pull request (14 checks, including the image build and Trivy for all four images)
+- [x] CI is green on the pull request (14 checks, including the image build and Trivy for all four images)
 - [x] The release round has run (v0.4.2) and staging smoke passed 7 of 7 on the new images *(2026-11-12, `sha-d1058eb`, including the migration that failed on v0.4.1)*
-- [ ] Production has been promoted on its own go
+- [x] Production has been promoted on its own go *(2026-11-12, #386; production ran v0.4.2 from 22:23 to 22:31, `make prod-smoke` 10 of 10 pods and all checks passed on try 3, no errors in any log, then parked)*
 - [ ] The Scorecard's Pinned-Dependencies row has been re-read and recorded
