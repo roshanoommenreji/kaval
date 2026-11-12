@@ -196,6 +196,7 @@ From the laptop, send the first line with `aws ssm send-command` (document `AWS-
 ### 8. Park it
 
 ```bash
+bash scripts/ops/dump-before-park.sh                   # a fresh database dump first (KAV-134); it stops the park if the dump fails. `make down` runs it for you
 echo 'app_node_desired_capacity = 0' > infra/envs/prod/node.auto.tfvars
 terraform -chdir=infra/envs/prod plan -out=<file>      # show it: ONE change, desired 1 -> 0, min 1 -> 0
 terraform -chdir=infra/envs/prod apply <file>

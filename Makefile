@@ -131,6 +131,10 @@ down: ## Scale the node's ASG to 0, pause the database (snapshot first), keep EB
 	# unrelated `terraform apply` run later that doesn't think to pass this on the command
 	# line (found live, KAV-32 Lab 28: exactly that happened, mid-session, to the person who
 	# wrote this Makefile target).
+	# A fresh database dump comes FIRST: the app server holds the dump tools and the database must
+	# still be running. A failed dump stops here, before anything is scaled down (KAV-134, ADR-0087);
+	# SKIP_DUMP=1 make down parks without it, on purpose.
+	@bash scripts/ops/dump-before-park.sh
 	echo 'app_node_desired_capacity = 0' > $(TF_PROD)/node.auto.tfvars
 	cd $(TF_PROD) && terraform apply
 	@bash scripts/ops/pause-database.sh
