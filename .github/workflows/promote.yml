@@ -1,6 +1,7 @@
 # Promote: the gate between staging and prod (KAV-63, ADR-0032, building on ADR-0004 and ADR-0031).
 #
-#   you run it with a tag  ->  gate: is it on the passed-staging record, do ECR's digests still
+#   you run it with a release (v0.4.2) or an image tag (sha-2459417); a release is looked up and
+#   becomes its image tag first (KAV-136)  ->  gate: is it on the passed-staging record, do ECR's digests still
 #   match, is it newer than prod, is every `uat` story in it signed off?  ->  propose: a pull
 #   request that points prod's two files at that tag  ->  CI runs on it  ->  you merge.
 #
@@ -25,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Image tag that passed staging, e.g. sha-2459417"
+        description: "The release to promote, e.g. v0.4.2 (or its image tag, e.g. sha-2459417)"
         required: true
         type: string
 
@@ -44,6 +45,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }} # the image tag, for the job that opens the pull request
     permissions:
       id-token: write # to ask GitHub for the OIDC token AWS checks
       contents: read
@@ -60,17 +63,33 @@ jobs:
           role-to-assume: ${{ vars.AWS_PUBLISH_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: promote-${{ github.run_id }}
+      - name: resolve (a release like v0.4.2, or an image tag, to the image tag)
+        id: resolve
+        shell: bash
+        env:
+          REF: ${{ inputs.tag }}
+        run: |
+          # A person types a release (v0.4.2) or an image tag (sha-2459417). Everything after this
+          # step works with the image tag only. The script prints that tag and nothing else on
+          # stdout, after checking its shape, so writing it to the step output cannot inject
+          # anything. An unknown release, or one with no image, stops the job here, before the
+          # gate runs and before anything can be opened (KAV-136).
+          mkdir -p evidence
+          tag=$(python3 scripts/release/promote.py resolve --ref "$REF" --note evidence/resolve.txt)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
       - name: verify
         shell: bash # pipefail, so a refusal still fails the job after tee
         env:
           # A workflow input is user input: it goes through the environment, never into the script.
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ steps.resolve.outputs.tag }}
           JIRA_SITE_URL: ${{ secrets.JIRA_SITE_URL }}
           JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: |
-          mkdir -p evidence
-          python3 scripts/release/promote.py verify --tag "$TAG" | tee evidence/verify.txt
+          # The evidence starts with the line that says what was typed and what it became, so the
+          # pull request and the change record name both.
+          cp evidence/resolve.txt evidence/verify.txt
+          python3 scripts/release/promote.py verify --tag "$TAG" | tee -a evidence/verify.txt
           { echo '```'; cat evidence/verify.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -100,7 +119,7 @@ jobs:
 
       - name: point prod at the tag
         env:
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ needs.gate.outputs.tag }} # the resolved image tag, not what was typed
           ACTOR: ${{ github.actor }}
           GH_TOKEN: ${{ github.token }}
         run: |
