@@ -43,7 +43,10 @@ jobs:
           persist-credentials: false
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: ${{ vars.AWS_BACKUP_WATCH_ROLE_ARN }}
+          # A secret, so the step header shows *** (a variable is printed in full), and the
+          # account number is hidden from every later line of the job (KAV-141, ADR-0091).
+          role-to-assume: ${{ secrets.AWS_BACKUP_WATCH_ROLE_ARN }}
+          mask-aws-account-id: true
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: backup-watch-${{ github.run_id }}
       - id: run

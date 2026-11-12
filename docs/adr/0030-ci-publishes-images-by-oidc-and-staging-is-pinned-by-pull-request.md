@@ -51,9 +51,10 @@ real choice is the *size* of the door, which is what the table below compares.
   start servers, nothing outside ECR. ECR tags are immutable, so it cannot overwrite an existing
   image either.
 - **How long:** a session lasts at most an hour. There is no stored key anywhere.
-- **The role's ARN** goes in a repository *variable* (`AWS_PUBLISH_ROLE_ARN`), not a secret and not a
+- **The role's ARN** goes in a repository *secret* (`AWS_PUBLISH_ROLE_ARN`; it was a *variable* until
+  `KAV-141`, which found that GitHub prints a variable in the public log's step header) and not in a
   file, because it contains the account id (constraint 5). It is an address, not a credential: the
-  trust policy decides who can use it.
+  trust policy decides who can use it. See [ADR-0091](0091-the-account-number-is-hidden-in-public-logs-and-role-addresses-are-secrets.md).
 
 **2. The workflow is split so no job has both powers.** In `release.yml`, `publish` can reach AWS
 (`id-token: write`) but has read-only access to the repository. `propose` can write a branch and a

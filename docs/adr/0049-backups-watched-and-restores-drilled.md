@@ -100,7 +100,7 @@ snapshot) and **RTO 30 minutes**, with the measured pieces. The drill is judged 
 - One more thing runs every day, at zero cost (GitHub Actions on a public repository, free; a few S3
   list calls).
 - The production role was applied and the two repository variables (`AWS_BACKUP_WATCH_ROLE_ARN`,
-  `PROD_BACKUP_BUCKET`) were set on 2026-10-13; the daily check's first live run passed.
+  `PROD_BACKUP_BUCKET`) were set on 2026-10-13 (since `KAV-141`, [ADR-0091](0091-the-account-number-is-hidden-in-public-logs-and-role-addresses-are-secrets.md), the role address is a repository *secret*; the bucket name stays a variable); the daily check's first live run passed.
 - Not built: a Slack message for a missing dump (production's Slack is the only one); a dump at park
   time (filed as `KAV-134`); a drill with real data (needs real data).
 - **Second drill, 2026-11-08: restore clean, drill recorded as failed.** The restore into a throwaway

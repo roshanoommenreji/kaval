@@ -155,9 +155,13 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          # A repository variable, not a secret and not a file in git: the ARN holds the
-          # account id. It is only an address; the trust policy is what decides who may use it.
-          role-to-assume: ${{ vars.AWS_PUBLISH_ROLE_ARN }}
+          # A repository *secret*, not a variable and not a file in git: the ARN holds the account
+          # number, and GitHub prints a variable in the step header of a public log but shows a
+          # secret as ***. mask-aws-account-id hides the number from every later line of the job
+          # (the registry address, the push and cosign lines). Not a credential either way: the
+          # trust policy is what decides who may use the role (KAV-141, ADR-0091).
+          role-to-assume: ${{ secrets.AWS_PUBLISH_ROLE_ARN }}
+          mask-aws-account-id: true
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: release-${{ matrix.service }}-${{ github.run_id }}
       - id: ecr

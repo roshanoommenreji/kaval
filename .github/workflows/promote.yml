@@ -60,7 +60,8 @@ jobs:
         with:
           # The same role release.yml publishes with. This job only describes images; the role's
           # trust policy (this repository, main) is what lets it in.
-          role-to-assume: ${{ vars.AWS_PUBLISH_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_PUBLISH_ROLE_ARN }}
+          mask-aws-account-id: true
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: promote-${{ github.run_id }}
       - name: resolve (a release like v0.4.2, or an image tag, to the image tag)
