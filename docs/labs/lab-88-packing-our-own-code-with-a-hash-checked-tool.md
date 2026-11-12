@@ -133,7 +133,16 @@ the sweep was clean and production's 23 backup copies were unchanged. This is st
 staging from the new images and `make staging-smoke` runs the checks; no new command is needed. The staging session is shared with the `KAV-116` proof ([Lab 87](lab-87-a-decision-is-written-once.md)),
 about 5 cents.
 
-After the first weekly Scorecard run on `main` (Sundays), read the Pinned-Dependencies row again and write the number in [Lab 71](lab-71-a-security-policy-owners-and-a-weekly-scorecard.md)'s table. Do not expect it to be 10 on the strength of this alone; the row also counts GitHub Actions and other Dockerfile lines.
+After a Scorecard run on `main` that contains the change, read the Pinned-Dependencies row again and write the result in [Lab 71](lab-71-a-security-policy-owners-and-a-weekly-scorecard.md)'s table. The last scheduled run (Sunday 2026-11-08) was older than the change, so it could not show it; a run started by hand (`gh workflow run scorecard.yml --ref main`, about 35 seconds, read-only) was needed.
+
+**The re-read (2026-11-12, 17:22 UTC, `main` at `113c656`):** the workflow keeps its result in the repository's Security tab and prints no score. To read it, list the Scorecard alerts through the API:
+
+```bash
+gh api "repos/<owner>/<repo>/code-scanning/alerts?tool_name=Scorecard&state=open&per_page=100" --jq '[.[].rule.id]'
+gh api "repos/<owner>/<repo>/code-scanning/alerts?tool_name=Scorecard&state=fixed&per_page=100" --jq '.[] | select(.rule.id|test("Pinned")) | "\(.number) \(.state) \(.fixed_at)"'
+```
+
+The open list held only the four rows that are expected to stay low (CII-Best-Practices, Code-Review, Maintained, Fuzzing). The fixed list held alerts 1 to 4 (all `PinnedDependenciesID`, "pipCommand not pinned by hash"), each fixed at 17:22:55 UTC, the moment of that scan. No new Pinned-Dependencies alert was raised. A row at 10 raises no alert, so the row went from 8 to 10; the four Dockerfile lines were what it was counting (the check also looks at GitHub Actions and other Dockerfile lines; none raised an alert).
 
 ## Done when
 
@@ -142,4 +151,4 @@ After the first weekly Scorecard run on `main` (Sundays), read the Pinned-Depend
 - [x] CI is green on the pull request (14 checks, including the image build and Trivy for all four images)
 - [x] The release round has run (v0.4.2) and staging smoke passed 7 of 7 on the new images *(2026-11-12, `sha-d1058eb`, including the migration that failed on v0.4.1)*
 - [x] Production has been promoted on its own go *(2026-11-12, #386; production ran v0.4.2 from 22:23 to 22:31, `make prod-smoke` 10 of 10 pods and all checks passed on try 3, no errors in any log, then parked)*
-- [ ] The Scorecard's Pinned-Dependencies row has been re-read and recorded
+- [x] The Scorecard's Pinned-Dependencies row has been re-read and recorded *(2026-11-12: the four alerts closed as fixed, none raised, the row is 10; recorded in [Lab 71](lab-71-a-security-policy-owners-and-a-weekly-scorecard.md))*

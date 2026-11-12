@@ -1,6 +1,6 @@
 # ADR-0086: Kaval's own code is packed by a hash-checked tool and installed as a wheel
 
-**Status:** Accepted on 2026-11-11 (Roshan: "go with your recommendations" on the plan). Built in `KAV-111`; the staging proof and the weekly Scorecard re-read are still to come (see Consequences).
+**Status:** Accepted on 2026-11-11 (Roshan: "go with your recommendations" on the plan). Built in `KAV-111`; the staging proof (2026-11-12, 7 of 7) and the Scorecard re-read (2026-11-12) are done: see Consequences.
 **Date:** 2026-11-11
 **Related:** [ADR-0010](0010-ci-pipeline-and-supply-chain.md) (libraries installed by hash, base images pinned by digest),
 [ADR-0071](0071-the-public-repo-gets-a-security-policy-owners-and-a-weekly-scorecard.md) (the Scorecard run that found this),
@@ -53,5 +53,5 @@ Option 3, in all four service images (gateway, collector, agent, executor):
   `docker run … alembic heads` on the built image a step of the lab. Lesson: when an image is cut down, every removed file needs its reader found by search, and the real proof is a staging build, not a file list.
 - **A new image means a release round.** The change merges, the bot opens the release pull request, the images build, staging smoke tests them, and promotion to production waits for its own go. Nothing runs in AWS because of this change itself.
 - **Dependabot keeps working:** its `uv` update reads `pyproject.toml` and rewrites `uv.lock`, so a new `hatchling` arrives in both places at once; if only the `build-system` line is bumped, the version test goes red rather than letting the two drift.
-- **The Scorecard's Pinned-Dependencies row** should rise now that the four lines are gone; the real number is read from the first weekly run after this is on `main` (Sundays), not promised here.
+- **The Scorecard's Pinned-Dependencies row** should rise now that the four lines are gone; the real number is read from a Scorecard run after this is on `main`, not promised here. **Read on 2026-11-12:** the scan closed the four Pinned-Dependencies alerts as fixed and raised none, so the row went from 8 to 10 ([Lab 71](../labs/lab-71-a-security-policy-owners-and-a-weekly-scorecard.md)).
 - Cost: $0. Build time grows by a few seconds (one more stage); the stage is cached until `uv.lock` or the code changes.
