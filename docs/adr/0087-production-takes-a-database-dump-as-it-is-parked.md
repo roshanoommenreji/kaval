@@ -1,6 +1,6 @@
 # ADR-0087: Production takes a database dump as it is parked
 
-**Status:** Accepted on 2026-11-12 (Roshan: "go", taking `KAV-134` as the next item). Built; **not yet run live** (see "Not proven").
+**Status:** Accepted on 2026-11-12 (Roshan: "go", taking `KAV-134` as the next item). Built, and **proven live on production the same night** (see "Proven live").
 **Date:** 2026-11-12
 **Related:** [ADR-0005](0005-data-durability-and-staging-seeding.md) (RPO 24 h, the nightly dump),
 [ADR-0038](0038-nightly-dump-is-taken-by-the-app-node.md) (the app server takes the dump),
@@ -38,10 +38,9 @@ before the app server group is scaled to 0 (the server is what holds the tools) 
 The two automatic stops, the nightly 02:00 IST rule and the budget hard-stop Lambda, do not run this: they have no way to ask the app server and are meant to act without anyone. They are covered by the
 19:30 UTC timer on a night production was running (the common case) and by the pre-stop volume snapshot. Only a deliberate park (`make down`, the runbook's step 8) gets the extra dump.
 
-## Not proven
+## Proven live
 
-It has not run against the real server. The first live run is production's next park (needs production up on his own go); the evidence to collect there is in Lab 89 Part 4. Staging has no park (it is destroyed),
-so it cannot rehearse this; the unit the script calls is the one that already runs nightly on both.
+Production's park of 2026-11-12 (23:48 IST, the first live run; staging has no park, so it could not rehearse this): the script found the running app server, started the dump unit, read `done.` in its log and printed "Dump taken and uploaded. Safe to park." (4 seconds of work, 396K, `kaval-20261112T181813Z.dump`). The bucket listing then showed that dump, `LATEST` pointed at it, and the same-day restore drill passed on it with the data that could have been lost at 5 min 44 s ([record](../drills/restore-2026-11-12.md)). Before the park the newest dump was 2 days old (10 Nov). The negative case (a failed dump stops the park) is covered by the tests, not by breaking the real unit.
 
 ## Cost
 
