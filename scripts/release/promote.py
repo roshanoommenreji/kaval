@@ -7,6 +7,8 @@ Git (deploy/promotion/passed-staging.json). This is what asks that question, thr
                      runs, is it a tagged release with a version prod has not run (KAV-135), and
                      is every `uat` story in the release signed off in Jira? (ADR-0012)
     pin --tag T      Re-check the record, then point prod's two files at T. Edits files only.
+    resolve --ref R  Turn a release (v0.4.2) or an image tag into the image tag, first of all
+                     (KAV-136). An unknown release, or one with no image, is refused.
     body --tag T     The text of the promotion pull request (record, digests, the verify output).
     guard --base S   For a pull request: if prod's image tags changed against commit S, the new tag
                      must be on the record as it stood on S. Catches a hand edit that skips verify.
@@ -206,13 +208,54 @@ def is_on_main(commit: str, root: Path = ROOT) -> bool:
     )
 
 
-def pr_body(entry: dict[str, Any], prod_tag: str, evidence: str) -> str:
-    """The text of the promotion pull request: what moves, the proof, and what merging means."""
+def resolve_ref(
+    ref: str,
+    commit_of_version: Callable[[str], str | None],
+    ecr: Callable[[str], dict[str, str]],
+) -> tuple[str, str]:
+    """Turn what a person typed into the image tag the gate works with (KAV-136).
+
+    `vX.Y.Z` is the name people know a release by; the images are tagged by commit (`sha-<7>`),
+    because the same digest must be what staging tested (ADR-0004). So a version is looked up:
+    the annotated tag's commit, then that commit's image tag, which must exist in the registry.
+    `sha-…` passes through unchanged, as before. Returns (image tag, one line saying what was
+    resolved). Raises ValueError with a plain message when it cannot be done: the caller refuses
+    before anything is opened. `commit_of_version` and `ecr` are stubs in the tests."""
+    ref = ref.strip()
+    if TAG_RE.match(ref):
+        return ref, f"image tag {ref} given directly"
+    if not versions.VERSION_TAG_RE.match(ref):
+        raise ValueError(
+            f"{ref!r} is neither a release version nor an image tag. Type a release like v0.4.2, "
+            "or an image tag like sha-2459417"
+        )
+    commit = commit_of_version(ref)
+    if not commit:
+        raise ValueError(
+            f"{ref} is not a release this repository has. A release is an annotated version tag "
+            "made by release.yml; check the spelling and the list on the Releases page"
+        )
+    tag = f"sha-{commit[:7]}"
+    try:
+        ecr(tag)
+    except RuntimeError:
+        raise ValueError(
+            f"{ref} is commit {commit[:7]}, but no image tagged {tag} is in the registry. The "
+            "build may never have run, or the registry's retention rule has removed it. Nothing "
+            "was opened"
+        ) from None
+    return tag, f"release {ref} -> commit {commit[:7]} -> image tag {tag} (all four images found)"
+
+
+def pr_body(entry: dict[str, Any], prod_tag: str, evidence: str, release: str | None = None) -> str:
+    """The text of the promotion pull request: what moves, the proof, and what merging means.
+    `release` is the version the commit carries; it is named beside the image tag (KAV-136)."""
     tag = entry["tag"]
     rows = NL.join(f"| `kaval/{s}:{tag}` | `{entry['images'][s]}` |" for s in SERVICES)
     fence = "`" * 3
+    named = f"{f'release v{release}, ' if release else ''}commit {entry.get('commit')}"
     return (
-        f"Promotes `{tag}` (commit {entry.get('commit')}) to prod. Prod runs `{prod_tag}` now.{NN}"
+        f"Promotes `{tag}` ({named}) to prod. Prod runs `{prod_tag}` now.{NN}"
         f"| image | digest that passed staging |{NL}|---|---|{NL}{rows}{NN}"
         f"Passed staging {entry.get('passed_at')}. What the gate checked just now:{NN}"
         f"{fence}{NL}{evidence.strip()}{NL}{fence}{NN}"
@@ -386,6 +429,16 @@ def prod_history_tags(rev: str, root: Path = ROOT) -> frozenset[str]:
     )
 
 
+def commit_of_version(version: str, root: Path = ROOT) -> str | None:
+    """The commit an annotated release tag `vX.Y.Z` points at, or None. A bare (lightweight) tag
+    does not count, the same rule as release_tags_at: anyone can push one."""
+    ref = f"refs/tags/{version}"
+    if (git("cat-file", "-t", ref, root=root) or "").strip() != "tag":
+        return None
+    out = git("rev-parse", "--verify", f"{ref}^{{commit}}", root=root)
+    return out.strip() if out else None
+
+
 def commit_of(tag: str, root: Path = ROOT) -> str | None:
     out = git("rev-parse", "--verify", f"{tag[4:]}^{{commit}}", root=root)
     return out.strip() if out else None
@@ -467,6 +520,21 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_resolve(args: argparse.Namespace) -> int:
+    """Print the image tag on stdout (and only that: promote.yml reads it as a step output); the
+    explanation goes to --note's file, for the evidence, and to stderr for the log."""
+    try:
+        tag, note = resolve_ref(args.ref, lambda v: commit_of_version(v, args.root), ecr_digests)
+    except ValueError as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return 1
+    print(note, file=sys.stderr)
+    if args.note:
+        args.note.write_text(f"{note}\n", encoding="utf-8")
+    print(tag)
+    return 0
+
+
 def cmd_pin(args: argparse.Namespace) -> int:
     if not TAG_RE.match(args.tag):
         print(f"not a release tag: {args.tag!r}", file=sys.stderr)
@@ -522,7 +590,11 @@ def cmd_body(args: argparse.Namespace) -> int:
         print(f"{args.tag} is not on the record", file=sys.stderr)
         return 1
     evidence = args.evidence.read_text(encoding="utf-8") if args.evidence else "(not attached)"
-    print(pr_body(entry, committed_prod_tag(args.root), evidence))
+    try:
+        release: str | None = versions.versions_at(str(entry.get("commit")), args.root)[1]
+    except (RuntimeError, OSError):
+        release = None  # the version line is a convenience; the gate has already judged
+    print(pr_body(entry, committed_prod_tag(args.root), evidence, release))
     return 0
 
 
@@ -534,6 +606,10 @@ def main(argv: list[str] | None = None) -> int:
         p = sub.add_parser(name)
         p.add_argument("--tag", required=True, help="e.g. sha-1a2b3c4")
         p.set_defaults(fn=fn)
+    p = sub.add_parser("resolve", help="a release (v0.4.2) or image tag -> the image tag (KAV-136)")
+    p.add_argument("--ref", required=True, help="v0.4.2 or sha-2459417")
+    p.add_argument("--note", type=Path, help="write the one-line explanation here (the evidence)")
+    p.set_defaults(fn=cmd_resolve)
     p = sub.add_parser("body", help="markdown for the promotion pull request")
     p.add_argument("--tag", required=True)
     p.add_argument("--evidence", type=Path, help="the verify output to quote")

@@ -154,7 +154,8 @@ version and lists the components inside it
 - **Only a tagged release can go to production.** `promote.yml` refuses a build whose commit has no
   `vX.Y.Z` tag, and the staging smoke test will not record a pass for one. To make a release: run
   `release-prepare`, merge its pull request, use the build it makes
-  ([runbook](runbooks/release-a-version.md)).
+  ([runbook](runbooks/release-a-version.md)). Promote it by its version: `promote.yml` with
+  `tag=vX.Y.Z` looks up the image tag itself ([ADR-0088](adr/0088-promote-takes-a-release-version-and-works-out-the-image-tag.md)).
 - **Who bumps them:** `release-prepare.yml` computes and writes the bumps in a pull request;
   `release.yml` tags the commit after the images are pushed. Nobody types a version.
 

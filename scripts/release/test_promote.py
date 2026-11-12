@@ -432,3 +432,132 @@ def test_release_facts_read_only_annotated_version_tags_on_the_commit(tmp_path: 
     commit = git("rev-parse", "HEAD")
     assert promote.release_tags_at(commit, tmp_path) == ["v0.2.0"]
     assert promote.is_on_main(commit, tmp_path)
+
+
+# ── promote by release: v0.4.2 becomes its image tag (KAV-136) ────────────────────────
+
+COMMIT = "791c44d" + "0" * 33
+
+
+def _ecr_has(*tags: str) -> Callable[[str], dict[str, str]]:
+    def lookup(tag: str) -> dict[str, str]:
+        if tag not in tags:
+            raise RuntimeError(f"kaval/gateway:{tag} is not readable in ECR")
+        return D
+
+    return lookup
+
+
+def test_a_release_becomes_the_image_tag_of_its_commit() -> None:
+    tag, note = promote.resolve_ref(
+        "v0.4.2", lambda v: COMMIT if v == "v0.4.2" else None, _ecr_has("sha-791c44d")
+    )
+    assert tag == "sha-791c44d"
+    assert "v0.4.2" in note and "sha-791c44d" in note  # the evidence names both
+
+
+def test_an_image_tag_passes_through_as_before_without_asking_git_or_the_registry() -> None:
+    def never(_: str) -> None:
+        raise AssertionError("must not be asked")
+
+    tag, note = promote.resolve_ref("sha-2459417", never, never)  # type: ignore[arg-type]
+    assert tag == "sha-2459417" and "sha-2459417" in note
+
+
+def test_an_unknown_release_is_refused_with_a_plain_message() -> None:
+    with pytest.raises(ValueError, match=r"v9\.9\.9 is not a release"):
+        promote.resolve_ref("v9.9.9", lambda v: None, _ecr_has())
+
+
+def test_a_release_whose_commit_has_no_image_is_refused_and_says_so() -> None:
+    with pytest.raises(ValueError, match=r"no image tagged sha-791c44d.*Nothing was opened"):
+        promote.resolve_ref("v0.4.2", lambda v: COMMIT, _ecr_has("sha-other00"))
+
+
+@pytest.mark.parametrize(
+    "typed",
+    [
+        "",
+        "0.4.2",
+        "v0.4",
+        "v0.4.2.1",
+        "latest",
+        "main",
+        "v0.4.2; rm -rf /",
+        "sha-xyz",
+        "SHA-2459417",
+    ],
+)
+def test_anything_else_is_refused_before_git_or_the_registry_is_asked(typed: str) -> None:
+    def never(_: str) -> None:
+        raise AssertionError("must not be asked")
+
+    with pytest.raises(ValueError, match="neither a release version nor an image tag"):
+        promote.resolve_ref(typed, never, never)  # type: ignore[arg-type]
+
+
+def test_a_person_may_type_a_space_around_it() -> None:
+    tag, _ = promote.resolve_ref(" v0.4.2 ", lambda v: COMMIT, _ecr_has("sha-791c44d"))
+    assert tag == "sha-791c44d"
+
+
+def test_the_command_prints_only_the_tag_on_stdout_and_writes_the_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(promote, "commit_of_version", lambda v, root=promote.ROOT: COMMIT)
+    monkeypatch.setattr(promote, "ecr_digests", _ecr_has("sha-791c44d"))
+    note = tmp_path / "resolve.txt"
+    rc = promote.main(["resolve", "--ref", "v0.4.2", "--note", str(note)])
+    out = capsys.readouterr()
+    assert rc == 0 and out.out == "sha-791c44d\n"  # a step output: nothing else may be on stdout
+    assert "v0.4.2" in note.read_text(encoding="utf-8")
+
+
+def test_a_refusal_exits_1_prints_nothing_on_stdout_and_writes_no_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(promote, "commit_of_version", lambda v, root=promote.ROOT: None)
+    note = tmp_path / "resolve.txt"
+    rc = promote.main(["resolve", "--ref", "v9.9.9", "--note", str(note)])
+    out = capsys.readouterr()
+    assert rc == 1 and out.out == "" and "refused:" in out.err and not note.exists()
+
+
+def test_commit_of_version_accepts_only_an_annotated_release_tag(tmp_path: Path) -> None:
+    import subprocess
+
+    def git(*a: str) -> str:
+        return subprocess.run(
+            ["git", *a], cwd=tmp_path, capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+    git("init", "-q", "-b", "main")
+    for k, v in (("user.email", "t@example.com"), ("user.name", "t"), ("commit.gpgsign", "false")):
+        git("config", k, v)
+    git("config", "tag.gpgsign", "false")
+    (tmp_path / "f").write_text("x", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "feat: x")
+    git("tag", "-a", "v0.2.0", "-m", "Kaval 0.2.0")
+    git("tag", "v0.3.0")  # lightweight: anyone can push one, so it is not a release
+    head = git("rev-parse", "HEAD")
+    assert promote.commit_of_version("v0.2.0", tmp_path) == head  # peeled to the commit
+    assert promote.commit_of_version("v0.3.0", tmp_path) is None
+    assert promote.commit_of_version("v9.9.9", tmp_path) is None
+
+
+def test_the_pull_request_text_names_the_release_beside_the_image_tag() -> None:
+    entry = json.loads(RECORD)["passes"][0]
+    named = promote.pr_body(entry, "sha-0000000", "ok", "0.4.2")
+    assert "release v0.4.2" in named and "`sha-1111111`" in named
+    assert "release v" not in promote.pr_body(entry, "sha-0000000", "ok")  # old callers unchanged
+
+
+def test_the_workflow_hands_the_resolved_tag_on_and_keeps_input_out_of_scripts() -> None:
+    text = (promote.ROOT / ".github/workflows/promote.yml").read_text(encoding="utf-8")
+    assert "steps.resolve.outputs.tag" in text and "needs.gate.outputs.tag" in text
+    # the typed text reaches a script only through the environment, never `run:` interpolation
+    assert "${{ inputs.tag }}" in text
+    for line in text.splitlines():
+        if "${{ inputs.tag }}" in line:
+            assert line.strip().startswith("REF:"), line

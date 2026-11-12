@@ -44,7 +44,7 @@ A scoped token only works through that gateway address, not through the normal s
 ## 3. Run it
 
 ```bash
-gh workflow run promote.yml --ref main -f tag=sha-2459417
+gh workflow run promote.yml --ref main -f tag=sha-2459417   # since KAV-136 a release works too: -f tag=v0.4.2 (Lab 90)
 ```
 
 The `gate` job prints:

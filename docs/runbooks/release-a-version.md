@@ -40,10 +40,17 @@ Reversible: every step is a pull request. Blast radius: none until the promotion
    `<svc>-vX.Y.Z` and `vX.Y.Z` at that commit, and opens the staging pin pull request. Its text must say
    "This build is release vX.Y.Z". Approve its checks and merge it.
 5. Test it on staging (`make staging-up`, then `make staging-smoke`; a pass is recorded). Then
-   `promote.yml` with `tag=sha-<7 characters of the commit that carries the tag>`.
+   `promote.yml` with `tag=vX.Y.Z` (the release you made in step 2; for example `gh workflow run promote.yml --ref main -f tag=v0.5.0`).
+   The workflow looks up the build behind the version itself and prints what it found as the first line of its
+   evidence ([ADR-0088](../adr/0088-promote-takes-a-release-version-and-works-out-the-image-tag.md)). The image
+   tag (`tag=sha-<7 characters>`) still works if you prefer it.
 
-If step 4's text says NOT a release, the build came from a commit after the tag: use the build whose commit
-the tag points at (`git rev-list -n 1 vX.Y.Z`, first 7 characters).
+If it stops at its first step with "not a release this repository has", check the spelling against the Releases
+page; with "no image tagged ... is in the registry", the build for that version is gone (the registry keeps the
+newest 15), so release again. Nothing is opened in either case.
+
+If step 4's text says NOT a release, the build came from a commit after the tag: promote the version
+(`tag=vX.Y.Z`), which names the build whose commit the tag points at.
 
 If the tag step failed: re-run the `release` run on the same commit (Actions → Re-run failed jobs). It only
 creates tags that do not exist.
