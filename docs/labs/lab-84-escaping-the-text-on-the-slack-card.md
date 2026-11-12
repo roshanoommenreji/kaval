@@ -79,7 +79,7 @@ They prove the detector can say yes (`has_markup("<!channel>")` is true), so the
   already there (a test that needs `scripts/ops` on the path, which the project's own lint run provides).
 - **Released 2026-11-10, each step on Roshan's own phrase:** release round (#361, `v0.3.0`, build `sha-5ec8e6a`), `make staging-smoke` (7 of 7), promotion (#364).
   The injection set was run on the dev server (0/7 cards with live markup), not repeated on staging.
-- **Still to see:** the first real card in Slack when production next starts. Staging has no Slack, so the card in a real channel is production's.
+- **First real card seen:** seen by Roshan in Slack on 2026-11-13 (four cards, all alike; production's cost detector filed four real old-snapshot proposals at 23:45-23:46 IST on 2026-11-12 and the notifier posted each): the italic *Summary:* label before the model's sentence, the plain-words *What will happen* and *To undo* lines, the *Nobody has approved this yet. Approving or denying is your decision.* closing line, and the Approve and Deny buttons. The cards were left unanswered on purpose (production was parked). Staging has no Slack, so the card in a real channel was always production's.
 
 ## Checklist
 
@@ -89,4 +89,4 @@ They prove the detector can say yes (`has_markup("<!channel>")` is true), so the
 - [x] The injection set prints and gates "cards with live Slack markup"
 - [x] Released, staging smoke passed, promoted (`v0.3.0`, 2026-11-10)
 - [x] Production ran the build (2026-11-10): the Slack notifier connected, its loop ran with no errors
-- [ ] First real card seen in Slack (needs a real proposal waiting for approval; none existed at that start-up)
+- [x] First real card seen in Slack *(2026-11-13: four real cards from production's own proposals, see above)*
