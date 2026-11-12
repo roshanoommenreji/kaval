@@ -21,8 +21,11 @@ GOOD = """  dumping kaval...
 
 
 def _sh(snippet: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    # bash by its full path: a test that empties PATH (to prove no `aws` is reached) must still
+    # be able to start bash itself on Linux, where the lookup uses the child's PATH.
+    bash = shutil.which("bash") or "bash"
     return subprocess.run(
-        ["bash", "-c", f'source "{SCRIPT.as_posix()}"; {snippet}'],
+        [bash, "-c", f'source "{SCRIPT.as_posix()}"; {snippet}'],
         capture_output=True,
         text=True,
         encoding="utf-8",
