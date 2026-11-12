@@ -367,7 +367,7 @@ kind = "platform"
 phase = 4
 col = 2
 row = 8
-credentials = "IAM-authenticated pull by the node; push only by the kaval-ci-publish role, which GitHub Actions assumes by OIDC (this repo, main branch only)"
+credentials = "IAM-authenticated pull by the node; push and read (to sign and check signatures, KAV-138) by the kaval-ci-publish role, which GitHub Actions assumes by OIDC (this repo, main branch only); no delete"
 inputs = ["arm64 images, built once and tagged by commit SHA, pushed by release.yml (KAV-61, ADR-0030)"]
 outputs = ["Images pulled by the node"]
 note = "First 500 MB free. Five repos: kaval/gateway, kaval/agent, kaval/executor, kaval/collector (live since KAV-50) and kaval/backup (added KAV-61), immutable tags. The first images were pushed by hand in KAV-51; since KAV-61 release.yml publishes every image from CI through a push-only OIDC role (no stored key; the trust condition is the repo's immutable subject on main). The node pulls them using a registry/credential pair its own cloud-init refreshes from its IAM role, never committed (ADR-0025). Retention (KAV-68, ADR-0036): only the newest 15 tagged images per repository are kept (at most about $0.71/month), and make up checks first that the images prod pins still exist."
@@ -1073,7 +1073,7 @@ phase = 4
 col = 2
 row = 5
 outputs = ["Five arm64 images, tagged sha-<short>; the digest is read back from ECR and recorded beside the tag"]
-note = "Built in release.yml (KAV-61, ADR-0030): scanned, then pushed through a push-only OIDC role; the publishing job has no repo write access and the proposing job has no AWS access. BUILD ONCE. A rebuild from the same commit can differ — base images move, dependencies resolve differently — so a rebuild is a different artifact, and staging then tested something else."
+note = "Built in release.yml (KAV-61, ADR-0030): scanned, then pushed through an OIDC role that can push to and read from the five repositories only, and signed keyless (KAV-138, ADR-0090); the publishing job has no repo write access and the proposing job has no AWS access. BUILD ONCE. A rebuild from the same commit can differ — base images move, dependencies resolve differently — so a rebuild is a different artifact, and staging then tested something else."
 
 [[delivery.node]]
 id = "d-sign"
@@ -1082,7 +1082,7 @@ kind = "service"
 phase = 8
 col = 2
 row = 6
-note = "syft generates the bill of materials, cosign signs keylessly against the CI identity. Together they answer 'are we affected?' in minutes when the next widely-publicised CVE lands."
+note = "BUILT in release.yml: Trivy writes the CycloneDX parts list (KAV-137, ADR-0089), the build record and parts list are bound to the digest in GitHub's store, and cosign signs each pushed digest keyless against the release workflow's identity, stored in ECR as a referrer (KAV-138, ADR-0090). Together they answer 'are we affected?' in minutes when the next widely-publicised CVE lands. Nothing refuses an unsigned image yet: promote.yml (KAV-139) and the cluster (KAV-140) are next."
 
 [[delivery.node]]
 id = "d-stgup"

@@ -39,7 +39,7 @@ In `.github/workflows/release.yml`, job `publish`:
 
 Three details worth understanding: the record's name is `kaval/<service>` with **no registry host**, because records on a public repository are public and the host contains the AWS account number; the job
 gets exactly one new permission (`attestations: write`) while the `propose` job, which writes to the repository, gets none and still cannot sign; and the in-release check only proves the record **exists**,
-because verifying a signature means reading the image in ECR, which the push-only role may not do.
+because verifying a signature means reading the image in ECR, which the push-only role may not do (since `KAV-138` it can read, and [Lab 92](lab-92-signing-every-image-in-the-registry.md) signs and checks in the release).
 
 ## Part 3 — The tests
 
@@ -49,7 +49,7 @@ python -m pytest scripts/dev/test_release_supply_chain.py -q
 
 They pin: the parts list is made from the scanned image and *before* the AWS login; it is checked (CycloneDX, not suspiciously short) and kept 90 days with a missing file as an error; the record is signed
 for the digest ECR reported; the attestation action is pinned to a full commit; the public name carries no registry host; the store check fails the release when no record exists (and a `|| true` version
-would not pass the test); `publish` has exactly `id-token`, `attestations` and `contents: read` while `propose` has neither of the first two; and the AWS role still has no read permission.
+would not pass the test); `publish` has exactly `id-token`, `attestations` and `contents: read` while `propose` has neither of the first two; and the AWS role had no read permission (`KAV-138` changed that test on purpose, see [Lab 92](lab-92-signing-every-image-in-the-registry.md)).
 
 ## Part 4 — The live proof (done 2026-11-13, run 43291746398)
 

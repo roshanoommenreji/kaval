@@ -20,8 +20,9 @@ WORKFLOWS = [
     ROOT / ".github" / "workflows" / "release.yml",
 ]
 
-# Trivy twice (ci.yml's image job and release.yml), gitleaks, OPA, helm, kubeconform.
-EXPECTED_DOWNLOADS = 6
+# Trivy twice (ci.yml's image job and release.yml), gitleaks, OPA, helm, kubeconform, and cosign
+# (release.yml, KAV-138).
+EXPECTED_DOWNLOADS = 7
 
 
 def _download_steps() -> list[tuple[str, str, str]]:

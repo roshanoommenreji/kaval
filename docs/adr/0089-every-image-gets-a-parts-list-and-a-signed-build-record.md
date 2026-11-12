@@ -36,7 +36,7 @@ risks, so it is four stories. This ADR covers the first: the parts list and the 
 - **Two choices that matter.**
   - The record's name is `kaval/<service>`, with **no registry host**. Records for a public repository are public and go into a public log; the host contains the AWS account number, which must never be
     published (CLAUDE.md constraint 5). The digest is what identifies the image, so nothing is lost.
-  - The step in the release only proves the record **exists**. Checking its *signature* needs a read of the image in ECR, and the build robot's role is deliberately push-only. The signature is checked
+  - The step in the release only proves the record **exists**. Checking its *signature* needs a read of the image in ECR, and the build robot's role was deliberately push-only (until `KAV-138`, [ADR-0090](0090-images-are-signed-keyless-and-the-signature-lives-in-the-registry.md), which adds a read on its own five repositories). The signature is checked
     where a read is allowed: by hand ([runbook](../runbooks/verify-an-image.md)), and in `KAV-139` at the promotion gate.
 - **Permissions.** The `publish` job gains one: `attestations: write`. The `propose` job (the one that writes to the repository) gains nothing, and still cannot sign or reach AWS. The top level stays
   `permissions: {}`. A test pins all three.

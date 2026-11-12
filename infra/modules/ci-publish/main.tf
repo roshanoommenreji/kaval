@@ -9,9 +9,10 @@
 #   - it can be assumed ONLY by a job from this repository, running on this branch. A fork, a
 #     pull request or another branch gets "not authorized", which is the security of the whole
 #     arrangement (the trust policy below);
-#   - once assumed, it can only upload layers and put images into the Kaval repositories. It
-#     cannot delete, read secrets, start servers or touch anything else. ECR tags are
-#     immutable (modules/ecr), so it cannot overwrite an image that already exists either.
+#   - once assumed, it can only upload layers, put images into the Kaval repositories and read
+#     them back (to sign them and check the signature, KAV-138). It cannot delete, read secrets,
+#     start servers or touch anything else. ECR tags are immutable (modules/ecr), so it cannot
+#     overwrite an image that already exists either.
 #
 # What this does NOT create: the GitHub OIDC provider. That is one per AWS account and this
 # account already has it (created by the stock-trader project's Terraform), so it is looked up,
@@ -85,6 +86,20 @@ data "aws_iam_policy_document" "publish" {
       "ecr:CompleteLayerUpload",
       "ecr:PutImage",
       "ecr:DescribeImages",
+    ]
+    resources = var.ecr_repository_arns
+  }
+
+  # Read, on the same five repositories and nothing else (KAV-138, ADR-0090). Signing an image
+  # means looking it up first, and checking the signature afterwards means reading it back
+  # (the signature is stored in the registry beside the image). Still no delete, and no read of
+  # any other repository: a stolen pass could copy a public repository's images, nothing more.
+  statement {
+    sid    = "ReadKavalImagesToSignAndCheckThem"
+    effect = "Allow"
+    actions = [
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
     ]
     resources = var.ecr_repository_arns
   }

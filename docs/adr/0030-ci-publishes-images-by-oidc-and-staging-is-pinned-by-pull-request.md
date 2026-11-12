@@ -1,5 +1,7 @@
 # ADR-0030: CI publishes images through a push-only OIDC role, and staging is pinned by pull request
 
+> **Amendment, 2026-11-13 (`KAV-138`, [ADR-0090](0090-images-are-signed-keyless-and-the-signature-lives-in-the-registry.md)):** the role is no longer push-only. It also reads (`ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`) on the same five repositories, so the release can sign what it pushes and check the signature. It still cannot delete or change anything. The rest of this ADR is unchanged.
+
 **Status:** Accepted
 **Date:** 2026-10-08
 **Related:** [ADR-0004](0004-environment-strategy-and-promotion.md) (build once, promote the artifact),

@@ -113,3 +113,9 @@ Only a merged commit should produce an artifact.
   partly true. Each release builds a parts list (SBOM) and a signed build record for every image
   ([ADR-0089](0089-every-image-gets-a-parts-list-and-a-signed-build-record.md)); signatures in the
   registry and the checks that refuse an unsigned image are the next three stories (`KAV-138`..`KAV-140`).
+
+- **Amendment, 2026-11-13 (`KAV-138`):** the signature is now built too. Each release signs every pushed
+  image keyless with cosign and checks the signature straight away
+  ([ADR-0090](0090-images-are-signed-keyless-and-the-signature-lives-in-the-registry.md)); the checks that
+  refuse an unsigned image are the last two stories (`KAV-139`, `KAV-140`). The new cosign download is
+  retried and checksum-verified like the others; the download test now counts seven.

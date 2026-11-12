@@ -94,7 +94,7 @@ module "ecr" {
 }
 
 # What release.yml borrows to push images (KAV-61, ADR-0030): OIDC, this repo's main branch,
-# push-only on the ECR repositories above.
+# push to and read from the ECR repositories above (read added by KAV-138).
 module "ci_publish" {
   source = "../../modules/ci-publish"
 
