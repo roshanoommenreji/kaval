@@ -67,6 +67,7 @@ would not pass the test); `publish` has exactly `id-token`, `attestations` and `
 - By hand, `gh attestation verify oci://<registry>/kaval/gateway@<digest> --repo … --signer-workflow …/release.yml` exited 0 (in a pipe it prints nothing; add `--format json` to see who signed). The signer was
   `…/.github/workflows/release.yml@refs/heads/main`, the commit `26f2d52…`, the run `43291746398`.
 - **Negative:** the same command with `--signer-workflow …/ci.yml` exited 1 ("verifying with issuer sigstore.dev") — refused.
+- **Re-run:** running the same release again reused all five images (`is already published; reusing it`) and each job then reported `2 build record(s) stored`: a re-run does not fail, it adds a second record for the same digest. It also reopened the staging-pin pull request (#396, closed unmerged).
 - A side effect I had not planned for: the run opened a staging-pin pull request (#395) for the merge commit. It was closed unmerged; staging is deleted and nothing pins to it.
 
 ## What to take away
