@@ -1,6 +1,6 @@
 # Verify an image by hand (parts list and build record)
 
-Every image the release workflow builds has a parts list (SBOM) and a signed build record ([ADR-0089](../adr/0089-every-image-gets-a-parts-list-and-a-signed-build-record.md)).
+Every image the release workflow builds has a parts list (SBOM), a signed build record ([ADR-0089](../adr/0089-every-image-gets-a-parts-list-and-a-signed-build-record.md)) and, since `KAV-138`, a signature kept in ECR beside it ([ADR-0090](../adr/0090-images-are-signed-keyless-and-the-signature-lives-in-the-registry.md)).
 This is how a person reads and checks them. It only reads: nothing here changes an image, a cluster or a pin. For a person, no fix is proposed.
 
 ## Signals
@@ -13,7 +13,9 @@ This is how a person reads and checks them. It only reads: nothing here changes 
 
 1. The image was built before 2026-11-13 (`KAV-137`): it has no parts list and no build record, by design. Rebuild by releasing again; do not hand-make one
 2. The release run that built it failed after the push, before the record was stored (a re-run of that release adds it)
-3. The parts list's 90 days have passed (the build artifact expires); a later story keeps it in the registry (`KAV-138`)
+3. The parts list's 90 days have passed (the build artifact expires); the copy bound to the digest in GitHub's store does not expire (`KAV-138`)
+4. The image was built before the signing step existed (`KAV-138`): it has no signature, by design. Release again; do not hand-sign it
+5. The release run stopped at **sign the image**: the build robot could not read ECR (the Terraform permission of `KAV-138` is not applied yet) or Sigstore was unreachable. Apply the permission or re-run later; nothing unsigned was promoted
 
 ## Diagnosis
 
@@ -26,6 +28,10 @@ This is how a person reads and checks them. It only reads: nothing here changes 
    (`aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.ap-south-1.amazonaws.com`), then
    `gh attestation verify oci://<account>.dkr.ecr.ap-south-1.amazonaws.com/kaval/gateway@sha256:<digest> --repo <owner>/<repo> --signer-workflow <owner>/<repo>/.github/workflows/release.yml`.
    A pass exits 0 (piped, it prints nothing; add `--format json` to see the signer workflow, the commit and the run). A wrong signer exits 1. Take the digest from ECR (`aws ecr describe-images`), not from a tag you were told.
+5. **Check the signature kept in the registry** (cosign; same login as step 4; the workflow uses cosign 3.1.4, see `COSIGN_VERSION`):
+   `cosign verify <account>.dkr.ecr.ap-south-1.amazonaws.com/kaval/gateway@sha256:<digest> --certificate-identity https://github.com/<owner>/<repo>/.github/workflows/release.yml@refs/heads/main --certificate-oidc-issuer https://token.actions.githubusercontent.com`.
+   A pass prints the signature as JSON and exits 0. The same command with another identity (for example `…/ci.yml@refs/heads/main`) must exit 1. Spell the identity out; never use a pattern. The output contains the registry host: do not paste it anywhere public.
+6. **The parts list bound to the digest:** `gh api -X GET repos/<owner>/<repo>/attestations/sha256:<digest> -f predicate_type=https://cyclonedx.org/bom --jq '.attestations | length'` is 1 or more.
 
 ## Remediation
 

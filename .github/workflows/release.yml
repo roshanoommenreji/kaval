@@ -12,7 +12,8 @@
 # record. promote.yml and rollback.yml build on all of that.
 #
 # What this workflow is allowed to do, and why that is the whole security story:
-#   - The two jobs have different powers. `publish` can reach AWS (OIDC, push-only to ECR) but
+#   - The two jobs have different powers. `publish` can reach AWS (OIDC; push to and read from the
+#     five Kaval repositories only, and it signs what it pushes, KAV-138) but
 #     cannot write to the repository. `propose` can write a branch and open a pull request but
 #     has no AWS access at all. No job has both.
 #   - AWS accepts only a job from this repository running on `main` (infra/modules/ci-publish).
@@ -55,6 +56,14 @@ env:
   AWS_REGION: ap-south-1
   TRIVY_VERSION: "0.74.0"
   TRIVY_SHA256: "b94ce1976bbf3c15b514b605ee88be7c6d94a29be2302847ff01cb794d47aad5" # Linux-ARM64
+  # The signing tool (KAV-138, ADR-0090): fixed version and checksum, like Trivy, so a changed
+  # download is refused instead of run. The checksum is from the release's own checksum file.
+  COSIGN_VERSION: "3.1.4"
+  COSIGN_SHA256: "ade83b7aac62e131cacfe96d958948b2150cc9efec46a570a2649b8e27dedad2" # linux-arm64
+  # Who may have signed an image: this workflow, on main, as GitHub vouches for it. Written out in
+  # full, never a pattern, so a signature from any other workflow or branch is refused.
+  SIGNER_IDENTITY: "https://github.com/roshanoommenreji/kaval/.github/workflows/release.yml@refs/heads/main"
+  SIGNER_ISSUER: "https://token.actions.githubusercontent.com"
 
 jobs:
   publish:
@@ -108,6 +117,12 @@ jobs:
             "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-ARM64.tar.gz"
           echo "${TRIVY_SHA256}  trivy.tgz" | sha256sum --check --strict
           tar -xzf trivy.tgz trivy && rm trivy.tgz
+      - name: install cosign (checksum-verified)
+        run: |
+          curl -fsSL --retry 5 --retry-all-errors -o cosign \
+            "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-arm64"
+          echo "${COSIGN_SHA256}  cosign" | sha256sum --check --strict
+          chmod +x cosign
       # A vulnerability found now, after merge, stops the publish: an image is only worth
       # promoting if it was clean when it was built.
       - name: Trivy scan
@@ -171,6 +186,33 @@ jobs:
           echo "- \`${{ matrix.service }}\` \`$TAG\` \`$digest\`" >> "$GITHUB_STEP_SUMMARY"
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
+      # The signature (KAV-138, ADR-0090): a signed statement, kept in ECR beside the image, that
+      # THIS digest was published by THIS workflow on main. Keyless: GitHub vouches for the run,
+      # Sigstore notes it in a public log, and there is no key to keep or to leak. It is made for
+      # the digest ECR reported, never a tag. If the digest already carries a valid signature from
+      # this workflow (a re-run for a commit that is already published), nothing is added;
+      # otherwise it is signed and then checked straight away, so "signed but unreadable" stops
+      # the release instead of surfacing at promotion. The checks print nothing: their output
+      # names the registry, and this log is public.
+      - name: sign the image (keyless) unless it already carries a valid signature
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          ref="$REGISTRY/kaval/${{ matrix.service }}@$DIGEST"
+          check() {
+            ./cosign verify "$ref" \
+              --certificate-identity "$SIGNER_IDENTITY" \
+              --certificate-oidc-issuer "$SIGNER_ISSUER" >/dev/null
+          }
+          if check 2>/dev/null; then
+            echo "$DIGEST already carries a valid signature from this workflow; nothing to add"
+          else
+            ./cosign sign --yes "$ref"
+            check
+            echo "$DIGEST signed, and the signature checked"
+          fi
+
       # The build record (KAV-137, ADR-0089): a signed statement, made with this run's own
       # identity (Sigstore, no key to keep), that THIS digest was built by THIS workflow from
       # THIS commit. It lives in GitHub's attestation store, not in ECR, so it needs no AWS
@@ -182,27 +224,43 @@ jobs:
           subject-name: kaval/${{ matrix.service }}
           subject-digest: ${{ steps.push.outputs.digest }}
 
-      # Ask GitHub's store for the record by the exact digest, so a record that was never stored
-      # stops the release. This only proves the record EXISTS: checking its signature needs a
-      # read of the image in ECR, which this push-only role must not have. The signature is
-      # checked where a read is allowed: by hand (docs/runbooks/verify-an-image.md) and, in
+      # The parts list (KAV-138): the CycloneDX list made above, now bound to the digest by the
+      # same kind of signed statement, so "these are the parts of THIS image" can be proven later
+      # and not only read from a workflow artifact that is deleted after 90 days. Kept in
+      # GitHub's store, not in ECR, with the same host-free name as the build record.
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: kaval/${{ matrix.service }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: sbom/${{ matrix.service }}.cdx.json
+
+      # Ask GitHub's store for both records by the exact digest, so a record that was never
+      # stored stops the release. This only proves the records EXIST; their signatures are
+      # checked where the image can be read: by hand (docs/runbooks/verify-an-image.md) and, in
       # KAV-139, at the promotion gate. Retries because the store can lag the signing by seconds.
-      - name: the build record is in GitHub's store
+      - name: the build record and the parts list are in GitHub's store
         env:
           GH_TOKEN: ${{ github.token }}
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
-          for attempt in 1 2 3 4 5; do
-            n=$(gh api "repos/$GITHUB_REPOSITORY/attestations/$DIGEST" --jq '.attestations | length' || echo 0)
-            if [ "$n" -ge 1 ]; then
-              echo "$n build record(s) stored for $DIGEST"
-              exit 0
+          for kind in https://slsa.dev/provenance/v1 https://cyclonedx.org/bom; do
+            found=0
+            for attempt in 1 2 3 4 5; do
+              n=$(gh api -X GET "repos/$GITHUB_REPOSITORY/attestations/$DIGEST" -f predicate_type="$kind" \
+                --jq '.attestations | length' 2>/dev/null || echo 0)
+              if [ "$n" -ge 1 ]; then
+                echo "$n record(s) of kind $kind stored for $DIGEST"
+                found=1
+                break
+              fi
+              echo "attempt $attempt: no $kind record stored yet; waiting"
+              sleep 6
+            done
+            if [ "$found" -ne 1 ]; then
+              echo "no $kind record is stored for $DIGEST" >&2
+              exit 1
             fi
-            echo "attempt $attempt: no record stored yet; waiting"
-            sleep 6
           done
-          echo "no build record is stored for $DIGEST" >&2
-          exit 1
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
