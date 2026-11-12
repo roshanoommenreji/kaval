@@ -80,7 +80,7 @@ snapshot) and **RTO 30 minutes**, with the measured pieces. The drill is judged 
   at the first drill was 63 hours old. The volume snapshots (03:00 UTC daily, kept 7, and one before every stop) are
   unaffected, so the stated RPO of 24 hours holds for the snapshots and **not** for the dump. The drill record says so
   whenever the dump is older than a day. Not changed here; an option is a dump at the moment production
-  is parked (recorded in the roadmap).
+  is parked (recorded in the roadmap). **Closed by [ADR-0087](0087-production-takes-a-database-dump-as-it-is-parked.md)** (`KAV-134`).
 - **Production's database held no rows** when the first drill ran (parked, little collected), so the
   first drill proves the mechanics only. It says so; repeat it once there is data.
 - An older dump legitimately lacks later tables (the first drill's dump predated `notification`); the
