@@ -42,20 +42,20 @@ spec:
       replicas: 1
       approverSecretName: kaval-approver
       image:
-        tag: sha-85a97f0
+        tag: sha-dc0f3c3
     agent:
       correlateEverySeconds: 45
       image:
-        tag: sha-85a97f0
+        tag: sha-dc0f3c3
     executor:
       demoNamespace: kaval-demo-staging
       executeEverySeconds: 20
       image:
-        tag: sha-85a97f0
+        tag: sha-dc0f3c3
     collector:
       watchEverySeconds: 20
       image:
-        tag: sha-85a97f0
+        tag: sha-dc0f3c3
     prometheus:
       enabled: true
       disk:
