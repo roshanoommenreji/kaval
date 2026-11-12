@@ -51,15 +51,23 @@ They pin: the parts list is made from the scanned image and *before* the AWS log
 for the digest ECR reported; the attestation action is pinned to a full commit; the public name carries no registry host; the store check fails the release when no record exists (and a `|| true` version
 would not pass the test); `publish` has exactly `id-token`, `attestations` and `contents: read` while `propose` has neither of the first two; and the AWS role still has no read permission.
 
-## Part 4 — The live proof (the next release round, nothing extra to pay)
+## Part 4 — The live proof (done 2026-11-13, run 43291746398)
 
 `release.yml` can only run for real on `main`, so the proof is a normal release:
 
-1. Merge the story. Run **release** from the Actions tab (Run workflow on `main`; it reuses images already pushed for that commit and adds the records), or wait for the next service change.
+1. Merge the story. Run **release** from the Actions tab (Run workflow on `main`). It builds the merge commit's five images afresh (a re-run for a commit that is already published reuses them), so expect five new images in ECR (a few cents of storage at most) and a staging-pin pull request that you should close, because the commit changed no image, or wait for the next service change.
 2. Each of the five `publish` jobs shows `N parts listed` and `1 build record(s) stored for sha256:…`. The run page lists `sbom-gateway` … `sbom-backup` under Artifacts.
 3. By hand, follow [the runbook](../runbooks/verify-an-image.md) once: download one parts list and open it; run `gh attestation verify` on one digest. It must name the release workflow and the commit.
 4. **Negative, by hand:** run the same `gh attestation verify` with `--signer-workflow <owner>/<repo>/.github/workflows/ci.yml`. It must refuse, because the build record was signed by `release.yml`, not
    `ci.yml`.
+
+### What the live proof showed (2026-11-13)
+
+- All five `publish` jobs and `propose` succeeded; each printed its count (for example `143 parts listed` for the collector, `151` for backup) and `1 build record(s) stored for sha256:…`. The five `sbom-<service>` artifacts are on the run page.
+- By hand, `gh attestation verify oci://<registry>/kaval/gateway@<digest> --repo … --signer-workflow …/release.yml` exited 0 (in a pipe it prints nothing; add `--format json` to see who signed). The signer was
+  `…/.github/workflows/release.yml@refs/heads/main`, the commit `26f2d52…`, the run `43291746398`.
+- **Negative:** the same command with `--signer-workflow …/ci.yml` exited 1 ("verifying with issuer sigstore.dev") — refused.
+- A side effect I had not planned for: the run opened a staging-pin pull request (#395) for the merge commit. It was closed unmerged; staging is deleted and nothing pins to it.
 
 ## What to take away
 
