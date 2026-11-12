@@ -2,8 +2,11 @@
 #
 #   you run it with a release (v0.4.2) or an image tag (sha-2459417); a release is looked up and
 #   becomes its image tag first (KAV-136)  ->  gate: is it on the passed-staging record, do ECR's digests still
-#   match, is it newer than prod, is every `uat` story in it signed off?  ->  propose: a pull
-#   request that points prod's two files at that tag  ->  CI runs on it  ->  you merge.
+#   match, is it newer than prod, is every `uat` story in it signed off, and does each of the four
+#   images carry a valid signature, build record and parts list from release.yml on main
+#   (KAV-139, ADR-0092)?  ->  propose: a pull request that points prod's two files at that tag
+#   ->  CI runs on it  ->  you merge. An image that is unsigned, or signed by anything but
+#   release.yml on main, is refused here and nothing is opened.
 #
 # Merging that pull request is the go/no-go. Nothing here touches the cluster: prod is a Flux
 # cluster that pulls what is on `main`, and this workflow has no credentials to reach it.
@@ -38,6 +41,11 @@ concurrency:
 
 env:
   AWS_REGION: ap-south-1
+  # The signature check (KAV-139, ADR-0092) uses the same signing tool as release.yml at the same
+  # version, fetched and refused if its SHA-256 differs. This runner is x64 (release's is arm64),
+  # so the checksum is the linux-amd64 line of the release's own checksum file.
+  COSIGN_VERSION: "3.1.4"
+  COSIGN_SHA256: "424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa" # linux-amd64
 
 jobs:
   gate:
@@ -56,14 +64,27 @@ jobs:
           persist-credentials: false
           # Full history: the stories in a release are the commits between prod's and the tag's.
           fetch-depth: 0
+      # Before any AWS access, as in release.yml: a changed download is refused, not run.
+      - name: install cosign (checksum-verified)
+        run: |
+          curl -fsSL --retry 5 --retry-all-errors -o cosign \
+            "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64"
+          echo "${COSIGN_SHA256}  cosign" | sha256sum --check --strict
+          chmod +x cosign
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          # The same role release.yml publishes with. This job only describes images; the role's
-          # trust policy (this repository, main) is what lets it in.
+          # The same role release.yml publishes with. This job only describes and reads images
+          # (the role can read the five repositories since KAV-138); the role's trust policy
+          # (this repository, main) is what lets it in.
           role-to-assume: ${{ secrets.AWS_PUBLISH_ROLE_ARN }}
           mask-aws-account-id: true
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: promote-${{ github.run_id }}
+      # Logs the runner in to the registry so the signing tool and `gh` can read the images and
+      # their signatures. Its `registry` output is the address the check names (it holds the
+      # account number; the login step above hides it in every later line of this public log).
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
       - name: resolve (a release like v0.4.2, or an image tag, to the image tag)
         id: resolve
         shell: bash
@@ -83,6 +104,11 @@ jobs:
         env:
           # A workflow input is user input: it goes through the environment, never into the script.
           TAG: ${{ steps.resolve.outputs.tag }}
+          # The signature check (KAV-139): where the images are, the tool that checks them, and
+          # the token `gh` reads GitHub's record store with. It prints nothing but verdicts.
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          COSIGN: ${{ github.workspace }}/cosign
+          GH_TOKEN: ${{ github.token }}
           JIRA_SITE_URL: ${{ secrets.JIRA_SITE_URL }}
           JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}

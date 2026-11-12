@@ -119,3 +119,5 @@ Only a merged commit should produce an artifact.
   ([ADR-0090](0090-images-are-signed-keyless-and-the-signature-lives-in-the-registry.md)); the checks that
   refuse an unsigned image are the last two stories (`KAV-139`, `KAV-140`). The new cosign download is
   retried and checksum-verified like the others; the download test now counts seven.
+
+- **Amendment, 2026-11-13 (`KAV-139`):** the promotion gate now refuses an image whose signature, build record or parts list does not verify against `release.yml` on `main` ([ADR-0092](0092-promotion-refuses-an-image-whose-signature-does-not-verify.md)); the cluster check is the last story (`KAV-140`). The gate's own cosign download is retried and checksum-verified like the others; the download test now counts eight.

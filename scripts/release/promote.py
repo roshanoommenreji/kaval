@@ -5,7 +5,10 @@ Git (deploy/promotion/passed-staging.json). This is what asks that question, thr
 
     verify --tag T   Is T on the record, do the digests still match ECR, is T newer than what prod
                      runs, is it a tagged release with a version prod has not run (KAV-135), and
-                     is every `uat` story in the release signed off in Jira? (ADR-0012)
+                     is every `uat` story in the release signed off in Jira? (ADR-0012), and
+                     does each of the four images carry a valid signature, build record and parts
+                     list from release.yml on main? (KAV-139, ADR-0092)
+    signatures --tag T  Only the last question, read-only: needs REGISTRY, cosign, gh and a login.
     pin --tag T      Re-check the record, then point prod's two files at T. Edits files only.
     resolve --ref R  Turn a release (v0.4.2) or an image tag into the image tag, first of all
                      (KAV-136). An unknown release, or one with no image, is refused.
@@ -19,17 +22,19 @@ promote.yml runs `verify` in one job and `pin` in the next. CI runs `guard` on e
     python scripts/release/promote.py pin --tag sha-2459417
     python scripts/release/promote.py guard --base origin/main
 
-Exit 0 passes, 1 refuses, 2 cannot decide (no AWS, no Jira, commit missing). A gate that cannot
-decide refuses: it never says yes by default.
+Exit 0 passes, 1 refuses, 2 cannot decide (no AWS, no Jira, no signing tool, commit missing). A
+gate that cannot decide refuses: it never says yes by default.
 """
 
 from __future__ import annotations
 
 import argparse
+import functools
 import http.client
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -59,6 +64,23 @@ EXPECTED_PER_FILE = len(SERVICES)
 UAT_SIGNED_OFF = ("Ready for Prod", "Done")
 NL, NN = "\n", "\n\n"
 KEY_RE = re.compile(r"\bKAV-\d+\b")
+
+# Who may have signed an image (KAV-139, ADR-0092): release.yml, on main, as GitHub vouches for it.
+# Written out in full, never as a pattern, so a signature from any other workflow, branch, fork or
+# pull request is refused. release.yml's SIGNER_IDENTITY / SIGNER_ISSUER say the same thing; a test
+# fails if the two files ever disagree.
+REPO = "roshanoommenreji/kaval"
+SIGNER_WORKFLOW = f"{REPO}/.github/workflows/release.yml"
+SIGNER_REF = "refs/heads/main"
+SIGNER_IDENTITY = f"https://github.com/{SIGNER_WORKFLOW}@{SIGNER_REF}"
+SIGNER_ISSUER = "https://token.actions.githubusercontent.com"
+# The two records release.yml binds to every digest in GitHub's store (KAV-137, KAV-138).
+RECORD_KINDS = (
+    ("build record", "https://slsa.dev/provenance/v1"),
+    ("parts list", "https://cyclonedx.org/bom"),
+)
+REGISTRY_RE = re.compile(r"^[0-9]{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com$")
+Runner = Callable[[list[str]], tuple[int, str]]
 
 
 # ── pure parts: judging a record, a release and a pull request ────────────────────────
@@ -118,6 +140,87 @@ def check_pinned_images(tag: str, lookup: Callable[[str], dict[str, str]]) -> Ch
             "passed staging (promote.yml) before starting prod",
         )
     return Check(name, True, f"all four images tagged {tag} exist")
+
+
+# ── the signature check (KAV-139, ADR-0092) ───────────────────────────────────────────
+
+
+def tool(name: str) -> list[str]:
+    """The command that runs `cosign` or `gh`: what $COSIGN / $GH say if set (how the tests plant a
+    stand-in tool), else the plain name."""
+    raw = os.environ.get(name.upper())
+    return shlex.split(raw, posix=os.name != "nt") if raw else [name]
+
+
+def run_tool(cmd: list[str]) -> tuple[int, str]:
+    """Run a checking tool and return (exit code, its output). A tool that is missing or hangs is
+    'cannot decide' (exit 2 in the caller), never a pass."""
+    try:
+        out = subprocess.run(
+            cmd, capture_output=True, text=True, encoding="utf-8", check=False, timeout=180
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"{cmd[0]} is not installed here") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"{cmd[0]} did not answer within 3 minutes") from exc
+    return out.returncode, out.stdout + out.stderr
+
+
+def cosign_command(ref: str) -> list[str]:
+    return [
+        *tool("cosign"), "verify", ref,
+        "--certificate-identity", SIGNER_IDENTITY,
+        "--certificate-oidc-issuer", SIGNER_ISSUER,
+    ]  # fmt: skip
+
+
+def record_command(ref: str, kind: str) -> list[str]:
+    return [
+        *tool("gh"), "attestation", "verify", f"oci://{ref}",
+        "--repo", REPO,
+        "--signer-workflow", SIGNER_WORKFLOW,
+        "--source-ref", SIGNER_REF,
+        "--predicate-type", kind,
+    ]  # fmt: skip
+
+
+def _why(output: str, registry: str) -> str:
+    """The last line of a tool's output, with the registry address and the account number inside it
+    hidden: this text goes into a public log and into the pull request."""
+    lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
+    text = lines[-1] if lines else "no output"
+    text = text.replace(registry, "***").replace(registry.split(".")[0], "***")
+    return text[:120]
+
+
+def check_signatures(digests: dict[str, str], registry: str, run: Runner = run_tool) -> list[Check]:
+    """Does every image carry what release.yml put there: a cosign signature, a signed build record
+    and a signed parts list, all from this repository's release workflow on main?
+
+    Three checks, each over all four images, all run even after a first failure so the report shows
+    everything. Nothing the tools print is shown except a scrubbed last line of a failure."""
+    if not REGISTRY_RE.match(registry):
+        raise RuntimeError("REGISTRY is not set to an ECR registry address")
+    refs = {s: f"{registry}/kaval/{s}@{digests[s]}" for s in SERVICES}
+    checks: list[Check] = []
+
+    def one(name: str, make: Callable[[str], list[str]]) -> None:
+        bad: list[str] = []
+        for svc in SERVICES:
+            code, out = run(make(refs[svc]))
+            if code != 0:
+                bad.append(f"{svc} ({_why(out, registry)})")
+        checks.append(
+            Check(name, False, "; ".join(bad)) if bad else Check(name, True, "all four verified")
+        )
+
+    one("every image carries a valid signature from release.yml on main", cosign_command)
+    for label, kind in RECORD_KINDS:
+        one(
+            f"every image's {label} is signed by release.yml on main",
+            functools.partial(record_command, kind=kind),
+        )
+    return checks
 
 
 def release_keys(subjects: str) -> list[str]:
@@ -507,6 +610,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
             )
         )
         checks.append(check_ecr(entry, ecr_digests(args.tag)))
+        # The images that passed staging, checked as the registry holds them (KAV-139).
+        checks.extend(check_signatures(entry["images"], registry_from_env()))
 
         keys = release_keys(git("log", "--format=%s", f"{prod_commit}..{new_commit}") or "")
         checks.append(check_uat(keys, {k: jira_issue(k) for k in keys}))
@@ -517,6 +622,28 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
     ok = _report(checks)
     print(f"\n{args.tag} {'may' if ok else 'may NOT'} be promoted to prod.")
+    return 0 if ok else 1
+
+
+def registry_from_env() -> str:
+    registry = os.environ.get("REGISTRY", "")
+    if not registry:
+        raise RuntimeError(
+            "REGISTRY is not set (promote.yml gets it from the ECR login step; by hand see "
+            "docs/runbooks/verify-an-image.md)"
+        )
+    return registry
+
+
+def cmd_signatures(args: argparse.Namespace) -> int:
+    """Read-only: the signature check alone, for the tag as ECR holds it now."""
+    try:
+        checks = check_signatures(ecr_digests(args.tag), registry_from_env())
+    except (RuntimeError, OSError) as exc:
+        print(f"cannot decide: {exc}", file=sys.stderr)
+        return 2
+    ok = _report(checks)
+    print(f"\n{args.tag} {'carries' if ok else 'does NOT carry'} valid signatures.")
     return 0 if ok else 1
 
 
@@ -602,7 +729,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", type=Path, default=ROOT, help="repository root")
     sub = parser.add_subparsers(dest="command", required=True)
-    for name, fn in (("verify", cmd_verify), ("pin", cmd_pin)):
+    for name, fn in (("verify", cmd_verify), ("signatures", cmd_signatures), ("pin", cmd_pin)):
         p = sub.add_parser(name)
         p.add_argument("--tag", required=True, help="e.g. sha-1a2b3c4")
         p.set_defaults(fn=fn)

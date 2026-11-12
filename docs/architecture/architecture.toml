@@ -1082,7 +1082,7 @@ kind = "service"
 phase = 8
 col = 2
 row = 6
-note = "BUILT in release.yml: Trivy writes the CycloneDX parts list (KAV-137, ADR-0089), the build record and parts list are bound to the digest in GitHub's store, and cosign signs each pushed digest keyless against the release workflow's identity, stored in ECR as a referrer (KAV-138, ADR-0090). Together they answer 'are we affected?' in minutes when the next widely-publicised CVE lands. Nothing refuses an unsigned image yet: promote.yml (KAV-139) and the cluster (KAV-140) are next."
+note = "BUILT in release.yml: Trivy writes the CycloneDX parts list (KAV-137, ADR-0089), the build record and parts list are bound to the digest in GitHub's store, and cosign signs each pushed digest keyless against the release workflow's identity, stored in ECR as a referrer (KAV-138, ADR-0090). Together they answer 'are we affected?' in minutes when the next widely-publicised CVE lands. promote.yml now refuses an image whose signature, build record or parts list does not verify against release.yml on main (KAV-139, ADR-0092); the cluster (KAV-140) is next, and rollback is deliberately not gated."
 
 [[delivery.node]]
 id = "d-stgup"

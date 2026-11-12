@@ -8,6 +8,7 @@ This is how a person reads and checks them. It only reads: nothing here changes 
 - A library is announced as vulnerable and you need to know which images contain it
 - You want proof that the image in ECR came from this repository's release workflow, not from a hand push
 - `promote.yml` or a later check says a build record is missing or does not verify
+- `promote.yml` stopped at **verify** with `FAIL  every image carries a valid signature…` (or the build record / parts list line): the promotion gate refuses an image that is not signed by `release.yml` on `main` (`KAV-139`, [ADR-0092](../adr/0092-promotion-refuses-an-image-whose-signature-does-not-verify.md))
 
 ## Likely causes
 
@@ -16,6 +17,7 @@ This is how a person reads and checks them. It only reads: nothing here changes 
 3. The parts list's 90 days have passed (the build artifact expires); the copy bound to the digest in GitHub's store does not expire (`KAV-138`)
 4. The image was built before the signing step existed (`KAV-138`): it has no signature, by design. Release again; do not hand-sign it
 5. The release run stopped at **sign the image**: the build robot could not read ECR (the Terraform permission of `KAV-138` is not applied yet) or Sigstore was unreachable. Apply the permission or re-run later; nothing unsigned was promoted
+6. A promotion was refused for a release that was built before signing existed: every release on the passed-staging record up to and including 2026-11-12 has no signature. It cannot be fixed by hand; release again, let it pass staging, and promote that
 
 ## Diagnosis
 
@@ -33,10 +35,15 @@ This is how a person reads and checks them. It only reads: nothing here changes 
    A pass prints the signature as JSON and exits 0. The same command with another identity (for example `…/ci.yml@refs/heads/main`) must exit 1. Spell the identity out; never use a pattern. The output contains the registry host (the account number): do not paste it anywhere public. A pass looks like `The cosign claims were validated` and `The code-signing certificate was verified`; a refusal ends with an error and exit 1 (shown on 2026-11-13 for the wrong workflow, the wrong branch and the wrong issuer).
 6. **The parts list bound to the digest:** `gh api -X GET repos/<owner>/<repo>/attestations/sha256:<digest> -f predicate_type=https://cyclonedx.org/bom --jq '.attestations | length'` is 1 or more.
 
+7. **Ask the promotion gate's question by hand** (read-only; same login as step 4). `REGISTRY` is `<account>.dkr.ecr.ap-south-1.amazonaws.com`, built in the shell and never pasted anywhere public; `COSIGN` is the path to cosign if it is not on your PATH:
+   `AWS_REGION=ap-south-1 REGISTRY=… python scripts/release/promote.py signatures --tag sha-<commit>`.
+   It prints three PASS or FAIL lines (signature, build record, parts list) for all four images, with the registry address hidden, and exits 0 (all pass), 1 (refused) or 2 (cannot decide: a tool, the login or the network is missing). This is exactly what `promote.yml` asks.
+
 ## Remediation
 
 - Missing record on a new image: re-run the **release** workflow for that commit (a commit already published reuses its image and adds the record; a new commit builds new images and opens a staging-pin pull request you can close). Reversible, touches no running system.
 - Missing record on an old image: nothing to fix; release again and promote the new build.
+- A promotion refused on signatures: do not look for a way around it. Find out which image failed which line; if the release was built after 2026-11-13 the likely cause is a failed or partial release run (re-run **release** for that commit and look at the sign step), otherwise it is an old release (above). `rollback.yml` is not signature-gated (an old, unsigned version can still be rolled back to, on purpose, [ADR-0092](../adr/0092-promotion-refuses-an-image-whose-signature-does-not-verify.md)).
 
 ## Do not
 

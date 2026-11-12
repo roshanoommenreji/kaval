@@ -115,5 +115,7 @@ digests, what the gate checked), so the go/no-go is made with the facts in front
 - The repository now holds three Actions secrets. They are readable only by workflows on `main`, and a
   malicious workflow change merged to `main` could read them: the read-only scope is what limits that.
 
+**Amendment, 2026-11-13 (`KAV-139`):** `verify` also asks whether each of the four images is signed by `release.yml` on `main`, with a signed build record and parts list; the pull-request evidence quotes the answer ([ADR-0092](0092-promotion-refuses-an-image-whose-signature-does-not-verify.md)).
+
 **Revisit when** a second maintainer joins (add an Environment reviewer), the
 backup job is enabled in prod.
