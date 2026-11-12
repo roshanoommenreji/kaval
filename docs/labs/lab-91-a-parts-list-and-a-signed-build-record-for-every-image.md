@@ -1,6 +1,6 @@
 # Lab 91 — A parts list and a signed build record for every image
 
-**Story:** `KAV-137` · **Decision:** [ADR-0089](../adr/0089-every-image-gets-a-parts-list-and-a-signed-build-record.md) · **Cost:** $0 · **Time:** 30 minutes (Parts 1-3), one release round for Part 4
+**Phase:** 8 (hardening) · **Story:** `KAV-137` · **Decision:** [ADR-0089](../adr/0089-every-image-gets-a-parts-list-and-a-signed-build-record.md) · **Cost:** $0 · **Time:** 30 minutes (Parts 1-3), one release round for Part 4
 
 ## What you will build
 
