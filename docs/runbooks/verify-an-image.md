@@ -25,11 +25,11 @@ This is how a person reads and checks them. It only reads: nothing here changes 
 4. **Check the signature** (needs a read of ECR, so it is a laptop job): log in to the registry with your own AWS login
    (`aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.ap-south-1.amazonaws.com`), then
    `gh attestation verify oci://<account>.dkr.ecr.ap-south-1.amazonaws.com/kaval/gateway@sha256:<digest> --repo <owner>/<repo> --signer-workflow <owner>/<repo>/.github/workflows/release.yml`.
-   A pass names the workflow, the commit and the run. Take the digest from ECR (`aws ecr describe-images`), not from a tag you were told.
+   A pass exits 0 (piped, it prints nothing; add `--format json` to see the signer workflow, the commit and the run). A wrong signer exits 1. Take the digest from ECR (`aws ecr describe-images`), not from a tag you were told.
 
 ## Remediation
 
-- Missing record on a new image: re-run the **release** workflow for that commit (it reuses the pushed image and adds the record). Reversible, touches no running system.
+- Missing record on a new image: re-run the **release** workflow for that commit (a commit already published reuses its image and adds the record; a new commit builds new images and opens a staging-pin pull request you can close). Reversible, touches no running system.
 - Missing record on an old image: nothing to fix; release again and promote the new build.
 
 ## Do not

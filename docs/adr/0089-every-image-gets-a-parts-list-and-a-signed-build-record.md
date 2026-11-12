@@ -1,6 +1,6 @@
 # ADR-0089: every image gets a parts list and a signed build record
 
-**Status:** Accepted on 2026-11-13 (Roshan: "go", starting the supply-chain line of Phase 8). Built and tested; the first real run is the next release round.
+**Status:** Accepted on 2026-11-13 (Roshan: "go", starting the supply-chain line of Phase 8). Built, tested and proven live on 2026-11-13 (release run 43291746398).
 **Date:** 2026-11-13
 **Related:** [ADR-0010](0010-ci-pipeline-and-supply-chain.md) (CI and the supply chain), [ADR-0030](0030-ci-publishes-images-by-oidc-and-staging-is-pinned-by-pull-request.md) (CI publishes by OIDC, push-only),
 [ADR-0032](0032-promote-workflow-and-the-promotion-guard.md) (the promotion guard), [threat model](../architecture/threat-model.md) T-SUPPLY-2, [Lab 91](../labs/lab-91-a-parts-list-and-a-signed-build-record-for-every-image.md),
@@ -40,7 +40,7 @@ risks, so it is four stories. This ADR covers the first: the parts list and the 
     where a read is allowed: by hand ([runbook](../runbooks/verify-an-image.md)), and in `KAV-139` at the promotion gate.
 - **Permissions.** The `publish` job gains one: `attestations: write`. The `propose` job (the one that writes to the repository) gains nothing, and still cannot sign or reach AWS. The top level stays
   `permissions: {}`. A test pins all three.
-- **Re-runs.** ECR tags are immutable, so a re-run reuses the pushed image. It signs another record for the same digest, which is harmless.
+- **Re-runs.** ECR tags are immutable, so a re-run for a commit that is already published reuses the pushed image. It signs another record for the same digest, which is harmless. A run for a *new* commit builds new images and opens a staging-pin pull request, even if the commit changed no image (seen on the proof run; the pull request was closed).
 
 ## Consequences
 
@@ -51,5 +51,4 @@ risks, so it is four stories. This ADR covers the first: the parts list and the 
   off is deleting the three steps; nothing else depends on them yet.
 - **Honest limit:** this run's identity is trusted because GitHub's Sigstore says so. Someone who can change `release.yml` on `main` can change what is signed; branch protection and the required checks are
   the guard there (T-SUPPLY-3, accepted).
-- **Not proven until it runs:** the release workflow can only run for real on `main`. The first proof is the next release round (Lab 91, Part 4); the tests read the file and pin its safety properties, the
-  SBOM command was run locally against a real image with the pinned Trivy version.
+- **Proven live (2026-11-13):** a manual release run on `main` made all five parts lists and build records and each job found its record in the store. `gh attestation verify` on the gateway digest passed for `release.yml` on `main` and was refused for `ci.yml`. Details in Lab 91, Part 4.
