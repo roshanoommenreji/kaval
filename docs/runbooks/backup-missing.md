@@ -19,8 +19,8 @@ newest dump is far smaller than usual; or the check itself could not run.
 3. **The dump script failed** (a client/server version mismatch, a password that changed, the bucket unreachable)
 4. **The check is wrong:** the server's launch history is read from the auto-scaling group; a launch that
    finished after 19:10 UTC, or a stop before 19:40, is deliberately not counted
-5. **The check itself broke:** the role or the two repository variables (`AWS_BACKUP_WATCH_ROLE_ARN`,
-   `PROD_BACKUP_BUCKET`) are missing or wrong
+5. **The check itself broke:** the role, the repository *secret* `AWS_BACKUP_WATCH_ROLE_ARN` or the repository variable
+   `PROD_BACKUP_BUCKET` is missing or wrong (the role address became a secret in `KAV-141`; `gh secret list` shows names only)
 
 ## Diagnosis
 

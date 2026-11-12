@@ -64,7 +64,8 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           # The same role release.yml and promote.yml use. This job only describes images.
-          role-to-assume: ${{ vars.AWS_PUBLISH_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_PUBLISH_ROLE_ARN }}
+          mask-aws-account-id: true
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: rollback-${{ github.run_id }}
       - name: verify

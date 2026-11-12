@@ -86,7 +86,7 @@ saying so. It estimates recovery at about 5 minutes against a target of 30.
 ```bash
 cd infra/envs/prod && terraform plan       # read it: one role and one policy to add, nothing else
 terraform apply                            # only when asked; IAM is free
-gh variable set AWS_BACKUP_WATCH_ROLE_ARN --body "$(terraform output -raw backup_watch_role_arn)"
+gh secret set AWS_BACKUP_WATCH_ROLE_ARN --body "$(terraform output -raw backup_watch_role_arn)"   # a secret since KAV-141 (Lab 93); it was a variable
 gh variable set PROD_BACKUP_BUCKET --body "$(terraform output -raw backup_bucket_name)"
 gh workflow run backup-watch               # then read the run
 ```

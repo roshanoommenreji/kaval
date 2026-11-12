@@ -55,7 +55,7 @@ Applied from the saved plan file. The role's ARN contains the account id, so it 
 **variable**, never a file:
 
 ```bash
-gh variable set AWS_PUBLISH_ROLE_ARN --body "$(terraform -chdir=infra/envs/prod output -raw ci_publish_role_arn)"
+gh secret set AWS_PUBLISH_ROLE_ARN --body "$(terraform -chdir=infra/envs/prod output -raw ci_publish_role_arn)"   # a secret since KAV-141 (Lab 93); it was a variable
 ```
 
 One repository setting was turned on for the bot's pull request: Settings → Actions → "Allow GitHub
@@ -169,6 +169,6 @@ The approval stays, and is a reasonable human step before staging moves. It is o
 
 1. Read your repo's `sub` claim (`gh api repos/<owner>/<repo>/actions/oidc/customization/sub`).
 2. Apply `infra/modules/ci-publish` with that claim and your ECR repository ARNs; set the
-   `AWS_PUBLISH_ROLE_ARN` repository variable; enable "Allow GitHub Actions to create pull requests".
+   `AWS_PUBLISH_ROLE_ARN` repository secret (it was a variable before `KAV-141`); enable "Allow GitHub Actions to create pull requests".
 3. `gh workflow run release.yml --ref main`, then approve the held CI run on the pull request it opens.
 4. Compare the table's digests with `aws ecr describe-images --repository-name kaval/<svc>`.
