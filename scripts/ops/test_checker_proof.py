@@ -67,7 +67,9 @@ def test_restart_restarts_the_checker_in_place_and_touches_nothing_else() -> Non
     # KAV-144: the blind spot is a restart INSIDE the same pod. Deleting the pod gives a new
     # address, which the alert always caught, so it would prove nothing.
     script = cp.remote_script("restart", "kaval-staging", "staging")
-    assert "crictl stop \"$OLD\"" in script
+    assert "$CRI stop \"$OLD\"" in script
+    # k3s from its binary has only `k3s crictl` (found live on staging); either must work
+    assert "CRI=$(command -v crictl || echo 'k3s crictl')" in script
     assert "--label io.kubernetes.pod.namespace=kyverno" in script  # only the checker's container
     assert "--name '^kyverno$'" in script
     for wider in ("kubectl delete", "crictl rm", "crictl stopp", "systemctl", "reboot"):

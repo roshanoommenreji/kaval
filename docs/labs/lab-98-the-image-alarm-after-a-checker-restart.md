@@ -95,7 +95,7 @@ Result on 2026-11-13: all six rule files `SUCCESS`.
 
 ## Part 4 — The live proof on staging (his typed go)
 
-`scripts/ops/checker_proof.py` has a new step, `restart`. It stops the checker's **container** on the node (`crictl stop`), so the kubelet starts it again **inside the same pod**. Deleting the pod would prove nothing: a new pod gets a new address, which the alarm always caught. The step prints the pod's address, restart count and `process_start_time_seconds` before and after, and waits until the checker's hook is back (a clean stop removes it for a few seconds; [ADR-0094](../adr/0094-the-cluster-refuses-unsigned-images-on-staging-and-fails-closed.md) point 5).
+`scripts/ops/checker_proof.py` has a new step, `restart`. It stops the checker's **container** on the node (`crictl stop`; our nodes install k3s from its binary, which puts no `crictl` on the PATH, so the step uses `k3s crictl` there, found live), so the kubelet starts it again **inside the same pod**. Deleting the pod would prove nothing: a new pod gets a new address, which the alarm always caught. The step prints the pod's address, restart count and `process_start_time_seconds` before and after, and waits until the checker's hook is back (a clean stop removes it for a few seconds; [ADR-0094](../adr/0094-the-cluster-refuses-unsigned-images-on-staging-and-fails-closed.md) point 5).
 
 The order matters. The proof must make branches 1 and 2 blind, so the old refusal has to be more than 15 minutes old when the checker restarts:
 
@@ -106,7 +106,7 @@ python scripts/ops/checker_proof.py staging unsigned --yes   # refused; counter 
 python scripts/ops/checker_proof.py staging alerts           # UnsignedImageSeen firing
 # wait about 16 minutes, until `alerts` shows UnsignedImageSeen inactive
 python scripts/ops/checker_proof.py staging restart --yes    # same pod and address, restarts +1, new start time
-python scripts/ops/checker_proof.py staging unsigned --yes   # refused again at once; counter fail 1 again
+python scripts/ops/checker_proof.py staging unsigned --yes   # ONLY if restart printed restarts +1; refused at once; counter fail 1 again
 python scripts/ops/checker_proof.py staging alerts           # expect: UnsignedImageSeen firing (only the new branch can explain it)
 # negative case: wait until it is inactive again, restart once more without a refusal
 python scripts/ops/checker_proof.py staging restart --yes
@@ -116,15 +116,35 @@ python scripts/ops/checker_proof.py staging unplant --yes
 make staging-down
 ```
 
-If `restart` prints `no running checker container: nothing restarted`, the checker's container is not named `kyverno` in this chart version: read `crictl ps --label io.kubernetes.pod.namespace=kyverno` on the node and fix the step. It never restarts anything else.
+If `restart` prints `no running checker container: nothing restarted`, the checker's container is not named `kyverno` in this chart version, or the node has no container tool: read `k3s crictl ps --label io.kubernetes.pod.namespace=kyverno` on the node and fix the step. It never restarts anything else. **Do not refuse anything after a restart that did not happen** (it happened once: see the results).
 
-*Results: not run yet (waits for his `go staging smoke`).*
+**The count after the restart must reach the count before it.** With a count of 1 before, one refusal after is the blind case. If the count is already higher (say 2), one refusal after the restart reads 1, the old rule sees 2 → 1 as a restart and rings anyway, and the proof shows nothing; make as many refusals, seconds apart, as the count read before.
+
+**Results, 2026-11-13 (his `go staging smoke`; staging up 20:32 to about 22:30, about 15 cents):**
+
+| Step | Seen |
+|---|---|
+| Staging up, 9 apps running; the new rule loaded | `UnsignedImageSeen` had 3 branches and used `process_start_time_seconds`; both alerts inactive |
+| First refusal (20:47) | Pod refused ("failed to verify cosign signatures"), `fail` 1; the alarm rang at 20:50 through **branch 2** (a new count) only |
+| Alarm quiet again | 21:03 |
+| In-place restart, first try | **Failed, safely:** `crictl: command not found` (k3s from its binary has only `k3s crictl`); nothing restarted. I then ran the refusal anyway, by mistake, which made the count 2 and the old rule could see 2 → 1 as a restart, so I waited out the alarm (22:05) and fixed the step |
+| In-place restart (22:05:53) | Same pod, same address, `restarts=1`, start time moved; hooks back in 3 s |
+| Two refusals seconds apart (22:06) | Pods refused, count read **2 again** (the old value): branch 1 = 0, branch 2 = none (both blind), **branch 3 = 2, the alarm rang** from 22:06 to 22:21 (checker age 900 s) |
+| Restart with no refusal (22:22), watched 3 minutes | `restarts=2`, the old count vanished with the old process, all branches empty, **alarm inactive** |
+| Clean-up | Test pods gone, planted name removed, real tags untouched, staging deleted |
+
+The headline row is the sixth: with the old rule the alarm stays silent there. Only the new branch rang.
+
+**What the run taught**
+- The step assumed `crictl` was on the PATH. It is not on a k3s node installed from the binary: the step now uses `command -v crictl || k3s crictl` (a test pins it).
+- The proof needs the count after the restart to reach the count before it. After my stray refusal the count was 2, so two refusals were needed. The lab says so above.
+- My script made the refusal even though the restart had failed. The rerun only refused after it had printed `restarts=1`.
 
 ## Part 5 — Production (at its next start-up)
 
 The same rule file reaches production through the same chart. At production's next start-up (his usual typed phrases), run `state`, `alerts` and the frozen-list step that [Lab 97](lab-97-production-refuses-unsigned-images.md) could not see (`frozen --yes`, expect: accepted). The restart drill is not repeated on production; the rule is the same file staging proved. If the session lasts more than six hours, `state` also shows the checker's registry login was rewritten by the 6-hourly timer (`ecr-cred` in `kyverno`, its age), and a signed pod is still accepted.
 
-*Results: not run yet.*
+*Results: not run yet (waits for production's next start-up).*
 
 ## Things worth knowing
 
