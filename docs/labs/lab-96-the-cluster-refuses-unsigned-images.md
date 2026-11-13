@@ -101,4 +101,4 @@ Things worth knowing that the plan did not predict:
 
 ## Part 5 — The off-switch drill
 
-Written in the [runbook](../runbooks/image-flagged-by-the-cluster-check.md) (the normal way: a pull request back to `Audit` + `Ignore`; the emergency way: delete both hooks). Part 3 tried the emergency way on the laptop; Part 4 should try it once on staging before production gets the same (`KAV-143`).
+Written in the [runbook](../runbooks/image-flagged-by-the-cluster-check.md) (the normal way: a pull request back to `Audit` + `Ignore`; the emergency way: delete both hooks). Part 3 tried the emergency way on the laptop; Part 4 tried it once on staging before production gets the same ([Lab 97](lab-97-production-refuses-unsigned-images.md), `KAV-143`).

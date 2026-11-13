@@ -78,6 +78,9 @@ spec:
       watchEverySeconds: 30
       image:
         tag: sha-d1058eb
+    # The cluster's image checker (KAV-143) - hand-kept copy of deploy/environments/prod/values.yaml.
+    imageChecker:
+      enabled: true
     # Prometheus, the database server's exporters and a check on Kaval's own gateway (KAV-83,
     # ADR-0051) - hand-kept copy of deploy/environments/prod/values.yaml's own comment block.
     prometheus:

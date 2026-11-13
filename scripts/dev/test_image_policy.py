@@ -9,7 +9,9 @@ only work together. These tests pin the parts a quiet mistake would break:
   nothing built after signing began, and has an end date that fails the build once it passes;
 * the check runs on every image before the list is consulted (Kyverno insists on it);
 * Kyverno and every image it runs are pinned; only the admission program is switched on;
-* nothing about production changes before KAV-143, and no file holds the AWS account number.
+* production has the very same checker as staging (KAV-143): its files match staging's except for
+  the namespace, its server is told to hand over the registry login, Prometheus watches it;
+* no file holds the AWS account number.
 
 What these cannot test is whether Kyverno really verifies a signature. That was proved against the
 real signed images in ECR on a laptop cluster (Lab 95, `scripts/dev/checker_trial.sh`) and then live
@@ -215,17 +217,62 @@ def test_staging_lists_the_checker_files() -> None:
         assert name in listed, name
 
 
-# ------------------------------------------------- nothing about production yet (KAV-143)
+# ------------------------------------------------- production has the same checker (KAV-143)
+
+CHECKER_FILES = ("checker-source.yaml", "checker-helmrelease.yaml", "image-policy-sync.yaml")
 
 
-def test_production_gets_nothing_before_its_own_story() -> None:
-    for name in ("checker-source.yaml", "checker-helmrelease.yaml", "image-policy-sync.yaml"):
-        assert not (PROD / name).exists(), f"{name} in prod: that is KAV-143"
-    assert "checker" not in (PROD / "kustomization.yaml").read_text(encoding="utf-8")
-    prod_values = _yaml(ROOT / "deploy" / "environments" / "prod" / "values.yaml")
-    assert not prod_values.get("imageChecker", {}).get("enabled", False)
+def _without_comments(path: Path) -> str:
+    return "\n".join(
+        line for line in path.read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("#")
+    )
+
+
+def test_production_lists_the_checker_files() -> None:
+    listed = _yaml(PROD / "kustomization.yaml")["resources"]
+    for name in CHECKER_FILES:
+        assert (PROD / name).is_file(), name
+        assert name in listed, name
+
+
+def test_production_and_staging_run_the_very_same_checker() -> None:
+    # Kustomize cannot share a file across folders (KAV-51), so production holds copies. Compared
+    # without comments: the code must be identical, or one environment tests what another does not.
+    for name in ("checker-source.yaml", "checker-helmrelease.yaml"):
+        assert _without_comments(PROD / name) == _without_comments(STAGING / name), name
+    prod = _without_comments(PROD / "image-policy-sync.yaml")
+    staging = _without_comments(STAGING / "image-policy-sync.yaml")
+    assert prod.replace("kaval-prod", "kaval-staging") == staging
+    assert "kaval-staging" not in prod
+
+
+def test_production_checks_the_production_namespace_and_only_that() -> None:
+    spec = _yaml(PROD / "image-policy-sync.yaml")["spec"]
+    assert spec["postBuild"]["substitute"] == {"kaval_namespace": "kaval-prod"}
+    assert spec["postBuild"]["substituteFrom"] == [{"kind": "ConfigMap", "name": "kaval-registry"}]
+    assert spec["path"] == "./deploy/image-policy"
+    main = _yaml(PROD / "sync.yaml")["spec"]
+    assert "dependsOn" not in main and "healthChecks" not in main  # the checker cannot hold it up
+    assert _yaml(PROD / "sync.yaml")["spec"]["path"] == "./deploy/gitops/prod"
+    # the namespace the pods really run in is the one the checker looks at
+    ns = _yaml(PROD / "namespace.yaml")
+    assert ns["metadata"]["name"] == "kaval-prod"
+
+
+def test_the_production_server_hands_the_checker_its_login_and_the_timer_refreshes_it() -> None:
     prod_tf = (ROOT / "infra" / "envs" / "prod" / "main.tf").read_text(encoding="utf-8")
-    assert "image_checker_enabled" not in prod_tf
+    assert re.search(r"image_checker_enabled\s*=\s*true", prod_tf)
+    script = (ROOT / "infra" / "modules" / "node" / "user_data.sh.tftpl").read_text(
+        encoding="utf-8"
+    )
+    start = script.index("cat > /usr/local/sbin/kaval-gitops-bootstrap <<")
+    end = script.index("\nSCRIPT\n", start)
+    refreshed = script[start:end]  # the part the 6-hourly timer re-runs
+    assert "%{ if image_checker_enabled ~}" in refreshed
+    assert "namespace: kyverno" in refreshed  # so the checker's login never outlives the 12 h token
+    timer = script[script.index("kaval-gitops-bootstrap.timer <<"):]
+    assert "OnUnitActiveSec=6h" in timer[: timer.index("\nUNIT\n")]
 
 
 def test_staging_hands_the_checker_its_login_and_the_node_does_it_only_when_asked() -> None:
@@ -241,9 +288,13 @@ def test_staging_hands_the_checker_its_login_and_the_node_does_it_only_when_aske
     assert re.search(r'variable "image_checker_enabled" \{[^}]*default\s*=\s*false', variable, re.S)
 
 
-def test_prometheus_watches_the_checker_in_staging_only() -> None:
-    staging = _yaml(ROOT / "deploy" / "environments" / "staging" / "values.yaml")
-    assert staging["imageChecker"] == {"enabled": True}
+def test_prometheus_watches_the_checker_in_staging_and_production() -> None:
+    for env in ("staging", "prod"):
+        values = _yaml(ROOT / "deploy" / "environments" / env / "values.yaml")
+        assert values["imageChecker"] == {"enabled": True}, env
+        assert values["prometheus"]["enabled"], env  # the scrape job and rules need Prometheus
+    inline = _yaml(PROD / "helmrelease.yaml")["spec"]["values"]  # the hand-kept copy
+    assert inline["imageChecker"] == {"enabled": True} and inline["prometheus"]["enabled"]
     chart = _yaml(ROOT / "deploy" / "charts" / "kaval" / "values.yaml")
     assert chart["imageChecker"] == {"enabled": False}
 
@@ -259,6 +310,9 @@ def test_prometheus_watches_the_checker_in_staging_only() -> None:
         STAGING / "checker-source.yaml",
         STAGING / "checker-helmrelease.yaml",
         STAGING / "image-policy-sync.yaml",
+        PROD / "checker-source.yaml",
+        PROD / "checker-helmrelease.yaml",
+        PROD / "image-policy-sync.yaml",
         ROOT / "deploy" / "charts" / "kaval" / "files" / "kaval-image-checker.rules.yaml",
         ROOT / "scripts" / "dev" / "checker_trial.sh",
     ],

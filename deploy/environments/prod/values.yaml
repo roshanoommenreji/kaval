@@ -78,6 +78,11 @@ collector:
   image:
     tag: sha-d1058eb
 
+# The cluster's image checker (KAV-143, ADR-0095): Prometheus scrapes it and has its two alert rules.
+# Flux installs the checker itself (deploy/gitops/prod/checker-*.yaml); it refuses unsigned Kaval images.
+imageChecker:
+  enabled: true
+
 # Prometheus, the database server's exporters and a check on Kaval's own gateway (KAV-83, ADR-0051).
 # Staging ran all three first (KAV-78, KAV-81, KAV-82) and the real memory was measured there. The
 # disk line stays at the chart's 0.85 (staging lowers it only so a bounded test fill can cross it).
