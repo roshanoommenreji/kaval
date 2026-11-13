@@ -1,4 +1,4 @@
-# What Flux applies once Kyverno is installed (deploy/gitops/staging/image-policy-sync.yaml).
+# What Flux applies once Kyverno is installed (deploy/gitops/<env>/image-policy-sync.yaml).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:

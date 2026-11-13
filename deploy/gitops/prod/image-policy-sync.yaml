@@ -1,0 +1,36 @@
+# Applies the image policy (deploy/image-policy/) once Kyverno's own definitions exist
+# (KAV-140, ADR-0093).
+#
+# It is a separate Flux object on purpose: the policy cannot be applied until Kyverno has
+# installed the kind it is written in, so the first tries fail and are retried every minute until
+# Kyverno is ready. That keeps a slow or failing Kyverno from holding up the rest of production's
+# sync (kaval-prod in sync.yaml).
+#
+# Production's copy of staging's file (KAV-143, ADR-0095): the only difference is the namespace
+# below. Kustomize refuses files outside its own folder (KAV-51), so it is a copy, and
+# scripts/dev/test_image_policy.py fails the build if the two ever differ in anything else.
+#
+# The two ${...} values in the policy are filled in here, so the same policy file serves every
+# environment and the AWS account number is never written in git:
+#   registry         from the kaval-registry ConfigMap the node's cloud-init makes
+#   kaval_namespace  the namespace whose pods are checked
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kaval-prod-image-policy
+  namespace: flux-system
+spec:
+  interval: 1m
+  retryInterval: 1m
+  timeout: 5m
+  path: ./deploy/image-policy
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: kaval
+  postBuild:
+    substitute:
+      kaval_namespace: kaval-prod
+    substituteFrom:
+      - kind: ConfigMap
+        name: kaval-registry

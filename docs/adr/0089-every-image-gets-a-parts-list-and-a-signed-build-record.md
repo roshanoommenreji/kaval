@@ -45,7 +45,7 @@ risks, so it is four stories. This ADR covers the first: the parts list and the 
 ## Consequences
 
 - **Cost:** $0. No AWS resource; GitHub Actions minutes for a few extra seconds per image; artifacts of a few hundred kilobytes.
-- **What it does not do yet:** nothing *checks* anything. A person can verify an image by hand today; the promotion gate does it since `KAV-139` ([ADR-0092](0092-promotion-refuses-an-image-whose-signature-does-not-verify.md)); the cluster watches for it since `KAV-140` ([ADR-0093](0093-the-cluster-checks-image-signatures-with-kyverno-watching-first.md); on staging it refuses since `KAV-142`, [ADR-0094](0094-the-cluster-refuses-unsigned-images-on-staging-and-fails-closed.md); production `KAV-143`). Until then the threat model's
+- **What it does not do yet:** nothing *checks* anything. A person can verify an image by hand today; the promotion gate does it since `KAV-139` ([ADR-0092](0092-promotion-refuses-an-image-whose-signature-does-not-verify.md)); the cluster watches for it since `KAV-140` ([ADR-0093](0093-the-cluster-checks-image-signatures-with-kyverno-watching-first.md); on staging it refuses since `KAV-142`, [ADR-0094](0094-the-cluster-refuses-unsigned-images-on-staging-and-fails-closed.md); production `KAV-143`, [ADR-0095](0095-production-refuses-unsigned-images-from-its-next-start-up.md)). Until then the threat model's
   T-SUPPLY-2 stays a gap, with its first two mitigations built.
 - **Failure mode:** if the parts list or the record cannot be made, the release stops **before or right after the push** and no promotion can follow; images already running are untouched. Turning the feature
   off is deleting the three steps; nothing else depends on them yet.

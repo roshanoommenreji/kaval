@@ -1,0 +1,67 @@
+# The cluster's image checker: Kyverno, admission controller only (KAV-140, ADR-0093).
+# Production's copy of deploy/gitops/staging/checker-helmrelease.yaml (KAV-143, ADR-0095): byte for
+# byte the same below this line; a test fails the build if they drift (Kustomize cannot share a file
+# across folders, KAV-51).
+#
+# WHY ONLY ONE OF ITS FOUR PROGRAMS: Kyverno ships an admission controller (the part that looks
+# at each pod as it is created) plus background, cleanup and reports controllers. We use none
+# of the other three: the policy is checked at admission, and a flagged image shows up as a
+# cluster Event and a counter in Prometheus. Measured on a laptop cluster: the one program uses
+# ~75 MiB (the other three would add more on a 4 GB node).
+#
+# PINNING: the chart version is exact and each of the five images the chart can run is pinned to
+# the digest of its multi-architecture index (the helm-test one too, though Flux never runs it) (checked: every one has a linux/arm64 image). To
+# upgrade, change all of them in one reviewed change; scripts/dev/test_image_policy.py fails if
+# one is left on a floating tag.
+#
+# The registry login the checker needs (to read signatures in ECR) is the `ecr-cred` secret in
+# the `kyverno` namespace, written by the node's bootstrap script (infra/modules/node).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kyverno
+  namespace: flux-system
+spec:
+  interval: 10m
+  releaseName: kyverno
+  targetNamespace: kyverno
+  install:
+    createNamespace: true
+  chart:
+    spec:
+      chart: kyverno
+      version: "3.10.0"
+      sourceRef:
+        kind: HelmRepository
+        name: kyverno
+  values:
+    backgroundController:
+      enabled: false
+    cleanupController:
+      enabled: false
+    reportsController:
+      enabled: false
+    admissionController:
+      container:
+        image:
+          tag: "v1.20.0@sha256:9de49c5416ea536f00a205527197ac048abdf32c5a75d633cd9afff8928f359d"
+        resources:
+          requests: { cpu: 50m, memory: 96Mi }
+          limits: { memory: 256Mi }
+      initContainer:
+        image:
+          tag: "v1.20.0@sha256:339067e083430e0c97007541bef9cfdbac89bee13f7228772c77ae8aead14b8b"
+    crds:
+      migration:
+        image:
+          tag: "v1.20.0@sha256:bd2b8b7c9d550ecf04e0bacaf351adce2f82ce67fd3f291075edcee7f8ab4ab4"
+    upgrade:
+      legacyPolicyCheck:
+        image:
+          tag: "v1.20.0@sha256:bd2b8b7c9d550ecf04e0bacaf351adce2f82ce67fd3f291075edcee7f8ab4ab4"
+    webhooksCleanup:
+      image:
+        tag: "v1.20.0@sha256:6079a30d75fe7ba868a5a7e5dfa71ee92a3a8bae97adcea1c8cfb1009280ee6c"
+    test:
+      image:
+        tag: "v1.20.0@sha256:6079a30d75fe7ba868a5a7e5dfa71ee92a3a8bae97adcea1c8cfb1009280ee6c"

@@ -201,6 +201,10 @@ module "node" {
   # The nightly database dump (KAV-74, ADR-0038): a systemd timer on this node, 19:30 UTC,
   # using the node's own role. Replaces the chart's backup CronJob, which stays disabled.
   backup_bucket_name = module.backups.bucket_name
+  # The cluster's image checker (KAV-143, ADR-0095) gets its registry login: the node's start-up
+  # script copies ecr-cred into the kyverno namespace, and refreshes it with the 6-hourly timer.
+  # Same switch staging has had since KAV-140. Takes effect when the node next starts.
+  image_checker_enabled = true
   # instance_type, disk_gb, k3s_version, k3s_sha256_arm64 and spot keep their module defaults
   # (t4g.medium, On-Demand). On-Demand became the default on 2026-10-08 (ADR-0028): Spot
   # t4g.medium/large had no capacity anywhere in ap-south-1 on 2026-10-06 and 2026-10-08, and

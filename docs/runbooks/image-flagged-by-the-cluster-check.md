@@ -1,6 +1,6 @@
 # An image was flagged by the cluster's signature check
 
-The cluster has a checker (Kyverno, `KAV-140`, [ADR-0093](../adr/0093-the-cluster-checks-image-signatures-with-kyverno-watching-first.md)) that looks at every Kaval pod as it is created and asks whether the image was signed by this repository's release workflow on `main`. **On staging it refuses** (`KAV-142`, [ADR-0094](../adr/0094-the-cluster-refuses-unsigned-images-on-staging-and-fails-closed.md)): a pod whose image fails is not created, and if the checker is down or cannot answer, new Kaval pods wait too. Production still only watches until `KAV-143`. This is what to do when it speaks up, when it goes quiet, or when it is in your way.
+The cluster has a checker (Kyverno, `KAV-140`, [ADR-0093](../adr/0093-the-cluster-checks-image-signatures-with-kyverno-watching-first.md)) that looks at every Kaval pod as it is created and asks whether the image was signed by this repository's release workflow on `main`. **On staging it refuses** (`KAV-142`, [ADR-0094](../adr/0094-the-cluster-refuses-unsigned-images-on-staging-and-fails-closed.md)): a pod whose image fails is not created, and if the checker is down or cannot answer, new Kaval pods wait too. Production refuses the same way from its next start-up (`KAV-143`, [ADR-0095](../adr/0095-production-refuses-unsigned-images-from-its-next-start-up.md)); where this says "the environment", the namespace is `kaval-staging` or `kaval-prod`, and Flux's policy object is `kaval-staging-image-policy` or `kaval-prod-image-policy`. This is what to do when it speaks up, when it goes quiet, or when it is in your way.
 
 For a person, no automatic fix is proposed. The checker reports; it does not change anything, and the agent must not either.
 
@@ -33,7 +33,8 @@ For a person, no automatic fix is proposed. The checker reports; it does not cha
    - `kubectl -n kyverno logs deploy/kyverno-admission-controller --tail 50` (errors about credentials or about reaching Sigstore)
    - `kubectl -n kyverno get secret ecr-cred` (it exists, and its age is under 6 hours)
    - `kubectl top pod -n kyverno` (about 70 MiB; far above the 256 MiB ceiling means it is restarting)
-   - `flux get kustomization kaval-staging-image-policy -n flux-system` (Ready)
+   - `flux get kustomization kaval-staging-image-policy -n flux-system` (or `kaval-prod-image-policy` on production) (Ready)
+   - on a live node, `python scripts/ops/checker_proof.py <prod|staging> state` reads most of the above in one go (read-only; [Lab 97](../labs/lab-97-production-refuses-unsigned-images.md))
 
 ## Remediation
 
@@ -53,6 +54,7 @@ For a person, no automatic fix is proposed. The checker reports; it does not cha
 - Do not add a tag to the frozen list to make an alert stop. The list is the releases that existed before signing; a new entry is a new exemption and needs an ADR line.
 - Do not delete the policy or the `kyverno` namespace to "see if it helps": removing the policy removes the check, and nobody is told.
 - Do not paste the registry address or account number into an issue or pull request; it appears in the Event text. Replace it with `<registry>`.
-- Do not set `failurePolicy: Fail` on an environment where the checker only watches (production until `KAV-143`): a dead checker would then block every Kaval pod for a check that blocks nothing. On staging the pair is `Deny` + `Fail` and a test pins it.
+- Do not set `failurePolicy: Fail` on an environment where the checker only watches: a dead checker would then block every Kaval pod for a check that blocks nothing. Staging and production both run `Deny` + `Fail` and a test pins it. Because the policy file is shared, going back to `[Audit]` + `Ignore` is a change for both at once (a reviewed pull request); there is no per-environment switch on purpose.
+- Do not roll production back to a build that is neither signed nor on the frozen list: it will be refused. Listed tags can be rolled back to until 2026-12-31; after that only signed releases, so production should be on a signed release before then.
 - Do not widen the scope beyond the Kaval namespace: that scope is what makes `Fail` safe (the checker's own pods, Flux and the system pods can never be waiting on the checker).
 - Do not leave the hooks deleted once the emergency is over: that is the check off, quietly. Confirm they are back (`kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg`).

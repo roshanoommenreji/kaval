@@ -13,7 +13,8 @@
 #
 # The registry address is not written here (it holds the AWS account number, CLAUDE.md
 # constraint 5): Flux fills in ${registry} from the kaval-registry ConfigMap when it applies
-# this file (deploy/gitops/staging/image-policy-sync.yaml), and ${kaval_namespace} the same way.
+# this file (deploy/gitops/<env>/image-policy-sync.yaml; staging since KAV-140, production since
+# KAV-143), and ${kaval_namespace} the same way: kaval-staging there, kaval-prod here.
 #
 # THE FROZEN LIST is every release on deploy/promotion/passed-staging.json when signing began.
 # Nothing unsigned is built any more, so the list can only shrink: rollback (ADR-0034) may go
