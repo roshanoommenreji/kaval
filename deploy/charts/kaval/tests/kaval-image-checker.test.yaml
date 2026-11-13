@@ -74,5 +74,80 @@ tests:
     input_series:
       - series: 'kyverno_image_validating_policy_results_total{policy_name="something-else",result="fail"}'
         values: "_x20 1x60"
+      # even from a checker that has just restarted (KAV-144)
+      - series: 'process_start_time_seconds{job="kyverno",instance="c:8000"}'
+        values: "0x120"
     alert_rule_test:
       - { eval_time: 12m, alertname: UnsignedImageSeen, exp_alerts: [] }
+
+  # ── KAV-144: a refusal right after a checker restart ─────────────────────────────────────────
+  # Found live on staging (KAV-142): the checker restarts in place (same pod, same address), its
+  # counter starts again at 0, and a refusal before the first scrape makes it read 1. Prometheus
+  # sees 1 before the restart and 1 after: no increase, no reset, no new series. Only the
+  # checker's own start time (process_start_time_seconds, which Kyverno 1.20 publishes) moved.
+  - name: a refusal right after a checker restart fires
+    interval: 30s
+    input_series:
+      # an old refusal at 5 minutes; the checker restarts at 60 minutes and refuses again at once
+      - series: 'kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail",job="kyverno",instance="c:8000"}'
+        values: "_x10 1x230"
+      - series: 'process_start_time_seconds{job="kyverno",instance="c:8000"}'
+        values: "0x120 3600x120"
+    alert_rule_test:
+      - { eval_time: 50m, alertname: UnsignedImageSeen, exp_alerts: [] }
+      - eval_time: 70m
+        alertname: UnsignedImageSeen
+        exp_alerts:
+          - exp_labels: { severity: warning, kaval_health: "true" }
+            exp_annotations: { summary: "A Kaval image has no valid signature and is not on the frozen list (runbook image-flagged-by-the-cluster-check)." }
+      # quiet again 15 minutes after the restart, like every other branch of this alert
+      - { eval_time: 80m, alertname: UnsignedImageSeen, exp_alerts: [] }
+
+  - name: a restart with no new refusal is quiet (the old count is gone)
+    interval: 30s
+    input_series:
+      # an old refusal, then a restart; the new checker has refused nothing, so it shows no series.
+      # Prometheus marks a series that leaves a scrape as stale at once (`stale` here); without
+      # the marker the old 1 would linger for five minutes, which real Prometheus does not do.
+      - series: 'kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail",job="kyverno",instance="c:8000"}'
+        values: "_x10 1x109 stale _x119"
+      - series: 'process_start_time_seconds{job="kyverno",instance="c:8000"}'
+        values: "0x120 3600x120"
+    alert_rule_test:
+      - { eval_time: 62m, alertname: UnsignedImageSeen, exp_alerts: [] }
+      - { eval_time: 70m, alertname: UnsignedImageSeen, exp_alerts: [] }
+
+  - name: a restart whose counter comes back at 0 is quiet
+    interval: 30s
+    input_series:
+      - series: 'kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail",job="kyverno",instance="c:8000"}'
+        values: "_x10 1x110 0x120"
+      - series: 'process_start_time_seconds{job="kyverno",instance="c:8000"}'
+        values: "0x120 3600x120"
+    alert_rule_test:
+      - { eval_time: 70m, alertname: UnsignedImageSeen, exp_alerts: [] }
+
+  - name: an old refusal on a checker that has run for a long time stays quiet
+    interval: 30s
+    input_series:
+      - series: 'kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail",job="kyverno",instance="c:8000"}'
+        values: "_x10 1x230"
+      - series: 'process_start_time_seconds{job="kyverno",instance="c:8000"}'
+        values: "0x240"
+    alert_rule_test:
+      - { eval_time: 70m, alertname: UnsignedImageSeen, exp_alerts: [] }
+      - { eval_time: 110m, alertname: UnsignedImageSeen, exp_alerts: [] }
+
+  - name: a refusal from a replaced checker pod (a new address) fires too
+    interval: 30s
+    input_series:
+      - series: 'kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail",job="kyverno",instance="old:8000"}'
+        values: "_x10 1x110"
+      - series: 'kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail",job="kyverno",instance="new:8000"}'
+        values: "_x120 1x120"
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: UnsignedImageSeen
+        exp_alerts:
+          - exp_labels: { severity: warning, kaval_health: "true" }
+            exp_annotations: { summary: "A Kaval image has no valid signature and is not on the frozen list (runbook image-flagged-by-the-cluster-check)." }

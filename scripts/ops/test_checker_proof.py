@@ -36,7 +36,8 @@ def test_the_signed_tag_is_the_signed_release_and_the_planted_name_is_not_a_real
     assert cp.PLANTED_TAG not in {"latest", cp.SIGNED_TAG}
 
 
-@pytest.mark.parametrize("step", ["state", "alerts", "signed", "unsigned", "frozen", "clean"])
+@pytest.mark.parametrize("step", ["state", "alerts", "signed", "unsigned", "frozen", "restart",
+                                  "clean"])
 @pytest.mark.parametrize("env", ["prod", "staging"])
 def test_every_remote_step_is_valid_shell_for_its_own_namespace(step: str, env: str) -> None:
     script = cp.remote_script(step, cp.NAMESPACES[env], env)
@@ -57,8 +58,23 @@ def test_clean_deletes_only_what_this_script_labelled() -> None:
 
 def test_nothing_but_the_three_named_pods_is_ever_created() -> None:
     created = {s: cp.remote_script(s, "kaval-prod", "prod").count("kubectl apply")
-               for s in ("state", "alerts", "signed", "unsigned", "frozen", "clean")}
-    assert created == {"state": 0, "alerts": 0, "signed": 1, "unsigned": 1, "frozen": 1, "clean": 0}
+               for s in ("state", "alerts", "signed", "unsigned", "frozen", "restart", "clean")}
+    assert created == {"state": 0, "alerts": 0, "signed": 1, "unsigned": 1, "frozen": 1,
+                       "restart": 0, "clean": 0}
+
+
+def test_restart_restarts_the_checker_in_place_and_touches_nothing_else() -> None:
+    # KAV-144: the blind spot is a restart INSIDE the same pod. Deleting the pod gives a new
+    # address, which the alert always caught, so it would prove nothing.
+    script = cp.remote_script("restart", "kaval-staging", "staging")
+    assert "crictl stop \"$OLD\"" in script
+    assert "--label io.kubernetes.pod.namespace=kyverno" in script  # only the checker's container
+    assert "--name '^kyverno$'" in script
+    for wider in ("kubectl delete", "crictl rm", "crictl stopp", "systemctl", "reboot"):
+        assert wider not in script, wider
+    assert "kyverno-resource-validating-webhook-cfg" in script  # waits for its hook to be back
+    assert "process_start_time_seconds" in script  # the number the alert uses, before and after
+    assert "restart" in cp.MUTATING
 
 
 def test_it_will_not_plant_an_image_that_is_really_the_signed_one(
