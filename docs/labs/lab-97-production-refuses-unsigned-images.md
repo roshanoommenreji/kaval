@@ -1,6 +1,6 @@
 # Lab 97 — Production refuses unsigned images
 
-**Phase:** 8 (hardening) · **Story:** `KAV-143` · **Decision:** [ADR-0095](../adr/0095-production-refuses-unsigned-images-from-its-next-start-up.md) · **Cost:** $0 for Parts 1-3 (files, tests and a read-only plan); about 5-10 cents for Part 4, which rides on a production start-up that is happening anyway
+**Phase:** 8 (hardening) · **Story:** `KAV-143` · **Decision:** [ADR-0095](../adr/0095-production-refuses-unsigned-images-from-its-next-start-up.md) · **Cost:** $0 for Parts 1-3 (files, tests and a read-only plan); about 1 cent for Part 4 (production up 17 minutes)
 
 ## What you will build
 
@@ -53,11 +53,11 @@ Result on 2026-11-13: **0 to add, 2 to change, 0 to destroy**: the launch templa
 
 The server's start-up script has a size limit (16,384 bytes once compressed); the test that guards it (`test_the_node_start_up_script_still_fits_the_ec2_limit`) measures the template, not one environment, and staging's fully-rendered script is already the largest, so production's passes.
 
-## Part 4 — The live proof, on production's next start-up
+## Part 4 — The live proof on production
 
-**Status: not run yet.** It needs the owner's typed phrase for the start-up and the apply (the usual `go production start-up`, then `apply production`), and, in the same session, a typed go for the registry change in step 2. Nothing in it is a promotion.
+**Status: run on 2026-11-13** (his `go production start-up`, then `apply production`; production up 18:43-19:00 IST, about a cent). Results are in the table after the steps. It needs the owner's typed phrase for the start-up and the apply, and, in the same session, a typed go for the registry change in step 2. Nothing in it is a promotion.
 
-Before starting: this pull request merged, `main` clean and in sync, no other change waiting.
+Before starting: the story's pull request merged, `main` clean and in sync, no other change waiting.
 
 1. **Start production** as usual (`make up`; the plan in Part 3 is what is applied) and let it come up. `make prod-smoke` must pass first: if production is not healthy, the checker is not the thing to look at.
 2. **Give one image an unsigned second name** (a registry change in the one shared registry; the planted name is removed in step 9):
@@ -71,16 +71,33 @@ Before starting: this pull request merged, `main` clean and in sync, no other ch
    Expect the policy `ready=true actions=[Deny] failurePolicy=Fail timeout=30`, every Kaval pod `Running`, one checker pod `Running`, both hooks present, a fresh `ecr-cred` in `kyverno`. Write down the checker's memory, and the server's `free -m` and `top` figures (the stop rule is in the ADR, point 7).
 4. **Signed passes:** `python scripts/ops/checker_proof.py prod signed --yes` → `pod/proof-signed created` and `signed pod: 1/1 Running` (or `0/1 ContainerCreating` while the image downloads: created is the answer).
 5. **Unsigned is refused (the negative case):** `python scripts/ops/checker_proof.py prod unsigned --yes` → an error from the API server naming `kaval-images-signed`, the pod does not exist, and the `fail` counter is 1 or more.
-6. **Production's own pods all passed:** read in step 3; they run `sha-d1058eb`, on the frozen list.
+6. **An unsigned release on the frozen list is let in by the list:** `python scripts/ops/checker_proof.py prod frozen --yes` → `frozen pod: 1/1 Running`. (Production's own pods started before the checker was ready on 2026-11-13, so they prove nothing about the list; this step does. It was added after that session and has not yet run on production.)
 7. **The alarms exist:** `python scripts/ops/checker_proof.py prod alerts` → both rules loaded and `ok`. (A refusal also raises `UnsignedImageSeen` within a few minutes; the Slack card is the proof the route works.)
-8. **Read the state again** and compare the memory.
+8. **Wake the language model once and read the memory while it is loaded** (the server's worst case; production's model unloads after 5 idle minutes): `kubectl -n kaval-prod exec deploy/kaval-prod-ollama -- ollama run gemma3:1b-it-qat 'say ok'`, then `free -m` and `kubectl top node` on the node, and the out-of-memory count in `dmesg`. Stop rule: under about 300 MB available.
 9. **Clean up:** `python scripts/ops/checker_proof.py prod clean --yes`, then `python scripts/ops/checker_proof.py prod unplant --yes`, then park production as usual (`make down`).
+
+**Result on 2026-11-13:**
+
+| Step | Result |
+|---|---|
+| Apply | 0 added, 2 changed, 0 destroyed, exactly the plan; checker ready 4 minutes later; policy `Deny` + `Fail` + 30 s; both hooks registered |
+| `make prod-smoke` | 9 of 9 on the first boot on the newer base image; all 10 pods running, 0 restarts |
+| Signed pod (`sha-152b59e`) | accepted, `pass` counted |
+| **First unsigned try (my mistake)** | **accepted**: the planted name was copied from `sha-d1058eb`, whose gateway image is the *same image* as the signed `sha-152b59e` (identical digest `49b7987a…`), so the checker rightly let a signed image in. Cleaned up; the script now compares digests and refuses to plant from such a base |
+| Unsigned pod, replanted from `sha-791c44d` (digest `7303…`) | **refused**: "failed to verify cosign signatures"; the pod does not exist; `fail` 1; a `PolicyViolation` Event; `UnsignedImageSeen` fired |
+| Alerts | `ImageCheckerDown` loaded, quiet; `UnsignedImageSeen` loaded, firing after the refusal |
+| Memory, idle | about 1,400 MB available; checker 51 MiB |
+| Memory, language model loaded (1.1 GB, CPU) | **414 MB available** of 3,829; checker 56 MiB; 0 out-of-memory kills; nothing restarted (stop rule under about 300 MB: not reached, margin thinner than October's) |
+| Clean-up | test pods deleted, planted name removed, real tags untouched; fresh dump (396K) taken; parked at 19:01 |
 
 Not repeated here: the hard kill of the checker and the emergency off-switch, which Lab 96 Part 4 proved on staging with the same files and Kyverno release.
 
 **If a step fails:** do not push on. The runbook ([image flagged by the cluster check](../runbooks/image-flagged-by-the-cluster-check.md)) has the causes; the normal off-switch is a reviewed pull request back to `[Audit]` + `Ignore`, the emergency one is deleting Kyverno's two hooks. A pod proving nothing is worse than none: record what happened, and what it means for the decision, in the journal.
 
 ## Things worth knowing
+
+- **A signature belongs to an image, not a tag.** Two release tags can name one image when the code did not change; a "planted unsigned name" copied from the wrong one is signed. Always compare digests (the script does).
+- **Still not seen live:** the frozen-list pass on production itself (run the new `frozen` step at the next start-up) and the 6-hourly refresh of the checker's login (no session has lasted six hours).
 
 - **Why no watch-only first:** staging already did the watching and the refusing; production's pin is on the frozen list, so it cannot be locked out by its own checker; and a second start-up costs the same as the first. The proof's stop rule (memory) covers the one thing staging could not tell us.
 - **Why a throwaway pod rather than a promoted signed release:** it proves the same path (Sigstore reachable from production's server, the login valid, the signature found) without an image change to carry it. The real promotion of a signed release is the pass case `KAV-139` waits for, and has to happen before the frozen list ends (2026-12-31).
