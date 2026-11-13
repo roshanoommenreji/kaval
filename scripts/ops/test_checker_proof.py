@@ -110,6 +110,39 @@ def test_it_plants_when_the_base_is_a_different_image(monkeypatch: pytest.Monkey
     assert [c for c in calls if "put-image" in c]
 
 
+def test_the_frozen_step_refuses_a_base_that_is_really_the_signed_one(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    # KAV-146: production's first real frozen pass failed because every earlier one had used a
+    # release whose image is signed; a pass on such an image proves the signature, not the list.
+    ran: list[str] = []
+
+    def node(*a: object, **k: object) -> str:
+        ran.append("node")
+        return ""
+
+    monkeypatch.setattr(cp, "_aws", lambda *a: "sha256:" + "a" * 64)
+    monkeypatch.setattr(cp, "run_on_node", node)
+    assert cp.main(["prod", "frozen", "--yes"]) == 1
+    assert "Nothing started" in capsys.readouterr().out
+    assert not ran
+
+
+def test_the_frozen_step_runs_when_the_base_is_a_different_image(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    ran: list[str] = []
+    def digest(*a: str) -> str:
+        return "sha256:" + ("b" if f"imageTag={cp.BASE_TAG}" in a else "c") * 64
+
+    def node(*a: object, **k: object) -> str:
+        ran.append("node")
+        return "frozen pod: 1/1 Running"
+
+    monkeypatch.setattr(cp, "_aws", digest)
+    monkeypatch.setattr(cp, "run_on_node", node)
+    assert cp.main(["prod", "frozen", "--yes"]) == 0
+    assert ran == ["node"]
+
+
 def test_steps_that_change_something_refuse_without_yes(capsys: pytest.CaptureFixture[str]) -> None:
     for step in cp.MUTATING:
         assert cp.main(["prod", step]) == 2

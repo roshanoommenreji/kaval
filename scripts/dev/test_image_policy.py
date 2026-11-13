@@ -54,9 +54,14 @@ def _policy() -> dict[str, Any]:
     return doc
 
 
+def _match_expression(policy: dict[str, Any]) -> str:
+    (rule,) = policy["spec"]["matchImageReferences"]
+    return str(rule["expression"])
+
+
 def _frozen(policy: dict[str, Any]) -> list[str]:
-    (var,) = [v for v in policy["spec"]["variables"] if v["name"] == "frozen"]
-    return re.findall(r"'([^']+)'", var["expression"])
+    # The list lives in the rule that decides which images are looked at (KAV-146, ADR-0096).
+    return re.findall(r"'(sha-[^']+)'", _match_expression(policy))
 
 
 def _release() -> dict[str, Any]:
@@ -109,7 +114,11 @@ def test_only_kaval_namespaces_are_in_scope() -> None:
 
 
 def test_only_this_projects_images_are_matched_and_the_registry_is_a_placeholder() -> None:
-    assert _policy()["spec"]["matchImageReferences"] == [{"glob": "${registry}/kaval/*"}]
+    (rule,) = _policy()["spec"]["matchImageReferences"]
+    assert set(rule) == {"expression"}, "a glob would match the frozen releases too (KAV-146)"
+    assert " ".join(rule["expression"].split()).startswith(
+        "ref.startsWith('${registry}/kaval/') &&"
+    )
 
 
 def test_the_only_placeholders_are_the_two_flux_fills_in() -> None:
@@ -117,14 +126,27 @@ def test_the_only_placeholders_are_the_two_flux_fills_in() -> None:
     assert found == {"registry", "kaval_namespace"}
 
 
-def test_the_check_runs_on_every_image_before_the_frozen_list_is_consulted() -> None:
+def test_the_check_runs_on_every_image_it_looks_at() -> None:
     expr = _policy()["spec"]["validations"][0]["expression"]
     assert "images.containers" in expr and "images.initContainers" in expr
-    verify = expr.index("verifyImageSignatures")
-    frozen = expr.index("variables.frozen")
-    # Found on the laptop trial: with the list first, a frozen image is never checked and Kyverno
-    # reports "no policy performed a signature check on it" for it.
-    assert verify < frozen
+    assert "verifyImageSignatures" in expr and "attestors.release" in expr
+
+
+def test_the_frozen_list_is_not_in_the_rule_that_judges_an_image() -> None:
+    """Found live on production, 2026-11-13 (KAV-146): `verify > 0 || tag is listed` never let a
+    listed release in, because Kyverno refuses an image whose signature check ran and failed,
+    whatever the rule says. A listed release must not be matched at all."""
+    policy = _policy()
+    assert "variables" not in policy["spec"], "the list belongs in matchImageReferences"
+    assert "frozen" not in policy["spec"]["validations"][0]["expression"]
+
+
+def test_the_list_is_matched_by_tag_with_and_without_the_digest_kyverno_adds() -> None:
+    expr = " ".join(_match_expression(_policy()).split())
+    # Kyverno rewrites "repo:tag" to "repo:tag@sha256:..." before it looks (mutateDigest), so the
+    # tag must be found in both forms, and only ever as a whole tag (a tag has no ':' in it).
+    assert "ref.endsWith(':' + t)" in expr and "ref.contains(':' + t + '@')" in expr
+    assert "![" in expr, "a listed release is the one NOT matched"
 
 
 def test_registry_login_comes_from_the_secret_the_node_writes() -> None:
@@ -224,7 +246,8 @@ CHECKER_FILES = ("checker-source.yaml", "checker-helmrelease.yaml", "image-polic
 
 def _without_comments(path: Path) -> str:
     return "\n".join(
-        line for line in path.read_text(encoding="utf-8").splitlines()
+        line
+        for line in path.read_text(encoding="utf-8").splitlines()
         if not line.lstrip().startswith("#")
     )
 
@@ -271,7 +294,7 @@ def test_the_production_server_hands_the_checker_its_login_and_the_timer_refresh
     refreshed = script[start:end]  # the part the 6-hourly timer re-runs
     assert "%{ if image_checker_enabled ~}" in refreshed
     assert "namespace: kyverno" in refreshed  # so the checker's login never outlives the 12 h token
-    timer = script[script.index("kaval-gitops-bootstrap.timer <<"):]
+    timer = script[script.index("kaval-gitops-bootstrap.timer <<") :]
     assert "OnUnitActiveSec=6h" in timer[: timer.index("\nUNIT\n")]
 
 
