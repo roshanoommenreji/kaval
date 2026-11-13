@@ -126,15 +126,19 @@ def remote_script(step: str, namespace: str, env: str) -> str:
             " ip={.status.podIP} restarts={.status.containerStatuses[0].restartCount}"
             "{\"\\n\"}{end}'; kubectl get --raw " + CHECKER_METRICS
             + " 2>/dev/null | grep -E '^process_start_time_seconds' ; }\n"
+            # k3s installed from its binary has no `crictl` on the PATH, only `k3s crictl`
+            # (found live on staging, 2026-11-13); a stock node may have either.
+            "export HOME=${HOME:-/root}\n"
+            "CRI=$(command -v crictl || echo 'k3s crictl')\n"
             "echo '--- before'; show\n"
-            "OLD=$(crictl ps --name '^kyverno$' --label io.kubernetes.pod.namespace=kyverno -q"
+            "OLD=$($CRI ps --name '^kyverno$' --label io.kubernetes.pod.namespace=kyverno -q"
             " | head -1)\n"
             "[ -n \"$OLD\" ] || { echo 'no running checker container: nothing restarted';"
             " exit 1; }\n"
-            "crictl stop \"$OLD\" >/dev/null"
+            "$CRI stop \"$OLD\" >/dev/null"
             " && echo 'stopped the checker container (the pod stays)'\n"
             "for i in $(seq 1 40); do sleep 3\n"
-            "  NEW=$(crictl ps --name '^kyverno$' --label io.kubernetes.pod.namespace=kyverno"
+            "  NEW=$($CRI ps --name '^kyverno$' --label io.kubernetes.pod.namespace=kyverno"
             " -q | head -1)\n"
             "  [ -n \"$NEW\" ] && [ \"$NEW\" != \"$OLD\" ] && kubectl get"
             " validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg"
