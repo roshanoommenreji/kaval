@@ -10,6 +10,8 @@ Steps, in the order of a proof session:
     signed     start a throwaway pod from a SIGNED release        -> expect: accepted
     unsigned   start a throwaway pod from the planted image       -> expect: REFUSED
     frozen     start a throwaway pod from an UNSIGNED release on the frozen list -> expect: accepted
+    restart    stop the checker's container so it restarts IN PLACE (same pod, same address), wait
+               for it and its hooks to come back; shows its start time before and after (KAV-144)
     clean     delete every throwaway pod
     unplant    (laptop) remove the planted name from the registry
 
@@ -40,8 +42,9 @@ LABEL = "proof=kav143"
 REPO = "kaval/gateway"
 NAMESPACES = {"prod": "kaval-prod", "staging": "kaval-staging"}
 LAPTOP_STEPS = ("plant", "unplant")
-MUTATING = ("plant", "signed", "unsigned", "frozen", "clean", "unplant")
-STEPS = ("state", "alerts", "plant", "signed", "unsigned", "frozen", "clean", "unplant")
+MUTATING = ("plant", "signed", "unsigned", "frozen", "restart", "clean", "unplant")
+STEPS = ("state", "alerts", "plant", "signed", "unsigned", "frozen", "restart", "clean", "unplant")
+CHECKER_METRICS = "/api/v1/namespaces/kyverno/services/kyverno-svc-metrics:8000/proxy/metrics"
 
 
 def scrub(text: str) -> str:
@@ -110,10 +113,36 @@ def remote_script(step: str, namespace: str, env: str) -> str:
             mk("proof-unsigned", PLANTED_TAG)
             + "sleep 3; echo '--- is the pod there?'; kubectl get pod proof-unsigned -n $NS"
             " --no-headers 2>&1 | cut -c1-120\n"
-            "echo '--- counters'; kubectl get --raw /api/v1/namespaces/kyverno/services/"
-            "kyverno-svc-metrics:8000/proxy/metrics | grep -E "
+            "echo '--- counters'; kubectl get --raw " + CHECKER_METRICS + " | grep -E "
             "'^kyverno_image_validating_policy_results_total' | grep kaval-images-signed"
             " | sed -E 's/otel_scope[a-z_]*=\"[^\"]*\",//g' | cut -c1-260\n"
+        ),
+        # KAV-144: a restart in place is what hid a refusal from the alert. Deleting the pod would
+        # not show it (a new pod has a new address, which the alert always saw); stopping the
+        # container makes the kubelet start it again inside the same pod. A clean stop removes
+        # the checker's hooks for a few seconds, so this waits for them before it returns.
+        "restart": (
+            "show() { kubectl get pods -n kyverno -o jsonpath='{range .items[*]}{.metadata.name}"
+            " ip={.status.podIP} restarts={.status.containerStatuses[0].restartCount}"
+            "{\"\\n\"}{end}'; kubectl get --raw " + CHECKER_METRICS
+            + " 2>/dev/null | grep -E '^process_start_time_seconds' ; }\n"
+            "echo '--- before'; show\n"
+            "OLD=$(crictl ps --name '^kyverno$' --label io.kubernetes.pod.namespace=kyverno -q"
+            " | head -1)\n"
+            "[ -n \"$OLD\" ] || { echo 'no running checker container: nothing restarted';"
+            " exit 1; }\n"
+            "crictl stop \"$OLD\" >/dev/null"
+            " && echo 'stopped the checker container (the pod stays)'\n"
+            "for i in $(seq 1 40); do sleep 3\n"
+            "  NEW=$(crictl ps --name '^kyverno$' --label io.kubernetes.pod.namespace=kyverno"
+            " -q | head -1)\n"
+            "  [ -n \"$NEW\" ] && [ \"$NEW\" != \"$OLD\" ] && kubectl get"
+            " validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg"
+            " >/dev/null 2>&1 && break\n"
+            "done\n"
+            "echo \"--- after ($((i * 3)) s)\"; show\n"
+            "echo '--- hooks'; kubectl get validatingwebhookconfiguration,"
+            "mutatingwebhookconfiguration -o name | grep -i kyverno-resource\n"
         ),
         "frozen": (
             mk("proof-frozen", BASE_TAG)  # unsigned, but on the frozen list: let in by the list

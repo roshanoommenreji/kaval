@@ -15,14 +15,23 @@ groups:
           summary: The cluster's image checker (Kyverno) cannot be reached.
 
       # A Kaval image started (or was refused) without a valid signature and is not on the frozen
-      # list of releases built before signing. The second half catches the FIRST ever failure: a
-      # counter that appears at 1 has no earlier sample, so increase() alone reads it as 0.
+      # list of releases built before signing. Three ways a refusal shows, one branch each:
+      #  1. the counter went up (increase);
+      #  2. the counter is new: the FIRST ever failure, or one from a replaced pod at a new address
+      #     (a counter that appears at 1 has no earlier sample, so increase() alone reads it as 0);
+      #  3. the checker restarted in place in the last 15 minutes and has already refused (KAV-144).
+      #     Its counter started again at 0, so ANY failure it shows is new since the restart; but a
+      #     refusal before the first scrape reads 1, the same as before the restart, which 1 and 2
+      #     cannot see. Kyverno's own process_start_time_seconds is what moved.
       - alert: UnsignedImageSeen
         expr: >-
           sum(increase(kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail"}[15m])) > 0
           or
           sum(kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail"}
               unless kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail"} offset 15m) > 0
+          or
+          sum(kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail"}
+              and on(instance) (time() - process_start_time_seconds{job="kyverno"} < 900)) > 0
         labels: { severity: warning, kaval_health: "true" }
         annotations:
           summary: A Kaval image has no valid signature and is not on the frozen list (runbook image-flagged-by-the-cluster-check).
