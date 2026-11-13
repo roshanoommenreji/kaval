@@ -78,3 +78,15 @@ def test_the_dump_runs_before_anything_is_scaled_down_and_never_after_the_databa
 def test_it_uses_the_units_own_log_not_an_old_one() -> None:
     body = SCRIPT.read_text(encoding="utf-8")
     assert "5 min ago" in body and '"set -e"' in body
+
+
+def test_the_script_forces_utf8_so_the_backup_logs_arrow_survives_windows() -> None:
+    """Found parking production on 2026-11-13 (KAV-148): backup.sh prints an arrow and an em dash;
+    the AWS CLI on Windows could not write them with its default encoding, the log read back
+    empty, and a good dump (396 KB, 'done.') was refused. It failed safe, but it must not happen."""
+    text = SCRIPT.read_text(encoding="utf-8")
+    main_body = text[text.index("main() {") :]
+    assert "export PYTHONUTF8=1" in main_body
+    assert "export PYTHONIOENCODING=utf-8" in main_body
+    # Before the first AWS call, or it protects nothing.
+    assert main_body.index("PYTHONUTF8") < main_body.index("aws ec2 describe-instances")

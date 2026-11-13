@@ -144,7 +144,7 @@ The headline row is the sixth: with the old rule the alarm stays silent there. O
 
 The same rule file reaches production through the same chart. At production's next start-up (his usual typed phrases), run `state`, `alerts` and the frozen-list step that [Lab 97](lab-97-production-refuses-unsigned-images.md) could not see (`frozen --yes`, expect: accepted). The restart drill is not repeated on production; the rule is the same file staging proved. If the session lasts more than six hours, `state` also shows the checker's registry login was rewritten by the 6-hourly timer (`ecr-cred` in `kyverno`, its age), and a signed pod is still accepted.
 
-*Results: not run yet (waits for production's next start-up).*
+*Results (2026-11-13, production's start-up, 22:44-23:37 IST): `alerts` showed both rules loaded, and the loaded `UnsignedImageSeen` was read back from Prometheus: health `ok`, state `inactive`, the restart branch (`process_start_time_seconds`) present. The restart drill was not repeated on production, as planned. `frozen --yes` **failed**: that was a separate, real defect (the frozen list never let an unsigned old release through), fixed by `KAV-146` ([Lab 99](lab-99-the-frozen-list-lets-old-releases-through.md)) and then passed on production the same night. The six-hour login refresh was not seen (the session lasted 53 minutes) and moved to `KAV-147`. `KAV-144` is Done.*
 
 ## Things worth knowing
 

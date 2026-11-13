@@ -1,6 +1,6 @@
 # Lab 99 — The frozen list really lets old releases through
 
-**Phase:** 8 (hardening) · **Story:** `KAV-146` · **Decision:** [ADR-0096](../adr/0096-the-frozen-list-is-not-matched-so-it-is-never-checked.md) · **Cost:** $0 for Parts 1-4 (Docker on a laptop); about 15 cents planned for Part 5 (one staging session); Part 6 rides on production's next start-up.
+**Phase:** 8 (hardening) · **Story:** `KAV-146` · **Decision:** [ADR-0096](../adr/0096-the-frozen-list-is-not-matched-so-it-is-never-checked.md) · **Cost:** $0 for Parts 1-4 (Docker on a laptop); about 15 cents planned for Part 5 (one staging session, still to come); Part 6 was done on 2026-11-13 on production's live session (about 4 cents for the whole 53 minutes).
 
 ## What you will build
 
@@ -92,13 +92,27 @@ Then the unit tests, which pin the shape and go red against the old policy: `pyt
 5. Delete one real Kaval pod that runs an **unsigned listed** image (staging pins `sha-ba87981`; `kubectl delete pod -n kaval-staging <executor or agent or collector pod>`) and watch its Deployment bring it back (`1/1 Running`, no `FailedCreate`). This is the case that was broken in production.
 6. `clean --yes`, `unplant`, `make staging-down`.
 
-*Results: pending.*
+*Results: pending (not run yet; the change reached production first, see Part 6).*
 
 ## Part 6 — Production (at its next start-up)
 
-The same `state`, `alerts`, `frozen --yes`, `signed --yes`, and the real-pod deletion in step 5 on a pod of the pinned release. Then KAV-146 is Done and KAV-143's and KAV-144's last lines close.
+The same `state`, `alerts`, `frozen --yes`, `signed --yes`, an unsigned refusal, and the real-pod deletion in Part 5 step 5 on a pod of the pinned release.
 
-*Results: pending.*
+**What happened (2026-11-13).** The change was merged (#416) while production was up from its start-up, so Flux applied it to production live, **before** staging proved it. That broke the staging-first rule on purpose (his merge, with production up), so Part 5 is still owed and stays an open box on `KAV-146`.
+
+| Check on production | Result |
+|---|---|
+| Policy applied | `kaval-prod-image-policy` `Applied main@36b4de3`; `matchImageReferences` holds the list, no `variables`; `ready=true`, `Deny`, `Fail`, 30 s |
+| `frozen --yes` (the check that failed an hour earlier) | **`frozen pod: 1/1 Running`** |
+| `signed --yes` | `signed pod: 1/1 Running` |
+| `plant` + `unsigned --yes` | refused with the **policy's own** message ("no valid signature... not on the frozen list"); no pod; **`UnsignedImageSeen` firing** |
+| A real pod of an unsigned listed image, deleted (the cost collector, `sha-d1058eb`) | the Deployment made a new one, `1/1 Running` after 36 s, **no `FailedCreate`** |
+| Left clean | test pods deleted, planted name removed (0 left), `promote.py preflight` PASS; production parked at 23:37 after a fresh dump |
+
+Two things this session found beyond the fix:
+
+- **A real-pod recreation is now a step in the proof,** not an afterthought: it is the exact case that would have bitten (executor, agent and collector of `sha-d1058eb` are unsigned).
+- **The park script refused a good dump** (`KAV-148`): `backup.sh` prints an arrow and an em dash, the AWS CLI on Windows could not write them, the log read back empty, and `dump-before-park.sh` said the dump had not finished although 396 KB was uploaded and the unit's log ended `done.`. It failed safe (nothing was scaled down). Re-running with `PYTHONUTF8=1 PYTHONIOENCODING=utf-8` passed; the script now sets both itself and a test pins it.
 
 ## What to remember
 
