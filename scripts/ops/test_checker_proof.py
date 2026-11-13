@@ -115,8 +115,13 @@ def test_the_frozen_step_refuses_a_base_that_is_really_the_signed_one(
     # KAV-146: production's first real frozen pass failed because every earlier one had used a
     # release whose image is signed; a pass on such an image proves the signature, not the list.
     ran: list[str] = []
+
+    def node(*a: object, **k: object) -> str:
+        ran.append("node")
+        return ""
+
     monkeypatch.setattr(cp, "_aws", lambda *a: "sha256:" + "a" * 64)
-    monkeypatch.setattr(cp, "run_on_node", lambda *a, **k: ran.append("node") or "")
+    monkeypatch.setattr(cp, "run_on_node", node)
     assert cp.main(["prod", "frozen", "--yes"]) == 1
     assert "Nothing started" in capsys.readouterr().out
     assert not ran
