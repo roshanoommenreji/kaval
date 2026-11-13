@@ -64,6 +64,9 @@ models/
 # Regenerate with `make dashboard`. Not committed: it embeds a "days since"
 # figure that changes daily and would churn history for no benefit.
 docs/dashboard.html
+# The dashboard's saved copy of Jira's story list (KAV-145): rewritten on every run, and the
+# fallback when Jira cannot be read. Jira owns it; a committed copy would only go stale.
+docs/jira-stories.json
 
 # ─── local artifacts ───────────────────────────────────────
 *.log

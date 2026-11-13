@@ -87,14 +87,28 @@ cost      = "~$4/session"
       ] }
 3 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-8" }
 4 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-9" }
-# Phases 5 and 9 both point at KAV-10, on purpose (found 2026-10-28): Phase 5's stories
-# (KAV-76..83) were filed under KAV-10, the epic titled "Phase 9 — Mobile app", while KAV-11,
-# titled "Phase 5", holds only the older KAV-52..54. Untangling that is a Jira decision.
-5 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-10" }
+# Phase 5 points at KAV-11 since 2026-11-13 (KAV-145). It pointed at KAV-10 while Phase 5's
+# stories sat under that epic by mistake; Jira now has them (KAV-76..90) under KAV-11, titled
+# "Phase 5", and KAV-10 ("Phase 9 — Mobile app") has none. Read from Jira, not remembered.
+5 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-11" }
 6 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-12" }
 7 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-13" }
 8 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-14" }
 9 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-10" }
+
+# What each phase is, in two plain sentences, for the top of its panel (KAV-145). It says what
+# the phase is FOR, never how far it has got: status stays in ROADMAP.md and Jira.
+[phase_summary]
+0 = "Getting ready safely: the tools, a secure AWS login and spending alarms, set up before anything could cost money."
+1 = "The basic building blocks (a database, a small web service, a local AI model) running together on one cheap AWS development server, with automatic checks on every change."
+2 = "Kaval learns to think: it groups warning signs into incidents, looks up the right guide, asks the AI model what is wrong, and checks every suggested fix against written rules before anyone sees it."
+3 = "Kaval runs inside a small practice Kubernetes cluster and reads real cluster events. One separate worker is the only part allowed to change anything."
+4 = "Kaval lands on real AWS servers: production, a throwaway test copy called staging, approvals in Slack, and a release path where nothing reaches production without passing staging first."
+5 = "Breaking things on purpose (memory, crashes, a lost server, a full disk) to prove Kaval notices, proposes a fix and recovers, and measuring how long that takes."
+6 = "Kaval watches the AWS bill: it reads daily costs, labels every resource, finds waste, and removes it only after two approvals. A hard stop protects the budget."
+7 = "Proof that the same Kaval package runs unchanged on Amazon's managed Kubernetes (EKS), in a short-lived lab that deletes itself."
+8 = "Making Kaval safe and presentable in public: security scans, signed releases that the cluster itself checks, a review of how it could be attacked, then the public write-up and demo."
+9 = "Put off on purpose. Approvals already work in Slack, so whether to build a phone app at all is decided last."
 
 # External links. Empty entries are rendered as "not yet created" rather than
 # hidden — a missing Jira project is information, not an absence.

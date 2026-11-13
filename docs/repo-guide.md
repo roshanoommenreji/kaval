@@ -259,6 +259,7 @@ Run `make migrate` to bring a database up to date.
 | `docs/course/outline.md` | The plan for turning the labs into a course or video series | Working |
 | `docs/course/episode-scripts/` | Scripts for each episode | Placeholder, Phase 8 |
 | `docs/dashboard.html` | The generated dashboard page. Not in Git; the published copy is the real one | Generated |
+| `docs/jira-stories.json` | The dashboard's saved copy of Jira's story list (`KAV-145`): rewritten on every run, used when Jira cannot be read. Not in Git | Generated |
 
 ### `scripts/`: helper programs, grouped by what they touch
 
@@ -315,8 +316,9 @@ Run `make migrate` to bring a database up to date.
 | `scripts/dev/test_terraform_state.py` | The rules that keep Terraform's record off the laptop: every environment names the S3 backend with the lock on and its own key, no `.tfstate` is committed, the bucket's real name is in no file, the bucket keeps its protections (`KAV-86`) |
 | `scripts/ops/staging.sh` | `up`, `status` and `down` for the staging cluster, behind `make staging-up`/`staging-status`/`staging-down`. `up` resumes a parked database, applies `infra/envs/staging` and waits for the pods; `down` stops the database, releases its protected data volume from state, destroys, deletes the volume and every backup copy labelled `Project=kaval` and `Env=staging` (found by label, never by name, whichever job made it; refuses more than 30; stops if it cannot list them; `KAV-127`, [ADR-0078](adr/0078-backup-copies-are-found-by-their-labels-not-their-names.md), [Lab 78](labs/lab-78-backup-copies-that-belong-to-the-right-environment.md)), and counts what is left tagged `Env=staging` (instances, volumes, VPCs, copies) (`KAV-59`, ADR-0029, Lab 30). On a fresh staging `up` also uploads the cleaned copy to staging's bucket and prints the node's seed status (`KAV-73`, ADR-0039) | Working; the seed steps ran live 2026-10-10 (Lab 41) |
 | **`scripts/tracking/`** | **Jira, Confluence and the dashboard** | |
-| `scripts/tracking/dashboard.py` | Builds the progress dashboard from the repo (`make dashboard`) | Working |
-| `scripts/tracking/dashboard.toml` | Things the dashboard can't work out by itself: links, cost figures and budget thresholds, per-phase Jira/Confluence links | Working |
+| `scripts/tracking/dashboard.py` | Builds the progress dashboard from the repo (`make dashboard`). A phase opens to a short summary and Jira's own list of its stories, each a link (`KAV-145`); with no Jira login or network it uses the saved copy and prints that it did | Working |
+| `scripts/tracking/test_dashboard_jira.py` | Tests for that Jira list: saved copy used with its own date, no login is not a crash, links and escaping | Working |
+| `scripts/tracking/dashboard.toml` | Things the dashboard can't work out by itself: links, cost figures and budget thresholds, per-phase Jira/Confluence links, and each phase's two-sentence plain summary (what it is for, never its status) | Working |
 | `scripts/tracking/publish-confluence.py` | Publishes the repo's docs to the Confluence space (`make docs-sync` runs both). It tries every page, and ends with an error and no "done" line if Confluence refused any (`KAV-122`) | Working |
 | `scripts/tracking/jira-sync.py` | Lists, creates and moves Jira stories; ticks their acceptance criteria; records UAT verdicts (`uat pass\|fail`, [ADR-0012](adr/0012-user-acceptance-testing.md)); fills the Service field from the code each story changed (`backfill-service`); creates a product version's Jira Release and files its issues in it (`release X.Y.Z`, `make jira-release`). `make jira EPIC=KAV-6` | Working |
 | `scripts/tracking/atlassian.py` | The Jira/Confluence login and `call()`, shared by `jira-sync.py`, `jira-dashboards.py` and `publish-confluence.py`; it hands each request to `atlassian_http.py` | Working |
