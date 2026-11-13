@@ -1109,7 +1109,7 @@ kind = "service"
 phase = 8
 col = 3.6
 row = 8
-note = "BUILT (KAV-140 ADR-0093 watch-only; KAV-142 ADR-0094 refuses, staging): Kyverno's admission controller (68-75 MiB) looks at every Kaval pod as it is created and asks whether the image carries a cosign signature from release.yml on main, or is on a frozen, dated list of the 19 releases built before signing. It reports (a cluster Event, a counter, two Prometheus alerts). On staging it now REFUSES (Deny) and fails closed (Fail) for the Kaval namespace only: an unsigned image is not created, and a dead checker means new Kaval pods wait; the cluster's own pods are never asked. Production still only watches until KAV-143."
+note = "BUILT (KAV-140 ADR-0093 watch-only; KAV-142 ADR-0094 refuses, staging): Kyverno's admission controller (68-75 MiB) looks at every Kaval pod as it is created and asks whether the image carries a cosign signature from release.yml on main, or is on a frozen, dated list of the 19 releases built before signing. It reports (a cluster Event, a counter, two Prometheus alerts). On staging it now REFUSES (Deny) and fails closed (Fail) for the Kaval namespace only: an unsigned image is not created, and a dead checker means new Kaval pods wait; the cluster's own pods are never asked. Proved live on staging 2026-11-13 (Lab 96). Production still only watches until KAV-143."
 
 [[delivery.node]]
 id = "d-smoke"

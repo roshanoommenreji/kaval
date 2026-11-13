@@ -1,6 +1,6 @@
 # ADR-0094: The cluster refuses unsigned images on staging, and fails closed
 
-**Status:** Accepted on 2026-11-13 (Roshan: `go 142`, the fifth story of the supply-chain line). Built and proven on a laptop cluster against the real signed images the same day. The live proof on staging waits for his typed go. Production is `KAV-143`.
+**Status:** Accepted on 2026-11-13 (Roshan: `go 142`, the fifth story of the supply-chain line). Built and proven on a laptop cluster against the real signed images the same day. **Proven live on staging the same day** (his `go staging proof`; [Lab 96](../labs/lab-96-the-cluster-refuses-unsigned-images.md) Part 4): signed passes, a planted unsigned image is refused, a hard-killed checker refuses new Kaval pods and resumes by itself, a frozen rollback passes, the emergency off-switch worked once. Production is `KAV-143`.
 **Deciders:** Roshan
 **Related:** [ADR-0093](0093-the-cluster-checks-image-signatures-with-kyverno-watching-first.md) (the checker, built watch-only), [ADR-0092](0092-promotion-refuses-an-image-whose-signature-does-not-verify.md) (the promotion gate), [ADR-0034](0034-rollback-workflow-and-what-a-rollback-may-go-back-to.md) (rollback, which the frozen list protects), [ADR-0076](0076-a-stalled-flux-release-is-reset-not-rebuilt.md) (Flux), [threat model](../architecture/threat-model.md) T-SUPPLY-2, [Lab 96](../labs/lab-96-the-cluster-refuses-unsigned-images.md), [runbook](../runbooks/image-flagged-by-the-cluster-check.md), `KAV-142` (this story), `KAV-143` (production)
 
@@ -39,9 +39,10 @@ Two questions were left open on purpose and are answered here:
 
 ## Consequences
 
-- **Cost:** $0 on AWS and no new memory (the checker is the same 44-51 MiB program). The live proof on staging is about 5 cents and needs his typed go.
+- **Cost:** $0 on AWS and no new memory (the checker is the same 44-51 MiB program). The live proof on staging cost about 15 cents (planned 5; staging stayed up about 3.5 hours).
 - **Staging now refuses.** Every release that runs there is signed or on the frozen list (the list ends 2026-12-31; a test fails the build after that). Staging pins `sha-d1058eb` today, which is on the list (it is the newest entry), so it still builds and runs; the first signed release to be pinned there (`sha-152b59e` or later) passes on its signature.
 - **A dead or unreachable checker has a visible effect now:** pods wait and the Deployment shows `FailedCreate` events. `ImageCheckerDown` (5 minutes) stays the alarm; its text says so. `UnsignedImageSeen` keeps working in refusing mode, because a refusal is counted as a `fail`.
+- **Known limit found by the live proof, not fixed:** a refusal right after a checker restart can leave `UnsignedImageSeen` silent (the counter restarts at 0 and the series keeps its identity, so 1 before and 1 after look like nothing); the refusal, the Event and the pod error are unaffected, so only the alert is blind, and the next refusal fires it. A cheap fix (alerting on checker restarts too) is a candidate if it ever matters.
 - **Known limit, not fixed:** if the checker is down for good (a broken Helm release, say) the monitoring pods in the same namespace cannot be recreated either, so the alarm may not get out. The staging smoke test and the runbook's checks are the backstop; production's version of this is for `KAV-143` to decide.
 - **Not covered:** a pod's image changing without a pod being created or updated; pods outside the Kaval namespace; the checker's own supply chain (ADR-0093); the seconds-long gap while the checker restarts (point 5).
 - **`KAV-143`:** production gets the same at its next start-up, only after it has run a signed release and the memory on its real node (which also runs the language model) is measured.
