@@ -29,6 +29,15 @@ Ordered by how often they should happen.
 4. **The timer is not running** on the server (stale, with no failure word): the start-up script did not install it
 5. **The cluster could not take the answer**: the reader pod is crash-looping, or the namespace is not ready
 
+## On a fresh start: "pending" for about five minutes is normal
+
+Measured on staging 2026-11-14 (`make staging-up`, then read every minute). The reader starts before the server's
+first cost pull has copied anything in, so for the first ~5 minutes it logs `no good cost pull: missing` and
+`KavalCostPullFailing` shows as **pending**. The server's timer first fires about 2 minutes after the node is up;
+the reader's next look (it looks every 5 minutes) reads `ok`, writes the bill's days and the alarm goes back to
+inactive. It never reaches *firing*, because that needs the fault to last 4 hours. If it is still pending after
+**15 minutes**, it is not the start-up gap: use the diagnosis below.
+
 ## Diagnosis
 
 Over Session Manager (`aws ssm start-session --target <instance>`), as root. Replace `<ns>` with `kaval-prod` or
