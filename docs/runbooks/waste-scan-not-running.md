@@ -23,6 +23,15 @@ that chain is broken, so **waste is not being looked for**. Nothing else is affe
 | `stale` | The function stopped running (schedule deleted or disabled), or the server stopped copying | `aws scheduler get-schedule --name kaval-<env>-waste-scan`; the function's last invocation in its log |
 | nothing, but the alarm still fires | The reader is up but reads the wrong ConfigMap | the pod's `--waste-handoff` argument must be `<release>-waste-scan` |
 
+## On a fresh start: "pending" for about five minutes is normal
+
+Measured on staging 2026-11-14. Until the server's first copy (about 2 minutes after the node is up, the same
+`kaval-cost-pull` timer that carries the bill), the ConfigMap does not exist, so the reader logs
+`no good waste scan: missing` and `KavalWasteScanFailing` shows as **pending**. Once the copy lands the reader (it
+looks every 5 minutes) sees the parameter's `pending` status, logs `waste scan: none has run yet` and sets the
+failing number to 0: waiting, not failing. It never reaches *firing* (that needs 4 hours). If it is still pending
+after **15 minutes**, use the diagnosis below.
+
 ## Diagnosis
 
 ```bash
