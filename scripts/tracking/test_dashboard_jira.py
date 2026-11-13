@@ -82,6 +82,17 @@ def test_the_panel_lists_only_this_epics_stories_open_ones_first() -> None:
     assert "From Jira, read 2026-11-13." in html
 
 
+def test_the_stories_sit_inside_the_epic_which_opens_and_closes() -> None:
+    html = dashboard.jira_panel(EPIC, {"fetched": "2026-11-13", "issues": ISSUES})
+    start, end = html.index('<details class="jep">'), html.index("</details>")
+    summary_end = html.index("</summary>")
+    assert start < html.index('/browse/KAV-14"') < summary_end  # the epic is the line you click
+    assert "3 stories" in html[start:summary_end]
+    for n in (110, 138, 144):
+        assert summary_end < html.index(f'/browse/KAV-{n}"') < end  # stories are inside it
+    assert "<details class=\"jep\" open" not in html  # closed until clicked
+
+
 def test_every_key_is_a_link_and_titles_are_escaped() -> None:
     html = dashboard.jira_panel(EPIC, {"fetched": "2026-11-13", "issues": ISSUES})
     for n in (14, 110, 138, 144):

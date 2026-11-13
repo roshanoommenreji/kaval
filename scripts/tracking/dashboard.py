@@ -180,11 +180,15 @@ def jira_panel(epic_url: str, jira: dict | None) -> str:
         f'      <li>{link(i["key"])}<span class="jt">{e(i["summary"])}</span>'
         f'<span class="jst {e(i["cat"])}">{e(i["status"])}</span></li>'
         for i in stories)
-    return f"""<div class="jira">{head}
-    <div class="jcount">{len(stories)} stories · {done} done · {len(stories) - done} open</div>
+    # The epic is one line that opens to its stories (asked for by the owner): closed, a phase
+    # reads as summary + epic + count; the stories are one click away.
+    count = f"{len(stories)} stories · {done} done · {len(stories) - done} open"
+    return f"""<div class="jira"><details class="jep">
+    <summary>{head}<div class="jcount">{count} · click to show the stories</div></summary>
     <ul class="jlist">
 {rows}
     </ul>
+    </details>
     <p class="jnote">From Jira, read {e(fetched)}.</p></div>"""
 
 
@@ -920,6 +924,14 @@ section{margin-top:44px}
      border:1px solid currentColor; color:var(--ink-3); white-space:nowrap}
 .jst.done{color:var(--ok)}
 .jst.indeterminate{color:var(--accent)}
+.jep{border:1px solid var(--rule); border-radius:5px; background:var(--surface)}
+.jep>summary{cursor:pointer; padding:10px 13px; list-style:none; position:relative; padding-left:32px}
+.jep>summary::-webkit-details-marker{display:none}
+.jep>summary::before{content:"▸"; position:absolute; left:13px; top:10px; color:var(--ink-3)}
+.jep[open]>summary::before{content:"▾"}
+.jep>summary:hover{background:var(--raised)}
+.jep .jlist{margin:0; padding:0 13px}
+.jep .jlist li:last-child{border-bottom:0}
 .more{margin-top:18px}
 .more>summary{cursor:pointer; font-size:12.5px; color:var(--ink-2)}
 .more>summary:hover{color:var(--accent)}
