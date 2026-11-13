@@ -1,6 +1,6 @@
 # ADR-0093: the cluster checks image signatures with Kyverno, watching first
 
-**Status:** Accepted on 2026-11-13 (Roshan: "ok split, go", the fourth story of the supply-chain line). The checker is chosen, built and proven on a laptop cluster against the real signed images the same day. It is **watch-only**: it reports and refuses nothing. Its live proof on staging waits for his typed go. Refusing is `KAV-142`; production is `KAV-143`.
+**Status:** Accepted on 2026-11-13 (Roshan: "ok split, go", the fourth story of the supply-chain line). The checker is chosen, built and proven on a laptop cluster against the real signed images the same day. It is **watch-only**: it reports and refuses nothing. It was proven live on staging on 2026-11-13 (his `go staging proof`; [Lab 95](../labs/lab-95-the-cluster-checks-image-signatures.md) Part 5). Refusing is `KAV-142`; production is `KAV-143`.
 **Date:** 2026-11-13
 **Related:** [ADR-0092](0092-promotion-refuses-an-image-whose-signature-does-not-verify.md) (the promotion gate this backs up), [ADR-0090](0090-images-are-signed-keyless-and-the-signature-lives-in-the-registry.md) (the signature this reads), [ADR-0034](0034-rollback-workflow-and-what-a-rollback-may-go-back-to.md) (rollback, which the frozen list protects), [ADR-0004](0004-environment-strategy-and-promotion.md) (environments differ only by values and pins), [ADR-0076](0076-a-stalled-flux-release-is-reset-not-rebuilt.md) (Flux), [threat model](../architecture/threat-model.md) T-SUPPLY-2, [Lab 95](../labs/lab-95-the-cluster-checks-image-signatures.md), [runbook](../runbooks/image-flagged-by-the-cluster-check.md), `KAV-140` (this story), `KAV-142` (refuse on staging), `KAV-143` (production)
 
@@ -27,7 +27,7 @@ Three facts shape this:
 |---|---|
 | **policy-controller 0.13.1** | **Cannot read our signatures.** `bundle support for image signatures is not yet implemented`. Our signatures (cosign 3) are Sigstore "bundle v0.3" items stored beside the image in ECR; the legacy format it does read finds nothing. |
 | **Kyverno 1.20.0**, `ImageValidatingPolicy` | **Reads them.** Signed release: passes. Unsigned: flagged ("no signatures found"). Two controls with a wrong signer (`ci.yml`, a branch other than `main`): the signed release is flagged, so the pass is a real verification and not a skipped check. In refusing mode it refused the unsigned image and started the signed one; images that are not Kaval's were left alone. |
-| **Memory** | One Kyverno program (admission only): **68-75 MiB** working set after a burst of requests. The default would be 128 MiB requested, 384 MiB limit; we set 96 MiB / 256 MiB. |
+| **Memory** | One Kyverno program (admission only): **68-75 MiB** working set after a burst of requests on the laptop; **measured live on staging's real node: 44-48 MiB and 6-7m CPU, with the whole node at 61-62% of its 4 GB** (2026-11-13). The default would be 128 MiB requested, 384 MiB limit; we set 96 MiB / 256 MiB. |
 
 ## Decision
 
@@ -44,7 +44,7 @@ Three facts shape this:
 
 ## Consequences
 
-- **Staging gets the checker at its next build** (the node script and the Flux objects are in `main`). It will report nothing on the current release, because every running release is on the frozen list: the live proof therefore needs a deliberate unlisted unsigned image (Lab 95 Part 6).
+- **Staging gets the checker at its next build** (the node script and the Flux objects are in `main`). It will report nothing on the current release, because every running release is on the frozen list: the live proof therefore planted one deliberately (Lab 95 Part 5, done 2026-11-13: noticed, not blocked, alert fired).
 - **Cost:** $0 on AWS. About 70 MiB on the node. The images come from the public internet once per build (staging is rebuilt each time). No new permission.
 - **The checker's own images come from two public registries** (`reg.kyverno.io`, `ghcr.io`) and are pinned by digest but not signature-checked by us. It is the same position as Prometheus (`quay.io`). Verifying Kyverno's own signature is a candidate for a later story.
 - **Sigstore is called at admission time** (the Fulcio/Rekor public services). While watch-only, an outage shows as an error and nothing else. For `KAV-142` it is an open question with a real cost: a refusing checker that cannot reach Sigstore either blocks pods or stops checking. It is the first thing that story decides, together with Kyverno's cache and the option of embedding Sigstore's trust material (`trustedRoot`).
