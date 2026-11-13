@@ -75,7 +75,12 @@ from GitHub's store) and "does NOT carry valid signatures", exit 1.
 2. **Pass, at the first real promotion of a signed release:** the next release is signed, so after a release round and a staging smoke pass its promotion's verify step must show three `PASS` signature lines, and the pull request
    body (which quotes the report) must contain no account number. That promotion is also the test that the registry login, the pinned cosign and `gh attestation verify` all work on the real runner.
 
-Result: _to be filled in after each._
+Result of 1 (refusal), 2026-11-13 10:37 IST, run 43369948100 on `main` (7e09805): the gate job failed at the **verify** step and the `propose` job was skipped, so no branch and no pull request were made. The steps before it
+(install cosign with its checksum, AWS login, registry login, resolve) all succeeded on the real runner, so those are now proved there. The report showed `FAIL` on "newer than what prod runs" (the tag is older than prod's), on "tagged release",
+and on all three signature checks for all four images: cosign said "no signatures found" and `gh attestation verify` got "HTTP 404" from GitHub's store. The record and ECR-digest checks passed. The log held the account number **0** times; the
+registry address printed as `***`.
+
+Result of 2 (pass): _to be filled in at the next signed release's real promotion._
 
 ## What to take away
 
