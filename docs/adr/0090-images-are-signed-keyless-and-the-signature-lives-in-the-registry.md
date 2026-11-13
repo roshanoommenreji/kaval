@@ -42,7 +42,7 @@ signed images with cosign, keyless, in ECR.
 ## Consequences
 
 - **Cost:** $0. IAM is free; a signature is a few kilobytes in ECR; Sigstore is free; a few seconds per image in CI.
-- **What it does not do yet:** nothing *refuses* an unsigned image. The promotion gate does after `KAV-139` (built 2026-11-13, [ADR-0092](0092-promotion-refuses-an-image-whose-signature-does-not-verify.md)), the cluster after `KAV-140`. Until then T-SUPPLY-2 stays partly open.
+- **What it does not do yet:** nothing *refuses* an unsigned image. The promotion gate does after `KAV-139` (built 2026-11-13, [ADR-0092](0092-promotion-refuses-an-image-whose-signature-does-not-verify.md)), the cluster watches for it since `KAV-140` ([ADR-0093](0093-the-cluster-checks-image-signatures-with-kyverno-watching-first.md), watch-only; refusing is `KAV-142`). Until then T-SUPPLY-2 stays partly open.
 - **Order matters:** the permission must be applied **before** the first release on `main` that carries the signing step, or that release stops at the sign step (nothing unsigned is promoted; staging's
   pin pull request is not opened). The runbook says so.
 - **Failure and off switch:** the release stops at the sign step if Sigstore or ECR cannot be reached; re-run it later. Turning the feature off is removing the sign step and the read statement; images

@@ -6,7 +6,7 @@
 
 Each of the five images gets a **signature** stored in ECR beside it. The signature says: this exact digest was published by `release.yml` on `main`. There is no key to keep: GitHub vouches for the
 workflow run, Sigstore issues a certificate that lasts minutes and notes the signature in a public log. The parts list from [Lab 91](lab-91-a-parts-list-and-a-signed-build-record-for-every-image.md) is also bound to the
-digest, in GitHub's store. The promotion gate refuses an unsigned image since `KAV-139` ([Lab 94](lab-94-the-promotion-gate-checks-the-signature.md)); the cluster does not yet (`KAV-140`).
+digest, in GitHub's store. The promotion gate refuses an unsigned image since `KAV-139` ([Lab 94](lab-94-the-promotion-gate-checks-the-signature.md)); the cluster watches for it since `KAV-140` ([Lab 95](lab-95-the-cluster-checks-image-signatures.md)).
 
 ## Part 1 — Why the build robot needs a read permission
 

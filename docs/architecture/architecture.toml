@@ -1103,6 +1103,15 @@ row = 8
 note = "Staging deploys the way prod does: release.yml opens a pull request that changes the image tag under deploy/gitops/staging/ and Flux pulls it (built, KAV-61). Exact parity with prod: same instance type, same 4 GB, same local model. That matters because memory pressure is this project's binding constraint, and a smaller staging node would miss precisely that."
 
 [[delivery.node]]
+id = "d-checker"
+label = "Cluster signature check"
+kind = "service"
+phase = 8
+col = 3.6
+row = 8
+note = "BUILT, watch-only (KAV-140, ADR-0093): Kyverno's admission controller (68-75 MiB) looks at every Kaval pod as it is created and asks whether the image carries a cosign signature from release.yml on main, or is on a frozen, dated list of the 19 releases built before signing. It reports (a cluster Event, a counter, two Prometheus alerts) and refuses nothing. Refusing on staging is KAV-142, production KAV-143."
+
+[[delivery.node]]
 id = "d-smoke"
 label = "Smoke + policy tests?"
 kind = "decision"
@@ -1163,7 +1172,7 @@ kind = "decision"
 phase = 4
 col = 2
 row = 14
-note = "The check that makes build-once real rather than aspirational. Tested with a deliberate negative case — promoting an unproven digest must be refused."
+note = "The check that makes build-once real rather than aspirational. Tested with a deliberate negative case — promoting an unproven digest must be refused. Since KAV-139 it also refuses an image whose signature, build record or parts list does not verify against release.yml on main (ADR-0092)."
 
 [[delivery.node]]
 id = "d-refused"
@@ -1295,6 +1304,11 @@ label = "restore + sanitise + Flux"
 from = "d-stg"
 to = "d-smoke"
 label = ""
+
+[[delivery.edge]]
+from = "d-stg"
+to = "d-checker"
+label = "every pod"
 
 [[delivery.edge]]
 from = "d-smoke"

@@ -45,7 +45,7 @@ risks, so it is four stories. This ADR covers the first: the parts list and the 
 ## Consequences
 
 - **Cost:** $0. No AWS resource; GitHub Actions minutes for a few extra seconds per image; artifacts of a few hundred kilobytes.
-- **What it does not do yet:** nothing *checks* anything. A person can verify an image by hand today; the promotion gate does it since `KAV-139` ([ADR-0092](0092-promotion-refuses-an-image-whose-signature-does-not-verify.md)); the cluster after `KAV-140`. Until then the threat model's
+- **What it does not do yet:** nothing *checks* anything. A person can verify an image by hand today; the promotion gate does it since `KAV-139` ([ADR-0092](0092-promotion-refuses-an-image-whose-signature-does-not-verify.md)); the cluster watches for it since `KAV-140` ([ADR-0093](0093-the-cluster-checks-image-signatures-with-kyverno-watching-first.md), watch-only; refusing is `KAV-142`). Until then the threat model's
   T-SUPPLY-2 stays a gap, with its first two mitigations built.
 - **Failure mode:** if the parts list or the record cannot be made, the release stops **before or right after the push** and no promotion can follow; images already running are untouched. Turning the feature
   off is deleting the three steps; nothing else depends on them yet.
