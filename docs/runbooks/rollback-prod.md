@@ -95,6 +95,7 @@ The database holds real data. Take a snapshot of its data volume first (Lab 27 s
 - Do not tick `accept_migrations` to "see if it works": the older version cannot run its database step against
   a database that is ahead, and the attempt takes minutes to fail.
 - Do not promote the bad version again until the cause is fixed.
+- Know that a rollback is not signature-checked (`KAV-139`, [ADR-0092](../adr/0092-promotion-refuses-an-image-whose-signature-does-not-verify.md)): it can restore a version built before signing existed. That is deliberate (going back must always be possible); the cluster check (`KAV-140`) has to allow for it.
 
 ## Afterwards
 

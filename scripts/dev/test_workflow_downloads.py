@@ -18,11 +18,12 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = [
     ROOT / ".github" / "workflows" / "ci.yml",
     ROOT / ".github" / "workflows" / "release.yml",
+    ROOT / ".github" / "workflows" / "promote.yml",
 ]
 
 # Trivy twice (ci.yml's image job and release.yml), gitleaks, OPA, helm, kubeconform, and cosign
-# (release.yml, KAV-138).
-EXPECTED_DOWNLOADS = 7
+# (release.yml, KAV-138; promote.yml, KAV-139).
+EXPECTED_DOWNLOADS = 8
 
 
 def _download_steps() -> list[tuple[str, str, str]]:
