@@ -4,9 +4,12 @@
 # release.yml on main (the same exact identity promote.yml checks, ADR-0092) -- or its tag is on
 # the frozen list below, the releases built before signing existed (2026-11-13).
 #
-# WATCH-ONLY (validationActions: Audit): it reports and refuses nothing. Refusing is KAV-142, and
-# only after a clean report. failurePolicy is Ignore for the same reason: while this only watches,
-# a checker that is down must never stop a Kaval pod from starting.
+# REFUSING (validationActions: Deny, KAV-142): a Kaval pod whose image fails this check is not
+# created. failurePolicy is Fail on purpose: if the checker is down or does not answer, new Kaval
+# pods wait instead of starting unchecked (ADR-0094). That cannot touch the cluster's own system
+# pods or the checker itself, because the scope below is the Kaval namespace only. The two
+# settings move together: Deny with Ignore would let anyone who can stop the checker walk past it.
+# The off-switch is in docs/runbooks/image-flagged-by-the-cluster-check.md.
 #
 # The registry address is not written here (it holds the AWS account number, CLAUDE.md
 # constraint 5): Flux fills in ${registry} from the kaval-registry ConfigMap when it applies
@@ -24,8 +27,13 @@ metadata:
   annotations:
     kaval.dev/frozen-list-ends: "2026-12-31"
 spec:
-  validationActions: [Audit]
-  failurePolicy: Ignore
+  validationActions: [Deny]
+  failurePolicy: Fail
+  # The first check after the checker starts fetches Sigstore's trust data and took 8 s on a
+  # laptop against the default 10 s; with Fail, a timeout is a refusal. 30 s is the API server's
+  # maximum.
+  webhookConfiguration:
+    timeoutSeconds: 30
   matchConstraints:
     # Only Kaval's own namespace. Kyverno's default is every namespace, and a checker that is
     # down would then be able to block the cluster's own system pods.

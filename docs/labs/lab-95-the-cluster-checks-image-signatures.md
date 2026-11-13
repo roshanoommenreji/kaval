@@ -2,6 +2,8 @@
 
 **Phase:** 8 (hardening) · **Story:** `KAV-140` · **Decision:** [ADR-0093](../adr/0093-the-cluster-checks-image-signatures-with-kyverno-watching-first.md) · **Cost:** $0 for Parts 1-4 (a laptop cluster, read-only against ECR); about $0.05 for Part 5 (one staging session) · **Time:** 45 minutes for Parts 1-4
 
+> **Superseded in part by [Lab 96](lab-96-the-cluster-refuses-unsigned-images.md) (`KAV-142`):** on staging the policy now refuses (`Deny` + `Fail`). This lab is the watch-only chapter and stays as the record of how the checker was built and first proven.
+
 ## What you will build
 
 A checker inside the cluster that looks at every Kaval pod as it is created and asks: does this image carry a signature made by this repository's release workflow on `main`? It is **watch-only**: it reports and refuses nothing. Refusing is `KAV-142`.
