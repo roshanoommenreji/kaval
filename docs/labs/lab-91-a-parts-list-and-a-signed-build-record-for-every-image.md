@@ -9,7 +9,7 @@ Two additions to `release.yml`, for each of the five images:
 1. a **parts list** (SBOM): every package inside the image, in the standard CycloneDX format;
 2. a **signed build record** (provenance): a statement, signed with the workflow run's own identity, that this digest was built by this workflow from this commit.
 
-Nothing that runs changes. The promotion gate checks them since `KAV-139` ([Lab 94](lab-94-the-promotion-gate-checks-the-signature.md)); the cluster watches for it since `KAV-140` ([Lab 95](lab-95-the-cluster-checks-image-signatures.md)).
+Nothing that runs changes. The promotion gate checks them since `KAV-139` ([Lab 94](lab-94-the-promotion-gate-checks-the-signature.md)); the cluster watches for it since `KAV-140` ([Lab 95](lab-95-the-cluster-checks-image-signatures.md)) and, on staging, refuses since `KAV-142` ([Lab 96](lab-96-the-cluster-refuses-unsigned-images.md)).
 
 ## Part 1 — Make a parts list yourself (needs Docker; no AWS)
 

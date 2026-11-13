@@ -77,12 +77,20 @@ def test_no_pattern_matching_anywhere_in_the_policy() -> None:
         assert banned not in text, f"{banned} would loosen who may sign"
 
 
-def test_it_is_watch_only_until_the_refusing_story() -> None:
+def test_it_refuses_and_fails_closed_together() -> None:
     spec = _policy()["spec"]
-    # Watch-only must never block a pod, so a down checker must be ignored; once it refuses
-    # (KAV-142) the pair flips together and this test is changed in that story, on purpose.
-    assert spec["validationActions"] == ["Audit"]
-    assert spec["failurePolicy"] == "Ignore"
+    # KAV-142 (ADR-0094) flipped the pair on purpose: it refuses (Deny) and a checker that is down
+    # or silent also refuses (Fail). Deny with Ignore would let anyone who can stop the checker
+    # walk past it; Audit with Fail would take pods down for a check that blocks nothing.
+    assert spec["validationActions"] == ["Deny"]
+    assert spec["failurePolicy"] == "Fail"
+    # What keeps "Fail" safe: the scope is the Kaval namespace only, so the checker's own pods
+    # and the cluster's system pods can never be waiting on the checker.
+    values = spec["matchConstraints"]["namespaceSelector"]["matchExpressions"][0]["values"]
+    assert values == ["${kaval_namespace}"]
+    # With Fail, a slow first check (it fetches Sigstore's trust data: 8 s measured against the
+    # default 10 s) would be a refusal, so the answer time is the API server's maximum.
+    assert spec["webhookConfiguration"]["timeoutSeconds"] == 30
 
 
 def test_only_kaval_namespaces_are_in_scope() -> None:
