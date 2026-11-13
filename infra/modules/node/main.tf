@@ -88,15 +88,16 @@ resource "aws_launch_template" "node" {
   # `make up` after it, "InvalidUserData.Malformed"). cloud-init unzips gzip user data by itself.
   # Zipped it is ~6.6 KB, so there is room; `terraform plan` does NOT check this limit.
   user_data = base64gzip(templatefile("${path.module}/user_data.sh.tftpl", {
-    ssh_public_key     = var.ssh_public_key
-    k3s_version        = var.k3s_version
-    k3s_sha256_arm64   = var.k3s_sha256_arm64
-    flux_version       = var.flux_version
-    flux_sha256_arm64  = var.flux_sha256_arm64
-    name_prefix        = var.name_prefix
-    backup_bucket_name = var.backup_bucket_name
-    seed_database      = var.seed_database
-    gitops_env         = trimprefix(var.name_prefix, "kaval-") # "prod" / "staging": the deploy/gitops/<this> directory
+    ssh_public_key        = var.ssh_public_key
+    k3s_version           = var.k3s_version
+    k3s_sha256_arm64      = var.k3s_sha256_arm64
+    flux_version          = var.flux_version
+    flux_sha256_arm64     = var.flux_sha256_arm64
+    name_prefix           = var.name_prefix
+    backup_bucket_name    = var.backup_bucket_name
+    seed_database         = var.seed_database
+    image_checker_enabled = var.image_checker_enabled
+    gitops_env            = trimprefix(var.name_prefix, "kaval-") # "prod" / "staging": the deploy/gitops/<this> directory
   }))
 
   # The three required tags (ADR-0061) have to be written here because Terraform's provider-wide

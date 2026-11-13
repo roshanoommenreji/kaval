@@ -1,0 +1,78 @@
+# promtool unit tests for kaval-image-checker.rules.yaml (KAV-140). `make rules-test` runs them.
+# The quiet cases are the point: a checker that is up and sees only signed or frozen images must
+# never send anyone a message.
+rule_files:
+  - ../files/kaval-image-checker.rules.yaml
+evaluation_interval: 30s
+
+tests:
+  - name: checker up and only passes is quiet
+    interval: 30s
+    input_series:
+      - series: 'up{job="kyverno"}'
+        values: "1x60"
+      - series: 'kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="pass"}'
+        values: "0+1x60"
+    alert_rule_test:
+      - { eval_time: 30m, alertname: ImageCheckerDown, exp_alerts: [] }
+      - { eval_time: 30m, alertname: UnsignedImageSeen, exp_alerts: [] }
+
+  - name: a checker that vanishes is reported after five minutes, not before
+    interval: 30s
+    input_series:
+      - series: 'up{job="kyverno"}'
+        values: "1x20 _x60"
+    alert_rule_test:
+      - { eval_time: 12m, alertname: ImageCheckerDown, exp_alerts: [] }
+      - eval_time: 25m
+        alertname: ImageCheckerDown
+        exp_alerts:
+          - exp_labels: { severity: critical, kaval_health: "true" }
+            exp_annotations: { summary: The cluster's image checker (Kyverno) cannot be reached. }
+
+  - name: a checker that answers 0 is reported too
+    interval: 30s
+    input_series:
+      - series: 'up{job="kyverno"}'
+        values: "1x10 0x60"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: ImageCheckerDown
+        exp_alerts:
+          - exp_labels: { severity: critical, kaval_health: "true" }
+            exp_annotations: { summary: The cluster's image checker (Kyverno) cannot be reached. }
+
+  - name: the first ever failure fires (the counter appears at 1)
+    interval: 30s
+    input_series:
+      - series: 'kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail"}'
+        values: "_x20 1x60"
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: UnsignedImageSeen
+        exp_alerts:
+          - exp_labels: { severity: warning, kaval_health: "true" }
+            exp_annotations: { summary: "A Kaval image has no valid signature and is not on the frozen list (runbook image-flagged-by-the-cluster-check)." }
+
+  - name: a later failure on an existing counter fires, and goes quiet again
+    interval: 30s
+    input_series:
+      # one old failure for 40 minutes, then a second one, then nothing new
+      - series: 'kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail"}'
+        values: "1x80 2x120"
+    alert_rule_test:
+      - { eval_time: 30m, alertname: UnsignedImageSeen, exp_alerts: [] }
+      - eval_time: 45m
+        alertname: UnsignedImageSeen
+        exp_alerts:
+          - exp_labels: { severity: warning, kaval_health: "true" }
+            exp_annotations: { summary: "A Kaval image has no valid signature and is not on the frozen list (runbook image-flagged-by-the-cluster-check)." }
+      - { eval_time: 80m, alertname: UnsignedImageSeen, exp_alerts: [] }
+
+  - name: some other policy failing does not count
+    interval: 30s
+    input_series:
+      - series: 'kyverno_image_validating_policy_results_total{policy_name="something-else",result="fail"}'
+        values: "_x20 1x60"
+    alert_rule_test:
+      - { eval_time: 12m, alertname: UnsignedImageSeen, exp_alerts: [] }

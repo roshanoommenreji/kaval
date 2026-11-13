@@ -246,6 +246,17 @@ type: kubernetes.io/dockerconfigjson
 data:
   .dockerconfigjson: $DOCKERCONFIGJSON_B64
 MANIFEST
+%{ if image_checker_enabled ~}
+# KAV-140: the image checker (Kyverno) reads ECR with this same login, in its own namespace.
+kubectl create ns kyverno --dry-run=client -o yaml | kubectl apply -f -
+cat <<MANIFEST | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata: {name: ecr-cred, namespace: kyverno}
+type: kubernetes.io/dockerconfigjson
+data: {.dockerconfigjson: $DOCKERCONFIGJSON_B64}
+MANIFEST
+%{ endif ~}
 unset ECR_PASSWORD AUTH_B64 DOCKERCONFIGJSON_B64
 
 # Database + Slack secrets (KAV-56): read from SSM and applied via stdin like ecr-cred above. Runs on

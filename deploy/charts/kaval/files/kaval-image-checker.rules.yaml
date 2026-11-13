@@ -1,0 +1,28 @@
+# Prometheus rules for the cluster's image checker (KAV-140, ADR-0093). Only where the checker
+# runs (imageChecker.enabled): elsewhere the `absent()` rule would fire for nothing.
+# Tested with promtool: deploy/charts/kaval/tests/kaval-image-checker.test.yaml (make rules-test).
+groups:
+  - name: kaval-image-checker
+    rules:
+      # The checker is gone or does not answer. While it only watches, that means we are blind to
+      # unsigned images; once it refuses (KAV-142) it means new pods may not start at all.
+      # `absent(up == 1)` covers both "no series at all" and "a series that says 0".
+      - alert: ImageCheckerDown
+        expr: absent(up{job="kyverno"} == 1)
+        for: 5m
+        labels: { severity: critical, kaval_health: "true" }
+        annotations:
+          summary: The cluster's image checker (Kyverno) cannot be reached.
+
+      # A Kaval image started (or was refused) without a valid signature and is not on the frozen
+      # list of releases built before signing. The second half catches the FIRST ever failure: a
+      # counter that appears at 1 has no earlier sample, so increase() alone reads it as 0.
+      - alert: UnsignedImageSeen
+        expr: >-
+          sum(increase(kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail"}[15m])) > 0
+          or
+          sum(kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail"}
+              unless kyverno_image_validating_policy_results_total{policy_name="kaval-images-signed",result="fail"} offset 15m) > 0
+        labels: { severity: warning, kaval_health: "true" }
+        annotations:
+          summary: A Kaval image has no valid signature and is not on the frozen list (runbook image-flagged-by-the-cluster-check).

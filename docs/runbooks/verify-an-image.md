@@ -5,6 +5,7 @@ This is how a person reads and checks them. It only reads: nothing here changes 
 
 ## Signals
 
+- The cluster's check flagged an image (`UnsignedImageSeen`): see [image flagged by the cluster check](image-flagged-by-the-cluster-check.md), then come back here to check the signature by hand
 - A library is announced as vulnerable and you need to know which images contain it
 - You want proof that the image in ECR came from this repository's release workflow, not from a hand push
 - `promote.yml` or a later check says a build record is missing or does not verify
