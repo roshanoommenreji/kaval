@@ -1,6 +1,6 @@
 # Lab 99 — The frozen list really lets old releases through
 
-**Phase:** 8 (hardening) · **Story:** `KAV-146` · **Decision:** [ADR-0096](../adr/0096-the-frozen-list-is-not-matched-so-it-is-never-checked.md) · **Cost:** $0 for Parts 1-4 (Docker on a laptop); about 15 cents planned for Part 5 (one staging session, still to come); Part 6 was done on 2026-11-13 on production's live session (about 4 cents for the whole 53 minutes).
+**Phase:** 8 (hardening) · **Story:** `KAV-146` · **Decision:** [ADR-0096](../adr/0096-the-frozen-list-is-not-matched-so-it-is-never-checked.md) · **Cost:** $0 for Parts 1-4 (Docker on a laptop); about 15 cents for Part 5 (one staging session, run 2026-11-14 00:07-00:15 IST); Part 6 was done on 2026-11-13 on production's live session (about 4 cents for the whole 53 minutes).
 
 ## What you will build
 
@@ -89,10 +89,23 @@ Then the unit tests, which pin the shape and go red against the old policy: `pyt
 2. `frozen --yes`: **`frozen pod: 1/1 Running`** (`sha-791c44d` is unsigned and different from the signed image; the script refuses a base that is not). This is the line that failed on production.
 3. `signed --yes`: a signed release is still accepted (the list did not weaken the signature path).
 4. `plant` then `unsigned --yes`: an unsigned image **not** on the list is still refused; `UnsignedImageSeen` rings.
-5. Delete one real Kaval pod that runs an **unsigned listed** image (staging pins `sha-ba87981`; `kubectl delete pod -n kaval-staging <executor or agent or collector pod>`) and watch its Deployment bring it back (`1/1 Running`, no `FailedCreate`). This is the case that was broken in production.
+5. Delete one real Kaval pod that runs an **unsigned listed** image (staging's cost collector still runs `collector:sha-d1058eb`, the one pod whose image is unsigned and on the list; `kubectl delete pod -n kaval-staging <that pod>`) and watch its Deployment bring it back (`1/1 Running`, no `FailedCreate`). This is the case that was broken in production.
 6. `clean --yes`, `unplant`, `make staging-down`.
 
-*Results: pending (not run yet; the change reached production first, see Part 6).*
+**Results (2026-11-14, 00:07-00:15 IST, his `go staging smoke`; staging built in 10 minutes, about 15 cents in all):**
+
+| Check on staging | Result |
+|---|---|
+| `state` | `kaval-images-signed` `ready=true`, `Deny`, `Fail`, 30 s; checker `1/1 Running`, 53 MiB; 9 Kaval pods running |
+| `frozen --yes` (the check that failed on production) | **`frozen pod: 1/1 Running`** |
+| `signed --yes` | `signed pod: 1/1 Running` |
+| `plant` + `unsigned --yes` | refused with the **policy's own** message ("no valid signature from release.yml on main and is not on the frozen list"); no pod created; **`UnsignedImageSeen` firing** (`ImageCheckerDown` inactive) |
+| A real pod of an unsigned listed image, deleted (`kaval-staging-collector-cost`, `collector:sha-d1058eb`) | the Deployment made a new one, `1/1 Running` after 35 s, **no `FailedCreate`** |
+| Left clean | test pods deleted; planted name removed (0 `unsigned-trial` tags left in the registry); `promote.py preflight` no FAIL; `make staging-down` 92 destroyed, "Left tagged Env=staging: 0" |
+
+Both environments now show the same result, so the staging-first rule is satisfied after the fact for this change (production ran it first because the merge reached it while it was up).
+
+Two small things seen: the first `unplant` removed the name and a second one reported "ImageNotFound" (expected: it was already gone); the staging copy's collector pin is the old `sha-d1058eb` while the rest of staging pins `sha-ba87981`, so the real-pod check needed no special setup.
 
 ## Part 6 — Production (at its next start-up)
 
