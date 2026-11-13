@@ -9,7 +9,8 @@ Steps, in the order of a proof session:
     plant      (laptop) give one existing image a second, unsigned name in the registry
     signed     start a throwaway pod from a SIGNED release        -> expect: accepted
     unsigned   start a throwaway pod from the planted image       -> expect: REFUSED
-    clean      delete every throwaway pod
+    frozen     start a throwaway pod from an UNSIGNED release on the frozen list -> expect: accepted
+    clean     delete every throwaway pod
     unplant    (laptop) remove the planted name from the registry
 
 The pods change nothing that matters: each only sleeps, holds no secret, and is labelled
@@ -34,13 +35,13 @@ import time
 REGION = "ap-south-1"
 SIGNED_TAG = "sha-152b59e"  # built and signed by release.yml on main; never promoted
 PLANTED_TAG = "unsigned-trial"
-BASE_TAG = "sha-d1058eb"  # built before signing: its digest never had a signature
+BASE_TAG = "sha-791c44d"  # built before signing; a DIFFERENT image from SIGNED_TAG (plant checks)
 LABEL = "proof=kav143"
 REPO = "kaval/gateway"
 NAMESPACES = {"prod": "kaval-prod", "staging": "kaval-staging"}
 LAPTOP_STEPS = ("plant", "unplant")
-MUTATING = ("plant", "signed", "unsigned", "clean", "unplant")
-STEPS = ("state", "alerts", "plant", "signed", "unsigned", "clean", "unplant")
+MUTATING = ("plant", "signed", "unsigned", "frozen", "clean", "unplant")
+STEPS = ("state", "alerts", "plant", "signed", "unsigned", "frozen", "clean", "unplant")
 
 
 def scrub(text: str) -> str:
@@ -114,6 +115,11 @@ def remote_script(step: str, namespace: str, env: str) -> str:
             "'^kyverno_image_validating_policy_results_total' | grep kaval-images-signed"
             " | sed -E 's/otel_scope[a-z_]*=\"[^\"]*\",//g' | cut -c1-260\n"
         ),
+        "frozen": (
+            mk("proof-frozen", BASE_TAG)  # unsigned, but on the frozen list: let in by the list
+            + "sleep 20; kubectl get pod proof-frozen -n $NS --no-headers"
+            " | awk '{print \"frozen pod:\",$2,$3}'\n"
+        ),
         "clean": (f"kubectl delete pod -n $NS -l {LABEL} --ignore-not-found --wait=false"
                   " 2>&1 | cut -c1-120\n"),
     }[step]
@@ -155,11 +161,25 @@ def run_on_node(env: str, script: str) -> str:
     return out + (f"\n[stderr]\n{err}" if err and err != "None" else "") + f"\n[status] {status}"
 
 
+def _digest(tag: str) -> str:
+    """The image digest a tag points at in the registry ('' when it cannot be read)."""
+    out = _aws("ecr", "describe-images", "--repository-name", REPO, "--image-ids",
+               f"imageTag={tag}", "--query", "imageDetails[0].imageDigest", "--output", "text")
+    return out if out.startswith("sha256:") else ""
+
+
 def laptop_step(step: str) -> str:
     """plant / unplant: the registry gives the signed release's image a second name, or drops it."""
     if step == "unplant":
         return _aws("ecr", "batch-delete-image", "--repository-name", REPO,
                     "--image-ids", f"imageTag={PLANTED_TAG}", "--output", "text") or "removed"
+    base, signed = _digest(BASE_TAG), _digest(SIGNED_TAG)
+    if not base or base == signed:
+        # A signature belongs to a digest, not a tag. Two releases built from unchanged code can be
+        # the very same image: planting from one of those would plant a SIGNED image (found live on
+        # production, KAV-143: sha-d1058eb and sha-152b59e are one image, so the "unsigned" pod was
+        # correctly accepted).
+        return f"refusing to plant: {BASE_TAG} is the same image as {SIGNED_TAG}, or unreadable"
     manifest = _aws("ecr", "batch-get-image", "--repository-name", REPO,
                     "--image-ids", f"imageTag={BASE_TAG}",
                     "--query", "images[0].imageManifest", "--output", "text")

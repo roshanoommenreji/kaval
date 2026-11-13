@@ -36,7 +36,7 @@ def test_the_signed_tag_is_the_signed_release_and_the_planted_name_is_not_a_real
     assert cp.PLANTED_TAG not in {"latest", cp.SIGNED_TAG}
 
 
-@pytest.mark.parametrize("step", ["state", "alerts", "signed", "unsigned", "clean"])
+@pytest.mark.parametrize("step", ["state", "alerts", "signed", "unsigned", "frozen", "clean"])
 @pytest.mark.parametrize("env", ["prod", "staging"])
 def test_every_remote_step_is_valid_shell_for_its_own_namespace(step: str, env: str) -> None:
     script = cp.remote_script(step, cp.NAMESPACES[env], env)
@@ -55,10 +55,41 @@ def test_clean_deletes_only_what_this_script_labelled() -> None:
     assert "delete namespace" not in script and "--all" not in script
 
 
-def test_nothing_but_the_two_named_pods_is_ever_created() -> None:
+def test_nothing_but_the_three_named_pods_is_ever_created() -> None:
     created = {s: cp.remote_script(s, "kaval-prod", "prod").count("kubectl apply")
-               for s in ("state", "alerts", "signed", "unsigned", "clean")}
-    assert created == {"state": 0, "alerts": 0, "signed": 1, "unsigned": 1, "clean": 0}
+               for s in ("state", "alerts", "signed", "unsigned", "frozen", "clean")}
+    assert created == {"state": 0, "alerts": 0, "signed": 1, "unsigned": 1, "frozen": 1, "clean": 0}
+
+
+def test_it_will_not_plant_an_image_that_is_really_the_signed_one(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # Found live on production: two release tags can name ONE image, and a signature belongs to the
+    # image. Planting from such a tag made the "unsigned" pod a signed one.
+    calls: list[tuple[str, ...]] = []
+
+    def same_image(*args: str) -> str:
+        calls.append(args)
+        return "sha256:" + "a" * 64
+
+    monkeypatch.setattr(cp, "_aws", same_image)
+    assert "refusing to plant" in cp.laptop_step("plant")
+    assert not [c for c in calls if "put-image" in c]  # nothing was written to the registry
+
+
+def test_it_plants_when_the_base_is_a_different_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def different(*args: str) -> str:
+        calls.append(args)
+        if "describe-images" in args:
+            return "sha256:" + ("b" if f"imageTag={cp.BASE_TAG}" in args else "c") * 64
+        if "batch-get-image" in args:
+            return '{"mediaType": "application/vnd.oci.image.index.v1+json"}'
+        return cp.PLANTED_TAG
+
+    monkeypatch.setattr(cp, "_aws", different)
+    assert cp.laptop_step("plant") == f"planted {cp.PLANTED_TAG}"
+    assert [c for c in calls if "put-image" in c]
 
 
 def test_steps_that_change_something_refuse_without_yes(capsys: pytest.CaptureFixture[str]) -> None:
