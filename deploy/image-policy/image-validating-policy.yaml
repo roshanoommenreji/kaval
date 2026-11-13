@@ -1,8 +1,9 @@
 # The cluster's check on Kaval's own images (KAV-140, ADR-0093). Kyverno reads this.
 #
 # WHAT IT SAYS: a Kaval image may start only if it carries a cosign signature made by
-# release.yml on main (the same exact identity promote.yml checks, ADR-0092) -- or its tag is on
-# the frozen list below, the releases built before signing existed (2026-11-13).
+# release.yml on main (the same exact identity promote.yml checks, ADR-0092) -- except the releases
+# on the frozen list below, the ones built before signing existed (2026-11-13), which this policy
+# does not look at at all (KAV-146, ADR-0096).
 #
 # REFUSING (validationActions: Deny, KAV-142): a Kaval pod whose image fails this check is not
 # created. failurePolicy is Fail on purpose: if the checker is down or does not answer, new Kaval
@@ -18,9 +19,18 @@
 #
 # THE FROZEN LIST is every release on deploy/promotion/passed-staging.json when signing began.
 # Nothing unsigned is built any more, so the list can only shrink: rollback (ADR-0034) may go
-# back to any of these, until the end date. The signature check still runs on them (Kyverno
-# insists every matching image is checked) and simply fails; the list then lets them through. scripts/dev/test_image_policy.py fails the build
+# back to any of these, until the end date. scripts/dev/test_image_policy.py fails the build
 # after the end date, so it cannot linger. Tags are immutable in ECR, so a tag names one image.
+#
+# HOW THE LIST LETS A RELEASE THROUGH (KAV-146): it is part of matchImageReferences, so a listed
+# release is simply not matched and Kyverno never checks it. The first design kept the list inside
+# the rule (`verify > 0 || tag is listed`); that never worked, because Kyverno refuses any image
+# whose signature check ran and failed ("failed signature or attestation verification"), whatever
+# the rule says. Production showed it on 2026-11-13 and Kyverno 1.20.0 on a laptop reproduced it
+# (Lab 99). `ref` is the image as Kyverno holds it, with the digest it adds ("tag@sha256:..."), so
+# the tag is matched in both forms. A tag has no ':' in it, so ':<tag>@' and ':<tag>' at the end
+# cannot match anything but that tag. A reference with no tag at all (a bare digest) is not listed,
+# so it is checked.
 apiVersion: policies.kyverno.io/v1
 kind: ImageValidatingPolicy
 metadata:
@@ -49,23 +59,9 @@ spec:
         operations: [CREATE, UPDATE]
         resources: [pods]
   matchImageReferences:
-    - glob: "${registry}/kaval/*"
-  credentials:
-    secrets: [ecr-cred]
-  attestors:
-    - name: release
-      cosign:
-        keyless:
-          identities:
-            # Exact match, never a pattern. The same pair promote.py and release.yml use.
-            - issuer: https://token.actions.githubusercontent.com
-              subject: https://github.com/roshanoommenreji/kaval/.github/workflows/release.yml@refs/heads/main
-        ctlog:
-          url: https://rekor.sigstore.dev
-  variables:
-    - name: frozen
-      expression: >-
-        [
+    - expression: >-
+        ref.startsWith('${registry}/kaval/') &&
+        ![
         'sha-2459417',
         'sha-9b2eb7d',
         'sha-0904d5c',
@@ -85,12 +81,23 @@ spec:
         'sha-5ec8e6a',
         'sha-14311a9',
         'sha-d1058eb',
-        ]
+        ].exists(t, ref.endsWith(':' + t) || ref.contains(':' + t + '@'))
+  credentials:
+    secrets: [ecr-cred]
+  attestors:
+    - name: release
+      cosign:
+        keyless:
+          identities:
+            # Exact match, never a pattern. The same pair promote.py and release.yml use.
+            - issuer: https://token.actions.githubusercontent.com
+              subject: https://github.com/roshanoommenreji/kaval/.github/workflows/release.yml@refs/heads/main
+        ctlog:
+          url: https://rekor.sigstore.dev
   validations:
     - expression: >-
         (images.containers + images.initContainers).all(img,
-          verifyImageSignatures(img, [attestors.release]) > 0
-          || variables.frozen.exists(t, image(img).tag() == t))
+          verifyImageSignatures(img, [attestors.release]) > 0)
       message: >-
         a Kaval image has no valid signature from release.yml on main and is not on the frozen
         list of releases built before signing (docs/runbooks/image-flagged-by-the-cluster-check.md)

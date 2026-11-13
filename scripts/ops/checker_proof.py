@@ -37,7 +37,7 @@ import time
 REGION = "ap-south-1"
 SIGNED_TAG = "sha-152b59e"  # built and signed by release.yml on main; never promoted
 PLANTED_TAG = "unsigned-trial"
-BASE_TAG = "sha-791c44d"  # built before signing; a DIFFERENT image from SIGNED_TAG (plant checks)
+BASE_TAG = "sha-791c44d"  # unsigned, and a DIFFERENT image from SIGNED_TAG (plant, frozen)
 LABEL = "proof=kav143"
 REPO = "kaval/gateway"
 NAMESPACES = {"prod": "kaval-prod", "staging": "kaval-staging"}
@@ -149,7 +149,7 @@ def remote_script(step: str, namespace: str, env: str) -> str:
             "mutatingwebhookconfiguration -o name | grep -i kyverno-resource\n"
         ),
         "frozen": (
-            mk("proof-frozen", BASE_TAG)  # unsigned, but on the frozen list: let in by the list
+            mk("proof-frozen", BASE_TAG)  # unsigned, listed: never checked (ADR-0096)
             + "sleep 20; kubectl get pod proof-frozen -n $NS --no-headers"
             " | awk '{print \"frozen pod:\",$2,$3}'\n"
         ),
@@ -237,6 +237,14 @@ def main(argv: list[str]) -> int:
     if args.step in LAPTOP_STEPS:
         print(scrub(laptop_step(args.step)))
         return 0
+    if args.step == "frozen":
+        # KAV-146: a "frozen pass" proves nothing if the image would pass on its signature anyway
+        # (sha-d1058eb's gateway is the signed sha-152b59e's, which hid a list that never worked).
+        base, signed = _digest(BASE_TAG), _digest(SIGNED_TAG)
+        if not base or base == signed:
+            print(f"refusing: {BASE_TAG} is the same image as {SIGNED_TAG}, or unreadable: "
+                  "a pass would prove the signature, not the frozen list. Nothing started.")
+            return 1
     print(scrub(run_on_node(args.env, remote_script(args.step, NAMESPACES[args.env], args.env))))
     return 0
 
