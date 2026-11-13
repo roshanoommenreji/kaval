@@ -90,7 +90,24 @@ Staging's pods all run releases on the frozen list, so a healthy staging reports
 5. **A dead checker is noticed and does not block:** `kubectl -n kyverno scale deploy kyverno-admission-controller --replicas=0`, start any pod in the Kaval namespace (it starts), wait five minutes for `ImageCheckerDown`, then scale back to 1.
 6. `make staging-down`, then the account sweep.
 
-Result: _to be filled in after the staging session._
+**Result on 2026-11-13** (his `go staging proof`; morning UTC; staging destroyed afterwards, account sweep clean; about 5-8 cents):
+
+| Step | What we saw |
+|---|---|
+| 1. Build | Flux installed Kyverno (one admission pod `Running`), `kaval-images-signed` showed `READY true`, both Flux objects (`kaval-staging`, `kaval-staging-image-policy`) were Ready, `ecr-cred` existed in `kyverno`, and all 9 Kaval pods were `Running`. |
+| 2. Memory | Checker **48 MiB** at rest and **44 MiB** after it had done its work, 6-7m CPU. The whole node: 2,377 MiB (62%) with the checker idle, 2,355 MiB (61%) at the end, of about 3.8 GiB. The laptop figure was 68-75 MiB; the real node is lower. |
+| 3. Signed, not listed | A pod from `sha-152b59e` started, no Event, and `kyverno_image_validating_policy_results_total{result="pass"}` went to 1 (`policy_validation_mode="Audit"`). It also shows the node can reach the Sigstore services at admission time. |
+| 4. Unsigned, not listed | A pod from the planted `unsigned-trial` tag **started** (watch-only) and a `PolicyViolation` Event named `kaval-images-signed` and the runbook; the `fail` counter went to 1; the target `kyverno` was `up` and `UnsignedImageSeen` was `firing` when read about two minutes later. The tag was removed afterwards; the real `sha-791c44d` tag was untouched. |
+| 5. Dead checker | Admission controller scaled to 0 at 06:48:02Z; a new pod still **started**; `ImageCheckerDown` was `firing` when read at 06:54:10Z. Scaled back to 1, rollout fine, policy `READY true`. |
+| 6. Teardown | 92 items destroyed, the data disk deleted, nothing tagged `Env=staging` left; the full account sweep was clean and production was untouched. |
+
+Things worth knowing that the plan did not predict:
+
+- **The first build failed on capacity:** AWS had no `t4g.medium` in one availability zone (ap-south-1b) at that moment, so the app server group could not start. The database server and network were already built. Re-running `make staging-up` once (plan: 7 to add, 1 to destroy, the empty failed server group replaced) succeeded. Nothing was lost. If it happens again, re-run once; if it persists, wait and try later.
+- **Kyverno rewrites the image to its digest** in the pod (`kaval/gateway:sha-152b59e@sha256:...`). That is expected and is why the frozen list is matched on the tag, which the digest form still carries.
+- **While the checker is down, `UnsignedImageSeen` disappears with it.** Only `ImageCheckerDown` speaks. That is another reason the second alert exists, and `KAV-142` must decide what a dead checker means once it refuses.
+- Two older alerts, `KavalCostPullFailing` and `KavalWasteScanFailing`, were `pending` on the fresh staging. They belong to the cost and waste jobs, not the checker, and were not investigated here.
+
 
 ## What to take away
 
