@@ -228,6 +228,13 @@ removal:
 # Off here; an environment switches it on from its own values file. The memory limit below is
 # a first guess until Lab 43 measures it, and staging/prod stay off until it is measured on a
 # real node (docs/architecture/overview.md carries the 4 GB budget).
+# The cluster's image checker (KAV-140, ADR-0093). Kyverno is not part of this chart (Flux installs it
+# from deploy/gitops/<env>/checker-*.yaml); this only makes Prometheus watch it: a scrape job and two
+# alert rules (ImageCheckerDown, UnsignedImageSeen). On only where the checker runs, or `absent()` would
+# alert for nothing. Needs prometheus.enabled.
+imageChecker:
+  enabled: false
+
 prometheus:
   enabled: false
   # quay.io, not Docker Hub: no anonymous pull limit on a node that restarts. Pinned by digest.

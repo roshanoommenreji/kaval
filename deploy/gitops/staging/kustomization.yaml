@@ -7,3 +7,6 @@ resources:
   - source.yaml
   - helmrelease.yaml
   - sync.yaml
+  - checker-source.yaml
+  - checker-helmrelease.yaml
+  - image-policy-sync.yaml

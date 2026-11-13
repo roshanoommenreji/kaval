@@ -1,0 +1,87 @@
+# The cluster's check on Kaval's own images (KAV-140, ADR-0093). Kyverno reads this.
+#
+# WHAT IT SAYS: a Kaval image may start only if it carries a cosign signature made by
+# release.yml on main (the same exact identity promote.yml checks, ADR-0092) -- or its tag is on
+# the frozen list below, the releases built before signing existed (2026-11-13).
+#
+# WATCH-ONLY (validationActions: Audit): it reports and refuses nothing. Refusing is KAV-142, and
+# only after a clean report. failurePolicy is Ignore for the same reason: while this only watches,
+# a checker that is down must never stop a Kaval pod from starting.
+#
+# The registry address is not written here (it holds the AWS account number, CLAUDE.md
+# constraint 5): Flux fills in ${registry} from the kaval-registry ConfigMap when it applies
+# this file (deploy/gitops/staging/image-policy-sync.yaml), and ${kaval_namespace} the same way.
+#
+# THE FROZEN LIST is every release on deploy/promotion/passed-staging.json when signing began.
+# Nothing unsigned is built any more, so the list can only shrink: rollback (ADR-0034) may go
+# back to any of these, until the end date. The signature check still runs on them (Kyverno
+# insists every matching image is checked) and simply fails; the list then lets them through. scripts/dev/test_image_policy.py fails the build
+# after the end date, so it cannot linger. Tags are immutable in ECR, so a tag names one image.
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: kaval-images-signed
+  annotations:
+    kaval.dev/frozen-list-ends: "2026-12-31"
+spec:
+  validationActions: [Audit]
+  failurePolicy: Ignore
+  matchConstraints:
+    # Only Kaval's own namespace. Kyverno's default is every namespace, and a checker that is
+    # down would then be able to block the cluster's own system pods.
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values: ["${kaval_namespace}"]
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  matchImageReferences:
+    - glob: "${registry}/kaval/*"
+  credentials:
+    secrets: [ecr-cred]
+  attestors:
+    - name: release
+      cosign:
+        keyless:
+          identities:
+            # Exact match, never a pattern. The same pair promote.py and release.yml use.
+            - issuer: https://token.actions.githubusercontent.com
+              subject: https://github.com/roshanoommenreji/kaval/.github/workflows/release.yml@refs/heads/main
+        ctlog:
+          url: https://rekor.sigstore.dev
+  variables:
+    - name: frozen
+      expression: >-
+        [
+        'sha-2459417',
+        'sha-9b2eb7d',
+        'sha-0904d5c',
+        'sha-c8e3dee',
+        'sha-06b64ba',
+        'sha-3ab86d1',
+        'sha-eb3f81a',
+        'sha-c905c5b',
+        'sha-cc55f32',
+        'sha-1d38be1',
+        'sha-feb7025',
+        'sha-b790720',
+        'sha-978db36',
+        'sha-791c44d',
+        'sha-ba87981',
+        'sha-1ff61c8',
+        'sha-5ec8e6a',
+        'sha-14311a9',
+        'sha-d1058eb',
+        ]
+  validations:
+    - expression: >-
+        (images.containers + images.initContainers).all(img,
+          verifyImageSignatures(img, [attestors.release]) > 0
+          || variables.frozen.exists(t, image(img).tag() == t))
+      message: >-
+        a Kaval image has no valid signature from release.yml on main and is not on the frozen
+        list of releases built before signing (docs/runbooks/image-flagged-by-the-cluster-check.md)

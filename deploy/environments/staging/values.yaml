@@ -61,6 +61,11 @@ collector:
 # Prometheus is on here first (KAV-78, ADR-0042): staging is where its real memory on the 4 GB
 # node is measured, and where the "Kaval has stopped" alerts are proven, before prod turns it on
 # (KAV-83). Everything else is the chart's default; see `prometheus:` in values.yaml.
+# The cluster's image checker, watch-only (KAV-140, ADR-0093): Prometheus scrapes it and has two
+# alert rules for it. Flux installs the checker itself (deploy/gitops/staging/checker-*.yaml).
+imageChecker:
+  enabled: true
+
 prometheus:
   enabled: true
   disk:

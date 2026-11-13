@@ -84,6 +84,11 @@ data:
   kaval-removal.rules.yaml: |
     {{- .Files.Get "files/kaval-removal.rules.yaml" | nindent 4 }}
   {{- end }}
+  {{- if .Values.imageChecker.enabled }}
+  # Only where the cluster's image checker runs (KAV-140): its `absent()` rule would page everywhere else.
+  kaval-image-checker.rules.yaml: |
+    {{- .Files.Get "files/kaval-image-checker.rules.yaml" | nindent 4 }}
+  {{- end }}
   prometheus.yml: |
     global:
       scrape_interval: {{ .Values.prometheus.scrapeIntervalSeconds }}s
@@ -102,6 +107,9 @@ data:
       {{- if and .Values.costReader.enabled .Values.removal.enabled }}
       - /etc/prometheus/kaval-removal.rules.yaml
       {{- end }}
+      {{- if .Values.imageChecker.enabled }}
+      - /etc/prometheus/kaval-image-checker.rules.yaml
+      {{- end }}
     scrape_configs:
       # Prometheus's own numbers: its real memory is what the staging measurement reads.
       - job_name: prometheus
@@ -116,6 +124,16 @@ data:
           - names: ["{{ include "kaval.fullname" $ }}-{{ $component }}-metrics.{{ $.Release.Namespace }}.svc.cluster.local"]
             type: A
             port: 9100
+            refresh_interval: 30s
+      {{- end }}
+      {{- if .Values.imageChecker.enabled }}
+      # The cluster's image checker (KAV-140, ADR-0093) lives in its own namespace. Plain DNS again,
+      # no Kubernetes API access: Kyverno's metrics Service answers on 8000.
+      - job_name: kyverno
+        dns_sd_configs:
+          - names: ["kyverno-svc-metrics.kyverno.svc.cluster.local"]
+            type: A
+            port: 8000
             refresh_interval: 30s
       {{- end }}
       {{- if .Values.prometheus.database.enabled }}
@@ -170,7 +188,7 @@ spec:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $prom) | nindent 8 }}
       annotations:
         # A changed scrape setting restarts Prometheus, so a values change is never half-applied.
-        checksum/config: {{ list (toJson .Values.prometheus) (.Files.Get "files/kaval-alerts.rules.yaml") (toJson .Values.diagnoser.enabled) (.Files.Get "files/kaval-diagnoser.rules.yaml") (toJson .Values.costReader.enabled) (.Files.Get "files/kaval-cost.rules.yaml") (toJson .Values.costReader.wasteScan.enabled) (.Files.Get "files/kaval-waste.rules.yaml") (toJson .Values.removal.enabled) (.Files.Get "files/kaval-removal.rules.yaml") | toJson | sha256sum }}
+        checksum/config: {{ list (toJson .Values.prometheus) (.Files.Get "files/kaval-alerts.rules.yaml") (toJson .Values.diagnoser.enabled) (.Files.Get "files/kaval-diagnoser.rules.yaml") (toJson .Values.costReader.enabled) (.Files.Get "files/kaval-cost.rules.yaml") (toJson .Values.costReader.wasteScan.enabled) (.Files.Get "files/kaval-waste.rules.yaml") (toJson .Values.removal.enabled) (.Files.Get "files/kaval-removal.rules.yaml") (toJson .Values.imageChecker.enabled) (.Files.Get "files/kaval-image-checker.rules.yaml") | toJson | sha256sum }}
     spec:
       serviceAccountName: {{ include "kaval.fullname" . }}-prometheus
       automountServiceAccountToken: true

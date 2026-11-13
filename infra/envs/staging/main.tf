@@ -187,6 +187,8 @@ module "node" {
   # Fill an empty database from the cleaned copy in this bucket's seed/ folder before any service
   # starts (KAV-73, ADR-0039). staging.sh up puts it there; prod never sets this.
   seed_database = true
+  # The cluster's image checker (KAV-140, ADR-0093) gets its registry login. Production at KAV-143.
+  image_checker_enabled = true
 }
 
 module "database" {

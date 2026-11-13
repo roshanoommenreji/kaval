@@ -14,6 +14,12 @@ variable "backup_bucket_name" {
   default     = ""
 }
 
+variable "image_checker_enabled" {
+  description = "KAV-140, ADR-0093. When true, the node also writes the registry login (ecr-cred) into the `kyverno` namespace, on every boot and every 6 hours, so the cluster's image checker can read signatures in ECR. Off by default: only an environment that runs the checker sets it (staging; production at KAV-143). The node role already has the read permission; this only hands the checker a login."
+  type        = bool
+  default     = false
+}
+
 variable "seed_database" {
   description = "Staging only (KAV-73, ADR-0039). On the first boot against an EMPTY database the node fills it from the cleaned copy in backup_bucket_name's seed/ folder (restore.sh), before Flux starts any service. Never true for prod: the restore replaces the tables. Needs backup_bucket_name."
   type        = bool

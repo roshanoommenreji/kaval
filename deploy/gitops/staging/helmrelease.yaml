@@ -56,6 +56,8 @@ spec:
       watchEverySeconds: 20
       image:
         tag: sha-d1058eb
+    imageChecker:
+      enabled: true
     prometheus:
       enabled: true
       disk:
