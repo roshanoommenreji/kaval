@@ -6,6 +6,11 @@ status: ROADMAP.md is the single source of truth, and this only reflects it.
 That is deliberate -- a dashboard holding its own copy of "what's done" drifts
 within two sessions and then actively misleads.
 
+One thing is read from outside the repository: each phase's Jira stories (KAV-145), shown
+under the phase as Jira's own list, with the day it was read. Jira stays the owner of that
+list; a copy is saved in docs/jira-stories.json (not committed) so the dashboard still builds
+with no login or no network.
+
     python scripts/tracking/dashboard.py
     make dashboard
 
@@ -19,12 +24,14 @@ import json
 import re
 import subprocess
 import tomllib
+import urllib.parse
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "docs" / "dashboard.html"
+JIRA_CACHE = ROOT / "docs" / "jira-stories.json"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -80,6 +87,109 @@ def read_roadmap(path: Path) -> list[Phase]:
             current.exit_gate = m[1].strip()
 
     return phases
+
+
+def fetch_jira() -> list[dict]:
+    """Every issue of the project from Jira: key, title, status, type and parent epic.
+
+    Raises if there is no login (.env), nothing answers, or Jira refuses; the caller falls back
+    to the saved copy. The import is here, not at the top, because atlassian.py reads .env as it
+    loads and a fresh checkout has none."""
+    import atlassian  # type: ignore[import-not-found]  # same folder
+
+    issues: list[dict] = []
+    token = ""
+    while True:
+        q = ("/rest/api/3/search/jql?jql=" + urllib.parse.quote("project=KAV ORDER BY key")
+             + "&fields=summary,status,issuetype,parent&maxResults=100")
+        if token:
+            q += "&nextPageToken=" + urllib.parse.quote(token)
+        status, body = atlassian.call("GET", q)
+        if status != 200:
+            raise RuntimeError(f"Jira answered {status}")
+        for i in body.get("issues", []):
+            f = i["fields"]
+            issues.append({
+                "key": i["key"],
+                "summary": f["summary"],
+                "status": f["status"]["name"],
+                "cat": f["status"]["statusCategory"]["key"],
+                "type": f["issuetype"]["name"],
+                "parent": (f.get("parent") or {}).get("key", ""),
+            })
+        token = body.get("nextPageToken", "")
+        if not token:
+            return issues
+
+
+def read_jira(cache: Path, fetch=fetch_jira, today: date | None = None) -> dict:
+    """The Jira issues to show, and how fresh they are.
+
+    Asks Jira; on success saves a copy and returns it. On any failure it returns the saved copy
+    with the day that copy was read, and with no copy either, an empty list. It never stops the
+    dashboard: a missing story list is shown as missing, the rest of the page is still true."""
+    try:
+        data = {"fetched": (today or date.today()).isoformat(), "issues": fetch()}
+        cache.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+        return {**data, "live": True, "why": ""}
+    except Exception as exc:  # any failure at all means "use the saved copy", never a crash
+        why = f"{type(exc).__name__}: {exc}"[:160]
+    try:
+        data = json.loads(cache.read_text(encoding="utf-8"))
+        return {"fetched": data["fetched"], "issues": data["issues"], "live": False, "why": why}
+    except (OSError, ValueError, KeyError):
+        return {"fetched": "", "issues": [], "live": False, "why": why}
+
+
+def _issue_num(key: str) -> int:
+    return int(key.rsplit("-", 1)[-1]) if key.rsplit("-", 1)[-1].isdigit() else 0
+
+
+JIRA_ORDER = {"indeterminate": 0, "new": 1, "done": 2}
+
+
+def jira_panel(epic_url: str, jira: dict | None) -> str:
+    """One phase's Jira block: the epic, a count, then its stories, open ones first.
+
+    Every key is a link. The site address comes from the epic's own link in dashboard.toml, so
+    nothing here needs the login."""
+    if not epic_url:
+        return ""
+    site, _, epic_key = epic_url.partition("/browse/")
+    issues = (jira or {}).get("issues", [])
+    fetched = (jira or {}).get("fetched", "")
+    epic = next((i for i in issues if i["key"] == epic_key), None)
+    stories = sorted((i for i in issues if i.get("parent") == epic_key),
+                     key=lambda i: (JIRA_ORDER.get(i["cat"], 1), _issue_num(i["key"])))
+
+    def link(key: str) -> str:
+        return (f'<a class="jkey" href="{e(site)}/browse/{e(key)}" target="_blank" '
+                f'rel="noopener">{e(key)}</a>')
+
+    title = f' <span class="jt">{e(epic["summary"])}</span>' if epic else ""
+    head = f'<div class="jepic"><span class="jlabel">Epic</span>{link(epic_key)}{title}</div>'
+    if not issues:
+        return (f'<div class="jira">{head}<p class="jnote">The story list is not available '
+                f"(Jira could not be read when this page was made). The epic link above "
+                f"opens it in Jira.</p></div>")
+    if not stories:
+        return (f'<div class="jira">{head}<p class="jnote">No stories under this epic yet. '
+                f"From Jira, read {e(fetched)}.</p></div>")
+    done = sum(1 for i in stories if i["cat"] == "done")
+    rows = "\n".join(
+        f'      <li>{link(i["key"])}<span class="jt">{e(i["summary"])}</span>'
+        f'<span class="jst {e(i["cat"])}">{e(i["status"])}</span></li>'
+        for i in stories)
+    # The epic is one line that opens to its stories (asked for by the owner): closed, a phase
+    # reads as summary + epic + count; the stories are one click away.
+    count = f"{len(stories)} stories · {done} done · {len(stories) - done} open"
+    return f"""<div class="jira"><details class="jep">
+    <summary>{head}<div class="jcount">{count} · click to show the stories</div></summary>
+    <ul class="jlist">
+{rows}
+    </ul>
+    </details>
+    <p class="jnote">From Jira, read {e(fetched)}.</p></div>"""
 
 
 def read_adrs(d: Path) -> list[dict]:
@@ -799,6 +909,32 @@ section{margin-top:44px}
 .gate b{font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:500;
         letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3);
         display:block; margin-bottom:4px}
+.psum{margin:16px 0 0; font-size:14.5px; line-height:1.55; max-width:68ch}
+.jira{margin-top:18px}
+.jepic{font-size:14px; font-weight:500; display:flex; flex-wrap:wrap; gap:8px; align-items:baseline}
+.jlabel{font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:500;
+        letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3)}
+.jkey{font-family:"IBM Plex Mono",monospace; font-size:12.5px; white-space:nowrap}
+.jcount,.jnote{font-size:12px; color:var(--ink-3); margin:4px 0 0}
+.jlist{list-style:none; margin:10px 0 0; padding:0; border-top:1px solid var(--rule)}
+.jlist li{display:grid; grid-template-columns:70px 1fr auto; gap:12px; align-items:baseline;
+          padding:7px 0; border-bottom:1px solid var(--rule); font-size:13.5px}
+.jst{font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:500;
+     letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:3px;
+     border:1px solid currentColor; color:var(--ink-3); white-space:nowrap}
+.jst.done{color:var(--ok)}
+.jst.indeterminate{color:var(--accent)}
+.jep{border:1px solid var(--rule); border-radius:5px; background:var(--surface)}
+.jep>summary{cursor:pointer; padding:10px 13px; list-style:none; position:relative; padding-left:32px}
+.jep>summary::-webkit-details-marker{display:none}
+.jep>summary::before{content:"▸"; position:absolute; left:13px; top:10px; color:var(--ink-3)}
+.jep[open]>summary::before{content:"▾"}
+.jep>summary:hover{background:var(--raised)}
+.jep .jlist{margin:0; padding:0 13px}
+.jep .jlist li:last-child{border-bottom:0}
+.more{margin-top:18px}
+.more>summary{cursor:pointer; font-size:12.5px; color:var(--ink-2)}
+.more>summary:hover{color:var(--accent)}
 
 /* ── two-up ───────────────────────────────────────────── */
 .two{display:grid; grid-template-columns:1fr 1fr; gap:40px}
@@ -996,6 +1132,8 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-o
   .ph .barwrap{grid-column:1/-1}
   .ptally{text-align:left; grid-column:1/-1}
   .detail{padding-left:22px}
+  .jlist li{grid-template-columns:70px 1fr}
+  .jlist .jst{grid-column:2; justify-self:start}
   .dwrap{margin-left:-15px; margin-right:-15px; border-radius:0; border-left:0; border-right:0}
   .ndetail dl{grid-template-columns:1fr; gap:3px 0}
   .ndetail dt{padding-top:9px}
@@ -1008,7 +1146,8 @@ a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-o
 
 def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
            sessions: list[dict], threads: list[str], commits: list[dict],
-           learn: list[Learn], arch: dict, releases: list[dict], future: list[dict]) -> str:
+           learn: list[Learn], arch: dict, releases: list[dict], future: list[dict],
+           jira: dict | None = None) -> str:
     proj = cfg["project"]
     cost = cfg["cost"]
     posture = cfg.get("posture", {})
@@ -1142,6 +1281,11 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
             f"<span>{md_inline(t)}</span></li>"
             for ok, t in p.tasks
         )
+        # What a phase opens to (KAV-145): a short plain summary, then Jira's own list of its
+        # stories. The roadmap's long task lines are still here, folded under one line.
+        short = cfg.get("phase_summary", {}).get(str(p.num), "")
+        psum = f'<p class="psum">{e(short)}</p>' if short else ""
+        jira_html = jira_panel(plinks.get("jira", ""), jira)
         open_attr = " open" if p is current else ""
         rows.append(f"""  <details{open_attr}>
   <summary class="{cls}">
@@ -1154,10 +1298,15 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
     <div class="ptally">{p.done}/{p.total}</div>
   </summary>
   <div class="detail">
+    {psum}
+    {jira_html}
+    <details class="more">
+    <summary>Roadmap checklist and exit gate ({p.done}/{p.total}), the detailed record</summary>
     <ul class="tasks">
 {tasks}
     </ul>
     <div class="gate"><b>Exit gate</b>{md_inline(p.exit_gate)}</div>
+    </details>
   </div>
   </details>""")
 
@@ -1638,10 +1787,19 @@ def main() -> None:
     releases = read_releases(ROOT / "docs" / "releases")
     future = read_future_scope(ROOT / "docs" / "future-scope.md")
 
+    jira = read_jira(JIRA_CACHE)
+
     OUT.write_text(
-        render(cfg, phases, adrs, labs, sessions, threads, commits, learn, arch, releases, future),
+        render(cfg, phases, adrs, labs, sessions, threads, commits, learn, arch, releases, future,
+               jira),
         encoding="utf-8",
     )
+    if jira["live"]:
+        print(f"  Jira: {len(jira['issues'])} issues, read now")
+    elif jira["issues"]:
+        print(f"  Jira: NOT read ({jira['why']}); using the saved copy of {jira['fetched']}")
+    else:
+        print(f"  Jira: NOT read ({jira['why']}) and no saved copy; story lists are left out")
 
     done = sum(p.done for p in phases)
     total = sum(p.total for p in phases)
