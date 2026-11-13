@@ -40,6 +40,11 @@ hide_bucket() { sed -E 's#s3://[^/ ]+/#s3://<bucket>/#g'; }
 main() {
   export AWS_PROFILE="${AWS_PROFILE:-kaval}"
   export AWS_REGION="${AWS_REGION:-ap-south-1}"
+  # backup.sh prints an arrow and an em dash. The AWS CLI on Windows cannot write them with its
+  # default text encoding: the log then reads back EMPTY and a good dump is refused (found
+  # parking production on 2026-11-13, KAV-148). UTF-8 on both ends fixes it.
+  export PYTHONUTF8=1
+  export PYTHONIOENCODING=utf-8
   local node_name="${NODE_NAME:-kaval-prod}" instance id status log params uri
 
   if [ "${SKIP_DUMP:-0}" = "1" ]; then
