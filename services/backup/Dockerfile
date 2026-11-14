@@ -10,7 +10,7 @@
 # linux/arm64 always (CLAUDE.md constraint 2). Base pinned by digest, same as the gateway
 # image -- Dependabot bumps both together.
 
-FROM python:3.11-slim-bookworm@sha256:0a310eeecf4e1f5a0743f9a6520c90c88d089c903ca5fd283f501e3a805f5f89
+FROM python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39
 
 # --only-upgrade libpcre2-8-0: Debian shipped a fix for CVE-2026-103111 (HIGH) after this
 # digest was pinned; folded into this same apt-get since it's the only one in this image.
