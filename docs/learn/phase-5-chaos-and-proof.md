@@ -36,7 +36,7 @@ The hypothesis held: Kaval noticed in 81 s and, once a person approved, raised t
 ## Where this sits
 
 Phases 1–4 built a system that *should* detect, diagnose, propose and remediate — approval now
-goes through Slack ChatOps (`KAV-55`, Phase 4) rather than the deferred mobile app. This phase
+goes through Slack ChatOps (`KAV-55`, Phase 4) rather than a mobile app (never built, ADR-0097). This phase
 finds out whether it does.
 
 It unlocks: every claim the project makes becomes a measurement. Without this the resume line is

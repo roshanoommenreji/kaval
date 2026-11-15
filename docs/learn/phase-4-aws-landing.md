@@ -11,7 +11,7 @@
 Phases 1–3 built a system that works on a single development server that sleeps when nobody is
 using it ([ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md)). This phase puts it
 somewhere always reachable and rebuilt from Git, and gives it a real approval surface — Slack,
-not a phone (mobile is deferred to Phase 9, [ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md)).
+not a phone app (the app was deferred by [ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md) and retired by [ADR-0097](../adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)).
 
 It unlocks: everything that requires the system to exist independently of you — a real human
 approving a real action from Slack, overnight cost data, and the ability to hand someone your
@@ -219,7 +219,7 @@ The properties this gives you:
 The trade is a dependency on Slack and on someone being in the workspace to click the button. For
 an internal approval surface, that is a clearly good trade — and it is the actual industry pattern
 (PagerDuty, Opsgenie, and plenty of home-grown ChatOps bots work exactly this way), which a
-bespoke mobile app, deferred to Phase 9, is not. See
+bespoke mobile app is not (deferred then, retired on 2026-11-15, [ADR-0097](../adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)). See
 [ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md).
 
 ### Persistence on an ephemeral node

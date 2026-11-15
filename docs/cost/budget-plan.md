@@ -47,7 +47,7 @@ Always-on is not needed for the whole project. Paying for it from day one wastes
 | 5 — Chaos | 16–17 | **Paused** | Chaos runs are deliberate, not ambient |
 | 6 — FinOps | 18–20 | **Always-on** | Cost Explorer is daily-granularity with ~24 h lag; an idle account has no waste to find |
 | 7–8 — EKS, publish | 21–24 | **Always-on** | "Running continuously since February" is the credibility claim |
-| 9 — Mobile | 25–28 | **Deferred** | Not yet scheduled ([ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md)) — Slack ChatOps (Phase 4) already provides approval |
+| 9 — Mobile | n/a | **Retired** | Not built, on purpose ([ADR-0097](../adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md), 2026-11-15) — Slack ChatOps (Phase 4) is the approval surface, on a phone too |
 
 ```bash
 make up      # ~5 min — Flux reconciles everything from Git
@@ -331,7 +331,7 @@ fraction of it.
 | Avoided | Would cost | Used instead |
 |---|---|---|
 | NAT Gateway | $32/mo | Public subnet + security groups |
-| Application Load Balancer | $18/mo | Slack ChatOps over an outbound Socket Mode connection (`KAV-55`) — no inbound endpoint at all. A Cloudflare Tunnel was the original plan but is deferred with mobile (ADR-0026); it would avoid the same $18/mo if ever needed |
+| Application Load Balancer | $18/mo | Slack ChatOps over an outbound Socket Mode connection (`KAV-55`) — no inbound endpoint at all. A Cloudflare Tunnel was the original plan, for a phone app that was retired (ADR-0097); nothing needs one |
 | EKS control plane, persistent | $73/mo | k3s; EKS only as an ephemeral chapter |
 | RDS | ~$18/mo Single-AZ, ~$36/mo Multi-AZ | Self-managed Postgres on its own `t4g.small` EC2 server (~$14/mo), snapshots + nightly dump to S3 ([ADR-0008](../adr/0008-production-database-on-its-own-server.md)). Until 2026-09-26 the plan was Postgres inside the app node |
 | GPU instance | $0.30+/hr | CPU inference; Bedrock for anything heavy |
@@ -351,11 +351,8 @@ items and, since ADR-0028, $8.55 of On-Demand). Most months are paused and cost 
 | GitHub repo (public since 2026-09-30) | $0 |
 | GitHub Actions CI (`KAV-24`) and `release.yml` (`KAV-61`) — GitHub-hosted runners, including the arm64 ones, are free for a public repo. It was measured when the repo was private (a run billed 6 minutes of a 2,000 minute allowance); that cap no longer applies, and the figure is kept as a record of the cost of a run | $0 |
 | Slack (ChatOps, free tier) | $0 |
-| Expo local builds | $0 — **not yet needed**, mobile deferred (ADR-0026) |
 | Gemma weights | $0 |
 | TypeSafe Jev API — waitlist, no free tier, billed on input only | ~$0.50/mo from Phase 2 — **outside the AWS credit and outside the Lambda hard stop**; set a spend cap in the TypeSafe console |
-| Cloudflare Tunnel + domain for a stable hostname | ~$12/yr — **not currently needed**; Slack ChatOps uses no public endpoint. Revisit only if mobile is built (Phase 9) |
-| Google Play publishing | $25 one-time — **not needed**, sideload the APK |
 | Apple Developer | $99/yr — **not applicable**, Android only |
 
 ---

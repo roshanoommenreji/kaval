@@ -141,8 +141,9 @@ That is why the privilege split is the architecture and not a feature — it is 
 the primary threat, and it was designed in from the start rather than bolted on here.
 
 Secondary threats worth having answers for: a compromised Bedrock response (same pipeline, same
-defences); a compromised executor (scoped RBAC, namespace-bound, no `kube-system`); a stolen
-mobile refresh token (short-lived access tokens, revocation, keystore storage).
+defences); a compromised executor (scoped RBAC, namespace-bound, no `kube-system`); an unlocked
+phone or laptop signed in to Slack (the executor re-checks policy, removals need two approvals; there is no
+phone app and so no token of Kaval's on a device, [ADR-0097](../adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)).
 
 ### Publishing: what to remove and what to keep
 

@@ -1,6 +1,7 @@
 # Future scope — beyond v1
 
-Phases 0–9 in [../ROADMAP.md](../ROADMAP.md) are the committed build. This page is the
+Phases 0–8 in [../ROADMAP.md](../ROADMAP.md) are the committed build (Phase 9, a phone app, was
+retired on 2026-11-15 and is FS-11 below). This page is the
 holding pen for work that is **out of scope for v1** but worth doing afterward, and the
 reasoning for why it matters.
 
@@ -58,7 +59,7 @@ not design**, timeboxed, minimal docs. The point is the plumbing reflex, not the
 - Candidate A: ingest a real external billing/metrics API (e.g. a SaaS usage API) as a
   new signal source, mapped into the existing `signal` model.
 - Candidate B: push proposals into a real ticketing system (Linear / Jira / PagerDuty)
-  instead of only the mobile app, via that system's real API and auth.
+  instead of only Slack, via that system's real API and auth.
 
 Exit: agent acts on data from a system whose API shape we had to reverse-engineer from docs.
 
@@ -560,6 +561,27 @@ alerts are not better, which is the reason noise gets a number.
 | Cost and capacity | The rules cost $0 on AWS, and their memory is measured on the 4 GB node before production. The optional two-week run is about $18. The optional benchmark is free during the trial, then about $4 per investigation at AWS's 8-minute example |
 | Testing | Unit: `promtool` cases. Real: replayed metrics. Live: the disk game day. Negative: a normal daily swing and a steady disk stay silent |
 | People | Roshan owns it. Each new alert gets a runbook, which also feeds the agent's retrieval. Alerts reach a person through the existing health-alert path |
+
+### FS-11 — A phone app of Kaval's own, if ever
+
+A custom phone app for approving (Expo, a login, push notifications) was Phase 9 of the roadmap
+until it was retired on 2026-11-15 ([ADR-0097](adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)).
+
+No Jira epic (the old one, `KAV-10`, is closed). **Not planned.** Slack is the approval surface,
+on a phone too, and nothing in v1 needs more.
+
+**What it would add over Slack:** a timeline screen for an incident, a fingerprint check on the
+Approve button, and a notification that is Kaval's own. None of them changes what can be approved.
+
+**What would have to be decided first,** because each is a new risk and not only work:
+
+- How the app reaches a gateway that has no way in from the internet today (a Cloudflare Tunnel
+  and a domain, about $12 a year, or a private network such as Tailscale). Either one is the
+  first inbound path the system would have.
+- A login for people (Cognito or another OIDC provider), with tokens kept on a device.
+- What the app talks to while production is parked, which is most of the time.
+
+The theory is already written: [learn/phase-9-mobile-app.md](learn/phase-9-mobile-app.md).
 
 ---
 

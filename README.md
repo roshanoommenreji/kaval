@@ -6,15 +6,15 @@
 
 An autonomous operations agent that watches a Kubernetes cluster and an AWS bill, diagnoses
 problems with a self-hosted LLM, proposes fixes, and executes them only after a human approves
-from their phone.
+in Slack, on a laptop or a phone.
 
 Two signal domains — **reliability** and **cost** — through one machine.
 
 ```
 signals ──▶ correlate ──▶ context ──▶ LLM ──▶ proposal ──▶ policy ──▶ approve? ──▶ execute ──▶ measure
    │                          │                               │          │                        │
- k8s events              runbook RAG                      auto/ask/    phone                  outcome
- prometheus              past incidents                     never       push                  recorded
+ k8s events              runbook RAG                      auto/ask/    Slack                  outcome
+ prometheus              past incidents                     never       card                  recorded
  cost explorer           recent changes                                                            │
                                                                                                    ▼
                                                                                         feeds the next context
@@ -98,7 +98,6 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | [services/](services/) | Application code — one directory per container; `shared/` holds the data model |
 | [migrations/](migrations/) | Database schema migrations (Alembic), generated from `services/shared` |
 | [inference/](inference/) | Gemma serving configuration |
-| [mobile/](mobile/) | Expo / React Native operator console — deferred to Phase 9; Slack ChatOps is the real approval surface (`KAV-55`) |
 | [deploy/](deploy/) | Helm charts, per-environment values, Flux GitOps |
 | [infra/](infra/) | Terraform modules and environments (`dev`, `staging`, `prod`, `lab-eks`) |
 | [policy/](policy/) | Rego action policies — what the agent may and may not do |

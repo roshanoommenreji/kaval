@@ -38,7 +38,9 @@ JIRA_CACHE = ROOT / "docs" / "jira-stories.json"
 # Parsing
 # ─────────────────────────────────────────────────────────────
 
-STATUS_LABEL = {" ": "not started", "~": "in progress", "x": "done"}
+# "-" is a phase the roadmap retired on purpose (KAV-149, ADR-0097): not built and not open work.
+STATUS_LABEL = {" ": "not started", "~": "in progress", "x": "done", "-": "retired"}
+RETIRED = "-"
 
 
 @dataclass
@@ -79,6 +81,10 @@ def read_roadmap(path: Path) -> list[Phase]:
         if m := head.match(line):
             current = Phase(int(m[1]), m[2].strip(), m[3].strip(), m[4])
             phases.append(current)
+        elif line.startswith("## "):
+            # Any other section ends the phase. Without this, the checkboxes of the roadmap's
+            # closing "Definition of Done" section were counted as the last phase's open tasks.
+            current = None
         elif current is None:
             continue
         elif m := task.match(line):
@@ -87,6 +93,29 @@ def read_roadmap(path: Path) -> list[Phase]:
             current.exit_gate = m[1].strip()
 
     return phases
+
+
+def live_phases(phases: list[Phase]) -> list[Phase]:
+    """The phases that are, or were, really planned work: every one the roadmap has not retired."""
+    return [p for p in phases if p.marker != RETIRED]
+
+
+def current_phase(phases: list[Phase]) -> Phase:
+    """The phase being worked on: the one in progress, else the first not started, else the last
+    one that was built. Never a retired phase, which would read as work still to come."""
+    live = live_phases(phases) or phases
+    return next((p for p in live if p.marker == "~"),
+                next((p for p in live if p.marker == " "), live[-1]))
+
+
+def phase_tail(p: Phase) -> str:
+    """The right-hand end of a phase's row: its progress bar and count, or, for a retired phase,
+    the words saying so. An empty bar would read as 'nothing done yet'."""
+    if p.marker == RETIRED:
+        return ('<div class="barwrap"></div>\n'
+                '    <div class="ptally">retired, not built</div>')
+    return (f'<div class="barwrap"><div class="bar"><span style="width:{p.pct}%"></span></div></div>\n'
+            f'    <div class="ptally">{p.done}/{p.total}</div>')
 
 
 def fetch_jira() -> list[dict]:
@@ -880,6 +909,7 @@ section{margin-top:44px}
 .ph:hover{background:var(--raised)}
 .ph.now{background:var(--raised); box-shadow:inset 3px 0 0 var(--accent)}
 .ph.done .pname{color:var(--ink-2)}
+.ph.retired .pname{color:var(--ink-2); text-decoration:line-through}
 .pnum{font-family:"IBM Plex Mono",monospace; font-size:17px; font-weight:500;
       color:var(--ink-3); font-variant-numeric:tabular-nums}
 .ph.now .pnum{color:var(--accent); font-weight:600}
@@ -1164,8 +1194,7 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
     done_tasks = sum(p.done for p in phases)
     overall = round(100 * done_tasks / total_tasks) if total_tasks else 0
 
-    current = next((p for p in phases if p.marker == "~"),
-                   next((p for p in phases if p.marker == " "), phases[-1]))
+    current = current_phase(phases)
 
     open_adrs = [a for a in adrs if a["open"]]
     # An open thread that already names the ADR covers it; don't say it twice.
@@ -1195,11 +1224,11 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
 <div class="view" id="view-board">
 <header class="mast">
   <div>
-    <div class="eyebrow">Progress · phase {current.num} of {len(phases)}</div>
+    <div class="eyebrow">Progress · phase {current.num} of {len(live_phases(phases))}</div>
     <h1>{e(proj["name"])} <span class="mal">{e(proj["tagline"].split("—")[0].strip())}</span></h1>
     <p class="sub">Autonomous ops agent with human-in-the-loop approval. Watches a Kubernetes
     cluster and an AWS bill, diagnoses with a self-hosted Gemma&nbsp;3&nbsp;1B, and acts only
-    after a tap on a phone.</p>
+    after a person approves in Slack.</p>
   </div>
 </header>
 
@@ -1262,6 +1291,8 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
             cls += " now"
         if p.marker == "x":
             cls += " done"
+        if p.marker == RETIRED:
+            cls += " retired"
         pill = pst.get("state", "")
         pill_cls = pill.replace("-", "")
         lrn = by_num.get(p.num)
@@ -1294,8 +1325,7 @@ def render(cfg: dict, phases: list[Phase], adrs: list[dict], labs: list[dict],
       <div class="pname">{e(p.title)}</div>
       <div class="pmeta">weeks {e(p.weeks)} · <span class="pill {pill_cls}" title="{e(POSTURE_TIPS.get(pill, ""))}">{e("aws parked" if pill == "paused" else pill)}</span> {e(pst.get("cost",""))}{lnk}</div>
     </div>
-    <div class="barwrap"><div class="bar"><span style="width:{p.pct}%"></span></div></div>
-    <div class="ptally">{p.done}/{p.total}</div>
+    {phase_tail(p)}
   </summary>
   <div class="detail">
     {psum}

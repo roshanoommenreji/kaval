@@ -233,31 +233,19 @@ credentials = "own database role · no public auth yet — outbound Slack Socket
 inputs = ["Signals, incidents and pending proposals from the database", "Approve/deny from Slack ChatOps (KAV-55, planned) or scripts/ops/approve.py today"]
 outputs = ["REST + WebSocket to the app (today: read-only /v1 signals and incidents, plus one write — POST /v1/actions/{id}/decisions, KAV-47)", "Slack notification (planned)", "decision rows"]
 tables = ["proposal", "decision"]
-note = "No inbound exposure, by design: binds to 127.0.0.1, reached through an SSH tunnel. Every request runs in a READ ONLY transaction (ADR-0009, KAV-23) except the one approve/deny write (KAV-47, ADR-0021), on its own session — not the security boundary itself, since the executor re-checks policy independently regardless of what this endpoint wrote. scripts/ops/approve.py is today's stand-in; Slack ChatOps (KAV-55, Phase 4) replaces it without ever opening an inbound port — the gateway connects outbound to Slack (Socket Mode), the same direction every other integration here already uses. Cognito JWT verification would only be needed if the deferred mobile app (Phase 9, ADR-0026) is ever built. Since KAV-82 (ADR-0048) a request nobody answers is reminded after 15 minutes, escalated after 30 and expires after 4 hours (staging 3, 7, 15); the refusal of a late approve or deny sits in record_decision and is computed from the request's own age, so it holds even when the notifier is down."
+note = "No inbound exposure, by design: binds to 127.0.0.1, reached through an SSH tunnel. Every request runs in a READ ONLY transaction (ADR-0009, KAV-23) except the one approve/deny write (KAV-47, ADR-0021), on its own session — not the security boundary itself, since the executor re-checks policy independently regardless of what this endpoint wrote. scripts/ops/approve.py is today's stand-in; Slack ChatOps (KAV-55, Phase 4) replaces it without ever opening an inbound port — the gateway connects outbound to Slack (Socket Mode), the same direction every other integration here already uses. There is no phone app and no Cognito login: Phase 9 was retired on 2026-11-15 (ADR-0097). Since KAV-82 (ADR-0048) a request nobody answers is reminded after 15 minutes, escalated after 30 and expires after 4 hours (staging 3, 7, 15); the refusal of a late approve or deny sits in record_decision and is computed from the request's own age, so it holds even when the notifier is down."
 
 [[system.node]]
-id = "tunnel"
-label = "Cloudflare Tunnel (deferred)"
-kind = "platform"
-phase = 9
+id = "slack-chatops"
+label = "Slack (approval)"
+kind = "external"
+phase = 4
 col = 3
 row = 5
-credentials = "tunnel token"
-inputs = ["Outbound connection from inside the cluster"]
-outputs = ["Public HTTPS hostname, stable across node replacement"]
-note = "Deferred with mobile (ADR-0026, 2026-10-03). Would replace an $18/month Application Load Balancer if ever built, but nothing currently needs it: Slack ChatOps (KAV-55, Phase 4) reaches the gateway over an outbound Socket Mode connection instead, with no public hostname at all. Revisit only if mobile (Phase 9) is picked up."
-
-[[system.node]]
-id = "mobile"
-label = "Expo app (deferred)"
-kind = "external"
-phase = 9
-col = 4.2
-row = 5
-credentials = "Cognito tokens · refresh token in the device keystore"
-inputs = ["Push notification carrying only an incident ID", "REST responses"]
-outputs = ["Approve or deny, with an optional reason"]
-note = "Deferred (ADR-0026, 2026-10-03): Slack ChatOps (KAV-55, Phase 4) already provides real human approval, so this phase isn't blocking anything. Whether to build it at all is an open decision. If built: the push payload would carry an ID and nothing else — delivery is best-effort and the path is not trusted with incident detail — and the approval screen must state what happens if you decline, not only if you approve."
+credentials = "outbound Socket Mode connection · no inbound port, no public address"
+inputs = ["An approval card with Approve and Deny, posted by the gateway (KAV-55); the model's text on it is escaped and labelled as unchecked (KAV-114, KAV-117)"]
+outputs = ["Which button a person pressed, on a laptop or in the Slack app on a phone"]
+note = "The one approval surface (ADR-0026, ADR-0097). The gateway calls out to Slack; Slack never calls in, so Kaval has no public address at all. A custom phone app and a Cloudflare Tunnel were planned as Phase 9 and retired on 2026-11-15: the Slack app on a phone already notifies and shows the same buttons. A request nobody answers is reminded, escalated and expires (ADR-0048)."
 
 # ── row 6: action ──────────────────────────────────────────────────────
 
@@ -554,16 +542,11 @@ label = "signals · incidents · proposals"
 
 [[system.edge]]
 from = "gateway"
-to = "tunnel"
-label = "outbound HTTPS"
+to = "slack-chatops"
+label = "approval card (outbound)"
 
 [[system.edge]]
-from = "tunnel"
-to = "mobile"
-label = "push · REST"
-
-[[system.edge]]
-from = "mobile"
+from = "slack-chatops"
 to = "gateway"
 label = "approve / deny"
 kind = "return"
@@ -802,7 +785,7 @@ kind = "decision"
 phase = 4
 col = 1.1
 row = 8
-note = "Posted to Slack within 60 seconds (KAV-55) — push to a phone only if mobile (Phase 9, deferred) is ever built. This stage is unbounded and usually dominates wall-clock MTTR — which is the architecture working as designed, not a defect, but it means MTTR is honestly two numbers."
+note = "Posted to Slack within 60 seconds (KAV-55); the Slack app on a phone notifies too, and there is no phone app of Kaval's own (ADR-0097). This stage is unbounded and usually dominates wall-clock MTTR — which is the architecture working as designed, not a defect, but it means MTTR is honestly two numbers."
 
 [[journey.node]]
 id = "j-auto"

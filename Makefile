@@ -402,7 +402,7 @@ policy-check: ## Classify one hypothetical action against policy/ (KAV-42), no d
 		--confidence $(CONFIDENCE) $(if $(REVERSIBLE),--reversible,)
 
 .PHONY: approve
-approve: ## Approve or deny one proposed action via the gateway (KAV-47, Phase-3 stand-in for the mobile app). Usage: make approve ACTION=<uuid> VERDICT=approved|denied [ACTOR=you] [REASON="..."]
+approve: ## Approve or deny one proposed action via the gateway (KAV-47, the stand-by for Slack's buttons). Usage: make approve ACTION=<uuid> VERDICT=approved|denied [ACTOR=you] [REASON="..."]
 	@test -n "$(ACTION)" && test -n "$(VERDICT)" || (echo "set ACTION=<uuid> VERDICT=approved|denied" && exit 1)
 	@python scripts/ops/approve.py $(ACTION) $(VERDICT) $(if $(ACTOR),--actor "$(ACTOR)",) $(if $(REASON),--reason "$(REASON)",)
 
