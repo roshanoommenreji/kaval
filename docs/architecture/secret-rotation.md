@@ -71,7 +71,7 @@ These are not rotated because there is nothing stored to steal:
 
 ## Said plainly
 
-- **None of these changes has ever been carried out end to end.** The steps for the
+- **Only the laptop key has been changed end to end** (2026-11-16, in the record above). The steps for the
   approver token are written and its creation was proven live; a database password has never been
   replaced on a running environment. Until `KAV-159` rehearses one on staging, the database row
   is a plan.
