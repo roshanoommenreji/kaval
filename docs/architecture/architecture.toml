@@ -1126,7 +1126,7 @@ kind = "decision"
 phase = 4
 col = 2
 row = 12
-note = "workflow_dispatch today — a deliberate manual run is the gate. Can become GitHub Environments with required reviewers now that the repo is public (that feature is paid on private repos)."
+note = "workflow_dispatch today — a deliberate manual run is the gate. GitHub Environments with required reviewers are parked as future scope (ADR-0099): the owner's merge of the promotion pull request is the approval."
 
 [[delivery.node]]
 id = "d-held"

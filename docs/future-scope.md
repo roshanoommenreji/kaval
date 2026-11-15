@@ -627,6 +627,21 @@ line, and the wiring into the cluster's diagnosis worker. About $1.50 a month at
 
 Until then, "cost-aware routing" is a design, not a result.
 
+### FS-14 — Three small items parked at the v1 clean-up
+
+Three things the roadmap listed, that were never built, and that v1 turned out not to need. They
+left Phases 6 and 8 on 2026-11-15, when every open roadmap line was checked
+([ADR-0099](adr/0099-roadmap-clean-up-what-v1-still-needs.md), `KAV-153`). No Jira epic: none is planned.
+
+| Item | Why it is parked | Trigger |
+|---|---|---|
+| **The detailed billing export** (AWS's Cost and Usage Report: every line item, delivered to S3) | Cost Explorer's daily figures by service found the spikes, and the waste scan was built without line items | A cost question the per-service daily bill cannot answer |
+| **A live example of the server-overstay finding** (a staging or dev server running past 12 hours) | The finding is unit-tested. A live run needs staging awake past 12 hours, which fights the nightly 02:00 IST stop, for about 55 cents | A staging session that has to run that long for another reason |
+| **GitHub Environments with required reviewers** on the promotion to production | The owner already approves each promotion by merging its pull request. On a one-person repo a second gate adds a click, not a second person | A second maintainer |
+
+**Said plainly.** The server-overstay finding is the one waste finding never seen live. The
+promotion gate is one person's merge, with the checks in `promote.yml` in front of it.
+
 ---
 
 ## Verdict

@@ -26,7 +26,7 @@ signals ──▶ correlate ──▶ context ──▶ LLM ──▶ proposal �
 
 | | |
 |---|---|
-| **Phase** | 2 — The agent loop, in progress: signal correlation built 2026-09-28 (Phase 0 done 2026-09-15, Phase 1 done 2026-09-27) |
+| **Phase** | 8 — Harden & publish, in progress. Phases 0–4 and 7 are done; 5 and 6 each wait on one check in production; Phase 9 (a phone app) was retired. What v1 still needs: [ADR-0099](docs/adr/0099-roadmap-clean-up-what-v1-still-needs.md) |
 | **Started** | 2026-08-22 |
 | **Target v1** | ~March 2027 |
 | **Running cost** | Budget guardrails, plus a dev server that runs only during sessions: $0.13 of usage in September, covered by credits |
