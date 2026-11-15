@@ -45,7 +45,7 @@ Kaval already follows pattern 2 for most of its access: GitHub Actions, the serv
 - **No rotation has been carried out end to end.** This ADR sets a schedule; it does not prove a procedure.
 - **A year is a long time for a Slack token.** It is accepted because the token can only post to and listen in one workspace's one app, production is mostly off, and a leak has its own rule.
 - **The laptop key remains a long-lived key.** A login that expires by itself (IAM Identity Center) is the stronger pattern and is not planned.
-- **The age of the current laptop key is not recorded,** so its first change is due now.
+- **The age of the current laptop key is not recorded,** so its first change is due now. *(Carried out by the owner on 2026-11-16; the next is due by 2027-02-14. See the record on the [schedule page](../architecture/secret-rotation.md).)*
 
 ## Rejected
 

@@ -67,7 +67,7 @@ There is no step where a second person is called, because there is no second per
 | As they arrive | Read and merge, or close, each Dependabot pull request | [contributing.md](contributing.md) |
 | Monthly | A restore drill: `make restore-drill` | [restore-drill](runbooks/restore-drill.md) |
 | Monthly | The bill by service and environment: `make cost-showback` | `docs/cost/` |
-| Every 90 days | Change the AWS access key on the laptop | [secret-rotation.md](architecture/secret-rotation.md) |
+| Every 90 days (last 2026-11-16, next by 2027-02-14) | Change the AWS access key on the laptop | [secret-rotation.md](architecture/secret-rotation.md) |
 | Each November | Change every other secret | [secret-rotation.md](architecture/secret-rotation.md) |
 | When a dated exception nears its end | Remove it or renew it with a reason | The ADR that granted it |
 

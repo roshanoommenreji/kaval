@@ -22,7 +22,7 @@ owner reads and writes them; nobody else does.
 
 | Secret | What it opens | Where it lives | Changed | How it is changed | Rehearsed? |
 |---|---|---|---|---|---|
-| **AWS access key on the laptop** (profile `kaval`) | Everything Terraform manages in the account | The laptop's AWS credentials file | Every 90 days | IAM console: create a second key, put it in the credentials file, run `make cost-report` to prove it works, delete the old key | Not recorded |
+| **AWS access key on the laptop** (profile `kaval`) | Everything Terraform manages in the account | The laptop's AWS credentials file | Every 90 days | IAM console: create a second key, put it in the credentials file, run `make cost-report` to prove it works, delete the old key | Yes, carried out 2026-11-16 |
 | **Database passwords**: `admin`, `gateway`, `agent`, `executor`, `collector`, `monitor` (per environment) | One database login each, with only that role's rights | Parameter Store, encrypted, under `/kaval/<env>/db/` | Yearly | `terraform apply -replace` on that role's `random_password` in the environment's folder (plan shown first), then a restart of the servers: the start-up script sets each role's password from Parameter Store and recreates the cluster's Secrets ([Lab 23](../labs/lab-23-automatic-secret-recreation.md)) | **No.** Never done; rehearse on staging first (`KAV-159`) |
 | **Approver token** (per environment) | Calling the gateway's approval route | Parameter Store, encrypted; copied into the `kaval-approver` Secret at start-up and every six hours | Yearly | `terraform apply -replace=module.approver_token.random_password.token`, then restart the gateway ([runbook](../runbooks/approval-refused.md)) | Steps written and the token created live; a replacement has not been done |
 | **Slack bot token and app token** (production) | Posting cards and receiving button presses as Kaval's Slack app | Parameter Store, encrypted, under `/kaval/kaval-prod/slack/` | Yearly | In Slack's app settings create new tokens, `aws ssm put-parameter --overwrite` for each, restart the gateway, then revoke the old ones in Slack | No |
@@ -67,7 +67,7 @@ These are not rotated because there is nothing stored to steal:
 | Date | Secret | Environment | Why | By |
 |---|---|---|---|---|
 | 2026-11-06 | Database passwords | production | **Not changed, on purpose:** four passwords had been printed into the server's own log; the log was on a disk that was destroyed, nothing left the server ([ADR-0077](../adr/0077-the-database-roles-script-keeps-passwords-out-of-psqls-output.md)) | Roshan |
-| | AWS access key on the laptop | | Age not recorded: treat as due | |
+| 2026-11-16 | AWS access key on the laptop | the account | The first scheduled change. The old key's age had never been recorded, so it was treated as due. A new key was made in the IAM console and put in the credentials file by the owner; afterwards a login with it worked and IAM listed exactly one key, active, created that day (both read back, values never shown). **Next change due by 2027-02-14** | Roshan |
 
 ## Said plainly
 
