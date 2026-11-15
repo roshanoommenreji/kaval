@@ -91,7 +91,7 @@ To see that the last test bites, delete the second `check` line from the step an
 3. After a day plus up to 24 hours, list the repository again. **Both signatures still there** means the untagged rule spares signatures; **gone** means it removes them and rule 1 needs an exception.
 4. Delete the repository (`aws ecr delete-repository --force`).
 
-Result: _to be filled in on 2026-11-15._
+**Result (read 2026-11-15 21:19 IST): PASS, both signatures survived.** The two signature items were pushed on 2026-11-13 at 01:48 IST (media type `application/vnd.dev.sigstore.bundle.v0.3+json`, no tag, 4.4 KB and 4.5 KB). ECR last ran the 1-day `untagged` rule on 2026-11-15 at 11:33 IST (`aws ecr get-lifecycle-policy ... --query lastEvaluatedAt`), about 58 hours after the push, so the rule had been past its 1-day mark for a day and a half. At the read the repository still held the tagged image `t1` and **both** signature items. So the untagged rule spares signatures of images that still exist, and rule 1 in `infra/modules/ecr/main.tf` needs no exception. The repository was deleted afterwards (step 4) and its local keys with it.
 
 ## What to take away
 
