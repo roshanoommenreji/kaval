@@ -94,7 +94,7 @@ proposal, once by the executor before acting.
 Incidents are fingerprinted and matched by pgvector similarity against past incidents.
 
 - **Match found, high confidence** → Gemma 3 1B locally. Effectively free.
-- **Novel or low confidence** → escalate to Bedrock.
+- **Novel or low confidence** → escalate to Bedrock. *Designed and built, never run live: future scope FS-13 since 2026-11-15 ([ADR-0098](../adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)). Today such an incident gets no proposal and waits for a person.*
 
 Both paths record token counts and cost, so the saving is measured rather than claimed.
 

@@ -583,6 +583,50 @@ Approve button, and a notification that is Kaval's own. None of them changes wha
 
 The theory is already written: [learn/phase-9-mobile-app.md](learn/phase-9-mobile-app.md).
 
+### FS-12 — Jev risk rating
+
+A second, typed model (TypeSafe's Jev) that rates each proposal's blast radius, reversibility and
+fit, so the policy engine has more than the action type to go on ([ADR-0006](adr/0006-jev-as-proposal-risk-rater.md)).
+
+Jira epic: [KAV-152](https://roshanoommenreji.atlassian.net/browse/KAV-152) (stories `KAV-27`, `KAV-28`).
+**Not started.** It was a Phase 2 line until 2026-11-15 ([ADR-0098](adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)).
+
+**Why it is parked.** It needs an API key from TypeSafe's waitlist, which has not arrived. And it
+has nothing to decide yet: its ratings can only make a policy class stricter, and every action is
+already `ask` or `never`.
+
+**What runs instead.** The policy engine's rules-only path, which is ADR-0006's own fallback and
+how every approval so far was made.
+
+**Trigger.** The key arrives **and** there is a wish to let some action run without a person. Then:
+the pinned SDK, redaction before anything leaves, the rules-only fallback kept, and the evals'
+"Jev calibration vs rules-only" line measured. About $0.50 a month, outside the AWS credit.
+
+### FS-13 — A live escalation to a larger model
+
+Send an incident the local model cannot explain to a larger model (Claude Haiku on Bedrock), and
+measure what cost-aware routing really saves ([ADR-0019](adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md),
+[Lab 14](labs/lab-14-bedrock-escalation.md)).
+
+Jira epic: [KAV-152](https://roshanoommenreji.atlassian.net/browse/KAV-152) (story `KAV-44`).
+**Built and unit-tested, never run live.** It was a Phase 2 line until 2026-11-15
+([ADR-0098](adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)).
+
+**Why it is parked.** The AWS account is an Indian-entity (AISPL) one, and AWS restricts the
+Marketplace subscription that Anthropic models on Bedrock need (confirmed with AWS Support,
+2026-10-01). The code stays in the repo with its tests; it runs from a laptop only and the cluster
+has no path to Bedrock.
+
+**What runs instead.** The local model alone. An incident it cannot explain gets no proposal and
+waits for a person.
+
+**Trigger.** AWS lifts the restriction, or a decision to take another route (a Bedrock model that
+needs no Marketplace subscription, or Anthropic's API directly, which is a new secret and a new way
+out of the cluster and needs its own ADR). Then: one live call, the evals' "escalation precision"
+line, and the wiring into the cluster's diagnosis worker. About $1.50 a month at light use.
+
+Until then, "cost-aware routing" is a design, not a result.
+
 ---
 
 ## Verdict

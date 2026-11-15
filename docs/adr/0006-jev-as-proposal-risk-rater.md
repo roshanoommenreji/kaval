@@ -1,6 +1,6 @@
 # ADR-0006 — Jev as the proposal risk rater
 
-- **Status:** Accepted — build scheduled for Phase 2
+- **Status:** Accepted — not built. Parked in future scope as FS-12 on 2026-11-15 ([ADR-0098](0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)); it was scheduled for Phase 2 and is waiting on a TypeSafe API key. The rules-only fallback below is what runs
 - **Date:** 2026-09-26
 - **Deciders:** Roshan
 

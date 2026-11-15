@@ -27,8 +27,10 @@ this file, not a mock (see [Lab 12](../docs/labs/lab-12-policy-engine.md)).
 
 ## Inputs
 
-`blast_radius`, `reversible` and `confidence` are rated by Jev
-([ADR-0006](../docs/adr/0006-jev-as-proposal-risk-rater.md)). Those ratings can only make a class
+`blast_radius`, `reversible` and `confidence` were designed to be rated by Jev
+([ADR-0006](../docs/adr/0006-jev-as-proposal-risk-rater.md)). Jev is not built (future scope FS-12 since
+2026-11-15, [ADR-0098](../docs/adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)), so the
+last line below is what runs: rules only. If it is ever built, its ratings can only make a class
 **stricter**:
 
 - `never` is decided from the action type alone, whatever Jev says.

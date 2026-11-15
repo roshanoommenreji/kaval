@@ -1,7 +1,8 @@
 # Phase 2 — The agent loop
 
 > **Written from:** experience (rewritten 2026-10-10, from what was built and measured; the Jev risk rating
-> (`KAV-27`) and a live Bedrock escalation (`KAV-44`) are the two parts not yet run, and are marked below)
+> (`KAV-27`) and a live Bedrock escalation (`KAV-44`) are the two parts never run; both moved to future scope on
+> 2026-11-15 as FS-12 and FS-13, [ADR-0098](../adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md), and are marked below)
 > **Labs:** [09 correlation](../labs/lab-09-signal-correlation.md) · [10 context builder](../labs/lab-10-context-builder.md) · [11 proposal output](../labs/lab-11-proposal-output.md) · [12 policy engine](../labs/lab-12-policy-engine.md) · [13 eval harness](../labs/lab-13-eval-harness.md) · [14 Bedrock escalation](../labs/lab-14-bedrock-escalation.md) · [08 UAT, versions, dashboards](../labs/lab-08-uat-versions-and-jira-dashboards.md)
 > **Decisions:** [ADR-0012](../adr/0012-user-acceptance-testing.md) · [0014](../adr/0014-signal-correlation-and-incident-fingerprints.md) · [0015](../adr/0015-context-builder-retrieval-design.md) · [0016](../adr/0016-json-schema-enforced-proposal-output.md) · [0017](../adr/0017-opa-policy-engine-and-earned-autonomy.md) · [0018](../adr/0018-eval-harness-and-golden-incidents.md) · [0019](../adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md) · [0054](../adr/0054-telling-the-model-which-fixes-exist.md)
 > **Cost:** $0. Everything ran on the local model and the dev server. Bedrock escalation is built and
@@ -23,7 +24,7 @@ telemetry, nothing downstream matters.
 - **Schema-enforced proposals** — the model returns validated JSON or the attempt fails
 - A **policy engine** classifying every action `auto`, `ask`, or `never`
 - An **eval harness** with twenty golden incidents
-- Escalation to Bedrock when local confidence is low
+- Escalation to Bedrock when local confidence is low (built and unit-tested, never run live; future scope FS-13)
 
 ## Why this way
 

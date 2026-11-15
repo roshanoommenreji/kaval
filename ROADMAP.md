@@ -62,7 +62,7 @@ $0.13 of AWS usage, covered by credits. **Phase 1 complete 2026-09-27.**
 
 ---
 
-## Phase 2 — The agent loop · weeks 6–9 · `[~]`
+## Phase 2 — The agent loop · weeks 6–9 · `[x]`
 
 The hard, interesting part. Still no AWS.
 
@@ -73,12 +73,12 @@ The hard, interesting part. Still no AWS.
 - [x] Context builder: runbook RAG (pgvector) + past incidents + recent changes ([ADR-0015](docs/adr/0015-context-builder-retrieval-design.md), `KAV-40`, signed off in UAT 2026-09-28)
 - [x] JSON-schema-enforced proposal output — the model must not ramble ([ADR-0016](docs/adr/0016-json-schema-enforced-proposal-output.md), `KAV-41`, signed off in UAT 2026-09-28)
 - [x] Policy engine: `auto` / `ask` / `never`, blast-radius classification ([ADR-0017](docs/adr/0017-opa-policy-engine-and-earned-autonomy.md), `KAV-42`, signed off in UAT 2026-09-29)
-- [ ] Jev risk rating feeding the policy engine (ADR-0006, `KAV-27`) — `typesafe-sdk`, pinned version, redaction, rules-only fallback
-- [x] Eval harness + 20 golden incidents: schema validity and action safety as hard gates; root-cause keywords, calibration and cost reported ([ADR-0018](docs/adr/0018-eval-harness-and-golden-incidents.md), `KAV-43`, signed off in UAT 2026-09-30) — Jev calibration vs the rules-only baseline and escalation precision wait for `KAV-27`/Bedrock below
-- [ ] Bedrock escalation path for low-confidence cases ([ADR-0019](docs/adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md), `KAV-44` — built and unit-tested; blocked live on an AWS Marketplace payment issue, not yet UAT-signed-off)
+- ~~Jev risk rating feeding the policy engine (ADR-0006, `KAV-27`)~~ — **moved to future scope 2026-11-15** as FS-12 ([ADR-0098](docs/adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)): never started, waiting on a TypeSafe API key; the policy engine runs rules-only, everything `ask`, which is ADR-0006's own fallback
+- [x] Eval harness + 20 golden incidents: schema validity and action safety as hard gates; root-cause keywords, calibration and cost reported ([ADR-0018](docs/adr/0018-eval-harness-and-golden-incidents.md), `KAV-43`, signed off in UAT 2026-09-30) — Jev calibration vs the rules-only baseline and escalation precision are not measured; both went to future scope with their features (ADR-0098)
+- ~~Bedrock escalation path for low-confidence cases ([ADR-0019](docs/adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md), `KAV-44`)~~ — **moved to future scope 2026-11-15** as FS-13 ([ADR-0098](docs/adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)): built and unit-tested, the code stays; no live call has ever completed (AWS restricts the Marketplace subscription on this kind of account), so cost-aware routing is designed, not proven
 - [x] `docs/learn/phase-2-the-agent-loop.md` — flip **Written from** to `experience` (2026-10-10: an assumed-vs-happened table from the labs, stale claims corrected, interview answers from what was built)
 
-**Exit gate:** 20 synthetic incidents produce valid, sane proposals; evals pass.
+**Exit gate:** 20 synthetic incidents produce valid, sane proposals; evals pass. ✅ **Met since 2026-09-30** (golden 20 of 20, measured again on 2026-11-10). The phase closed on 2026-11-15, when its two lines blocked outside the project moved to future scope ([ADR-0098](docs/adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md), `KAV-151`).
 
 ---
 
@@ -268,6 +268,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [x] Protect `main`: require the CI checks to pass before a pull request merges — done 2026-09-30 when the repo went public early; found enforced and the docs still saying otherwise on 2026-10-08. All ten CI checks were required (`helm`, `image executor`, `image backup` added 2026-10-08, `KAV-62`); the promotion guard made it eleven on 2026-10-09; `enforce_admins` stays off
 - [x] `docs/learn/release-engineering.md` — flip **Written from** to `experience` (2026-10-10: an assumed-vs-happened table from the labs, stale claims corrected, interview answers from what was built)
 - [x] Phase 9 (the phone app) is retired and v1 ends at Phase 8: Slack is the approval surface, on a phone too (`KAV-149`, [ADR-0097](docs/adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md), decided by the owner 2026-11-15). The roadmap marks the phase `[-]`, the dashboard shows it as retired and never as the current phase, the phone app and the Cloudflare Tunnel leave the architecture file, and the idea is parked in the future-scope list. Nothing deployed, $0
+- [x] Phase 2 closed: its two unfinished lines, the Jev risk rating (`KAV-27`) and a live Bedrock escalation (`KAV-44`), moved to the future-scope list with what blocks each and what would bring it back (`KAV-151`, [ADR-0098](docs/adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md), decided by the owner 2026-11-15). No code removed; the policy engine keeps running rules-only and the local model diagnoses alone, as they have in production all along. Nothing deployed, $0
 - [ ] Four comments inside the service code still say "deferred mobile app" (the gateway's API description, a schema docstring and the package docstring; the executor's `redact.py`): left on purpose by `KAV-149`, because changing them changes two images and so owes a release round for wording alone; corrected with the next gateway and executor release (`KAV-150`)
 - [ ] `docs/learn/phase-8-harden-and-publish.md` — flip **Written from** to `experience`
 
@@ -336,6 +337,9 @@ See [docs/future-scope.md](docs/future-scope.md).
   [ADR-0097](docs/adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)). Not planned:
   Slack is the approval surface, on a phone too. Kept so the idea and what it would need first
   (a way in, a login, tokens on a device) are written down.
+- **FS-12 — Jev risk rating** and **FS-13 — A live escalation to a larger model** ([KAV-152](https://roshanoommenreji.atlassian.net/browse/KAV-152);
+  were Phase 2 lines, moved 2026-11-15, [ADR-0098](docs/adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)). Both are blocked outside
+  the project: a TypeSafe API key, and an AWS restriction on this account. Each has a written trigger.
 
 ---
 
