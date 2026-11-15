@@ -34,7 +34,6 @@ SERVICE_PATHS: tuple[tuple[str, str], ...] = (
     ("services/shared/", "shared"),
     ("migrations/", "shared"),
     ("inference/", "inference"),
-    ("mobile/", "mobile"),
     ("infra/", "infra"),
     ("deploy/", "infra"),
     ("compose.yaml", "infra"),

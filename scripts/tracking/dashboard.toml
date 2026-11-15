@@ -64,7 +64,6 @@ cost      = "~$4/session"
 6 = { state = "paused",     cost = "~$2.20/mo" }
 7 = { state = "always-on",  cost = "~$14/mo" }
 8 = { state = "always-on",  cost = "~$14/mo + $4/lab" }
-9 = { state = "always-on",  cost = "~$14/mo" }
 
 # Per-phase Jira epic + (where real content exists) Confluence link. `confluence`
 # is deliberately omitted for phases with nothing phase-specific published yet —
@@ -89,7 +88,7 @@ cost      = "~$4/session"
 4 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-9" }
 # Phase 5 points at KAV-11 since 2026-11-13 (KAV-145). It pointed at KAV-10 while Phase 5's
 # stories sat under that epic by mistake; Jira now has them (KAV-76..90) under KAV-11, titled
-# "Phase 5", and KAV-10 ("Phase 9 — Mobile app") has none. Read from Jira, not remembered.
+# "Phase 5", and KAV-10 ("Phase 9 — Mobile app", retired 2026-11-15, ADR-0097) has none. Read from Jira, not remembered.
 5 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-11" }
 6 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-12" }
 7 = { jira = "https://roshanoommenreji.atlassian.net/browse/KAV-13" }
@@ -108,7 +107,7 @@ cost      = "~$4/session"
 6 = "Kaval watches the AWS bill: it reads daily costs, labels every resource, finds waste, and removes it only after two approvals. A hard stop protects the budget."
 7 = "Proof that the same Kaval package runs unchanged on Amazon's managed Kubernetes (EKS), in a short-lived lab that deletes itself."
 8 = "Making Kaval safe and presentable in public: security scans, signed releases that the cluster itself checks, a review of how it could be attacked, then the public write-up and demo."
-9 = "Put off on purpose. Approvals already work in Slack, so whether to build a phone app at all is decided last."
+9 = "Retired on purpose: approvals work in Slack, including on a phone, so no phone app of Kaval's own is built."
 
 # External links. Empty entries are rendered as "not yet created" rather than
 # hidden — a missing Jira project is information, not an absence.
@@ -140,7 +139,7 @@ note  = "Project home, decisions log, runbooks, session notes. Published from th
 [[links]]
 label = "GitHub repository"
 url   = "https://github.com/roshanoommenreji/kaval"
-note  = "Public since 2026-09-30 (pulled forward from Phase 9 on purpose)."
+note  = "Public since 2026-09-30 (pulled forward from the last phase on purpose)."
 
 [[links]]
 label = "AWS Billing — free tier"

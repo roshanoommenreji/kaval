@@ -1,12 +1,14 @@
 # Roadmap
 
-Nine phases, ~28 weeks at 4–6 hrs/week, sharing evenings with AI-103 study.
+Nine phases (0–8), ~24 weeks at 4–6 hrs/week, sharing evenings with AI-103 study. A tenth,
+Phase 9 (a phone app), was retired on 2026-11-15 and is kept below as a record
+([ADR-0097](docs/adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)).
 
 Every phase ends in something demonstrable. Every phase can be abandoned mid-way and resumed
-without lost state. **Stopping after Phase 6 still yields a strong portfolio piece** — Phases 7–9
+without lost state. **Stopping after Phase 6 still yields a strong portfolio piece** — Phases 7–8
 are additive, not load-bearing.
 
-Legend: `[ ]` not started · `[~]` in progress · `[x]` done
+Legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[-]` retired, not built
 
 ---
 
@@ -265,42 +267,48 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [ ] Ownership page: who is on call for what, how an incident is declared, the escalation path (even if it is one person, written down)
 - [x] Protect `main`: require the CI checks to pass before a pull request merges — done 2026-09-30 when the repo went public early; found enforced and the docs still saying otherwise on 2026-10-08. All ten CI checks were required (`helm`, `image executor`, `image backup` added 2026-10-08, `KAV-62`); the promotion guard made it eleven on 2026-10-09; `enforce_admins` stays off
 - [x] `docs/learn/release-engineering.md` — flip **Written from** to `experience` (2026-10-10: an assumed-vs-happened table from the labs, stale claims corrected, interview answers from what was built)
+- [x] Phase 9 (the phone app) is retired and v1 ends at Phase 8: Slack is the approval surface, on a phone too (`KAV-149`, [ADR-0097](docs/adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md), decided by the owner 2026-11-15). The roadmap marks the phase `[-]`, the dashboard shows it as retired and never as the current phase, the phone app and the Cloudflare Tunnel leave the architecture file, and the idea is parked in the future-scope list. Nothing deployed, $0
+- [ ] Four comments inside the service code still say "deferred mobile app" (the gateway's API description, a schema docstring and the package docstring; the executor's `redact.py`): left on purpose by `KAV-149`, because changing them changes two images and so owes a release round for wording alone; corrected with the next gateway and executor release (`KAV-150`)
 - [ ] `docs/learn/phase-8-harden-and-publish.md` — flip **Written from** to `experience`
 
 **Exit gate:** repo public, video recorded, bullets written.
 
 ---
 
-## Phase 9 — Mobile app · weeks 25–28 · `[ ]`
+## Phase 9 — Mobile app · weeks 25–28 · `[-]`
 
-**Deferred, deliberately (2026-10-03).** Pushed to last because a custom mobile client is
-unusual outside this kind of portfolio project — real companies approve incidents through
-PagerDuty/Opsgenie or ChatOps, not a bespoke app. Phase 4 already ships Slack ChatOps
-(`KAV-55`) as the real approval surface, so no later phase is blocked on this one existing.
-Whether to build mobile at all, and how it would reach the gateway (the Cloudflare Tunnel +
-domain this phase originally planned, or something else), is an open decision, revisited only
-if this phase is actually picked up. See
-[ADR-0026](docs/adr/0026-slack-chatops-and-deferred-mobile.md).
+**Retired 2026-11-15: not built, on purpose** (`KAV-149`,
+[ADR-0097](docs/adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)). The marker `[-]`
+means retired; the lines below are struck through and are not open work. v1 is Phases 0–8.
 
-- [ ] Decide: build mobile at all, and if so, how it reaches the gateway
-- [ ] Expo app scaffold, TypeScript, navigation
-- [ ] Cognito auth
-- [ ] Screens: Pulse · Inbox · Detail · Timeline · Ask · Settings
-- [ ] Push notifications via Expo
-- [ ] Approve / deny round trip
-- *Planning-standard additions (2026-10-11), each a checkbox below:*
-- [ ] Approvals are privileged actions: a second factor (biometric) on the approve button, tokens in the device's secure store, and the same expiry and escalation rules as Slack
-- [ ] Distribution through an internal test track only (TestFlight / Play internal testing), with a stated update and revocation path
-- [ ] Push reliability measured: what happens if the push never arrives (fall back to Slack)
-- [ ] `docs/learn/phase-9-mobile-app.md` — flip **Written from** to `experience`
+This phase planned a custom phone app (Expo, Cognito, push notifications). It was put off on
+2026-10-03 ([ADR-0026](docs/adr/0026-slack-chatops-and-deferred-mobile.md)) because real companies
+approve incidents through PagerDuty/Opsgenie or ChatOps, not a bespoke app, and Phase 4 shipped
+Slack ChatOps (`KAV-55`) as the approval surface. Since then that surface has been hardened (a
+login on the approval route, escaped and labelled model text, reminders, escalation and expiry)
+and seen working with real cards, and the Slack app on a phone already notifies and shows Approve
+and Deny. A second approval surface would add a public way in to a gateway that has none, a login
+system and tokens on a device, for no approval it could give that Slack cannot. The idea is kept,
+uncommitted, as FS-11 in [docs/future-scope.md](docs/future-scope.md).
 
-**Exit gate:** phone buzzes for a real incident and you approve it from bed.
+- ~~Decide: build mobile at all, and if so, how it reaches the gateway~~ — decided: not built
+- ~~Expo app scaffold, TypeScript, navigation~~
+- ~~Cognito auth~~
+- ~~Screens: Pulse · Inbox · Detail · Timeline · Ask · Settings~~
+- ~~Push notifications via Expo~~
+- ~~Approve / deny round trip~~ — exists in Slack since `KAV-55`
+- ~~Approvals are privileged actions: a second factor (biometric) on the approve button, tokens in the device's secure store, and the same expiry and escalation rules as Slack~~ — no app, so no device tokens; expiry and escalation are [ADR-0048](docs/adr/0048-approvals-nobody-answers-expiry-and-escalation.md)
+- ~~Distribution through an internal test track only (TestFlight / Play internal testing), with a stated update and revocation path~~
+- ~~Push reliability measured: what happens if the push never arrives (fall back to Slack)~~ — Slack is the only path; an unanswered request is reminded, escalated and expires (ADR-0048)
+- ~~`docs/learn/phase-9-mobile-app.md` — flip **Written from** to `experience`~~ — stays theory, marked retired
+
+**Exit gate:** none; the phase is retired. Its old gate ("phone buzzes for a real incident and you approve it from bed") is met by the Slack app on a phone, not by an app of our own.
 
 ---
 
 ## Beyond v1 — future scope · `[ ]`
 
-Not committed. Work that is out of scope for Phases 0–9 but worth doing afterward —
+Not committed. Work that is out of scope for Phases 0–8 (v1; Phase 9 was retired) but worth doing afterward —
 mostly the Forward Deployed / AI-platform readiness gaps a solo greenfield project can't
 close on its own (integration mini-projects, demo craft, client-facing reps, a
 multi-tenant chapter). FS-7 to FS-10 ask how much of the cloud setup, the security and the
@@ -324,6 +332,10 @@ See [docs/future-scope.md](docs/future-scope.md).
 - **FS-10 — AIOps for Kaval** ([KAV-121](https://roshanoommenreji.atlassian.net/browse/KAV-121),
   planned 2026-11-01). Kaval already is AIOps at its core. This adds early warnings, learned normal
   ranges, a number for noise and learning from outcomes, and is Day 2 for what Petti builds.
+- **FS-11 — A phone app of Kaval's own, if ever** (no epic; was Phase 9, retired 2026-11-15,
+  [ADR-0097](docs/adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)). Not planned:
+  Slack is the approval surface, on a phone too. Kept so the idea and what it would need first
+  (a way in, a login, tokens on a device) are written down.
 
 ---
 

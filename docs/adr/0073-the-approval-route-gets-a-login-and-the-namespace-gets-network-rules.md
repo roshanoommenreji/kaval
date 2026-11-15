@@ -38,7 +38,7 @@ Slack's buttons are not affected: that surface connects outward with its own tok
 
 1. **Authenticate the write and restrict the network** (chosen): the usual pairing. Authentication alone fails if a token leaks; network rules alone fail if one pod in the allowed set is compromised. Each covers the other's miss.
 2. **A service mesh with mutual TLS and identity per workload** (Istio, Linkerd): the strongest answer and the right one for dozens of services. Memory on a 4 GB node, a second control plane to keep patched, and a learning curve out of proportion to one route.
-3. **OIDC login (Cognito, GitHub, Google) with a JWT per person:** right once there is a mobile app or more than one approver; the plan already says Cognito arrives only if Phase 9 is built. One person with a terminal and Slack does not need it. The `api:` prefix keeps the record honest until then.
+3. **OIDC login (Cognito, GitHub, Google) with a JWT per person:** right once there is a mobile app or more than one approver; the plan already says Cognito arrives only if Phase 9 is built (Phase 9 was retired on 2026-11-15, [ADR-0097](0097-phase-9-is-retired-slack-is-the-approval-surface.md), so this is now only for a second approver). One person with a terminal and Slack does not need it. The `api:` prefix keeps the record honest until then.
 4. **Remove the route and approve only through Slack:** simplest of all, and rejected: `make approve` is the fallback when Slack is down, and the game days use it.
 
 ## Consequences

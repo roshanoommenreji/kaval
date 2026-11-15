@@ -34,7 +34,7 @@ from atlassian import BASE, ROOT, call, guard
 PROJECT = "KAV"
 BOARD = 1
 STORY_POINTS_FIELD = "customfield_10016"
-SERVICES = ("gateway", "collector", "agent", "executor", "mobile", "inference", "shared", "infra")
+SERVICES = ("gateway", "collector", "agent", "executor", "inference", "shared", "infra")
 UAT_ENVS = ("dev", "staging", "jira")  # jira: the thing accepted is a Jira artefact itself
 DOD = (
     "Definition of Done (CLAUDE.md): code merged & CI green, lab doc reproducible, ADR if a "

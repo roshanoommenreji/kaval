@@ -34,7 +34,7 @@
 | `collector` | Python | Scrape Prometheus, K8s events, Alertmanager webhooks, Cost Explorer (the last one through the server's daily job and one ConfigMap, [ADR-0060](../adr/0060-the-cost-reader-the-server-asks-aws-and-the-cluster-never-holds-the-login.md): no AWS login in the cluster). Normalise into `signals`. | read-only |
 | `agent` | Python | Correlate signals into incidents. Build context. Call the LLM. Emit a validated `Proposal`. | **read-only** |
 | `executor` | Python | The only component that mutates anything. Consumes approved proposals. Records before/after state. | scoped write |
-| `gateway` | Python / FastAPI | Operator-facing REST + WebSocket. Today: read-only `/v1` signals and incidents, cursor-paged, OpenAPI at `/docs`, plus the one approve/deny write ([ADR-0009](../adr/0009-gateway-api-conventions.md)). Slack ChatOps (`KAV-55`) is the planned approval surface; mobile is deferred ([ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md)) | own DB only; no inbound public auth — outbound Slack connection only |
+| `gateway` | Python / FastAPI | Operator-facing REST + WebSocket. Today: read-only `/v1` signals and incidents, cursor-paged, OpenAPI at `/docs`, plus the one approve/deny write ([ADR-0009](../adr/0009-gateway-api-conventions.md)). Slack ChatOps (`KAV-55`) is the approval surface; there is no phone app ([ADR-0097](../adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)) | own DB only; no inbound public auth — outbound Slack connection only |
 | `inference` | Ollama | Serves Gemma 3 1B (q4) over an OpenAI-compatible API. | none |
 | `chaos` | K8s CronJob | Injects controlled failures into a labelled namespace. | scoped write |
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Approve or deny one proposed action, by calling the gateway's `POST /v1/actions/{id}/
 decisions` (KAV-47). The fallback approval surface now that Slack ChatOps (`KAV-55`) exists —
-a human still decides, it's just a terminal instead of Slack (mobile is deferred to Phase 9).
+a human still decides, it's just a terminal instead of Slack (there is no phone app, ADR-0097).
 Nothing here talks to the database directly: it goes through the same API Slack's buttons do
 (`kaval_gateway.decisions.record_decision`), so the approval flow is exercised for real.
 
@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="scripts/ops/approve.py",
         description="Approve or deny one proposed action through the gateway's decision "
-                     "endpoint (KAV-47) — the Phase-3 stand-in for the mobile app.",
+                     "endpoint (KAV-47) — the stand-by for Slack's buttons.",
     )
     parser.add_argument("action_id", help="the action's uuid (from /v1/incidents/{id})")
     parser.add_argument("verdict", choices=("approved", "denied"))

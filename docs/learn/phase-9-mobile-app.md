@@ -3,8 +3,9 @@
 > **Written from:** theory
 > **Lab:** to be written
 > **Cost:** $0 additional — Expo local builds, Cognito free at this scale
-> **Status:** deferred (2026-10-03, [ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md)) —
-> approval already works without this phase, see below
+> **Status:** retired, never built (2026-11-15, [ADR-0097](../adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md));
+> deferred first on 2026-10-03 ([ADR-0026](../adr/0026-slack-chatops-and-deferred-mobile.md)). Kept as theory:
+> OAuth, PKCE and push are worth knowing. This page will not be rewritten from experience
 
 ## Where this sits
 
@@ -15,8 +16,8 @@ action — over an outbound-only connection, no public endpoint — well before 
 reached. That is also more realistic: most companies approve incidents through PagerDuty,
 Opsgenie, or ChatOps, not a bespoke mobile app.
 
-So this phase is pushed to last, and whether to build it at all is an open question, revisited
-only if it's picked up. The content below is kept because it's genuinely useful *if* that happens
+So this phase was pushed to last, and on 2026-11-15 it was retired: the app is not built, and the
+Slack app on a phone does the job ([ADR-0097](../adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)). The content below is kept because it's genuinely useful *if* that happens
 — OAuth/PKCE, Cognito, and push notifications are real concepts worth knowing regardless of which
 phase teaches them — but nothing elsewhere in the project is blocked on it.
 

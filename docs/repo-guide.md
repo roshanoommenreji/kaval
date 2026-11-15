@@ -24,8 +24,7 @@ Kaval/
 │   ├── services/            the Python programs (one per container)
 │   ├── migrations/          how the database gets its tables
 │   ├── inference/           how the AI model is served (settings in compose.yaml for now)
-│   ├── policy/              the rules for what the AI is allowed to do
-│   └── mobile/              the phone app
+│   └── policy/              the rules for what the AI is allowed to do
 │
 ├── WHERE IT RUNS ────────── the machines and how software gets onto them
 │   ├── infra/               Terraform: creates things in AWS
@@ -157,13 +156,12 @@ think.**
 
 Run `make migrate` to bring a database up to date.
 
-### `inference/`, `policy/`, `mobile/`
+### `inference/`, `policy/`
 
 | Path | What it will do | Status |
 |---|---|---|
 | `inference/` | Model-serving files, e.g. an Ollama `Modelfile` with a built-in system prompt. Not needed yet: the model's settings are in `compose.yaml` (context length, one model loaded at a time) and in each request (temperature 0, fixed seed), and keeping them in one place stops them drifting apart | Placeholder, Phase 2 if the agent needs a baked prompt |
 | `policy/` | The rules for every proposed action: `auto` (do it), `ask` (a human decides) or `never` (refused), in Rego, tested with `opa test policy/ -v`. `promotions.json` is the empty-by-default list that has to be explicitly populated (with an ADR citing evidence) before anything can reach `auto`. `README.md` explains the design; the agent side is built, the executor's second check is Phase 3 | Agent-side working (`KAV-42`, [ADR-0017](adr/0017-opa-policy-engine-and-earned-autonomy.md)) |
-| `mobile/` | The Android phone app (Expo / React Native): see incidents, read the AI's explanation, tap Approve or Deny | Placeholder, Phase 9 — deferred (ADR-0026); Slack ChatOps (`KAV-55`, Phase 4) is the real approval surface until/unless this is built |
 
 ---
 
@@ -195,7 +193,7 @@ Run `make migrate` to bring a database up to date.
 | `infra/modules/iam/` | The node's own AWS identity — SSM management, scoped ECR pulls, and (since `KAV-32`) scoped S3 access to the backup bucket. **Not** a per-service agent/executor AWS role: that split already exists at the Kubernetes RBAC layer (`KAV-47`); see [ADR-0024](adr/0024-prod-landing-network-ecr-iam-node.md) | Working, applied in AWS (`KAV-50`, Lab 19) |
 | `infra/modules/eks-lab/` | A real Amazon EKS cluster, created briefly to prove the same software runs there, then destroyed: the control plane, one node group, the add-ons, the cluster's identity endpoint and one role per pod that needs AWS (IRSA). `lbc-iam-policy.json` is AWS's published policy for the load balancer controller, unedited. (`KAV-101`, [ADR-0067](adr/0067-the-eks-lab-is-ephemeral-has-its-own-timer-and-is-proven-clean-by-a-label-sweep.md)) | Applied live in two sessions 2026-10-29/30 and destroyed clean (`KAV-102`, [Lab 66](labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md)) |
 | `infra/modules/lab-reaper/` | The EKS lab's self-destruct timer: a Lambda that scales the servers to zero at 4 hours and deletes the cluster and the load balancers the controller made at 6. `lambda/test_reaper.py` tests the decision. (`KAV-101`) | Written; proven live in `KAV-102` |
-| `infra/envs/prod/` | The production environment: the budget module (Phase 0), the network/ECR/IAM/node landing (`KAV-50`), Flux (`KAV-51`), and the database server + backups (`KAV-32`, live). The Cloudflare Tunnel is deferred with mobile (ADR-0026) | Working |
+| `infra/envs/prod/` | The production environment: the budget module (Phase 0), the network/ECR/IAM/node landing (`KAV-50`), Flux (`KAV-51`), and the database server + backups (`KAV-32`, live). There is no Cloudflare Tunnel and no public hostname: it was planned for a phone app that was retired (ADR-0097) | Working |
 | `infra/envs/prod/main.tf`, `variables.tf`, `outputs.tf` | What to create, its settings, and what it reports back | Working |
 | `infra/envs/prod/terraform.tfvars.example` | Template for your real values (`terraform.tfvars` itself is not in Git) | Working |
 | `infra/envs/prod/node.auto.tfvars` | Written by `make down`, removed by `make up`. Persists the app node's paused state (`app_node_desired_capacity = 0`) as a file Terraform auto-loads, instead of a one-off `-var` flag an unrelated `terraform apply` could forget to repeat (`KAV-32`, Lab 28). Not in Git — it's live operational state, not configuration. | Working |
@@ -301,8 +299,9 @@ Run `make migrate` to bring a database up to date.
 | `scripts/dev/test_node_heartbeat.py` · `test_still_alive_alarm.py` | The node's still-alive script run against stand-ins (every unclear case sends nothing; the freshness limit and the service match are mutation-checked), and the alarm's settings (the rule, the fills that lean toward ringing, 5 x 5 minutes, both e-mails, the one-namespace permission) (`KAV-83`, ADR-0053) | Working, tested |
 | `scripts/tracking/test_dashboard_labs.py` | Every lab appears on its phase's row of the dashboard by itself (the phase is read from the lab's own header), and "paused" is explained as a cost posture (`KAV-83`) | Working, tested |
 | `scripts/tracking/test_dashboard_future.py` | The dashboard's *Beyond v1* section: one card per `### FS-n` idea in `docs/future-scope.md`, its summary the first paragraph (whole sentences, the Jira paragraph skipped), its epic from the `Jira epic:` line, GitHub's anchor for the write-up link, and the progress numbers identical with or without it (`KAV-99`) | Working, tested |
+| `scripts/tracking/test_dashboard_retired.py` | A phase the roadmap marks `[-]` is retired: the dashboard says so instead of showing an empty bar, never picks it as the current phase, does not count it in \"phase N of M\", and its struck-through lines are not open work; the real roadmap must have Phase 9 retired and Phase 8 last (`KAV-149`, ADR-0097) | Working, tested |
 | `scripts/ops/chaos_node.py` · `test_chaos_node.py` | Game day: lose the app server. Laptop-run (the cluster cannot test its own death): ends staging's app machine through its auto-scaling group, times the replacement and checks no data was lost. Refuses anything not tagged staging; you type the machine id. Behind `make chaos-node` (`KAV-80`, ADR-0046) | Built; run live on staging |
-| `scripts/ops/approve.py` | Approve or deny one proposed action through the gateway's decision endpoint (`make approve`) — the Phase-3 stand-in for the mobile app's swipe-to-approve screen. A redirect is never followed, so the token never goes to another address (`KAV-124`, ADR-0075). Needs `KAVAL_APPROVER_TOKEN` in the environment (never an argument); `test_approve.py` checks it sends the token | Working (`KAV-47`, login `KAV-115`) |
+| `scripts/ops/approve.py` | Approve or deny one proposed action through the gateway's decision endpoint (`make approve`) — the stand-by for Slack's Approve and Deny buttons, first built in Phase 3 before Slack existed. A redirect is never followed, so the token never goes to another address (`KAV-124`, ADR-0075). Needs `KAVAL_APPROVER_TOKEN` in the environment (never an argument); `test_approve.py` checks it sends the token | Working (`KAV-47`, login `KAV-115`) |
 | `scripts/ops/backup.sh` | Nightly database dump to S3. Run by a systemd timer on the app node (`KAV-74`, [ADR-0038](adr/0038-nightly-dump-is-taken-by-the-app-node.md)); also runnable by hand before something risky. Checks the dump can be read back before uploading it | Proven locally against a real Postgres (Lab 40) and run once on the real node (2026-10-10: dump uploaded, `LATEST` moved); the timer firing on its own is unseen. The chart `CronJob` that was meant to run it stays disabled |
 | `scripts/ops/restore.sh` | Restores a backup into staging (made anonymous first) or, in an emergency, into production. Staging mode refuses the production host and, if the scrub fails, drops the unscrubbed copy ([ADR-0037](adr/0037-staging-seeding-from-the-production-dump.md)) | Hardened and run end to end on a local database against a real dump (`KAV-72`, Lab 39). The staging node runs it at boot on the cleaned copy (`RESTORE_PREFIX=seed`, `--no-privileges`, [ADR-0039](adr/0039-staging-is-filled-from-a-copy-cleaned-on-the-laptop.md), `KAV-73`, Lab 41); proven locally and live on staging 2026-10-10 |
 | `scripts/ops/anonymise.sql` | Strips personal and secret data from a copy before staging gets it. One transaction; its final check is that scrubbing again would change nothing ([ADR-0037](adr/0037-staging-seeding-from-the-production-dump.md)) | Rewritten against the real schema and tested in CI (`services/shared/tests/test_anonymise.py`, `KAV-72`, Lab 39) |

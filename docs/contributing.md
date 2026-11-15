@@ -42,7 +42,7 @@ If a change adds or bumps a Python dependency, run `make lock` and commit `uv.lo
 `pyproject.toml`. CI refuses a lock that doesn't match.
 
 The remote is [github.com/roshanoommenreji/kaval](https://github.com/roshanoommenreji/kaval). It
-has been **public since 2026-09-30** (pulled forward from Phase 9 on purpose; see that day's
+has been **public since 2026-09-30** (pulled forward from the publish phase, now Phase 8, on purpose; see that day's
 journal). Push after every merge; an unpushed commit exists only on one laptop.
 
 ### Pull requests, green checks, then merge (enforced since the repo went public)
@@ -164,14 +164,14 @@ version and lists the components inside it
 A story that changes what an operator sees or decides gets the label `uat` and a checklist of
 **UAT scenarios**, written before the work starts
 ([ADR-0012](adr/0012-user-acceptance-testing.md)). User-facing changes include API responses,
-proposals, notifications, mobile screens and the approve/deny flow. Infra, CI, docs and refactors
+proposals, notifications, the Slack card and the approve/deny flow. Infra, CI, docs and refactors
 don't need UAT.
 
 ```bash
 # at creation: scenarios go in their own section, and the uat label is added
-python scripts/tracking/jira-sync.py create --epic KAV-10 --points 3 --service mobile \
+python scripts/tracking/jira-sync.py create --epic KAV-14 --points 3 --service gateway \
     --summary "..." --context "..." --ac "developer-checked criterion" \
-    --uat "Given a crashlooping pod, when I open the Inbox, then I see the cause and Approve"
+    --uat "Given a crashlooping pod, when the Slack card arrives, then I see the cause and Approve"
 
 # once it's In Staging (the UAT environment), after trying it as the user:
 python scripts/tracking/jira-sync.py uat KAV-40 pass --env staging --note "what I checked"

@@ -1,6 +1,6 @@
 # ADR-0026: Slack ChatOps via Socket Mode; mobile app deferred to Phase 9
 
-**Status:** Accepted
+**Status:** Accepted. Decision 2 (the phone app is deferred, not cancelled) was superseded on 2026-11-15 by [ADR-0097](0097-phase-9-is-retired-slack-is-the-approval-surface.md): Phase 9 is retired and the app is not built. Decision 1 (Slack over Socket Mode) stands.
 **Date:** 2026-10-03
 **Related:** [ADR-0009](0009-gateway-api-conventions.md) (gateway auth, amended below),
 [ADR-0004](0004-environment-strategy-and-promotion.md) (build once, promote the artifact —

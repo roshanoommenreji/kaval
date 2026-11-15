@@ -50,7 +50,7 @@ In the console: **IAM → Users → Create user**.
 - Name: `kaval-dev`
 - **No console access** — this identity is for the CLI only
 - Attach `AdministratorAccess` **for now**, and note in the journal that it must be narrowed in
-  Phase 9. Starting least-privilege here means fighting permission errors during every lab; the
+  the hardening phase (Phase 8 since the renumbering of 2026-10-03). Starting least-privilege here means fighting permission errors during every lab; the
   honest approach is a broad policy now, a documented narrowing later, and no pretence in between.
 
 Then **Security credentials → Create access key → Command Line Interface**.

@@ -23,7 +23,7 @@ first client exists.
 | Errors | `404` for an unknown id, `400` for a malformed cursor, `422` for an out-of-range parameter. Body: `{"detail": "..."}` | FastAPI's own shape, so the app can handle every error one way. Never a `500` for bad input |
 | Response shape | Pydantic response models (`kaval_gateway/schemas.py`), kept separate from the ORM models | A new column in a table doesn't reach the API by accident, and the API can change without a migration |
 | Documentation | OpenAPI generated from the code: `/docs` (interactive) and `/openapi.json` | The contract can't drift from the implementation, and the Phase 5 app can generate its client types from it |
-| Authentication | **None in Phases 1–4.** The gateway binds to `127.0.0.1` on the server and is reached through an SSH tunnel | There is no client yet to authenticate. *(Amended by [ADR-0026](0026-slack-chatops-and-deferred-mobile.md), 2026-10-03: the gateway stays unreachable from outside entirely — Slack ChatOps, `KAV-55`, connects outbound to Slack instead. Cognito JWT verification is now only needed if the deferred mobile app, Phase 9, is ever built.)* |
+| Authentication | **None in Phases 1–4.** The gateway binds to `127.0.0.1` on the server and is reached through an SSH tunnel | There is no client yet to authenticate. *(Amended by [ADR-0026](0026-slack-chatops-and-deferred-mobile.md), 2026-10-03: the gateway stays unreachable from outside entirely — Slack ChatOps, `KAV-55`, connects outbound to Slack instead. Cognito JWT verification is now only needed if the deferred mobile app, Phase 9, is ever built. Amended 2026-11-15: Phase 9 is retired and no phone app is built, [ADR-0097](0097-phase-9-is-retired-slack-is-the-approval-surface.md).)* |
 
 ## Alternatives rejected
 

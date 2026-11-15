@@ -6,7 +6,7 @@ Guidance for Claude Code working in the Kaval repository.
 
 An autonomous operations agent with human-in-the-loop approval. It watches a Kubernetes cluster
 and an AWS bill, diagnoses issues with a self-hosted Gemma 3 1B, proposes remediations, and
-executes them only after a human approves from a mobile app.
+executes them only after a human approves in Slack.
 
 This is a **learning project built to be documented**. Roshan is a Release Manager moving toward
 an AI platform role. Two consequences that override normal defaults:
@@ -89,8 +89,6 @@ only. gitleaks runs pre-commit.
 
 **Python** (services) — 3.11, FastAPI, SQLAlchemy 2.x, Pydantic v2, `ruff` + `mypy`, `pytest`.
 Every LLM output is validated against a Pydantic schema before it touches the database.
-
-**TypeScript** (mobile) — Expo SDK, strict mode, no `any`.
 
 **Terraform** — modules in `infra/modules/`, environments in `infra/envs/`; the record of what exists is in a private versioned S3 bucket ([ADR-0058](docs/adr/0058-terraforms-record-lives-in-a-private-versioned-bucket.md); `scripts/ops/tf-init.sh <env>` connects, the bucket's name is never in git). Never `apply` without
 showing the plan first. Never `apply` to `prod` without being asked.
