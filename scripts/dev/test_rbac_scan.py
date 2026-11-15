@@ -41,7 +41,7 @@ TIGHT = [
 def test_a_tight_chart_has_no_findings() -> None:
     result = rbac_scan.review(TIGHT)
     assert not result.serious
-    assert result.unused_tokens == []
+    assert result.spare_mounts == []
     assert ("Deployment/agent", "default", "no", False) in result.workloads
 
 
@@ -62,12 +62,12 @@ def test_a_rule_that_reads_secrets_is_a_serious_finding() -> None:
         binding("peek", "executor"),
     ]
     result = rbac_scan.review(docs)
-    assert result.serious and len(result.secret_readers) == 1
+    assert result.serious and len(result.store_rules) == 1
 
 
 def test_a_token_mounted_for_an_account_with_no_role_is_reported_but_not_serious() -> None:
     result = rbac_scan.review([*TIGHT, workload("gateway")])
-    assert result.unused_tokens == [
+    assert result.spare_mounts == [
         "Deployment/gateway mounts the token of 'default', which is bound to no role"
     ]
     assert not result.serious

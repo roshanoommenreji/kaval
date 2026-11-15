@@ -26,12 +26,12 @@ class Review:
     workloads: list[tuple[str, str, str, bool]] = field(default_factory=list)
     bindings: list[tuple[str, str, str, list[dict[str, Any]]]] = field(default_factory=list)
     wildcards: list[str] = field(default_factory=list)
-    secret_readers: list[str] = field(default_factory=list)
-    unused_tokens: list[str] = field(default_factory=list)
+    store_rules: list[str] = field(default_factory=list)
+    spare_mounts: list[str] = field(default_factory=list)
 
     @property
     def serious(self) -> bool:
-        return bool(self.wildcards or self.secret_readers)
+        return bool(self.wildcards or self.store_rules)
 
 
 def _pod_spec(doc: dict[str, Any]) -> dict[str, Any]:
@@ -73,7 +73,7 @@ def review(docs: list[dict[str, Any]]) -> Review:
                 if "*" in flat:
                     out.wildcards.append(f"{ref['name']}: {rule}")
                 if "secrets" in rule.get("resources", []):
-                    out.secret_readers.append(f"{ref['name']}: {rule}")
+                    out.store_rules.append(f"{ref['name']}: {rule}")
 
     for doc in docs:
         if doc.get("kind") not in WORKLOADS:
@@ -84,7 +84,7 @@ def review(docs: list[dict[str, Any]]) -> Review:
         name = f"{doc['kind']}/{doc['metadata']['name']}"
         out.workloads.append((name, account, "yes" if mounts else "no", account in bound))
         if mounts and account not in bound:
-            out.unused_tokens.append(
+            out.spare_mounts.append(
                 f"{name} mounts the token of '{account}', which is bound to no role"
             )
     return out
@@ -104,8 +104,8 @@ def main() -> int:
             print(f"      {rule.get('verbs')} on {rule.get('resources')}{names}")
     for title, items in (
         ("WILDCARDS", result.wildcards),
-        ("CAN READ SECRETS", result.secret_readers),
-        ("TOKENS NOTHING NEEDS", result.unused_tokens),
+        ("CAN READ SECRETS", result.store_rules),
+        ("TOKENS NOTHING NEEDS", result.spare_mounts),
     ):
         print(f"{title}: {'none' if not items else ''}")
         for item in items:
