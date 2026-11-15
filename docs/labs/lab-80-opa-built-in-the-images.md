@@ -16,7 +16,7 @@ Read stage 1b in `services/agent/Dockerfile` (the executor's is identical, and `
 
 | Pin | Where | What stops it being wrong |
 |---|---|---|
-| The Go toolchain | the digest on the stage's `FROM` line (`golang:1.27.3-trixie@sha256:af1bfc26...`, the image OPA's own Makefile names for its releases) | the digest is content-addressed; Dependabot proposes patch and digest bumps and ignores `golang` minor and major (`.github/dependabot.yml`) |
+| The Go toolchain | the digest on the stage's `FROM` line (`golang:1.27.4-trixie@sha256:b54b2639...`, the image OPA's own Makefile names for its releases) | the digest is content-addressed; Dependabot proposes patch and digest bumps and ignores `golang` minor and major (`.github/dependabot.yml`) |
 | The source | `OPA_COMMIT` (40 hex characters) and `OPA_VERSION` | `git fetch` by commit, then the stage checks `git rev-parse HEAD` equals it, then tags the checkout `v$OPA_VERSION` (without the tag Go stamps a made-up version and scanners report OPA itself as old, Lab 79 "A trap") |
 | The fixes | `OPA_GO_GET`, a list of `module@version` raised above the versions in OPA's own `go.mod` | Go's checksum database verifies every library; the second step looks each one up in the finished program with `go version -m` and stops if it is missing |
 | The result | `OPA_SHA256_ARM64`, declared after the compile and checked in its **own** step | builds are byte-for-byte reproducible, so a changed value means an input changed; the failing build prints the new value; changing the expected value never recompiles |
@@ -80,7 +80,7 @@ Version: 1.21.4
 Build Commit: 05c845177c80747a2aabb607f9318f981993cc76-dirty
 Build Timestamp: 2026-10-23T13:00:56Z
 Build Hostname:
-Go Version: go1.27.3
+Go Version: go1.27.4
 Platform: linux/arm64
 Rego Version: v1
 WebAssembly: available
@@ -88,7 +88,7 @@ WebAssembly: available
 
 (`-dirty` is there because `go get` edited `go.mod`; OPA's own release says the same. `Build Hostname` is empty in both for the reason in Part 2.)
 
-The last command prints `f6850f6c...228ba3`, the Dockerfile's value. CI does not trust the eye: the step "agent and executor images carry a working opa" in `.github/workflows/ci.yml` reads `OPA_VERSION`, `OPA_COMMIT` and the Go version **from the Dockerfile** and fails unless `opa version` reports that version, a `Build Commit` starting with that commit, `Go Version: go1.27.3` and `WebAssembly: available`. The step's own text was run here against both images (`ALL IMAGE CHECKS PASSED` for `agent` and for `executor`), then `scripts/dev/test_opa_build_pins.py` was shown able to fail: 13 deliberate breakages (a different commit in one Dockerfile, a zero checksum, a floating `@latest` override, a Go image without its digest, the commit check or the version tag or the arm64 guard deleted, the checksum compared in the compile step, the runtime copy moved, the runner's `OPA_VERSION` changed alone, the Go assertion removed from `ci.yml`, the Dependabot rule removed), each made on a scratch copy of the files, were each caught by the test that is meant to catch them, and the unbroken control passed.
+The last command prints `e96a03f6...563f0c1`, the Dockerfile's value. CI does not trust the eye: the step "agent and executor images carry a working opa" in `.github/workflows/ci.yml` reads `OPA_VERSION`, `OPA_COMMIT` and the Go version **from the Dockerfile** and fails unless `opa version` reports that version, a `Build Commit` starting with that commit, `Go Version: go1.27.4` and `WebAssembly: available`. The step's own text was run here against both images (`ALL IMAGE CHECKS PASSED` for `agent` and for `executor`), then `scripts/dev/test_opa_build_pins.py` was shown able to fail: 13 deliberate breakages (a different commit in one Dockerfile, a zero checksum, a floating `@latest` override, a Go image without its digest, the commit check or the version tag or the arm64 guard deleted, the checksum compared in the compile step, the runtime copy moved, the runner's `OPA_VERSION` changed alone, the Go assertion removed from `ci.yml`, the Dependabot rule removed), each made on a scratch copy of the files, were each caught by the test that is meant to catch them, and the unbroken control passed.
 
 ## Part 5 — The scanner, with no exception
 
@@ -144,7 +144,7 @@ A stricter run of the same idea (a script that is not in the repository: it puts
 
 ## Part 7 — The four routine changes
 
-1. **Dependabot proposes a newer Go patch or digest** (a pull request that edits the `FROM golang:...@sha256:...` line in both Dockerfiles). The image jobs fail with `opa checksum differs: expected <old>, built <new>` for a new Go *version*: read the change (a new Go patch is the point of this design), copy `<new>` into `OPA_SHA256_ARM64` in **both** Dockerfiles in the same pull request, and CI goes green. A new *digest* of the same Go version should give the same file; if the build prints a different value, find out why before copying it.
+1. **Dependabot proposes a newer Go patch or digest** (a pull request that edits the `FROM golang:...@sha256:...` line in both Dockerfiles). The image jobs fail with `opa checksum differs: expected <old>, built <new>` for a new Go *version*: read the change (a new Go patch is the point of this design), copy `<new>` into `OPA_SHA256_ARM64` in **both** Dockerfiles in the same pull request, and CI goes green. **Done once, 2026-11-15 (#421, Go 1.27.3 to 1.27.4, a security release):** the checksum went from `f6850f6c...228ba3` to `e96a03f6...563f0c1`; the agent's and the executor's builds, on two separate runners, printed the same new value. A new *digest* of the same Go version should give the same file; if the build prints a different value, find out why before copying it.
 2. **OPA publishes a release you want.** Check the commit three ways (Lab 79 Part 2), then change `OPA_VERSION` and `OPA_COMMIT` in both Dockerfiles, run Part 2 for the new checksum, put it in both, and change `OPA_VERSION` and `OPA_SHA256` (the amd64 file on OPA's release page, used for `opa test`) in `ci.yml`. The tests in `scripts/dev/test_opa_build_pins.py` fail until all three places agree. Re-run Parts 5 and 6, and OPA's own tests if the override list changed (Lab 79 Part 4.4).
 3. **The scanner flags a library inside OPA.** Add `module@version` (the fixed version) to `OPA_GO_GET`, with a comment naming the finding, the date and what ends it. The second step then fails if it did not land. This replaces an entry in `.github/trivy-ignore.yaml`: a finding in the Go standard library is answered by a newer Go image; a finding in a library by a line here. Only a finding with *no* fix anywhere is a case for an exception, under the rules in ADR-0033.
 4. **OPA catches up.** When OPA's own `go.mod` at the pinned tag already has the fixed version (`git show <tag>:go.mod`), delete that entry from `OPA_GO_GET`. An empty list is allowed.

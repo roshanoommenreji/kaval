@@ -68,7 +68,7 @@ RUN set -eu; \
     go get ${OPA_GO_GET}; \
     GOARCH="${TARGETARCH}" go build -trimpath -tags=opa_wasm -o /opa .; \
     go clean -cache -modcache
-ARG OPA_SHA256_ARM64=f6850f6c6b1335f62918bdb281f627a1b029ae16ecf8811e2ccefa174c228ba3
+ARG OPA_SHA256_ARM64=e96a03f60e1031cad19b6bf937c6fb410f9a2637a67fdc229661a3612563f0c1
 RUN set -eu; \
     for spec in ${OPA_GO_GET}; do \
       mod="${spec%@*}"; ver="${spec#*@}"; \
