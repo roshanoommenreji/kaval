@@ -122,7 +122,7 @@ somewhere to go. It costs nothing until an image is stored in it.
 | Pull-based GitOps, CI has no cluster credentials | Yes (Flux, already live) |
 | Immutable tags, scan before publish, actions pinned to a commit SHA | Yes |
 | Separate AWS accounts per environment | No. One account, separated by names and tags. Splitting is real work and the budget guards are per account. |
-| Human approval before production | Not yet. The repo is public, so GitHub Environments with required reviewers are available; the ROADMAP line to switch `promote.yml` to them remains. |
+| Human approval before production | Not yet. The repo is public, so GitHub Environments with required reviewers are available; the ROADMAP line to switch `promote.yml` to them moved to future scope on 2026-11-15 (FS-14, [ADR-0099](0099-roadmap-clean-up-what-v1-still-needs.md)): the owner's merge of the promotion pull request is the approval. |
 | Signed images and attestations, cluster refuses unsigned | Not yet. A later hardening step. |
 | A GitHub App for bot pull requests | Not yet (see the alternatives above). |
 

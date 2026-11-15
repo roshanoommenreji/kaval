@@ -92,3 +92,13 @@ def test_the_real_roadmap_has_phase_2_closed_so_it_is_not_the_current_phase() ->
     two = next(p for p in real if p.num == 2)
     assert two.marker == "x" and two.done == two.total
     assert dashboard.current_phase(real).num != 2
+
+
+def test_the_real_roadmap_has_phase_4_closed_and_phases_6_and_8_started() -> None:
+    """The clean-up of 2026-11-15 (KAV-153, ADR-0099): Phase 4's lines were all finished, Phase 6
+    had passed its exit gate and Phase 8 was most of the way through, yet they read "in progress",
+    "not started" and "not started"."""
+    real = {p.num: p for p in dashboard.read_roadmap(dashboard.ROOT / "ROADMAP.md")}
+    assert real[4].marker == "x" and real[4].done == real[4].total
+    assert real[6].marker == "~" and real[8].marker == "~"
+    assert dashboard.current_phase(list(real.values())).num not in (2, 4)
