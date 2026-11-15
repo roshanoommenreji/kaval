@@ -64,20 +64,20 @@ spec:
       slackSecretName: kaval-slack
       approverSecretName: kaval-approver
       image:
-        tag: sha-d1058eb
+        tag: sha-9798b23
     agent:
       correlateEverySeconds: 60
       image:
-        tag: sha-d1058eb
+        tag: sha-9798b23
     executor:
       demoNamespace: kaval-demo-prod
       executeEverySeconds: 30
       image:
-        tag: sha-d1058eb
+        tag: sha-9798b23
     collector:
       watchEverySeconds: 30
       image:
-        tag: sha-d1058eb
+        tag: sha-9798b23
     # The cluster's image checker (KAV-143) - hand-kept copy of deploy/environments/prod/values.yaml.
     imageChecker:
       enabled: true
