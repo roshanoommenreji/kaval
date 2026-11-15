@@ -72,7 +72,7 @@ from GitHub's store) and "does NOT carry valid signatures", exit 1.
 1. **Refusal now (read-only, opens nothing):** dispatch with `tag=sha-791c44d`. It is on the passed-staging record and older than prod, so the gate gets as far as the signature checks. Expect the **verify** step to fail and its report to show
    three `FAIL` signature lines (alongside the "newer than prod" refusal), and no pull request. Confirm the log shows `***` and not the account number (`gh run view <id> --log | grep -c <the number>` must print 0; type the number into
    the shell yourself, do not save it).
-2. **Pass, at the first real promotion of a signed release:** the next release is signed, so after a release round and a staging smoke pass its promotion's verify step must show three `PASS` signature lines, and the pull request
+2. **Pass, at the first real promotion of a signed release (done 2026-11-15, result below):** the next release is signed, so after a release round and a staging smoke pass its promotion's verify step must show three `PASS` signature lines, and the pull request
    body (which quotes the report) must contain no account number. That promotion is also the test that the registry login, the pinned cosign and `gh attestation verify` all work on the real runner.
 
 Result of 1 (refusal), 2026-11-13 10:37 IST, run 43369948100 on `main` (7e09805): the gate job failed at the **verify** step and the `propose` job was skipped, so no branch and no pull request were made. The steps before it
@@ -80,7 +80,7 @@ Result of 1 (refusal), 2026-11-13 10:37 IST, run 43369948100 on `main` (7e09805)
 and on all three signature checks for all four images: cosign said "no signatures found" and `gh attestation verify` got "HTTP 404" from GitHub's store. The record and ECR-digest checks passed. The log held the account number **0** times; the
 registry address printed as `***`.
 
-Result of 2 (pass): _to be filled in at the next signed release's real promotion._
+Result of 2 (pass), 2026-11-15 22:05 IST, run 43736183283 on `main`, `tag=sha-9798b23` (Kaval v0.4.3, the first signed release to be promoted; his typed go): both jobs succeeded and the pull request #430 was opened. The verify report showed `PASS` on the record, "newer than what prod runs", "tagged release", the ECR digests, and all three signature checks (valid signature, signed build record, signed parts list: "all four verified" each), and on the uat sign-off (16 stories, none with uat). So the registry login, the pinned cosign and `gh attestation verify` all work on the real runner. The pull request body held no account number (0 matches), and neither did the run log (0 standalone 12-digit numbers; the digit runs that match inside action hashes are not account numbers).
 
 ## What to take away
 
