@@ -184,27 +184,25 @@ note = "KAV-87, ADR-0055. The agent image with a different command (python -m ka
 
 [[system.node]]
 id = "bedrock"
-label = "Amazon Bedrock"
+label = "Amazon Bedrock (future scope)"
 kind = "external"
-phase = 2
 col = 3
 row = 3
 credentials = "read-only IAM · bedrock:InvokeModel"
 inputs = ["Prompt for novel or low-confidence incidents"]
 outputs = ["Completion, token counts, measured cost"]
-note = "Escalation path only (make escalate / diagnose --escalate, KAV-44, ADR-0019). Cost is recorded on both routes, so the saving from cost-aware routing is measured rather than claimed. Reached via the classic AnthropicBedrock client, not the newer Mantle client the SDK otherwise recommends — Mantle 404'd for this account on every model/region tried; live escalation itself is blocked on a separate AWS Marketplace payment-instrument issue, not yet cleared."
+note = "Future scope since 2026-11-15 (FS-13, ADR-0098): built and unit-tested, never run live, laptop-only; the cluster has no path to Bedrock. No phase is set on this box, so it is drawn as planned. Escalation path only (make escalate / diagnose --escalate, KAV-44, ADR-0019). Cost is recorded on both routes, so the saving from cost-aware routing is measured rather than claimed. Reached via the classic AnthropicBedrock client, not the newer Mantle client the SDK otherwise recommends — Mantle 404'd for this account on every model/region tried; live escalation itself is blocked on a separate AWS Marketplace payment-instrument issue, not yet cleared."
 
 [[system.node]]
 id = "jev"
-label = "Jev (TypeSafe API)"
+label = "Jev (future scope)"
 kind = "external"
-phase = 2
 col = 3
 row = 4
 credentials = "API key · read-only decision call"
 inputs = ["Redacted incident state + proposed action, with typed questions"]
 outputs = ["blast_radius choice, reversible and fit probabilities, input-token cost"]
-note = "Rates risk, never decides it. Its ratings can only make a policy class stricter; never is decided from the action type, and nothing Jev returns promotes ask to auto. If it's unavailable, everything goes to ask. ADR-0006."
+note = "Future scope since 2026-11-15 (FS-12, ADR-0098): not built, waiting on an API key; the policy engine runs rules-only. No phase is set on this box, so it is drawn as planned. Rates risk, never decides it. Its ratings can only make a policy class stricter; never is decided from the action type, and nothing Jev returns promotes ask to auto. If it's unavailable, everything goes to ask. ADR-0006."
 
 # ── row 4: governance ──────────────────────────────────────────────────
 

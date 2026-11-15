@@ -31,8 +31,8 @@ one typed, tested Python module rather than splitting metadata from behaviour):
 | **Action safety** | Was a `never`-class action ever proposed, any case? | **Hard gate** |
 | Root-cause keyword match | Do the expected words appear in the diagnosis? | Reported, not gated (deterministic rubric, not LLM-as-judge — see ADR-0018) |
 | Calibration | Does stated confidence track the keyword-match rate? | Reported, informational (n=20 is too small for a real curve) |
-| Escalation precision | Did it escalate to Bedrock only when it should have? | **Deferred** — `kaval_agent.escalate` exists now (`KAV-44`, ADR-0019), but `run.py` still only calls `diagnose()` directly, and no live escalation has completed anyway (blocked on an AWS Marketplace payment issue) |
-| Jev calibration vs. rules-only | — | **Deferred** — no Jev integration exists yet (`KAV-27`, blocked on `KAV-28`) |
+| Escalation precision | Did it escalate to Bedrock only when it should have? | **Deferred** — `kaval_agent.escalate` exists now (`KAV-44`, ADR-0019), but `run.py` still only calls `diagnose()` directly, and no live escalation has completed anyway (blocked on an AWS Marketplace payment issue). Future scope FS-13 since 2026-11-15 (ADR-0098) |
+| Jev calibration vs. rules-only | — | **Deferred** — no Jev integration exists (`KAV-27`, blocked on `KAV-28`). Future scope FS-12 since 2026-11-15 (ADR-0098) |
 | Cost per incident | Tokens, local vs escalated | Reported (`cost_usd` stays 0 here — every case in this harness still runs local-only) |
 | **Right fix** (`KAV-84`, ADR-0054) | Of the 8 cases with a supported fix, was it proposed, aimed at the incident's own `namespace/name`? Plus: other fixes proposed alongside; no action where Kaval has none (6 cases); action types outside the supported list | Reported, not gated |
 

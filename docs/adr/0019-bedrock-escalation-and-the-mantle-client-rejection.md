@@ -1,7 +1,8 @@
 # ADR-0019 — Bedrock escalation, and why the Mantle client isn't used
 
 - **Status:** Accepted — built, unit-tested, blocked on a confirmed AISPL/Marketplace billing
-  restriction (root cause found 2026-10-01, see Update below)
+  restriction (root cause found 2026-10-01, see Update below). The live proof was parked in future
+  scope as FS-13 on 2026-11-15 ([ADR-0098](0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)); the code and its tests stay
 - **Date:** 2026-09-30
 - **Deciders:** Roshan
 

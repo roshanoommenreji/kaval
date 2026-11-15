@@ -83,3 +83,12 @@ def test_the_real_roadmap_marks_phase_9_retired_and_phase_8_is_the_last_live_one
     nine = next(p for p in real if p.num == 9)
     assert nine.state == "retired" and nine.total == 0
     assert dashboard.live_phases(real)[-1].num == 8
+
+
+def test_the_real_roadmap_has_phase_2_closed_so_it_is_not_the_current_phase() -> None:
+    """Phase 2's two blocked lines moved to future scope (KAV-151, ADR-0098), so the board stops
+    saying the current phase is 2."""
+    real = dashboard.read_roadmap(dashboard.ROOT / "ROADMAP.md")
+    two = next(p for p in real if p.num == 2)
+    assert two.marker == "x" and two.done == two.total
+    assert dashboard.current_phase(real).num != 2

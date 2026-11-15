@@ -69,8 +69,8 @@ indefinitely and resumes without loss.
 | ECR storage, five repos (`KAV-50`, `KAV-61`, `KAV-68`). Measured 2026-10-08: 878 MB across two image sets, about $0.09 at $0.10/GB; each release adds roughly 0.45 GB. Since `KAV-68` ([ADR-0036](../adr/0036-ecr-keeps-the-newest-fifteen-tagged-images.md)) ECR keeps only the newest 15 tagged `sha-*` images per repository, so storage is capped at about 15 × 0.48 GB = 7 GB, **about $0.71/month at the very most** (less in practice, since images in one repository share layers). This row budgets the cap | 0.70 |
 | S3 backups | 0.05 |
 | CloudWatch logs (trimmed) | 0.50 |
-| Bedrock escalations (light use) — Claude Haiku 4.5, cross-region tier, verified 2026-09-30 against the AWS Price List API at $1.00 / $5.00 per 1M input/output tokens ([ADR-0019](../adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md)); occasional escalations at that rate land well under this figure | 1.50 |
-| Jev risk rating — TypeSafe API, ~12M input tokens ([ADR-0006](../adr/0006-jev-as-proposal-risk-rater.md)) | 0.50 |
+| Bedrock escalations (light use) — Claude Haiku 4.5, cross-region tier, verified 2026-09-30 against the AWS Price List API at $1.00 / $5.00 per 1M input/output tokens ([ADR-0019](../adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md)); occasional escalations at that rate land well under this figure. **Parked, $0 spent so far:** no live call has ever run (future scope FS-13, [ADR-0098](../adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)) | 1.50 |
+| Jev risk rating — TypeSafe API, ~12M input tokens ([ADR-0006](../adr/0006-jev-as-proposal-risk-rater.md)). **Parked, $0:** not built (future scope FS-12, [ADR-0098](../adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)) | 0.50 |
 | Data transfer | 1.00 |
 | **App node subtotal** (every row above) | **~$26.10** |
 | Database server `t4g.small` on-demand, 730 hrs ($0.0112/hr) | 8.18 |
@@ -78,7 +78,7 @@ indefinitely and resumes without loss.
 | Database data volume, 20 GB gp3 ($0.0912/GB-month) | 1.82 |
 | Database server public IPv4 ($0.005/hr) | 3.65 |
 | Database EBS snapshots, daily, keep 7 (incremental; price to verify in Phase 4) | ~0.30 |
-| **Total, worst case** (Bedrock, Jev and transfer at their light-use ceilings; ~$38–39 expected) | **~$40.75** |
+| **Total, worst case** (Bedrock, Jev and transfer at their light-use ceilings; ~$38–39 expected; about $38.75 while Bedrock and Jev are parked, which is since the start) | **~$40.75** |
 
 **Corrected 2026-10-08.** This table used to read "app node subtotal ~$13" and "total ~$27". Those
 figures counted only compute, disk and IPv4 for the app node: the ECR, S3, logs, Bedrock, Jev and
@@ -352,8 +352,7 @@ items and, since ADR-0028, $8.55 of On-Demand). Most months are paused and cost 
 | GitHub Actions CI (`KAV-24`) and `release.yml` (`KAV-61`) — GitHub-hosted runners, including the arm64 ones, are free for a public repo. It was measured when the repo was private (a run billed 6 minutes of a 2,000 minute allowance); that cap no longer applies, and the figure is kept as a record of the cost of a run | $0 |
 | Slack (ChatOps, free tier) | $0 |
 | Gemma weights | $0 |
-| TypeSafe Jev API — waitlist, no free tier, billed on input only | ~$0.50/mo from Phase 2 — **outside the AWS credit and outside the Lambda hard stop**; set a spend cap in the TypeSafe console |
-| Apple Developer | $99/yr — **not applicable**, Android only |
+| TypeSafe Jev API — waitlist, no free tier, billed on input only | $0 today, parked (FS-12, ADR-0098); ~$0.50/mo if ever built — **outside the AWS credit and outside the Lambda hard stop**; set a spend cap in the TypeSafe console |
 
 ---
 
