@@ -140,9 +140,9 @@ def main() -> int:
         p["PolicyName"] for p in iam.list_attached_user_policies(UserName=user)["AttachedPolicies"]
     ]
     inline_user = iam.list_user_policies(UserName=user)["PolicyNames"]
-    mfa = "yes" if iam.list_mfa_devices(UserName=user)["MFADevices"] else "none"
+    has_second_factor = bool(iam.list_mfa_devices(UserName=user)["MFADevices"])
     print(f"  attached policies: {policies}   inline: {inline_user}")
-    print(f"  second factor on the user: {mfa}")
+    print("  second factor on the user:", "yes" if has_second_factor else "none")
     print(
         json.dumps({"roles_without_boundary": [r["name"] for r in reviewed if not r["boundary"]]})
     )
