@@ -149,7 +149,8 @@ Lab numbers are in brackets. A part is a season; an episode is one bullet.
 
 - **Episode scripts** (`episode-scripts/` is empty). Not planned for v1.
 - **The closing episode:** the retrospective from Jira and the journal (`KAV-158`).
-- **The demo video** (`KAV-157`) is the trailer for all of this.
+- **A demo video** would be the trailer for all of this. Its script is written (`KAV-157`); the
+  recording is parked in future scope (FS-2).
 
 ---
 

@@ -1,8 +1,9 @@
 # Demo script: five minutes, "here is the problem, here is the thing working"
 
 For the Phase 8 demo video (`KAV-157`). This page is the script, the shot list and the checklist for
-recording it. **The video itself is not recorded yet**; when it is, the link goes at the bottom and
-the roadmap line is ticked.
+recording it. **The video is not recorded, on purpose:** on 2026-11-16 the recording moved to
+[future scope, FS-2](../future-scope.md#fs-2--demo-craft) and out of v1's exit gate. The script
+stays ready for the day it is wanted.
 
 Write-up rule: say only what the repository can back up. Each claim below names the page that
 records it, so a viewer who pauses on it can check it.
@@ -66,6 +67,7 @@ The repository is public and so will the video be.
 ## After recording
 
 Upload it somewhere that lets you edit the description later, put the link here and in the
-README's top, tick `KAV-157`'s video line and the roadmap line, and run `make docs-sync`.
+README's top, update FS-2 in `docs/future-scope.md` and the struck-through line in the roadmap,
+and run `make docs-sync`.
 
-**Recorded video:** *(not recorded yet)*
+**Recorded video:** *(not recorded; parked in future scope, FS-2)*

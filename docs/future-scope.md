@@ -69,6 +69,8 @@ A 5-minute "here is the problem, here is the thing working" walkthrough, recorde
 iterated. FDEs live or die on this. Overlaps with the Phase 8 demo video but is a distinct
 skill — practice it as its own thing, against a stopwatch, more than once.
 
+**Where it stands (2026-11-16).** The Phase 8 video was moved here on purpose, so v1 closes without it. What exists: a five-minute script, a shot list and a recording checklist ([demo/demo-script.md](demo/demo-script.md), `KAV-157`). What recording needs: two live sessions, each started only on the owner's own go. Staging (about 5 cents an hour) shows the fault and the typed approval; production (about 4.5 cents an hour) shows the real Slack card, because only production is connected to Slack. Then two rehearsals against a stopwatch. No Jira story: none is planned. **Trigger:** when an application or a portfolio page needs a video, or when a staging and a production session are going to happen anyway.
+
 ### FS-3 — Stack breadth spike
 
 One small service in a third language (Go for the executor, or a Rust signal parser) to

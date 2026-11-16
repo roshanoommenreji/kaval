@@ -92,4 +92,4 @@ Add them when their write-up lands:
 
 - The first real approval and denial pressed in Slack on production (2026-11-16). The production
   session's write-up (`KAV-147`) records it.
-- The demo video, once recorded ([the script](demo-script.md)).
+- A demo video, if one is ever recorded: parked in [future scope, FS-2](../future-scope.md#fs-2--demo-craft); [the script](demo-script.md) is ready.

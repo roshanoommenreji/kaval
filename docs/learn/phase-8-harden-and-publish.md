@@ -17,7 +17,7 @@ describe things that actually happened.
 - A security pass — image scanning, signing, RBAC audit, narrowing that `AdministratorAccess`
 - `gitleaks` over the **entire history**, not just the working tree
 - Architecture diagrams and a README written for a stranger
-- A demo video
+- A demo video (the script is written; the recording moved to future scope, FS-2)
 - Repo public
 - Resume bullets, written from what shipped
 

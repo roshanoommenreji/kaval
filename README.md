@@ -109,9 +109,10 @@ Said plainly, because a project like this is easy to oversell.
   buttons ([ADR-0097](docs/adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)).
 - **It does not yet act automatically on anything.** Every action class is `ask`. Promoting one to
   `auto` needs evidence that does not exist yet.
-- **Not yet finished:** the v1 close-out (this README, a demo video, a retrospective, an access
+- **Not yet finished:** the v1 close-out (a retrospective, an access
   review and a rehearsed key rotation) is listed in [ROADMAP.md](ROADMAP.md) and
-  [ADR-0099](docs/adr/0099-roadmap-clean-up-what-v1-still-needs.md).
+  [ADR-0099](docs/adr/0099-roadmap-clean-up-what-v1-still-needs.md). A demo video is parked in
+  [future scope](docs/future-scope.md#fs-2--demo-craft).
 
 ---
 
