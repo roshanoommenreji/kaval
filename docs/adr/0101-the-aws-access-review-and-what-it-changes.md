@@ -1,6 +1,6 @@
 # ADR-0101: The AWS access review, and what it changes
 
-**Status:** Proposed on 2026-11-16, waiting for the owner. The review itself (read-only) is done and is not in question; what is proposed is which findings get a change, and which are accepted. Nothing in AWS was changed.
+**Status:** Accepted on 2026-11-16 (Roshan: "as recommended"; the five points below, as written). The review itself was read-only. Nothing in AWS was changed by this decision; each change is its own story and needs its own typed go.
 **Deciders:** Roshan
 **Related:** [ADR-0063](0063-waste-is-removed-in-steps-by-a-separate-worker-and-only-with-approval.md) (the remover and its allow-list), [ADR-0100](0100-secrets-are-changed-yearly-and-the-laptop-key-every-90-days.md) (the laptop key), [access-review.md](../architecture/access-review.md) (the evidence), [Lab 101](../labs/lab-101-the-aws-half-of-the-access-review.md)
 **Story:** `KAV-154`; the changes are `KAV-160` and `KAV-161`
@@ -21,7 +21,7 @@ Phase 6 promised a permission boundary on the role that removes waste. The role 
 2. **A permission boundary on every role a team creates.** The textbook answer to "stop a role being made wider than it should be". It is built for companies where many people can create roles. Here one person's Terraform creates them all.
 3. **Boundaries (or service control policies) only where a mistake would hurt,** plus a scan that is easy to run again. What a small team with one account does in practice.
 
-## Decision (proposed)
+## Decision
 
 1. **Switch on IAM Access Analyzer** (external access, the whole account), in the `state` folder next to the bucket that holds Terraform's record, not inside an environment that gets destroyed. Free. Then read its findings and record them. `KAV-160`.
 2. **Limit the budget brake to Kaval's own auto-scaling groups** (by their `Project` label). The brake's own proof (it fires, it stops staging's group) is repeated on staging. `KAV-161`.
