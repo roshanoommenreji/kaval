@@ -646,6 +646,28 @@ promotion gate is one person's merge, with the checks in `promote.yml` in front 
 
 ---
 
+### FS-15 — A laptop login that expires and needs a second factor
+
+**Found by:** the AWS half of the access review (2026-11-16, `KAV-154`, finding A-4,
+[access-review.md](architecture/access-review.md)). The key on the owner's laptop is an administrator's,
+one long-lived key, with no second factor on the user. It is changed every 90 days
+([ADR-0100](adr/0100-secrets-are-changed-yearly-and-the-laptop-key-every-90-days.md)), and that was
+judged enough for v1.
+
+**What real companies do.** (a) A long-lived key per person, changed on a schedule (Kaval today);
+(b) a short-lived login from a single sign-on service (AWS IAM Identity Center): the laptop holds
+nothing that works for more than a few hours, and signing in needs a second factor; (c) one fixed key
+that can only *assume* an administrator role, and only with a second factor. Large teams use (b).
+
+**What it would take.** Switching on IAM Identity Center for one person (free), making a permission
+set, changing the Terraform provider settings and the profile the scripts use (`kaval`), and testing
+every `make` target that talks to AWS. The risk is lock-out: do it while the old key still works.
+
+**Trigger:** a second person who needs AWS, or the 2027-02 key change if the owner would rather do
+this than change the key again.
+
+---
+
 ## Verdict
 
 For a **pure FDE role**: Kaval covers the technical foundation; FS-1, FS-2, and FS-4 are

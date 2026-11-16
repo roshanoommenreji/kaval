@@ -4,7 +4,7 @@ Working title: **An AI Ops Agent You Can Trust, on a Hobby Budget**
 
 This file is a record, not a script. Every lab in `docs/labs/` is a candidate episode and every
 ADR is a candidate "why" segment. It was first written before the work (2026-08) and brought up
-to date with all 101 labs (Lab 00 to Lab 100) on 2026-11-15 (`KAV-158`). What changed against the
+to date with all 101 labs (Lab 00 to Lab 100) on 2026-11-15 (`KAV-158`); Lab 101 was added on 2026-11-16. What changed against the
 first version is listed at the end, because the differences are part of the story.
 
 ---
@@ -138,10 +138,11 @@ Lab numbers are in brackets. A part is a season; an episode is one bullet.
 - The alarm's blind spot after a restart [98]
 - The exception list that never worked, and two "passes" that were not passes [99]
 
-### Part 11 — Who is allowed to do what (Lab 100, more to come)
+### Part 11 — Who is allowed to do what (Labs 100 and 101, more to come)
 
 - The cluster half of an access review, from the chart [100]
-- The AWS half, the rotation schedule and the ownership page (`KAV-154`, `KAV-155`)
+- The AWS half: every role, what AWS cannot narrow, the missing analyzer, the brake that was too wide, and why a boundary goes on two roles and not thirteen [101]
+- The rotation schedule and the ownership page (`KAV-155`)
 
 ---
 
