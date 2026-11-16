@@ -51,7 +51,7 @@ are never edited by hand. If they disagree with the repo, the repo is right.
 
 | File | What it is | Status |
 |---|---|---|
-| `README.md` | The front page: what Kaval is, current status, quick start, and a short map | Working |
+| `README.md` | The front page for a visitor: what Kaval is, the design in three sentences, what has been shown to work (each line linked to its record), what it does not do, status, a reading guide, quick start, and a short map | Working |
 | `ROADMAP.md` | All 10 phases as checklists. **The only place progress is recorded.** The dashboard, Jira mirror and architecture diagrams all read their status from here | Working |
 | `CLAUDE.md` | Instructions for Claude Code: the cost ceiling, the security rules, conventions and the Definition of Done | Working |
 | `Makefile` | Short commands for everything (`make help` lists them): `make dev`, `make signals`, `make correlate`, `make test`, `make lint`, `make sync`, `make lock`, `make migrate`, `make docs-sync`, `make jira`, `make plan`... | Working. Some targets wait on later phases (see below) |

@@ -3,12 +3,19 @@
 **കാവൽ** — *the watch.*
 
 [![CI](https://github.com/roshanoommenreji/kaval/actions/workflows/ci.yml/badge.svg)](https://github.com/roshanoommenreji/kaval/actions/workflows/ci.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-An autonomous operations agent that watches a Kubernetes cluster and an AWS bill, diagnoses
-problems with a self-hosted LLM, proposes fixes, and executes them only after a human approves
-in Slack, on a laptop or a phone.
+**An operations agent that is allowed to think, but not allowed to act.**
 
-Two signal domains — **reliability** and **cost** — through one machine.
+Kaval watches a Kubernetes cluster and an AWS bill. When something breaks or money is being
+wasted, a small language model that runs on the cluster's own server reads the evidence and
+writes down what it thinks happened and what to do about it. Nothing changes until a person
+presses **Approve** on a Slack message, on a laptop or a phone.
+
+It is a one-person learning project, built in public and documented as it went, so that the
+reasoning behind each choice is as readable as the code. It runs for real on AWS, but it is
+parked most of the time to keep the bill small. The honest list of what it does not do is
+[further down](#what-kaval-does-not-do).
 
 ```
 signals ──▶ correlate ──▶ context ──▶ LLM ──▶ proposal ──▶ policy ──▶ approve? ──▶ execute ──▶ measure
@@ -20,6 +27,92 @@ signals ──▶ correlate ──▶ context ──▶ LLM ──▶ proposal �
                                                                                         feeds the next context
 ```
 
+Two kinds of trouble go through the one machine: **reliability** (a pod keeps crashing, a
+release is bad, a disk is filling) and **cost** (an idle volume, a forgotten snapshot).
+
+---
+
+## The design in three sentences
+
+1. **The part that thinks has no power.** The `agent` service has read-only credentials and its
+   only possible output is a row in a database table. A separate `executor` holds narrow write
+   permissions and acts only on a proposal that passed policy and, where required, a human.
+   A confused or manipulated model can therefore only *suggest* harm, which policy and a person
+   then reject. If a change would give `agent` write access, the change is wrong.
+2. **Autonomy is earned, with evidence.** Every action is classed `auto`, `ask` or `never`.
+   Everything starts as `ask`. Each proposal, decision and measured outcome is stored and never
+   edited, and moving a class to `auto` has to be argued from those rows. The claim of the
+   project is not "AI fixed my server". It is "here is how much evidence it took before I let it".
+3. **Money is a design constraint, not a bill you read later.** The ceiling is **$50 a month**,
+   enforced by alarms and a shut-off that were built before any compute existed.
+
+---
+
+## What has been shown to work
+
+Each line links to the page that records it. Numbers are copied from those pages, not rounded up.
+
+| Claim | Evidence |
+|---|---|
+| **A real fault was found, diagnosed and fixed with a human in the loop.** A crashing service on staging was detected, diagnosed by Kaval's own model, approved by a person and fixed, and the fix held. | [Game day, 2026-10-15](docs/postmortems/2026-10-15-oom-diagnosed-by-itself.md): 103 s of machine time, 194 s on the clock including the person. All seven runs: [mttr.svg](docs/architecture/mttr.svg) |
+| **Five kinds of failure were caused on purpose, on staging.** A crashing service, a bad release, a lost server, a slow service and a full disk. | [Post-mortems](docs/postmortems/README.md); the experiments are in [chaos/](chaos/) |
+| **The model's answers are scored, and a dangerous suggestion fails the build.** Twenty golden incidents, plus ten prompt-injection cases where the incident text itself tries to give the model orders. | [evals/](evals/README.md); the threat model: [threat-model.md](docs/architecture/threat-model.md) |
+| **Only a signed build can run.** Every image is scanned, signed and given a parts list when it is built. The promotion step refuses an image whose signature does not verify, and the cluster itself refuses an unsigned pod, on staging and on production. | [ADR-0092](docs/adr/0092-promotion-refuses-an-image-whose-signature-does-not-verify.md), [ADR-0094](docs/adr/0094-the-cluster-refuses-unsigned-images-on-staging-and-fails-closed.md), [ADR-0095](docs/adr/0095-production-refuses-unsigned-images-from-its-next-start-up.md), [Lab 97](docs/labs/lab-97-production-refuses-unsigned-images.md) |
+| **Nothing reaches production without passing staging.** The build is made once and the same artifact is promoted. A promotion must name a tagged release. | [ADR-0004](docs/adr/0004-environment-strategy-and-promotion.md), [ADR-0032](docs/adr/0032-promote-workflow-and-the-promotion-guard.md), [ADR-0081](docs/adr/0081-a-promotion-must-be-a-tagged-release.md) |
+| **A person who does not answer is not ignored.** An unanswered request is reminded at 15 minutes, escalated at 30 and expires at 4 hours, with nothing done. The approval route needs a login. | [ADR-0048](docs/adr/0048-approvals-nobody-answers-expiry-and-escalation.md), [ADR-0073](docs/adr/0073-the-approval-route-gets-a-login-and-the-namespace-gets-network-rules.md) |
+| **The database can be restored.** Dumps are taken when production parks, and a restore drill puts the newest one into a throwaway database and times it. | [Drills](docs/drills/README.md), [disaster recovery](docs/architecture/disaster-recovery.md) |
+| **The bill stays small.** September: $1.39 of usage. October: $15.31 of usage with production brought up and parked several times. Both were covered by credits. | [Actuals](docs/cost/actuals/), [budget plan](docs/cost/budget-plan.md) |
+
+---
+
+## How it is built
+
+| Part | What it does | Can it change things? |
+|---|---|---|
+| `collector` | Reads Kubernetes events, Prometheus and Cost Explorer; writes signals | No, read-only |
+| `agent` | Groups signals into incidents, builds context from runbooks and past incidents, asks the model, writes a validated proposal | **No, read-only** |
+| `policy/` | Rego rules that class each proposed action `auto`, `ask` or `never` | Decides, does nothing |
+| `gateway` | The API, and the Slack card with its Approve and Deny buttons | Records a decision only |
+| `executor` | Carries out an approved action, records what it did, measures 5 minutes later whether the fault is gone | **The only part that can** |
+| Gemma 3 1B (Ollama) | The model, on CPU, on the same server | No |
+| Postgres + pgvector | Signals, incidents, proposals, decisions, executions, outcomes; the runbook search index | Rows are added, never changed (one field, an incident's close time, is the only exception) |
+
+It runs on **k3s on one small Graviton server, with the database on a second one** (no load balancer, no NAT gateway, no managed
+control plane, all deliberately: [what they would cost](docs/cost/budget-plan.md)). Environments
+differ only by a Helm values file and a pinned image digest: `local` → `staging` → `prod`. Staging
+is built fresh for a release and deleted afterwards. The same chart also ran, unchanged, on EKS for
+a few hours in a chapter on portability ([Lab 66](docs/labs/lab-66-the-eks-lab-live-two-sessions-and-what-they-found.md)).
+
+Removal of wasted resources is done by a **separate worker outside the cluster**, so the cluster
+never holds the key to delete anything in AWS ([ADR-0063](docs/adr/0063-waste-is-removed-in-steps-by-a-separate-worker-and-only-with-approval.md)).
+
+Diagrams that are generated from [architecture.toml](docs/architecture/architecture.toml):
+**[System](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#system)** ·
+**[Incident journey](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#journey)** ·
+[written overview](docs/architecture/overview.md).
+
+---
+
+## What Kaval does not do
+
+Said plainly, because a project like this is easy to oversell.
+
+- **The model is small on purpose.** Gemma 3 1B is cheap and runs on a CPU. It is not as good as a
+  large model, and the evals show where it is weak. A person approves everything that changes
+  something. A live hand-off to a larger model is parked ([ADR-0098](docs/adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)).
+- **It is one person's project.** One operator, one AWS account, one Slack channel. There is no
+  on-call rota, no multi-tenant design and no promise of an uptime.
+- **Production is parked most of the time.** It is brought up for a session and stopped again, and
+  a timer stops it at night. That is a cost decision, and it means the long-running behaviour of an
+  always-on system has been tested in sessions rather than in months.
+- **There is no phone app.** One was planned, then dropped: Slack on a phone already shows the
+  buttons ([ADR-0097](docs/adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)).
+- **It does not yet act automatically on anything.** Every action class is `ask`. Promoting one to
+  `auto` needs evidence that does not exist yet.
+- **Not yet finished:** the v1 close-out (this README, a demo video, a retrospective, an access
+  review and a rehearsed key rotation) is listed in [ROADMAP.md](ROADMAP.md) and
+  [ADR-0099](docs/adr/0099-roadmap-clean-up-what-v1-still-needs.md).
+
 ---
 
 ## Status
@@ -29,31 +122,37 @@ signals ──▶ correlate ──▶ context ──▶ LLM ──▶ proposal �
 | **Phase** | 8 — Harden & publish, in progress. Phases 0–4 and 7 are done; 5 and 6 each wait on one check in production; Phase 9 (a phone app) was retired. What v1 still needs: [ADR-0099](docs/adr/0099-roadmap-clean-up-what-v1-still-needs.md) |
 | **Started** | 2026-08-22 |
 | **Target v1** | ~March 2027 |
-| **Running cost** | Budget guardrails, plus a dev server that runs only during sessions: $0.13 of usage in September, covered by credits |
+| **Running cost** | $0.00 billed through October. Usage was $1.39 in September and $15.31 in October, all covered by credits. Hard limit $50 a month |
 | **Visibility** | Public since 2026-09-30 (pulled forward from v1 on purpose) |
+| **Size** | 101 hands-on [labs](docs/labs/), 100 [decision records](docs/adr/), 27 [runbooks](docs/runbooks/), a [journal](docs/journal/) of every working day |
 
-Live progress: [ROADMAP.md](ROADMAP.md) · **[Dashboard](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c)** · [System](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#system) · [Journey](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#journey) · [Delivery](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#delivery)
+Live progress: [ROADMAP.md](ROADMAP.md) · **[Dashboard](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c)** · [Delivery](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#delivery)
 
 Regenerate all of it with `make dashboard`.
 
 ---
 
-## The idea in one paragraph
+## Where to read first
 
-Most "AI ops" demos let a model run commands against your cluster and hope for the best. Kaval
-does the opposite: the component that *thinks* has read-only credentials and can only write rows
-to a database. A separate executor, holding narrowly scoped permissions, acts only on proposals
-that passed a policy check and — initially — a human tap. Every proposal, decision, and measured
-outcome is recorded immutably. Autonomy is then *earned*: as evidence accumulates that a class of
-action is safe, it graduates from `ask` to `auto`, and the data justifying that is in the table.
+| If you want | Start at |
+|---|---|
+| The idea and the three rules, in four minutes | [docs/00-start-here.md](docs/00-start-here.md) |
+| Why each choice was made | [docs/adr/](docs/adr/) — one page per decision, with what was rejected |
+| To redo any step yourself, from nothing | [docs/labs/](docs/labs/) — each lab says what to run and what you should see |
+| The concepts behind a phase, with interview answers | [docs/learn/](docs/learn/) |
+| What happened on the days things went wrong | [docs/postmortems/](docs/postmortems/) and [docs/journal/](docs/journal/) |
+| What an operator does when an alert fires | [docs/runbooks/](docs/runbooks/) — these are also what the agent searches |
+| What can go wrong with the system itself | [threat model](docs/architecture/threat-model.md), [access review](docs/architecture/access-review.md) |
+| Who owns what and when keys change | [docs/ownership.md](docs/ownership.md), [secret rotation](docs/architecture/secret-rotation.md) |
 
 ---
 
-## Quick start
+## Try it
 
-Phases 1–3 run on a small AWS dev server (`t4g.medium`, about $5/month) that stops itself after
-an idle hour ([ADR-0007](docs/adr/0007-develop-on-an-aws-dev-server.md)). The laptop stays the
-editor.
+The first three phases run on a small AWS dev server (`t4g.medium`, about $5 a month) that stops
+itself after an idle hour ([ADR-0007](docs/adr/0007-develop-on-an-aws-dev-server.md)). The laptop
+stays the editor. You need an AWS account and its login on your machine; creating anything bills
+you, so read [the budget plan](docs/cost/budget-plan.md) first.
 
 ```bash
 make help          # every available target
@@ -78,14 +177,15 @@ make cost-report   # what AWS is charging right now
 make tag-scan      # read-only: which Kaval resources in the account are missing a required tag
 ```
 
-See [docs/00-start-here.md](docs/00-start-here.md) before touching anything.
+See [docs/00-start-here.md](docs/00-start-here.md) before touching anything. Staging and
+production are run by [runbooks](docs/runbooks/prod-rollout.md), not by `make dev`.
 
 ---
 
 ## Repository map
 
-The short version is below. For every folder and file, what it does today and which phase fills
-the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
+The short version is below. For every folder and file, what it does today, see
+**[docs/repo-guide.md](docs/repo-guide.md)**.
 
 | Path | What lives there |
 |---|---|
@@ -110,7 +210,8 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 | [.github/workflows/](.github/workflows/) | CI and release pipelines |
 | [CLAUDE.md](CLAUDE.md), [.claude/](.claude/) | How Claude Code works in this repo |
 
-### Which tool lives where
+<details>
+<summary><strong>Which tool lives where</strong></summary>
 
 | Tool | Home in this repo | Run with |
 |---|---|---|
@@ -129,24 +230,15 @@ the empty ones, see **[docs/repo-guide.md](docs/repo-guide.md)**.
 Jira and Confluence credentials live in `.env` (gitignored; see `.env.example`). How branches
 and commits work: [docs/contributing.md](docs/contributing.md).
 
----
-
-## Three rules that shape everything
-
-**1. Cost guardrails exist before compute does.** The budget alarms and the auto-shutdown Lambda
-were the first infrastructure provisioned, before a single container ran. Ceiling is **$50/month**
-(raised from $25 to $40 by [ADR-0008](docs/adr/0008-production-database-on-its-own-server.md) when the database got its own server, then to $50 by [ADR-0028](docs/adr/0028-prod-app-node-on-demand-and-ceiling-50.md) when the app node went On-Demand),
-enforced by the system against itself.
-
-**2. The agent cannot touch the cluster.** Reasoning is read-only. All mutation flows through the
-executor, gated by policy. This is not a detail — it is the architecture.
-
-**3. Nothing reaches prod without passing staging.** `local` → `staging` → `prod`, where staging is
-a genuine second cluster created per release. The promotion gate refuses any artifact digest that
-did not pass staging — and that refusal is tested. See
-[ADR-0004](docs/adr/0004-environment-strategy-and-promotion.md).
+</details>
 
 ---
+
+## Security
+
+The repository is public, so its **history** is scanned for secrets on every pull request, and no
+account number, endpoint or key is ever committed. To report a vulnerability, use GitHub's private
+form, not a public issue: see [SECURITY.md](.github/SECURITY.md).
 
 ## Licence
 

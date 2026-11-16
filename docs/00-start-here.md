@@ -11,7 +11,7 @@ An autonomous operations agent with a human in the loop.
 
 It watches a Kubernetes cluster and an AWS bill. When something goes wrong or money is being
 wasted, a self-hosted Gemma 3 1B reads the evidence, works out what happened, and writes a
-proposed fix. The proposal goes to a phone. A human taps Approve. Only then does anything change.
+proposed fix. The proposal goes to Slack, where it shows on a laptop or a phone. A human taps Approve. Only then does anything change.
 
 Everything — every proposal, every human decision, every measured outcome — is recorded
 permanently and never edited.

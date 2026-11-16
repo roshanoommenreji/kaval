@@ -239,7 +239,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [x] Security pass — Trivy and image signing: every image is scanned on every pull request and release, signed, and refused by the cluster if the signature does not verify (`KAV-137` to `KAV-144`). The RBAC audit moved to the access review below (`KAV-154`)
 - [x] gitleaks scan over full history — CI's `secrets (gitleaks, full history)` job, on every pull request
 - [x] Architecture diagrams — generated from `docs/architecture/architecture.toml` into the dashboard's System and Journey views, and [mttr.svg](docs/architecture/mttr.svg)
-- [ ] README rewrite for a public audience (`KAV-156`)
+- [x] README rewrite for a public audience (`KAV-156`, 2026-11-16): the three design sentences, a table of what has been shown to work with a link to the record for each line, an honest "what Kaval does not do" section, a reading guide, and September's and October's real usage figures in place of the old $0.13
 - [ ] Demo video (`KAV-157`)
 - [x] **Repo public** — since 2026-09-30
 - [ ] Resume bullets written from what actually shipped (`KAV-157`)
