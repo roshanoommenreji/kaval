@@ -240,9 +240,9 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [x] gitleaks scan over full history — CI's `secrets (gitleaks, full history)` job, on every pull request
 - [x] Architecture diagrams — generated from `docs/architecture/architecture.toml` into the dashboard's System and Journey views, and [mttr.svg](docs/architecture/mttr.svg)
 - [x] README rewrite for a public audience (`KAV-156`, 2026-11-16): the three design sentences, a table of what has been shown to work with a link to the record for each line, an honest "what Kaval does not do" section, a reading guide, and September's and October's real usage figures in place of the old $0.13
-- [ ] Demo video (`KAV-157`)
+- [ ] Demo video (`KAV-157`): **the script, shot list and recording checklist are written** ([demo-script.md](docs/demo/demo-script.md), 2026-11-16); the recording itself needs a staging session and a production session, each on Roshan's own go
 - [x] **Repo public** — since 2026-09-30
-- [ ] Resume bullets written from what actually shipped (`KAV-157`)
+- [x] Resume bullets written from what actually shipped (`KAV-157`, 2026-11-16): seven, each beside the page that records it ([resume-bullets.md](docs/demo/resume-bullets.md))
 - [ ] Jira retrospective; course outline from `docs/labs/` (`KAV-158`) — the outline was brought up to date with all 101 labs on 2026-11-15 ([outline.md](docs/course/outline.md): eleven parts, and a table of what changed against the first outline); the retrospective is still to do
 - ~~Switch the promotion gate to GitHub Environments with required reviewers~~ — **moved to future scope 2026-11-15** as part of FS-14 ([ADR-0099](docs/adr/0099-roadmap-clean-up-what-v1-still-needs.md)): on a one-person repo the merge of the promotion pull request is already the go/no-go
 - *Planning-standard additions (2026-10-11), each a checkbox below:*
