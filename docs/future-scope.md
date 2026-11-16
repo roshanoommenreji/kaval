@@ -71,6 +71,11 @@ skill — practice it as its own thing, against a stopwatch, more than once.
 
 **Where it stands (2026-11-16).** The Phase 8 video was moved here on purpose, so v1 closes without it. What exists: a five-minute script, a shot list and a recording checklist ([demo/demo-script.md](demo/demo-script.md), `KAV-157`). What recording needs: two live sessions, each started only on the owner's own go. Staging (about 5 cents an hour) shows the fault and the typed approval; production (about 4.5 cents an hour) shows the real Slack card, because only production is connected to Slack. Then two rehearsals against a stopwatch. No Jira story: none is planned. **Trigger:** when an application or a portfolio page needs a video, or when a staging and a production session are going to happen anyway.
 
+**A shared dashboard page** is parked with it. The dashboard is generated and kept current but is
+private; sharing it is the owner's click on its Share menu, and the link could then be set as the
+repository's homepage. `KAV-45` closed without it on 2026-11-16
+([ADR-0102](adr/0102-three-old-observability-stories-leave-v1-unbuilt.md)).
+
 ### FS-3 — Stack breadth spike
 
 One small service in a third language (Go for the executor, or a Rust signal parser) to
@@ -665,6 +670,22 @@ every `make` target that talks to AWS. The risk is lock-out: do it while the old
 
 **Trigger:** a second person who needs AWS, or the 2027-02 key change if the owner would rather do
 this than change the key again.
+
+---
+
+### FS-16 — Three Phase 5 stories that v1 did not need
+
+Three board stories from Phase 5 that were never built as written. They left v1 on 2026-11-16, found
+by the retrospective (`KAV-158`) and decided by the owner
+([ADR-0102](adr/0102-three-old-observability-stories-leave-v1-unbuilt.md)). They live under the
+beyond-v1 epic `KAV-152`, still "To Do" (Jira has no "won't do" status, and "Done" would count 13
+points of unbuilt work).
+
+| Story | What it asked for | What covers it today | Trigger |
+|---|---|---|---|
+| `KAV-52` (5 pts) | Prometheus, Grafana and Loki on the production server | Prometheus in the cluster ([ADR-0040](adr/0040-prometheus-as-a-polled-signal-source.md)); Kaval's health dashboard as a Grafana file in git, shown where needed ([ADR-0042](adr/0042-watching-the-watcher.md)). The node's spare memory went to the model | A second server, or a need to read logs without a laptop |
+| `KAV-53` (3 pts) | Alertmanager e-mailing Flux failures and recoveries through SES | Alertmanager not adopted ([ADR-0043](adr/0043-alertmanager-not-adopted-yet.md)); Slack messages straight from the signals; the stopped-reporting alarm e-mails from AWS ([ADR-0053](adr/0053-the-still-alive-alarm-lives-in-aws.md)); a stalled Flux release is reset by hand ([ADR-0076](adr/0076-a-stalled-flux-release-is-reset-not-rebuilt.md)) | A Flux release that stalled unnoticed, or a second maintainer |
+| `KAV-54` (5 pts) | A page that shows deployment state and can act on it | Never scoped. Its home was the phone app, retired ([ADR-0097](adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)); approval is in Slack; promotion and rollback are workflows | A real need to act on a release without the command line |
 
 ---
 

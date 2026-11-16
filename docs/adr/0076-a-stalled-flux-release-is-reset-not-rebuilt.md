@@ -59,6 +59,6 @@ The first prediction, written down before experiment 1, was wrong: the control w
 
 - Documentation only; nothing to roll out to staging or production (the whole path: tested on staging, no configuration change to carry to production).
 - The runbooks are also the agent's retrieval corpus (`make index-runbooks`), so the corrected step 4b is what it will find.
-- **How a stalled release is noticed:** nothing alerts on it today (`KavalLoopStalled` is about Kaval's own loops). The runbook says how to look (`kubectl get helmrelease -A`). Flux notifications by email are the existing, not started story `KAV-53`.
+- **How a stalled release is noticed:** nothing alerts on it today (`KavalLoopStalled` is about Kaval's own loops). The runbook says how to look (`kubectl get helmrelease -A`). Flux notifications by email were the story `KAV-53`, never started; it left v1 on 2026-11-16 as future scope ([ADR-0102](0102-three-old-observability-stories-leave-v1-unbuilt.md), FS-16).
 - **A side finding about staging sessions:** staging was left up past 02:00 IST and the nightly auto-stop ([ADR-0008](0008-production-database-on-its-own-server.md)) stopped it. The test releases were lost (a resumed staging gets a new cluster) and the second experiment waited for a resume of about 7 minutes. The staging documentation now says so next to the "four idle hours" rule.
 - **Cost:** about $0.20 for the two staging sessions (about 3.7 hours at $0.045 an hour, plus a stopped disk), and the test releases were destroyed with staging.

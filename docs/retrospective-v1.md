@@ -36,7 +36,7 @@ spans overlap.
 | 2 The agent loop | 8 / 8 | 40 / 40 | 28 Sep to 30 Sep | Two pieces parked, not dropped: a second model that rates risk (Jev) and a live hand-off to a larger model. Both wait on something outside the project ([ADR-0098](adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)). |
 | 3 Kubernetes local | 5 / 5 | 21 / 21 | 1 Oct to 11 Oct | Nothing. |
 | 4 AWS landing | 23 / 23 | 84 / 84 | 26 Sep to 31 Oct | The biggest phase by points. The cost ceiling moved twice here: $25 to $40 ([ADR-0008](adr/0008-production-database-on-its-own-server.md)), then to $50 ([ADR-0028](adr/0028-prod-app-node-on-demand-and-ceiling-50.md)) when cheap spare capacity ran out twice. |
-| 5 Chaos and proof | 14 / 17 | 59 / 72 | 2 Oct to 28 Oct | Three stories never built as written: Grafana and Loki (`KAV-52`), emailed deploy notices (`KAV-53`) and a deployment-status dashboard (`KAV-54`). What was built instead was Prometheus watching Kaval's own health ([ADR-0042](adr/0042-watching-the-watcher.md)). |
+| 5 Chaos and proof | 14 / 17 | 59 / 72 | 2 Oct to 28 Oct | Three stories never built as written: Grafana and Loki (`KAV-52`), emailed deploy notices (`KAV-53`) and a deployment-status dashboard (`KAV-54`). What was built instead was Prometheus watching Kaval's own health ([ADR-0042](adr/0042-watching-the-watcher.md)). **Moved to future scope on 2026-11-16** ([ADR-0102](adr/0102-three-old-observability-stories-leave-v1-unbuilt.md)); with them out, the phase is 14 of 14 stories and 59 of 59 points. |
 | 6 FinOps | 8 / 9 | 32 / 35 | 16 Oct to 28 Oct | One story waits on a live production session (`KAV-100`). |
 | 7 EKS chapter | 11 / 12 | 31 / 34 | 16 Oct to 8 Nov | One story left on purpose in v1: the Terraform plan shown on every pull request (`KAV-89`). |
 | 8 Harden and publish | 38 / 44 | 85 / 96 | 30 Sep to 16 Nov | Grew from one story to 44 (below). |
@@ -59,8 +59,11 @@ spans overlap.
 4. **Three board stories were left behind.** `KAV-52`, `KAV-53` and `KAV-54` are still "To Do" in
    Jira with no roadmap line. Some of what they described was built under other stories
    (Prometheus; the dashboard), the rest was not, and nobody closed them. `KAV-45` (go public early) has four of six boxes ticked; the other two
-   (a build badge, and sharing the dashboard page) were never done. A board that lags the repo is
-   what the project's own rules warn about, so these are listed in "Still open" below.
+   (a build badge, which turned out to exist already, and sharing the dashboard page, which is the owner's click) were not ticked. A board that lags the repo is
+   what the project's own rules warn about, so these were listed in "Still open". **Decided on
+   2026-11-16** ([ADR-0102](adr/0102-three-old-observability-stories-leave-v1-unbuilt.md)): the three left
+   v1 as future scope (FS-16), not marked Done, because Jira has no "won't do" and Done would have counted
+   13 unbuilt points; `KAV-45` closed, its badge turning out to be already there.
 5. **Production stayed parked, by design.** It runs for sessions and is switched off between them.
    That kept the bill low and means long-running behaviour has been tested in sessions, not in
    months. It is the first limit to say out loud about the project.
@@ -118,7 +121,6 @@ These are drawn from the journal, not from hindsight, and are for the owner to e
 | `KAV-159` | A secret rotation rehearsed on staging |
 | `KAV-89` | The Terraform plan on pull requests |
 | `KAV-150` | Four stale comments, with the next gateway and executor release |
-| `KAV-45`, `KAV-52`, `KAV-53`, `KAV-54` | Board housekeeping: decide each one (close, or say why it stays) |
 | `KAV-158` | This page's final figures, the Phase 8 learn page, and the Phase 8 and v1 markers, once the rows above close |
 
 When those close, update the numbers in the two tables at the top and the row for Phase 8, then
