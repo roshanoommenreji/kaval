@@ -34,7 +34,7 @@ ACCESS ANALYZER
   none exists in ap-south-1
 THE CALLING USER (name and keys are not printed)
   attached policies: ['AdministratorAccess']   inline: []
-  access keys: 1 (1 active)   second factor on the user: none
+  second factor on the user: none
 ```
 
 ## Part 2 — Read the three kinds of line

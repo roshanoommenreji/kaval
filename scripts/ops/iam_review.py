@@ -4,7 +4,7 @@ Read-only. Run by hand with `make iam-review`. Lists every IAM role Kaval owns, 
 permission boundary is attached, and every Allow statement that is wider than it should be (an
 action ending in `*`, or a resource of `*`). It also says whether IAM Access Analyzer exists and
 what it found, and what the calling user may do. It changes nothing, and it prints no account
-number and no key.
+number and no key (how many keys the user holds is the 90-day change's record, not this scan's).
 
 A wide statement is not always a fault: some AWS actions cannot be limited to one resource (the
 `Describe` calls, the registry login token). Those are listed so each one can be explained in
@@ -139,12 +139,10 @@ def main() -> int:
     policies = [
         p["PolicyName"] for p in iam.list_attached_user_policies(UserName=user)["AttachedPolicies"]
     ]
-    keys = iam.list_access_keys(UserName=user)["AccessKeyMetadata"]
     inline_user = iam.list_user_policies(UserName=user)["PolicyNames"]
-    active = sum(k["Status"] == "Active" for k in keys)
     mfa = "yes" if iam.list_mfa_devices(UserName=user)["MFADevices"] else "none"
     print(f"  attached policies: {policies}   inline: {inline_user}")
-    print(f"  access keys: {len(keys)} ({active} active)   second factor on the user: {mfa}")
+    print(f"  second factor on the user: {mfa}")
     print(
         json.dumps({"roles_without_boundary": [r["name"] for r in reviewed if not r["boundary"]]})
     )
