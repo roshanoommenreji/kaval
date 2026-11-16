@@ -104,15 +104,16 @@ These are drawn from the journal, not from hindsight, and are for the owner to e
 - A small model, and a person approves everything: no action class is automatic
   (`policy/promotions.json` is empty).
 - One operator, one AWS account, nobody else's hands on it.
-- The real Slack approval and denial pressed in production on 2026-11-16 are recorded by that
-  session's own write-up (`KAV-147`), not here.
+- Production ran a day on 2026-11-16 and a person pressed the Slack buttons on real cards (two
+  approvals carried out, four denials recorded; [Lab 64 Part 5](labs/lab-64-closing-phase-6-on-production.md)).
+  That closed after the counts above were read from Jira, so they still show `KAV-147` open.
 - A demo video was not recorded; it is parked in [future scope](future-scope.md#fs-2--demo-craft).
 
 ## Still open at this writing
 
 | Story | What is left |
 |---|---|
-| `KAV-147`, `KAV-100` | The production session of 2026-11-16: its last proofs, the parking of production, and the write-up |
+| `KAV-147`, `KAV-100` | `KAV-147`: done on 2026-11-16 (parked at 21:12 IST, recorded in Lab 64 and Lab 98). `KAV-100` stays open: no count of reminders per question was recorded |
 | `KAV-154` | The AWS half of the access review (the cluster half is done) |
 | `KAV-159` | A secret rotation rehearsed on staging |
 | `KAV-89` | The Terraform plan on pull requests |

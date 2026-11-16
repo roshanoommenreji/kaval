@@ -90,8 +90,10 @@ def remote_script(step: str, namespace: str, env: str) -> str:
             "kubectl top pod -n kyverno --no-headers 2>/dev/null\n"
             "echo '--- hooks'; kubectl get validatingwebhookconfiguration,"
             "mutatingwebhookconfiguration -o name | grep -i kyverno-resource\n"
-            "echo '--- the checker login (age)'; kubectl get secret ecr-cred -n kyverno"
-            " -o jsonpath='{.metadata.creationTimestamp}{\"\\n\"}'\n"
+            "echo '--- the checker login: created, then each time it was written (the node"
+            " rewrites it every 6 hours; the creation time alone never changes)'; kubectl get"
+            " secret ecr-cred -n kyverno -o jsonpath='created {.metadata.creationTimestamp}"
+            "{\"\\n\"}{range .metadata.managedFields[*]}written {.time}{\"\\n\"}{end}'\n"
             "echo '--- node memory (MiB)'; free -m | awk 'NR<=2'\n"
             "kubectl top node --no-headers 2>/dev/null\n"
         ),

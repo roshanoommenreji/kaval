@@ -60,6 +60,8 @@ What the check found:
 | Reminders sent once with two gateway copies (`KAV-100`) | A real open approval going through a production session |
 | Waste detection (Phase 6) | The scheduled 03:15 UTC scan seen to have run by itself in production (a read-only look) |
 
+**Result (2026-11-16, `KAV-147`):** three of the four closed (the checker's login refresh, a real button pressed, the scheduled scan seen). `KAV-100` stays open: no count of reminders per question was recorded.
+
 Two of these need a real card to appear, which depends on the scan finding something. If none appears, they stay open and that is said, not worked around: nothing fake is put into production's database.
 
 ### Moved to future scope, as FS-14 (3)

@@ -167,3 +167,12 @@ def test_an_account_number_never_reaches_the_screen() -> None:
     digest = "sha256:" + "a" * 64
     assert cp.scrub(digest) == digest  # a digest is not an account number
     assert cp.scrub("1234567890123") == "1234567890123"  # 13 digits: not one
+
+
+def test_the_state_step_reads_when_the_login_was_last_written_not_just_created() -> None:
+    # Found live on 2026-11-16 (KAV-147): the step printed the Secret's creation time and called it
+    # its age. The node re-applies the Secret every 6 hours, and an apply never changes the creation
+    # time, so that line read the same all day and could not show a refresh.
+    script = cp.remote_script("state", "kaval-prod", "prod")
+    assert "metadata.managedFields" in script
+    assert "{.time}" in script

@@ -93,7 +93,7 @@ Recorded with the risk and the decision for each in [access-review.md](../archit
 ## Still to do
 
 - The fix for C-1: `automountServiceAccountToken: false` on the gateway and the migration job. A chart change, so staging first, then production.
-- The live check in a production session, read-only: `kubectl auth can-i --list --as=system:serviceaccount:kaval:<account>` for each account, and `kubectl get rolebindings,clusterrolebindings -A` compared with Part 2.
+- ~~The live check in a production session, read-only: `kubectl auth can-i --list --as=system:serviceaccount:kaval:<account>` for each account, and `kubectl get rolebindings,clusterrolebindings -A` compared with Part 2.~~ **Done 2026-11-16 (`KAV-147`):** the live cluster matched what git says, and finding C-1 was confirmed live (the gateway pods and the migration job carry a token they do not need).
 - The AWS half.
 
 ## Clean up

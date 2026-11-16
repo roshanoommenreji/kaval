@@ -80,4 +80,4 @@ Six weeks later the question can be answered from what exists, not from a guess:
 ## Proof so far
 
 - The decision and its sweep: this change (`KAV-149`).
-- Open, optional, $0: during a production session, press **Deny** on one real Slack card from the phone, and record the time here. Deny, so that nothing is removed.
+- **2026-11-16 (`KAV-147`), production:** the owner pressed the buttons on real Slack cards. Two **Approves** (11:53 and 11:54 IST) were carried out: the executor handed each removal order to the removal worker and both snapshots are gone from AWS. Four **Denies** (11:59 and 12:11 IST) were recorded and nothing changed. Every decision names its actor, `slack:roshanoommenreji`. The record is [Lab 64](../labs/lab-64-closing-phase-6-on-production.md) Part 5. Slack on a phone was not separately timed, so "from the phone" is still the owner's word, not a recorded fact.

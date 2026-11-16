@@ -146,6 +146,20 @@ The same rule file reaches production through the same chart. At production's ne
 
 *Results (2026-11-13, production's start-up, 22:44-23:37 IST): `alerts` showed both rules loaded, and the loaded `UnsignedImageSeen` was read back from Prometheus: health `ok`, state `inactive`, the restart branch (`process_start_time_seconds`) present. The restart drill was not repeated on production, as planned. `frozen --yes` **failed**: that was a separate, real defect (the frozen list never let an unsigned old release through), fixed by `KAV-146` ([Lab 99](lab-99-the-frozen-list-lets-old-releases-through.md)) and then passed on production the same night. The six-hour login refresh was not seen (the session lasted 53 minutes) and moved to `KAV-147`. `KAV-144` is Done.*
 
+## Part 6 — The six-hour refresh (production, 2026-11-16)
+
+Everything above ran in sessions shorter than the refresh timer. On 2026-11-16 production stayed up from 11:31 IST until 21:12 IST (9 hours 40 minutes), so the node's timer fired.
+
+1. Read the login's own record, read-only: `kubectl get secret ecr-cred -n kyverno -o jsonpath=...` for the creation time and the time each writer last wrote it.
+2. Read the timer: `systemctl list-timers kaval-gitops-bootstrap.timer`, and the service's start, exit and result.
+3. Run `python scripts/ops/checker_proof.py prod signed --yes`, then `clean --yes`.
+
+*Results (2026-11-16): the login was created at 06:02:49 UTC and last written at 12:01:45 UTC (`kubectl-client-side-apply`); the timer's service ran 12:01:24 to 12:01:43 UTC with result `success` and exit status 0, and the next run was set for 18:01 UTC. At 15:40 UTC, the checker (9 hours old, one pod, no restarts) accepted a signed pod (`1/1 Running`). The proof pod was removed.*
+
+**What this does not show by itself.** An ECR login lasts 12 hours, so a pod accepted at hour 9.5 would have been accepted without any refresh. The proof is the second write time at 12:01 UTC; the accepted pod only shows the checker was still healthy.
+
+**A wrong first read.** The earlier `state` step printed the login's *creation* time and called it its age. Applying a Secret again never changes its creation time, so that line read 06:02:49 UTC all day and could not have shown a refresh. The step now prints the last-written times too.
+
 ## Things worth knowing
 
 - A count that starts again at 0 is normal for every program that restarts; `increase()` and `rate()` handle it when a reading catches the drop. The blind spot needs the drop to happen **between** two readings and the new count to reach the old value, which is easy when the old value is 1.
