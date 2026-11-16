@@ -71,9 +71,9 @@ skill — practice it as its own thing, against a stopwatch, more than once.
 
 **Where it stands (2026-11-16).** The Phase 8 video was moved here on purpose, so v1 closes without it. What exists: a five-minute script, a shot list and a recording checklist ([demo/demo-script.md](demo/demo-script.md), `KAV-157`). What recording needs: two live sessions, each started only on the owner's own go. Staging (about 5 cents an hour) shows the fault and the typed approval; production (about 4.5 cents an hour) shows the real Slack card, because only production is connected to Slack. Then two rehearsals against a stopwatch. No Jira story: none is planned. **Trigger:** when an application or a portfolio page needs a video, or when a staging and a production session are going to happen anyway.
 
-**A shared dashboard page** is parked with it. The dashboard is generated and kept current but is
-private; sharing it is the owner's click on its Share menu, and the link could then be set as the
-repository's homepage. `KAV-45` closed without it on 2026-11-16
+**A homepage link on the GitHub repository** is parked with it. The dashboard page is already shared
+as "anyone with the link"; pointing the repository's homepage field at it is the owner's choice.
+`KAV-45` closed without it on 2026-11-16
 ([ADR-0102](adr/0102-three-old-observability-stories-leave-v1-unbuilt.md)).
 
 ### FS-3 — Stack breadth spike

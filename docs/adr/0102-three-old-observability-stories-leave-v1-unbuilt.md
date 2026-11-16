@@ -10,7 +10,7 @@
 The v1 retrospective (`KAV-158`) found four stories that nobody had decided.
 
 - `KAV-52` (Grafana, Loki and a Prometheus stack on the production server), `KAV-53` (Flux deployment notices by e-mail through Alertmanager and SES) and `KAV-54` (a custom page to see *and control* deployments) were filed in Phase 5. All three were still "To Do", with no roadmap line, 13 points between them. Some of their goal was met under other stories; the rest was never built, and nobody said so.
-- `KAV-45` (go public early) had four of six boxes ticked. One of the two left (a CI badge) turned out to be **already done**: the README has carried the badge since the repository went public. The other (share the dashboard page) is a click only the owner can make.
+- `KAV-45` (go public early) had four of six boxes ticked. One of the two left (a CI badge) turned out to be **already done**: the README has carried the badge since the repository went public. The other (share the dashboard page) is **also already done**: the dashboard page is shared as "anyone with the link" (seen on 2026-11-16 when it was republished). What was never done is a homepage link on the GitHub repository.
 
 ## What real companies do
 
@@ -21,7 +21,7 @@ The v1 retrospective (`KAV-158`) found four stories that nobody had decided.
 ## Decision
 
 1. **`KAV-52`, `KAV-53` and `KAV-54` leave Phase 5 and move to the beyond-v1 epic (`KAV-152`), still "To Do", with a note.** They are **not** marked Done: Jira has no "won't do" status, and "Done" would count 13 points as delivered work that was never built. Each now says what was built instead and what would bring it back (below). They are future scope [FS-16](../future-scope.md#fs-16--three-phase-5-stories-that-v1-did-not-need).
-2. **`KAV-45` closes.** Its list is corrected to what is true (the badge exists), and sharing the dashboard as the repository's homepage becomes a note under [FS-2](../future-scope.md#fs-2--demo-craft), because it is the owner's click and not part of making the repository public.
+2. **`KAV-45` closes.** Its list is corrected to what is true (the badge exists and the dashboard is shared), and a homepage link on the GitHub repository becomes a note under [FS-2](../future-scope.md#fs-2--demo-craft): it is a public-facing choice for the owner, and not part of making the repository public.
 
 | Story | What it asked for | What covers it today | What would bring it back |
 |---|---|---|---|
@@ -36,7 +36,7 @@ Nothing runs, so there is no path, security, failure or cost to plan beyond: **$
 ## Accepted, and said plainly
 
 - **Phase 5's figures change.** With the three out, Phase 5 is 14 of 14 stories and 59 of 59 points, and v1 is 130 stories, 402 points. The retrospective's totals (133 and 415) are refreshed when `KAV-158` closes; until then they read the board as it stood on 2026-11-16 morning.
-- **`KAV-45` closes with the dashboard unshared.** The page is generated and kept current, but it is private. Sharing it is the owner's choice at any time (FS-2).
+- **`KAV-45` closes with no homepage link on the repository.** Setting one (for example to the shared dashboard) is the owner's choice at any time (FS-2).
 
 ## Consequences
 

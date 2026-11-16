@@ -59,7 +59,7 @@ spans overlap.
 4. **Three board stories were left behind.** `KAV-52`, `KAV-53` and `KAV-54` are still "To Do" in
    Jira with no roadmap line. Some of what they described was built under other stories
    (Prometheus; the dashboard), the rest was not, and nobody closed them. `KAV-45` (go public early) has four of six boxes ticked; the other two
-   (a build badge, which turned out to exist already, and sharing the dashboard page, which is the owner's click) were not ticked. A board that lags the repo is
+   (a build badge and a shared dashboard page) turned out to be already done; they were just not ticked. A board that lags the repo is
    what the project's own rules warn about, so these were listed in "Still open". **Decided on
    2026-11-16** ([ADR-0102](adr/0102-three-old-observability-stories-leave-v1-unbuilt.md)): the three left
    v1 as future scope (FS-16), not marked Done, because Jira has no "won't do" and Done would have counted
