@@ -6,9 +6,9 @@ its job needs? This page is the evidence for `KAV-154`. It has two halves.
 | Half | Status |
 |---|---|
 | **Inside the cluster** (Kubernetes roles and bindings) | **Done 2026-11-15**, from the chart as it is rendered for production and staging |
-| **In AWS** (IAM roles, IAM Access Analyzer, the permission boundary) | **Not done.** Needs a read-only look at the live account; planned with a production session |
+| **In AWS** (IAM roles, IAM Access Analyzer, the permission boundary, the laptop's key) | **Done 2026-11-16**, read-only, against the live account. Five findings, one decision waiting for the owner ([ADR-0101](../adr/0101-the-aws-access-review-and-what-it-changes.md)) |
 
-How to repeat the cluster half: [Lab 100](../labs/lab-100-the-cluster-half-of-the-access-review.md).
+How to repeat the cluster half: [Lab 100](../labs/lab-100-the-cluster-half-of-the-access-review.md). The AWS half: [Lab 101](../labs/lab-101-the-aws-half-of-the-access-review.md).
 
 ## Inside the cluster
 
@@ -67,20 +67,80 @@ API server who it is and little else.
 
 ## In AWS
 
-Not done yet. What it will cover:
+Read on **2026-11-16** with `make iam-review` (read-only: it only lists and reads; it changes nothing
+and prints no account number). Staging was not running, so what was read is production's set of roles.
+Staging builds its roles from the same templates, so the findings hold for both; the scan is repeated
+at the next staging session.
 
-1. **IAM Access Analyzer's external-access findings** for the account, read and recorded here.
-   The analyzer is free.
-2. **Every role Kaval creates,** with its policy read line by line for wildcards: the two servers,
-   the publish role GitHub uses, the cost reader, the waste scan, the waste remover, the backup
-   watcher, the lab's roles.
-3. **The permission boundary.** Phase 6 promised one on the role that removes waste. The role has
-   an allow-list of actions; no boundary was attached. Either one is attached, or an ADR says why
-   the allow-list is enough.
-4. **The laptop's access key:** what it is allowed to do, and whether it can be narrower.
+### The result in five lines
+
+- **Kaval owns 13 roles.** None carries a permission boundary. Only two of them change anything
+  (the waste remover and the budget brake); the rest read, or write one named parameter.
+- **No role has a wildcard action.** Nine statements have a resource of `*` for actions AWS cannot
+  narrow (below), and one has it for actions AWS can: a real finding (A-2).
+- **IAM Access Analyzer does not exist in the account** (A-1). There was nothing to read, so the
+  outside-access review cannot be done until it is switched on. It is free.
+- **The two roles GitHub uses can only be taken by this repository, on `main`** (no finding).
+- **The owner's laptop key is a full administrator, with no second factor** (A-4). Accepted for now,
+  with the 90-day change ([ADR-0100](../adr/0100-secrets-are-changed-yearly-and-the-laptop-key-every-90-days.md))
+  as the cover.
+
+### Who holds what (the 13 roles)
+
+| Role | Who can take it | What it may do | Changes things? |
+|---|---|---|---|
+| `kaval-prod-node` | the production server | Pull Kaval's five images; read its own named secrets (database passwords, Slack tokens); write one named parameter (removal orders); read and write the backup bucket; put one named metric; borrow the cost reader | Writes only the orders parameter and its own backups |
+| `kaval-prod-database` | the database server | Read its own two named parameters | No |
+| `kaval-prod-cost-reader` | only `kaval-prod-node` | `ce:GetCostAndUsage` and nothing else | No |
+| `kaval-prod-waste-scan` | the scan function | Look at disks, snapshots, servers, addresses | No |
+| `kaval-prod-waste-removal` | the removal function | Back up, mark and delete **a Kaval disk that is not Terraform's and carries the marker**; delete a Kaval copy that is not Terraform's; read the orders and write the result | **Yes: the one that deletes real things** |
+| `kaval-budget-hard-stop` | the brake function | Scale an auto-scaling group to zero; stop servers carrying the `Project` label; snapshot Kaval disks | **Yes: the brake** |
+| `kaval-ci-publish` | this repository, on `main` only | Push to Kaval's own image repositories | Pushes images |
+| `kaval-backup-watch` | this repository, on `main` only | Look at backups and the server's history | No |
+| `kaval-prod-dlm` | the snapshot scheduler | AWS's own managed policy for scheduled snapshots | Takes snapshots |
+| `kaval-devbox` | the dev server | AWS's managed Session Manager policy | No |
+| Three scheduler roles (waste scan, waste removal, the nightly auto-stop) | the scheduler | Start one named function each | No |
+
+The two AWS-managed policies (`AmazonSSMManagedInstanceCore`, `AWSDataLifecycleManagerServiceRole`)
+are AWS's text, not read line by line here.
+
+### Why a resource of `*` is sometimes unavoidable
+
+| Action | Where | Why it cannot name a resource |
+|---|---|---|
+| `ec2:Describe*` (servers, disks, snapshots, addresses) | scan, remover, brake, node | AWS lists these without letting a policy limit them to one resource. They only read |
+| `autoscaling:DescribeScalingActivities` | backup watcher | Same: a read |
+| `ecr:GetAuthorizationToken` | publish role, node | The registry login token is not a thing in a repository. It gives a short login only; what can be pushed or pulled is limited separately, per repository |
+| `ce:GetCostAndUsage` | cost reader | The bill is not a resource |
+| `cloudwatch:PutMetricData` | node | Allowed, but limited by a condition to the one `Kaval/Heartbeat` namespace |
+
+### Findings
+
+| # | Finding | Risk | What happens |
+|---|---|---|---|
+| **A-1** | **No IAM Access Analyzer in the account** (`ap-south-1` and `us-east-1` both checked). The outside-access findings the review calls for cannot be read | Medium for visibility: a role or bucket shared with an outside account would not be noticed | Switch on the free analyzer, in the `state` folder, then read the findings. Story **`KAV-160`** |
+| **A-2** | **The budget brake may scale down any auto-scaling group in the account**, not only Kaval's: the policy names none. The other project has none today (it runs on a different service), so nothing is wrong now | Low today, and it is the brake: the one job that must never touch what it should not | Limit it to groups carrying Kaval's label, then prove the brake still stops staging's group. Story **`KAV-161`** |
+| **A-3** | **No role has a permission boundary.** Phase 6 promised one on the waste remover. Its allow-list is already tight (tag conditions; a delete needs the marker), but nothing sits above it to stop a later mistaken edit from widening it | Low today. A boundary is a ceiling: even a widened policy cannot go past it | Recommended: a boundary on the two roles that change things (the remover and the brake), not on all 13. [ADR-0101](../adr/0101-the-aws-access-review-and-what-it-changes.md); story **`KAV-161`** |
+| **A-4** | **The laptop key is `AdministratorAccess`, one key, no second factor on the user.** It is the one credential that can do anything Terraform can | Accepted for now. The key is changed every 90 days (done 2026-11-16; next due by 2027-02-14), it lives in one file on one laptop, and nothing in the cluster or on the servers holds it | The stronger pattern (a login that expires and needs a second factor) is parked in [future scope](../future-scope.md#fs-15--a-laptop-login-that-expires-and-needs-a-second-factor) (FS-15). Not built for v1 |
+| **A-5** | The remover's snapshot delete needs the `Project` label but not the `Env` label, so production's remover could delete a staging copy of the same project | Very low: staging and production are never up with orders for each other, and the remover re-checks AWS itself | Add the `Env` condition in the same story as A-2 and A-3 (**`KAV-161`**) |
+
+No finding for the two GitHub roles: each can only be taken by a login from this repository's `main`
+branch, by its fixed numeric identifiers (not its name, which could be re-registered), with the right
+audience.
+
+### What this half did not look at
+
+- **The other project's seven roles** (`stock-trader-...`). They share the account and the laptop key,
+  but they are not Kaval's. The analyzer, once on, will see them too.
+- **Roles that exist only while staging is up.** The templates are the same; the scan is repeated at
+  the next staging session.
+- **The lab's EKS roles.** They exist only during a lab session (built and destroyed by
+  `infra/envs/lab-eks`), so a scan finds none between sessions.
 
 ## Repeat
 
 After any change to a template that holds a `Role`, `ClusterRole`, binding or service account,
 and once a year with the secret rotation: run [Lab 100](../labs/lab-100-the-cluster-half-of-the-access-review.md)'s
-one command per environment and compare with the tables above.
+one command per environment and compare with the tables above. For the AWS half run `make iam-review`
+([Lab 101](../labs/lab-101-the-aws-half-of-the-access-review.md)) after any change to a role, and at the
+next staging session.

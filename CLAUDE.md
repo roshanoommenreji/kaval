@@ -192,6 +192,7 @@ make lab-up        # create the EKS lab from the saved plan; starts billing, a t
 make lab-down      # destroy the EKS lab, always, then make lab-sweep (read-only: anything of it left?) and again 24 h later
 make cost-report   # current month-to-date spend
 make tag-scan      # read-only: Kaval resources in the live account missing Project/Env/ManagedBy (KAV-93)
+make iam-review    # read-only: every Kaval IAM role, wide statements, Access Analyzer, the laptop user (KAV-154)
 make cost-showback [MONTH=2026-10]  # the month's bill by AWS service and environment -> docs/cost/showback-<month>.md, $0.01 (KAV-93)
 make devbox-up     # start the AWS dev server (ADR-0007); it stops itself after 1 h idle
 make devbox-down   # stop it now
