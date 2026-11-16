@@ -73,7 +73,7 @@ Six weeks later the question can be answered from what exists, not from a guess:
 - The roadmap's phases are 0–8; "weeks 25–28" no longer exist in the plan. The dashboard's totals lose ten open lines, so the percentage rises without any work being done: that is the plan getting smaller, and the dashboard says "retired" where it happened.
 - ADR-0026's Decision 2 ("deferred, not cancelled") is superseded. ADR-0009 and ADR-0073 said Cognito would arrive "if Phase 9 is built"; both now point here.
 - `mobile` stops being a service name in the Jira script and the repo map.
-- Phase 8's exit gate (repo public, video recorded, bullets written) is now the exit gate of v1.
+- Phase 8's exit gate (repo public, video recorded, bullets written) is now the exit gate of v1. *(Amended 2026-11-16: the video moved to future scope, FS-2.)*
 - **Left as it is, on purpose:** four comments inside the service code that still say "deferred mobile app" (the gateway's API description, a schema docstring and its package docstring; the executor's `redact.py`). Changing them changes two images, and an image change owes a release round, a staging smoke test and a promotion ([ADR-0081](0081-a-promotion-must-be-a-tagged-release.md)); that is too much for wording. They are corrected with the next gateway and executor release (`KAV-150`).
 - `.env.example` loses its three unused phone-app settings (Cognito pool, Cognito client, Expo push token); nothing ever read them.
 

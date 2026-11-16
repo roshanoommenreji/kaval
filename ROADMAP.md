@@ -240,9 +240,9 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [x] gitleaks scan over full history — CI's `secrets (gitleaks, full history)` job, on every pull request
 - [x] Architecture diagrams — generated from `docs/architecture/architecture.toml` into the dashboard's System and Journey views, and [mttr.svg](docs/architecture/mttr.svg)
 - [x] README rewrite for a public audience (`KAV-156`, 2026-11-16): the three design sentences, a table of what has been shown to work with a link to the record for each line, an honest "what Kaval does not do" section, a reading guide, and September's and October's real usage figures in place of the old $0.13
-- [ ] Demo video (`KAV-157`)
+- ~~Demo video~~ (`KAV-157`) — **moved to future scope 2026-11-16** by the owner ([FS-2](docs/future-scope.md#fs-2--demo-craft)): the script, shot list and recording checklist are written ([demo-script.md](docs/demo/demo-script.md)); recording needs a staging session and a production session, each on his own go, and is no longer part of v1's exit gate
 - [x] **Repo public** — since 2026-09-30
-- [ ] Resume bullets written from what actually shipped (`KAV-157`)
+- [x] Resume bullets written from what actually shipped (`KAV-157`, 2026-11-16): seven, each beside the page that records it ([resume-bullets.md](docs/demo/resume-bullets.md))
 - [ ] Jira retrospective; course outline from `docs/labs/` (`KAV-158`) — the outline was brought up to date with all 101 labs on 2026-11-15 ([outline.md](docs/course/outline.md): eleven parts, and a table of what changed against the first outline); the retrospective is still to do
 - ~~Switch the promotion gate to GitHub Environments with required reviewers~~ — **moved to future scope 2026-11-15** as part of FS-14 ([ADR-0099](docs/adr/0099-roadmap-clean-up-what-v1-still-needs.md)): on a one-person repo the merge of the promotion pull request is already the go/no-go
 - *Planning-standard additions (2026-10-11), each a checkbox below:*
@@ -276,7 +276,7 @@ First real spend. **Posture: paused between sessions** (`make down`).
 - [x] Roadmap clean-up: every open line in Phases 4, 5, 6 and 8 checked against the repo and Jira (`KAV-153`, [ADR-0099](docs/adr/0099-roadmap-clean-up-what-v1-still-needs.md), decided by the owner 2026-11-15). Fifteen lines were finished and only unticked; four close in the `KAV-147` production session; three small items moved to the future-scope list; the Terraform plan on pull requests (`KAV-89`) stays in v1 by the owner's choice; and every line still open now has a Jira story (`KAV-154` to `KAV-158`). Phase 4 is closed
 - [ ] `docs/learn/phase-8-harden-and-publish.md` — flip **Written from** to `experience` (`KAV-158`)
 
-**Exit gate:** repo public, video recorded, bullets written.
+**Exit gate:** repo public, bullets written. (The demo video was in the gate until 2026-11-16, when it moved to [future scope, FS-2](docs/future-scope.md#fs-2--demo-craft).)
 
 ---
 

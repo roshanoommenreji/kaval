@@ -83,7 +83,7 @@ Two of these need a real card to appear, which depends on the scan finding somet
 | The secret rotation schedule and the ownership page | `KAV-155` |
 | Terraform plan on pull requests | `KAV-89` |
 | README for a public audience | `KAV-156` |
-| Demo video and resume bullets | `KAV-157` |
+| Demo video and resume bullets | `KAV-157` (the video moved to future scope 2026-11-16, FS-2) |
 | Jira retrospective, course outline, the Phase 8 learn page | `KAV-158` |
 | Four stale comments in the service code | `KAV-150`, with the next gateway and executor release |
 
