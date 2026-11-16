@@ -102,6 +102,25 @@ Nothing to do. By morning:
 - The daily **backup-watch** run (GitHub Actions) passed after that dump.
 - `terraform plan` on production says **No changes**: parked, matching its files.
 
+## Part 5 — The session of 2026-11-16 (`KAV-147`)
+
+A second production session, 9 hours 40 minutes, on the owner's typed go (up 11:31 IST, parked 21:12 IST). It closed what the first could not: a real button pressed, the scheduled scan seen, the checker's six-hour login ([Lab 98](lab-98-the-image-alarm-after-a-checker-restart.md) Part 6) and a live look at who holds what ([Lab 100](lab-100-the-cluster-half-of-the-access-review.md)). The database server's start needed one retry after AWS reported no capacity at first.
+
+**Buttons pressed on real production cards** (the asks are forgotten snapshots the waste scan found; actor `slack:roshanoommenreji` on every row):
+
+| Time (IST) | Press | Snapshot | What happened |
+|---|---|---|---|
+| 11:53 | Approve | `snap-05c5441b2406967bf` | Executor `success`: the removal order was handed to the removal worker |
+| 11:54 | Approve | `snap-03e1b71bf4dcfd8ff` | The same |
+| 11:59 | Deny | `snap-00d6126c3fdb686d2` | Recorded, not executed; the snapshot still exists |
+| 12:11 | Deny x3 | `snap-02fd6f1b25fd2e385`, `snap-0ed512e8c3bc91c11`, `snap-0181c66ce31680851` | Recorded, not executed |
+
+Read back at 21:10 IST from AWS: both approved snapshots no longer exist (`InvalidSnapshot.NotFound`); the denied one does. Ten other asks were left undecided on purpose; they expire on their own (ADR-0048) and **must not be approved after the park**, because the server that could carry them out is gone.
+
+**The scheduled waste scan** was seen to have run by itself at 03:15 UTC on 14, 15 and 16 November, with 0 errors.
+
+**Parked** by the runbook ([prod-rollout.md](../runbooks/prod-rollout.md) step 8): a fresh dump first (432K, uploaded), the plan showed one change (app server group 1 to 0), applied at 21:12 IST, the data volume snapshotted and the database stopped, the alarm `OK`. A read-only sweep found no running server, no loose disk, no address, no gateway or load balancer, no cluster. About 45 cents from running hours (the bill will confirm).
+
 ## What was found live
 
 1. **A double alert.** The "nobody has answered" alert appeared twice at the same minute. Production runs two copies of

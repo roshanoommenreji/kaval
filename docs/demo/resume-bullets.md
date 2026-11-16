@@ -13,8 +13,10 @@ order puts the most unusual thing first.
    service has read-only credentials and can only write a proposal row; a separate executor, with
    narrow permissions, acts only on proposals that passed a Rego policy and a person's approval in
    Slack. A self-hosted Gemma 3 1B model runs on CPU. No action class is automatic yet, and the
-   list that would allow one is empty by design.
-   *Record:* [overview](../architecture/overview.md), [policy](../../policy/README.md).
+   list that would allow one is empty by design. In production, two approvals pressed in Slack were carried
+   out (both forgotten snapshots removed) and four denials were recorded with nothing changed.
+   *Record:* [overview](../architecture/overview.md), [policy](../../policy/README.md),
+   [Lab 64 Part 5](../labs/lab-64-closing-phase-6-on-production.md).
 
 2. **Built a release pipeline that promotes one artifact, never a rebuild, and refuses what it
    cannot verify.** Images are scanned, signed and given a parts list on build; promotion to
@@ -90,6 +92,4 @@ An interviewer will find them anyway, so say them first.
 These are true but not yet written down in the repository, so they are not in the bullets above.
 Add them when their write-up lands:
 
-- The first real approval and denial pressed in Slack on production (2026-11-16). The production
-  session's write-up (`KAV-147`) records it.
 - A demo video, if one is ever recorded: parked in [future scope, FS-2](../future-scope.md#fs-2--demo-craft); [the script](demo-script.md) is ready.

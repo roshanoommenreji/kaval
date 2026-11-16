@@ -61,7 +61,7 @@ API server who it is and little else.
 - **The live cluster.** This is a review of what git says the cluster gets. Because Flux builds
   the cluster from git, the two should be the same; the check that they are
   (`kubectl auth can-i --list` for each account, and a search for any binding git does not know)
-  is read-only and belongs to the next production session.
+  is read-only and belongs to the next production session. **Done 2026-11-16 (`KAV-147`):** the live cluster matched this review, and C-1 was confirmed live.
 - **k3s's own system roles** and the roles Flux and Kyverno ship. They are the upstream
   defaults at pinned versions.
 
