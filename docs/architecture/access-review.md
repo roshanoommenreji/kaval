@@ -6,7 +6,7 @@ its job needs? This page is the evidence for `KAV-154`. It has two halves.
 | Half | Status |
 |---|---|
 | **Inside the cluster** (Kubernetes roles and bindings) | **Done 2026-11-15**, from the chart as it is rendered for production and staging |
-| **In AWS** (IAM roles, IAM Access Analyzer, the permission boundary, the laptop's key) | **Done 2026-11-16**, read-only, against the live account. Five findings, one decision waiting for the owner ([ADR-0101](../adr/0101-the-aws-access-review-and-what-it-changes.md)) |
+| **In AWS** (IAM roles, IAM Access Analyzer, the permission boundary, the laptop's key) | **Done 2026-11-16**, read-only, against the live account. Five findings, decided 2026-11-16 ([ADR-0101](../adr/0101-the-aws-access-review-and-what-it-changes.md)) |
 
 How to repeat the cluster half: [Lab 100](../labs/lab-100-the-cluster-half-of-the-access-review.md). The AWS half: [Lab 101](../labs/lab-101-the-aws-half-of-the-access-review.md).
 
