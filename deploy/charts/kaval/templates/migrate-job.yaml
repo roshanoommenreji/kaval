@@ -51,6 +51,7 @@ spec:
     spec:
       {{- include "kaval.imagePullSecrets" . | nindent 6 }}
       restartPolicy: Never
+      automountServiceAccountToken: false
       {{- include "kaval.podSecurity" . | nindent 6 }}
       initContainers:
         - name: wait-for-postgres

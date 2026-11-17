@@ -55,6 +55,7 @@ spec:
       labels:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
       # Pod Security `restricted` (KAV-105, ADR-0068). 999 is the user the pgvector/postgres image
       # was built for. A non-root Postgres cannot take over the disk's top folder (initdb must own
       # what it initialises, and a folder the group may write is not one it owns), so the data

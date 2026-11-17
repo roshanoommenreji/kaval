@@ -1,6 +1,6 @@
 """What the API returns: Pydantic models read straight off the ORM rows (`from_attributes`).
 
-These are the gateway's contract with the phone, published as OpenAPI at /openapi.json.
+These are the gateway's contract with its callers, published as OpenAPI at /openapi.json.
 They are deliberately separate from the ORM models: the table can gain a column without
 the API changing, and the API can't leak a column by accident.
 """
@@ -53,8 +53,8 @@ class DecisionIn(BaseModel):
     approve script); the gateway stores it as `api:<actor>` (KAV-115) so it can never pose as
     `slack:<username>`, which only Slack ChatOps writes (`KAV-55`,
     `kaval_gateway.decisions.record_decision`). The call needs the approver token
-    (`kaval_gateway.approver_auth`). Cognito identity would replace it if the
-    deferred mobile app (Phase 9) is ever built."""
+    (`kaval_gateway.approver_auth`); there is no phone app, Slack is the approval
+    surface (ADR-0097)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -121,7 +121,7 @@ class IncidentSummary(_Row):
 
 
 class IncidentDetail(IncidentSummary):
-    """One incident and everything that happened to it: the timeline the phone shows."""
+    """One incident and everything that happened to it, as a timeline."""
 
     signals: list[SignalOut]
     proposals: list[ProposalOut]

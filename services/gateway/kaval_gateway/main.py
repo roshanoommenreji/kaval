@@ -57,8 +57,7 @@ app = FastAPI(
         "(KAV-55, ADR-0026) connects outbound instead — no inbound endpoint is ever opened "
         "for it either; `scripts/ops/approve.py` remains the fallback. "
         "The approval route needs a bearer token (KAV-115, ADR-0073) and is shut when none is "
-        "configured. Cognito JWTs would "
-        "arrive only if the deferred mobile app (Phase 9) is ever built."
+        "configured. There is no phone app: Slack is the approval surface (ADR-0097)."
     ),
     openapi_tags=[
         {"name": "health", "description": "Is the stack wired: database migrated, model pulled"},

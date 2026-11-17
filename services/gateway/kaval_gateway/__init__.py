@@ -1,4 +1,4 @@
-"""Kaval gateway: the mobile-facing API (REST + WebSocket from KAV-23 on)."""
+"""Kaval gateway: the API (REST) that Slack ChatOps and the approve script call (KAV-23)."""
 
 # This component's own version (ADR-0013). Bumped by the conventional commits that touch
 # services/gateway/ or the shared code it ships; CI stamps it on the image as

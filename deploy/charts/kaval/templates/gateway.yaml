@@ -17,6 +17,7 @@ spec:
         {{- include "kaval.selectorLabels" (dict "Release" .Release "component" $component) | nindent 8 }}
     spec:
       {{- include "kaval.imagePullSecrets" . | nindent 6 }}
+      automountServiceAccountToken: false
       {{- include "kaval.podSecurity" . | nindent 6 }}
       containers:
         - name: gateway

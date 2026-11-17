@@ -1,7 +1,7 @@
 """Redacts command output before it is ever written to `execution.stdout` (KAV-47, ADR-0005).
 
 The finding that made this its own module: `execution.stdout` is read by the gateway and
-shown on the phone, so a secret that reaches it is a secret in a table a mobile app displays
+shown on the Slack card, so a secret that reaches it is a secret in a table Slack displays
 — redacting only when copying prod data to staging (the original plan) would mean prod
 itself holds secrets in a queryable column. So this runs **before** `kaval_executor.executor`
 ever calls `session.add(Execution(...))`, not at backup/anonymise time; anonymisation stays a

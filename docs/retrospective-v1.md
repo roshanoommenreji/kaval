@@ -120,7 +120,7 @@ These are drawn from the journal, not from hindsight, and are for the owner to e
 | `KAV-154` | The AWS half of the access review (the cluster half is done) |
 | `KAV-159` | A secret rotation rehearsed on staging |
 | `KAV-89` | The Terraform plan on pull requests |
-| `KAV-150` | Four stale comments, with the next gateway and executor release |
+| `KAV-150`, `KAV-162` | Four stale comments and the spare-token fix (finding C-1), in one gateway and executor release round |
 | `KAV-158` | This page's final figures, the Phase 8 learn page, and the Phase 8 and v1 markers, once the rows above close |
 
 When those close, update the numbers in the two tables at the top and the row for Phase 8, then
