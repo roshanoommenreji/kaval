@@ -70,15 +70,18 @@ Run on 2026-11-17: 116 passed, with the simulator agreeing on every case. The fi
 
 There is also a check the other way: a boundary written too **tight** would silently stop a role's own work. `test_a_boundary_can_never_be_too_tight_for_its_role` checks that every action each role's own policy names is also in its ceiling.
 
-## Part 5 — Why this is not live yet
+## Part 5 — Going live, and what was seen (2026-11-17)
 
-Nothing here is applied. The change goes live in three steps, each on its own typed go:
+Nothing was applied by the build itself. It went live in steps, each on the owner's typed go:
 
-1. The brake lives in **production's** Terraform record (it covers both environments' groups), so it is applied there first, with the plan shown and only the brake in it. The risk of this change is the brake itself: the nightly 02:00 stop and the $48 stop use the same function and role, so a mistake here breaks both. That is why step 2 follows at once.
-2. A staging session fires the brake for real and checks it stops staging's group, and runs the remover's refusals again on staging's own copy (applied by the same session).
-3. Production's remover gets its ceiling at production's next start-up.
+1. **A staging session** (`go staging session`, 07:35 to 07:59 IST, about 3 cents): staging built from the plan shown (94 added, 0 changed, 0 destroyed; the 94th is its remover's ceiling), running `sha-fb25ed6`.
+2. **The brake's change, applied to production's record** (`apply brake`, 07:47): the saved plan, exactly (1 added, 2 changed, 0 destroyed; the brake only, production's servers and the budget untouched). A fresh plan then said "No changes". The brake lives in production's record but covers staging's group too, so this is the only way to prove it on staging.
+3. **The brake fired for real** through the alert topic, as in [Lab 62](lab-62-the-spending-brake.md): `kaval-prod` "already at zero" (left alone), `kaval-staging` "scaled 1 -> 0", the pre-stop snapshot taken (labelled `Project=kaval`, `Env=staging`, `ManagedBy=kaval-lambda`, `Reason=pre-stop`) and staging's database stopped, in 5.8 seconds. Production's database and the dev server did not change. The limit and the ceiling did not get in the way of the one job the brake exists for.
+4. **What the deployed brake refuses**, asked of AWS's simulator for the real role: update a group labelled `Kaval` allowed; a group labelled for another project or with no label, refused; ending a server and any IAM change, refused.
+5. **The removal worker**, on staging, with its new ceiling: the deployed role and its ceiling were asked all 39 of the test cases (0 mismatches); then two hand-made orders through the real worker on throwaway 1 GiB disks: marking and backing up a loose staging disk went through (status `ok`; the backup labelled `staging` / `kaval-lambda`; the mark on the disk), and deleting a copy labelled `prod` was refused (`other_env`) and the copy still existed. Everything the proof made was deleted afterwards and the sweep after teardown was clean.
+6. **`KAV-162` rode the same session:** the staging smoke test passed 7 of 7 (the only failure was the known "this build has no version tag"), the gateway pod showed no `kube-api-access` volume, and the database came up fully migrated.
 
-`make iam-review` then shows "permission boundary: yes" on both roles. The record of each step goes in the journal and in this lab's last section.
+`make iam-review` after step 2 shows the brake with "permission boundary: yes", and the old wide group statement is gone (only "look at groups" remains, which AWS cannot narrow). 7. **Production's remover ceiling** (`apply remover ceiling`, 08:05, on the owner's go): the saved plan (1 added, 2 changed, 0 destroyed, the remover only); a fresh plan said "No changes"; the deployed production role and its ceiling matched all 39 simulator cases; `make iam-review` now shows "permission boundary: yes" on both roles that change things. `KAV-161` closed.
 
 ## What to take away
 
