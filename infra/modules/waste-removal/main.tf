@@ -37,6 +37,11 @@ locals {
   env_name      = trimprefix(var.name_prefix, "kaval-")
   volume_arn    = "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:volume/*"
   snapshot_arn  = "arn:aws:ec2:${data.aws_region.current.name}::snapshot/*"
+
+  # The environment names the code knows (ENVS in lambda/waste_removal.py; a test keeps the two lists
+  # equal). A copy labelled with any of the OTHER names is never this worker's to delete (A-5).
+  all_envs   = ["prod", "staging", "dev", "state", "lab-eks"]
+  other_envs = [for e in local.all_envs : e if e != local.env_name]
 }
 
 data "archive_file" "removal" {
@@ -69,8 +74,28 @@ resource "aws_ssm_parameter" "result" {
   }
 }
 
+# The ceiling (KAV-161, ADR-0101): whatever this role's own policy says, it can never do more than
+# this document allows. It is the same shape with the same label fences, written separately, so a
+# later edit that widens the role (or breaks one of its fences) still cannot reach a server, a
+# different label, or IAM. scripts/dev/test_iam_boundaries.py proves it with IAM's policy simulator.
+resource "aws_iam_policy" "boundary" {
+  name        = "${local.function_name}-boundary"
+  description = "The most the waste removal worker may ever do (a permission boundary, not a grant)."
+  policy = templatefile("${path.module}/boundary.json.tftpl", {
+    volume_arn   = local.volume_arn
+    snapshot_arn = local.snapshot_arn
+    env_name     = local.env_name
+    other_envs   = jsonencode(local.other_envs)
+    orders_arn   = aws_ssm_parameter.orders.arn
+    result_arn   = aws_ssm_parameter.result.arn
+    log_arn      = "${aws_cloudwatch_log_group.removal.arn}:*"
+  })
+  tags = var.tags
+}
+
 resource "aws_iam_role" "removal" {
-  name = local.function_name
+  name                 = local.function_name
+  permissions_boundary = aws_iam_policy.boundary.arn
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -215,6 +240,21 @@ data "aws_iam_policy_document" "removal" {
       test     = "StringNotEquals"
       variable = "ec2:ResourceTag/ManagedBy"
       values   = ["terraform"]
+    }
+  }
+
+  # A copy labelled for another environment is refused (A-5, KAV-161). Deliberately a refusal and not
+  # a "must match": the worker also removes old copies that carry no environment label at all (the
+  # code's UNLABELLED_DAYS rule), and a "must match" would silently stop that.
+  statement {
+    sid       = "NeverAnotherEnvironmentsCopy"
+    effect    = "Deny"
+    actions   = ["ec2:DeleteSnapshot"]
+    resources = [local.snapshot_arn]
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:ResourceTag/Env"
+      values   = local.other_envs
     }
   }
 

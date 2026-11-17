@@ -1,0 +1,73 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LookAtGroupsServersAndDisks",
+      "Effect": "Allow",
+      "Action": [
+        "autoscaling:DescribeAutoScalingGroups",
+        "ec2:DescribeInstances",
+        "ec2:DescribeVolumes"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ScaleOnlyKavalGroups",
+      "Effect": "Allow",
+      "Action": [
+        "autoscaling:UpdateAutoScalingGroup",
+        "autoscaling:SetDesiredCapacity"
+      ],
+      "Resource": "arn:aws:autoscaling:*:*:autoScalingGroup:*:autoScalingGroupName/*",
+      "Condition": {
+        "StringEquals": { "autoscaling:ResourceTag/Project": "kaval" }
+      }
+    },
+    {
+      "Sid": "StopOnlyKavalServers",
+      "Effect": "Allow",
+      "Action": "ec2:StopInstances",
+      "Resource": "arn:aws:ec2:*:*:instance/*",
+      "Condition": {
+        "StringEquals": { "aws:ResourceTag/Project": "kaval" }
+      }
+    },
+    {
+      "Sid": "SnapshotOnlyKavalDisks",
+      "Effect": "Allow",
+      "Action": "ec2:CreateSnapshot",
+      "Resource": "arn:aws:ec2:*:*:volume/*",
+      "Condition": {
+        "StringEquals": { "aws:ResourceTag/Project": "kaval" }
+      }
+    },
+    {
+      "Sid": "TheNewSnapshotIsLabelledKaval",
+      "Effect": "Allow",
+      "Action": "ec2:CreateSnapshot",
+      "Resource": "arn:aws:ec2:*:*:snapshot/*",
+      "Condition": {
+        "StringEquals": { "aws:RequestTag/Project": "kaval" }
+      }
+    },
+    {
+      "Sid": "LabelTheNewSnapshot",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "arn:aws:ec2:*:*:snapshot/*",
+      "Condition": {
+        "StringEquals": { "ec2:CreateAction": "CreateSnapshot" }
+      }
+    },
+    {
+      "Sid": "Logs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:*"
+    }
+  ]
+}

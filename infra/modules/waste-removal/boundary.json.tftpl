@@ -1,0 +1,106 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Look",
+      "Effect": "Allow",
+      "Action": ["ec2:DescribeSnapshots", "ec2:DescribeVolumes"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "BackupOfAKavalDisk",
+      "Effect": "Allow",
+      "Action": "ec2:CreateSnapshot",
+      "Resource": "${volume_arn}",
+      "Condition": {
+        "StringEquals": {
+          "ec2:ResourceTag/Project": "kaval",
+          "ec2:ResourceTag/Env": "${env_name}"
+        },
+        "StringNotEquals": { "ec2:ResourceTag/ManagedBy": "terraform" }
+      }
+    },
+    {
+      "Sid": "TheNewCopyIsLabelled",
+      "Effect": "Allow",
+      "Action": "ec2:CreateSnapshot",
+      "Resource": "${snapshot_arn}",
+      "Condition": {
+        "StringEquals": { "aws:RequestTag/Project": "kaval" }
+      }
+    },
+    {
+      "Sid": "LabelTheNewCopy",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "${snapshot_arn}",
+      "Condition": {
+        "StringEquals": { "ec2:CreateAction": "CreateSnapshot" }
+      }
+    },
+    {
+      "Sid": "MarkTheDisk",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "${volume_arn}",
+      "Condition": {
+        "StringEquals": {
+          "ec2:ResourceTag/Project": "kaval",
+          "ec2:ResourceTag/Env": "${env_name}"
+        },
+        "StringNotEquals": { "ec2:ResourceTag/ManagedBy": "terraform" },
+        "ForAllValues:StringEquals": { "aws:TagKeys": ["KavalRemoval"] }
+      }
+    },
+    {
+      "Sid": "DeleteAKavalDisk",
+      "Effect": "Allow",
+      "Action": "ec2:DeleteVolume",
+      "Resource": "${volume_arn}",
+      "Condition": {
+        "StringEquals": {
+          "ec2:ResourceTag/Project": "kaval",
+          "ec2:ResourceTag/Env": "${env_name}"
+        },
+        "StringNotEquals": { "ec2:ResourceTag/ManagedBy": "terraform" }
+      }
+    },
+    {
+      "Sid": "DeleteAKavalCopy",
+      "Effect": "Allow",
+      "Action": "ec2:DeleteSnapshot",
+      "Resource": "${snapshot_arn}",
+      "Condition": {
+        "StringEquals": { "ec2:ResourceTag/Project": "kaval" },
+        "StringNotEquals": { "ec2:ResourceTag/ManagedBy": "terraform" }
+      }
+    },
+    {
+      "Sid": "NeverAnotherEnvironmentsCopy",
+      "Effect": "Deny",
+      "Action": "ec2:DeleteSnapshot",
+      "Resource": "${snapshot_arn}",
+      "Condition": {
+        "StringEquals": { "ec2:ResourceTag/Env": ${other_envs} }
+      }
+    },
+    {
+      "Sid": "ReadTheOrders",
+      "Effect": "Allow",
+      "Action": "ssm:GetParameter",
+      "Resource": "${orders_arn}"
+    },
+    {
+      "Sid": "ReadAndWriteTheResult",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameter", "ssm:PutParameter"],
+      "Resource": "${result_arn}"
+    },
+    {
+      "Sid": "Logs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "${log_arn}"
+    }
+  ]
+}
