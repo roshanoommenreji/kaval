@@ -123,8 +123,20 @@ data "archive_file" "hard_stop" {
   output_path = "${path.module}/.build/hard_stop.zip"
 }
 
+# The ceiling (KAV-161, ADR-0101). The brake's one job is to stop things, so it can never do more
+# than stop Kaval's own, whatever its policy is edited to say. Fixed text on purpose (boundary.json
+# does not follow the variables above): a ceiling that moves with the thing it limits is no ceiling.
+# scripts/dev/test_iam_boundaries.py proves it with IAM's policy simulator.
+resource "aws_iam_policy" "hard_stop_boundary" {
+  name        = "${var.name_prefix}-budget-hard-stop-boundary"
+  description = "The most the budget brake may ever do (a permission boundary, not a grant)."
+  policy      = file("${path.module}/boundary.json")
+  tags        = var.tags
+}
+
 resource "aws_iam_role" "hard_stop" {
-  name = "${var.name_prefix}-budget-hard-stop"
+  name                 = "${var.name_prefix}-budget-hard-stop"
+  permissions_boundary = aws_iam_policy.hard_stop_boundary.arn
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -138,15 +150,29 @@ resource "aws_iam_role" "hard_stop" {
 
 # Deliberately narrow: this role can stop things, and nothing else.
 data "aws_iam_policy_document" "hard_stop" {
+  # Looking at groups cannot be limited by label in IAM (the list call has no resource to name).
   statement {
-    sid    = "ScaleAsgToZero"
+    sid       = "FindGroups"
+    effect    = "Allow"
+    actions   = ["autoscaling:DescribeAutoScalingGroups"]
+    resources = ["*"]
+  }
+
+  # Changing a group is limited to groups carrying Kaval's label (A-2, KAV-161). Until then this
+  # could scale down any group in the account, the other project's included.
+  statement {
+    sid    = "ScaleKavalGroupsToZero"
     effect = "Allow"
     actions = [
-      "autoscaling:DescribeAutoScalingGroups",
       "autoscaling:UpdateAutoScalingGroup",
       "autoscaling:SetDesiredCapacity",
     ]
-    resources = ["*"]
+    resources = ["arn:aws:autoscaling:*:*:autoScalingGroup:*:autoScalingGroupName/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "autoscaling:ResourceTag/${var.stop_tag_key}"
+      values   = [var.stop_tag_value]
+    }
   }
 
   # Finding instances can't be scoped to a tag in IAM, but it only reads.

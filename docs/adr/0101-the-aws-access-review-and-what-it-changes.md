@@ -1,6 +1,7 @@
 # ADR-0101: The AWS access review, and what it changes
 
 **Status:** Accepted on 2026-11-16 (Roshan: "as recommended"; the five points below, as written). The review itself was read-only. Nothing in AWS was changed by this decision; each change is its own story and needs its own typed go.
+**Amended:** 2026-11-17, while building `KAV-161`: decision 4 is a refusal, not a "must match" (see "Amendment" below)
 **Deciders:** Roshan
 **Related:** [ADR-0063](0063-waste-is-removed-in-steps-by-a-separate-worker-and-only-with-approval.md) (the remover and its allow-list), [ADR-0100](0100-secrets-are-changed-yearly-and-the-laptop-key-every-90-days.md) (the laptop key), [access-review.md](../architecture/access-review.md) (the evidence), [Lab 101](../labs/lab-101-the-aws-half-of-the-access-review.md)
 **Story:** `KAV-154`; the changes are `KAV-160` and `KAV-161`
@@ -51,8 +52,15 @@ Phase 6 promised a permission boundary on the role that removes waste. The role 
 - **A-4 stays open on purpose.** If the laptop is taken and its key is not yet changed, whoever has it can do anything in the account, the other project's too. The cover is the 90-day change and the key's one location.
 - **The review is of the live account as of 2026-11-16, production's roles only** (staging was down). Staging's roles come from the same templates and are scanned again at its next session.
 
+## Amendment, 2026-11-17 (building `KAV-161`)
+
+Checked against the remover's code before building, decision 4 ("require the `Env` label to match") would have broken a rule the code already has: the worker also deletes old snapshots that carry **no** `Env` label (`UNLABELLED_DAYS`). A "must match" condition would silently stop that. The intent, that production's worker never deletes a staging copy, is kept and made exact: a **Deny** on `ec2:DeleteSnapshot` for a snapshot labelled with any of the *other* environment names, in the role and in the boundary. A test keeps Terraform's list of environment names equal to the code's `ENVS`.
+
+Also found while reading the brake: it lives in **production's** Terraform record but covers both environments' server groups. So "proven on staging first" cannot mean "applied to staging first"; the brake's change is applied once, to production's record (the brake only, plan shown, on a typed go), and proven at once by a staging session that fires it. Production's remover gets its ceiling at production's next start-up, as written.
+
 ## Consequences
 
 - Two stories carry the changes (`KAV-160`, `KAV-161`) and one carries the cluster half's fix (`KAV-162`); each goes through staging before production.
 - `KAV-154` can close when the owner accepts or changes this decision, because the review is complete and every finding has a story or a written acceptance.
 - The Phase 6 line "a permission boundary on the roles that act" is ticked when `KAV-161` is proven.
+- Built 2026-11-17 ([Lab 103](../labs/lab-103-a-ceiling-over-the-two-roles-that-act.md)): the brake's group limit, both boundaries and the remover's refusal are in the modules, with `scripts/dev/test_iam_boundaries.py` (about 100 cases, checked against IAM's own simulator). Not applied to AWS yet.
