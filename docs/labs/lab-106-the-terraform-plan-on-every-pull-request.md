@@ -1,6 +1,6 @@
 # Lab 106 — The Terraform plan on every pull request
 
-**Phase:** 8 (hardening) · **Story:** `KAV-89` · **Decision:** [ADR-0104](../adr/0104-a-pull-request-shows-its-terraform-plan-through-a-read-only-role.md) · **Status:** built 2026-11-18; applied and proven live: *see Part 5 (filled in after the apply)*
+**Phase:** 8 (hardening) · **Story:** `KAV-89` · **Decision:** [ADR-0104](../adr/0104-a-pull-request-shows-its-terraform-plan-through-a-read-only-role.md) · **Status:** built, applied and proven live 2026-11-18 (Part 5)
 
 ## What you will build
 
@@ -92,7 +92,27 @@ The negative cases are the point: a trust widened to `StringLike`, to `main`, a 
 workflow that triggers on `pull_request_target`, that skips the fork check, reads the role from a variable,
 drops `-refresh=false` or prints the plan's text. Each must fail the test.
 
-## Part 5 — the live proof (filled in after the apply)
+## Part 5 — the live proof (2026-11-18)
 
-*To be recorded: the apply, the first pull-request run, the permission check (can read the record, cannot
-write it), and what the first live run needed.*
+1. **Apply 1:** the role and its policy, 2 added; a second plan showed no differences.
+2. **Permission check** (AWS's policy simulator, read-only). *Allowed:* read prod's and the state folder's record,
+   read `/kaval/plan/prod-tfvars` and the bucket-name parameter, list the bucket. *Refused (implicit deny):*
+   write or delete the record, take the lock file, read staging's record, read another bucket, read any other
+   parameter, write a parameter, start a server, create a role.
+3. **First pull-request run (a throwaway draft PR with a one-tag edit): red, as live proofs are.** The login and
+   the record read worked; the plan stopped on `ListOpenIDConnectProviders` (Terraform finds the GitHub sign-in
+   provider by its address, which lists the providers first). Fix: one read action on `*` (a list has no
+   resource-level permission), apply 2 = 1 changed. The run's own error printing also showed too much (the
+   first 30 lines of the plan's text), so a failed step now prints only its error blocks.
+4. **Second run: green, but production showed 4 changes** that a laptop plan, made with the same flags, said did
+   not exist ("No changes"). Cause: GitHub's machine builds a Lambda's zip a little differently from Windows, so
+   three functions' `source_code_hash` differ, and the scheduler policy that names the function follows. Left
+   alone every pull request would show four false changes. Fix: the job also plans the pull request's **base
+   commit** against the same record and shows only the rows the base does not have.
+5. **Third run: green and honest.** Production: "This pull request adds no change" with the 4 listed apart as
+   "already pending without this pull request". State folder: only the tag edit. **Checks on the public log
+   (count of matches): twelve-digit numbers 0, the bucket's name 0, the plan's own text 0.**
+6. The throwaway pull request was closed without merging; its branch was deleted.
+
+What the first live run taught: a permission list written from reading the code is a first draft. The run is the
+test, and one IAM-only apply (free) per missing read is the price.

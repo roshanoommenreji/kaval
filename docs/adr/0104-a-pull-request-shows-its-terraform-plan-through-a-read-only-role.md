@@ -1,6 +1,6 @@
 # ADR-0104 — A pull request shows its Terraform plan, through a read-only role that only a pull request can use
 
-- **Status:** Accepted 2026-11-18; built, not yet applied or proven live (see "Measured" once it is)
+- **Status:** Accepted 2026-11-18; built, applied and proven live the same day (see "Measured")
 - **Date:** 2026-11-18
 - **Deciders:** Roshan
 - **Story:** `KAV-89` (Phase 8) · follows [ADR-0058](0058-terraforms-record-lives-in-a-private-versioned-bucket.md) (the record in a bucket; it named this story) · kept in v1 by [ADR-0099](0099-roadmap-clean-up-what-v1-still-needs.md) · the role pattern is [ADR-0049](0049-backups-watched-and-restores-drilled.md)'s (OIDC, no stored key) · public-log rules from [ADR-0091](0091-the-account-number-is-hidden-in-public-logs-and-role-addresses-are-secrets.md)
@@ -125,3 +125,17 @@ check that says "not run" means one of those two is missing.
 - It does not plan staging, dev or the EKS lab.
 - It is not a second reviewer. On a one-person repository the person reading the table is the person who wrote
   the change; the table makes a mistake visible, it does not make one impossible.
+
+## Measured
+
+2026-11-18, through a throwaway draft pull request (closed without merging):
+
+| Step | Result |
+|---|---|
+| Apply | role and policy, 2 added; second plan no differences |
+| Policy simulator | read of prod's and state's record, the settings and the bucket name: allowed. Write, delete, lock file, staging's record, other bucket, other parameter, write parameter, RunInstances, CreateRole: all implicitly denied |
+| First run | login and record read worked; the plan stopped on `iam:ListOpenIDConnectProviders`; one read action added (a list has no resource-level permission), apply 2 = 1 changed |
+| Second run | production showed 4 changes the laptop plan did not (a Lambda zip builds differently on GitHub's machine); decision 6 follows |
+| Third run | production: "adds no change", 4 listed as already pending; state: only the throwaway edit; log checks: 0 twelve-digit numbers, 0 bucket names, 0 lines of plan text |
+| Time | production 64 s, state 47 s (two plans each) |
+

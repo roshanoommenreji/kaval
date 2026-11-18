@@ -100,7 +100,7 @@ at the next staging session.
 | `kaval-budget-hard-stop` | the brake function | Scale an auto-scaling group to zero; stop servers carrying the `Project` label; snapshot Kaval disks | **Yes: the brake** |
 | `kaval-ci-publish` | this repository, on `main` only | Push to Kaval's own image repositories | Pushes images |
 | `kaval-backup-watch` | this repository, on `main` only | Look at backups and the server's history | No |
-| `kaval-ci-plan` (`KAV-89`, built, not yet applied) | this repository, from a pull request only | Read two Terraform records, one Parameter Store folder and a few lookups; no write | No |
+| `kaval-ci-plan` (`KAV-89`, applied 2026-11-18) | this repository, from a pull request only | Read two Terraform records, one Parameter Store folder and a few lookups; no write | No |
 | `kaval-prod-dlm` | the snapshot scheduler | AWS's own managed policy for scheduled snapshots | Takes snapshots |
 | `kaval-devbox` | the dev server | AWS's managed Session Manager policy | No |
 | Three scheduler roles (waste scan, waste removal, the nightly auto-stop) | the scheduler | Start one named function each | No |
