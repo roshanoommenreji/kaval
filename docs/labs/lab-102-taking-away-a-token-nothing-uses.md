@@ -63,9 +63,16 @@ To see it catch the mistake, take the change back out (`git stash -- deploy`) an
 
 Four comments in service code still described a phone app that was retired on 2026-11-15 ([ADR-0097](../adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)): the gateway's API description, a schema docstring, the package docstring and the executor's `redact.py` docstring. They were left on purpose then, because changing a comment inside a service changes its image and owes a release round. They ride this one, since the gateway needs a release anyway. The gateway's API description is shown at `/openapi.json`, so it is the one place a reader outside the repository could have seen the old wording.
 
-## Part 6 — The live proof (not yet done)
+## Part 6 — The live proof (done 2026-11-18)
 
-Releasing, the staging smoke test and promotion are separate, each on the owner's go. The proof that matters is on the live cluster: the gateway still answers, the migration job still runs, and `kubectl get pod <gateway> -o yaml` shows no `kube-api-access` volume. The record of that goes in the next journal entry and this lab's last section.
+Released as **v0.4.4** (`sha-f280013`), passed the staging smoke test 7 of 7 (2026-11-18, [Lab 104](lab-104-a-second-size-for-the-app-server.md) tells the rest of that day), and promoted through `promote.yml` (#452). Production started on it at 09:48 IST and `make prod-smoke` passed 9 of 9 (10 pods running, no restarts, every running digest equal to the registry's, the database at `d4f7a2c9e815`, both API calls 200, the timers set). Then, read-only from the server over Session Manager:
+
+```bash
+kubectl get pods -n kaval-prod -o custom-columns=POD:.metadata.name,VOLUMES:.spec.volumes[*].name --no-headers
+kubectl get deploy -n kaval-prod -o custom-columns=NAME:.metadata.name,AUTOMOUNT:.spec.template.spec.automountServiceAccountToken --no-headers
+```
+
+Both gateway pods and the agent, the diagnoser and the Prometheus collector list **no** `kube-api-access` volume (`automount` false for the gateway, agent, diagnoser, collector-prometheus and Ollama); only the collector, the cost collector, the executor and Prometheus still carry one, which are the accepted findings of the review (they call the cluster's API). The migration job ran before the services, as a hook, and is gone, with the database at head. Five network rules and one approver entry were also as expected.
 
 ## What to take away
 
