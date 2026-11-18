@@ -1,0 +1,135 @@
+# What would this pull request do to the account? (KAV-89, ADR-0102)
+#
+# On a pull request that touches infra/, plan production and the state folder and show the result on
+# the run's summary page: which resources would be added, changed, replaced or destroyed, and the NAMES
+# of the settings that change. Nothing is applied; applies stay on the laptop, after a plan is shown.
+#
+# The plan reads Terraform's record, which holds generated passwords and the Slack tokens (ADR-0058), so
+# this job holds the one role that can read it. What keeps that safe (every line has a test in
+# scripts/dev/test_terraform_plan_workflow.py):
+#   - it runs on `pull_request`, never `pull_request_target`; and only for a pull request from this
+#     repository (a fork gets no token and no secret from GitHub, and the job skips itself as well);
+#   - the role's address is a repository SECRET that Dependabot's jobs cannot read, so a bumped action
+#     can never run here with the role;
+#   - the role's trust accepts this one trigger only, and the role can only read (modules/plan-reader);
+#   - the plan is made with -refresh=false (compare the code with the record; no look at the live
+#     account) and -lock=false (so it never writes the lock file);
+#   - the repository is public, so a plan's own text is never printed: the output goes to a file, and
+#     the summary is built by scripts/ops/plan_summary.py, which prints names and never values. The
+#     account number is hidden by the login step; the bucket name and the alert email are masked here.
+#
+# Not a required check: a broken AWS or a missing secret must never block a merge. If the secret is
+# not set the job says so on the summary page and passes.
+
+name: terraform-plan
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform-plan.yml"
+      - "scripts/ops/plan_summary.py"
+
+permissions: {}
+
+# A newer push to the same pull request cancels the plan it makes obsolete.
+concurrency:
+  group: terraform-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: "1.11.4"
+  AWS_REGION: ap-south-1
+  # Production is parked between sessions; a plan assumes that (see the note it prints).
+  PARKED_CAPACITY: "0"
+
+jobs:
+  plan:
+    name: terraform plan (${{ matrix.env }})
+    # Same repository only. Dependabot's own pull requests cannot read the role secret anyway.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # to ask AWS for the one-hour read-only pass
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [prod, state]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: gate
+        env:
+          ROLE: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+        run: |
+          if [ -z "$ROLE" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Terraform plan: \`${{ matrix.env }}\`"
+              echo
+              echo "Not run: the repository secret AWS_PLAN_ROLE_ARN is not set (Lab 106)."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.gate.outputs.present == 'true'
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - if: steps.gate.outputs.present == 'true'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          # A secret, so the step header shows *** (a variable is printed in full), and the account
+          # number is hidden from every later line of the job (KAV-141, ADR-0091).
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          mask-aws-account-id: true
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: terraform-plan-${{ github.run_id }}
+
+      - id: plan
+        if: steps.gate.outputs.present == 'true'
+        working-directory: infra/envs/${{ matrix.env }}
+        env:
+          # The provider block names a laptop profile; here there is none.
+          TF_VAR_profile: ""
+          TF_IN_AUTOMATION: "1"
+        run: |
+          set -euo pipefail
+          BUCKET="$(aws ssm get-parameter --name /kaval/tfstate/bucket --query Parameter.Value --output text)"
+          echo "::add-mask::$BUCKET"
+          MASKS="$BUCKET"
+          VARS=()
+          if [ "${{ matrix.env }}" = "prod" ]; then
+            # Production's settings that are not in git (the alert email, the server key, the budget
+            # numbers). The owner writes this parameter; this role can only read it.
+            aws ssm get-parameter --name /kaval/plan/prod-tfvars --query Parameter.Value --output text \
+              | grep -v -E '^[[:space:]]*(profile|app_node_desired_capacity)[[:space:]]*=' > terraform.tfvars
+            EMAIL="$(sed -n -E 's/^[[:space:]]*alert_email[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' terraform.tfvars)"
+            if [ -n "$EMAIL" ]; then echo "::add-mask::$EMAIL"; MASKS="$MASKS"$'\n'"$EMAIL"; fi
+            VARS=(-var="app_node_desired_capacity=$PARKED_CAPACITY")
+          fi
+          export PLAN_SUMMARY_MASKS="$MASKS"
+
+          # Output goes to files, never to the public log: a plan's text holds ARNs with the account number.
+          fail() { echo "::error::terraform $1 failed; the first lines of its message follow."; \
+                   sed -E 's/[0-9]{12}/<account>/g' "$2" | head -n 30; exit 1; }
+          terraform init -input=false -lockfile=readonly -no-color -backend-config="bucket=$BUCKET" \
+            > init.log 2>&1 || fail init init.log
+          terraform plan -input=false -no-color -refresh=false -lock=false "${VARS[@]}" -out=plan.tfplan \
+            > plan.log 2>&1 || fail plan plan.log
+          terraform show -json plan.tfplan > plan.json
+          {
+            python3 "$GITHUB_WORKSPACE/scripts/ops/plan_summary.py" "${{ matrix.env }}" plan.json
+            echo
+            echo "_Compared with Terraform's record, not refreshed from the live account, so a change made by hand is not shown._"
+            if [ "${{ matrix.env }}" = "prod" ]; then
+              echo "_Production is assumed parked (app_node_desired_capacity = $PARKED_CAPACITY)._"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
