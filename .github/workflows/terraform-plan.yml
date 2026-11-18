@@ -93,10 +93,19 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: terraform-plan-${{ github.run_id }}
 
+      # The same code as `main` has, planned against the same record, so what the pull request ADDS can
+      # be told apart from what is already pending without it (see scripts/ops/plan_summary.py).
+      - if: steps.gate.outputs.present == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
       - id: plan
         if: steps.gate.outputs.present == 'true'
-        working-directory: infra/envs/${{ matrix.env }}
         env:
+          ENVIRONMENT: ${{ matrix.env }}
           # The provider block names a laptop profile; here there is none.
           TF_VAR_profile: ""
           TF_IN_AUTOMATION: "1"
@@ -105,31 +114,47 @@ jobs:
           BUCKET="$(aws ssm get-parameter --name /kaval/tfstate/bucket --query Parameter.Value --output text)"
           echo "::add-mask::$BUCKET"
           MASKS="$BUCKET"
+          SETTINGS=""
           VARS=()
-          if [ "${{ matrix.env }}" = "prod" ]; then
+          if [ "$ENVIRONMENT" = "prod" ]; then
             # Production's settings that are not in git (the alert email, the server key, the budget
             # numbers). The owner writes this parameter; this role can only read it.
-            aws ssm get-parameter --name /kaval/plan/prod-tfvars --query Parameter.Value --output text \
-              | grep -v -E '^[[:space:]]*(profile|app_node_desired_capacity)[[:space:]]*=' > terraform.tfvars
-            EMAIL="$(sed -n -E 's/^[[:space:]]*alert_email[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' terraform.tfvars)"
+            SETTINGS="$(aws ssm get-parameter --name /kaval/plan/prod-tfvars --query Parameter.Value --output text \
+              | grep -v -E '^[[:space:]]*(profile|app_node_desired_capacity)[[:space:]]*=')"
+            EMAIL="$(printf '%s\n' "$SETTINGS" | sed -n -E 's/^[[:space:]]*alert_email[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p')"
             if [ -n "$EMAIL" ]; then echo "::add-mask::$EMAIL"; MASKS="$MASKS"$'\n'"$EMAIL"; fi
             VARS=(-var="app_node_desired_capacity=$PARKED_CAPACITY")
           fi
           export PLAN_SUMMARY_MASKS="$MASKS"
 
           # Output goes to files, never to the public log: a plan's text holds ARNs with the account number.
-          fail() { echo "::error::terraform $1 failed; the first lines of its message follow."; \
-                   sed -E 's/[0-9]{12}/<account>/g' "$2" | head -n 30; exit 1; }
-          terraform init -input=false -lockfile=readonly -no-color -backend-config="bucket=$BUCKET" \
-            > init.log 2>&1 || fail init init.log
-          terraform plan -input=false -no-color -refresh=false -lock=false "${VARS[@]}" -out=plan.tfplan \
-            > plan.log 2>&1 || fail plan plan.log
-          terraform show -json plan.tfplan > plan.json
+          # Only the error blocks are shown, never the plan's own text (it can hold values).
+          fail() { echo "::error::terraform $1 failed; its error message follows."; \
+                   grep -A8 -E 'Error' "$2" | sed -E 's/[0-9]{12}/<account>/g' | head -n 40; exit 1; }
+          # plan_in <checkout folder> <json file to write>
+          plan_in() {
+            local dir="$GITHUB_WORKSPACE/$1/infra/envs/$ENVIRONMENT" json="$2"
+            if [ -n "$SETTINGS" ]; then printf '%s\n' "$SETTINGS" > "$dir/terraform.tfvars"; fi
+            ( cd "$dir"
+              terraform init -input=false -lockfile=readonly -no-color -backend-config="bucket=$BUCKET" \
+                > init.log 2>&1 || fail init init.log
+              terraform plan -input=false -no-color -refresh=false -lock=false "${VARS[@]}" -out=plan.tfplan \
+                > plan.log 2>&1 || fail plan plan.log
+              terraform show -json plan.tfplan > "$GITHUB_WORKSPACE/$json" )
+          }
+
+          plan_in . plan.json
+          BASE=()
+          if [ -d base/infra/envs/"$ENVIRONMENT" ] && plan_in base plan-base.json; then
+            BASE=(plan-base.json)
+          else
+            echo "::warning::main could not be planned; every difference is shown, including any that main has too."
+          fi
           {
-            python3 "$GITHUB_WORKSPACE/scripts/ops/plan_summary.py" "${{ matrix.env }}" plan.json
+            python3 scripts/ops/plan_summary.py "$ENVIRONMENT" plan.json "${BASE[@]}"
             echo
             echo "_Compared with Terraform's record, not refreshed from the live account, so a change made by hand is not shown._"
-            if [ "${{ matrix.env }}" = "prod" ]; then
+            if [ "$ENVIRONMENT" = "prod" ]; then
               echo "_Production is assumed parked (app_node_desired_capacity = $PARKED_CAPACITY)._"
             fi
           } | tee -a "$GITHUB_STEP_SUMMARY"

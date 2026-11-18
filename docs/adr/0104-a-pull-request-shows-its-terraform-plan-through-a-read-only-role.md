@@ -1,6 +1,6 @@
 # ADR-0104 — A pull request shows its Terraform plan, through a read-only role that only a pull request can use
 
-- **Status:** Accepted 2026-11-18; built, not yet applied or proven live (see "Measured" once it is)
+- **Status:** Accepted 2026-11-18; built, applied and proven live the same day (see "Measured")
 - **Date:** 2026-11-18
 - **Deciders:** Roshan
 - **Story:** `KAV-89` (Phase 8) · follows [ADR-0058](0058-terraforms-record-lives-in-a-private-versioned-bucket.md) (the record in a bucket; it named this story) · kept in v1 by [ADR-0099](0099-roadmap-clean-up-what-v1-still-needs.md) · the role pattern is [ADR-0049](0049-backups-watched-and-restores-drilled.md)'s (OIDC, no stored key) · public-log rules from [ADR-0091](0091-the-account-number-is-hidden-in-public-logs-and-role-addresses-are-secrets.md)
@@ -35,7 +35,7 @@ Three facts make it harder than it sounds here:
    (`repo:<repository>:pull_request`), `StringEquals`, no wildcard. Not `main`, not a branch push, not a tag.
 2. **It can only read:** list the state bucket; read the two records it plans (prod's and the state folder's),
    nothing else in the bucket; read one Parameter Store folder (`/kaval/plan/`) and the bucket's name
-   parameter; read the public Amazon Linux image name; describe the GitHub sign-in provider and the subnets. It
+   parameter; read the public Amazon Linux image name; describe the GitHub sign-in provider (and list the providers, to find it) and the subnets. It
    cannot write the record (no `PutObject`, so no lock file either), cannot reach the backups, and has no
    action that changes anything.
 3. **The plan is made with `-refresh=false -lock=false`.** It compares the code with the record. It does not
@@ -49,16 +49,24 @@ Three facts make it harder than it sounds here:
    for a change only the *names* of the settings that differ. Never a value. On top of that every twelve-digit
    number is replaced and the bucket name and the alert email are masked. If a step fails, only the first
    lines of its message are printed, with the same masking.
-6. **Production's private settings** live in one Parameter Store entry, `/kaval/plan/prod-tfvars`, written
+6. **What the pull request adds is told apart from what is already pending.** The first live run (2026-11-18)
+   showed 4 changes on production that a laptop plan, made the same way, did not: GitHub's machine builds a
+   Lambda's zip file a little differently from Windows, so its fingerprint differs on every plan, and the
+   scheduler policy that names the function follows. Left alone, every pull request would show four false
+   changes. So the job also plans the pull request's **base commit** (`main`'s code) against the same record,
+   and `plan_summary.py` shows as the pull request's own only the rows the base plan does not have; the rest
+   are listed apart as "already pending without this pull request". It also cancels a change merged but not
+   yet applied. If `main` cannot be planned, every row is shown and a warning says why.
+7. **Production's private settings** live in one Parameter Store entry, `/kaval/plan/prod-tfvars`, written
    by the owner by hand (the role cannot write it). The plan assumes production is parked
    (`app_node_desired_capacity = 0`) and says so in its summary.
-7. **Production and the state folder only.** Staging is destroyed between sessions; its plan would say "all
+8. **Production and the state folder only.** Staging is destroyed between sessions; its plan would say "all
    new", which tells nobody anything (its code is still validated by the existing check).
-8. **Not a required check.** A broken AWS, an unset secret or a changed API must never block a merge. The job
+9. **Not a required check.** A broken AWS, an unset secret or a changed API must never block a merge. The job
    goes red on a real failure and says "not run" when the secret is missing. `terraform validate` stays the
    required guard.
-9. **One test file keeps it this way** (`scripts/dev/test_terraform_plan_workflow.py`): the trust is exactly
-   one `pull_request` sub with no wildcard; the policy allows only the five read actions; the workflow uses
+10. **One test file keeps it this way** (`scripts/dev/test_terraform_plan_workflow.py`): the trust is exactly
+   one `pull_request` sub with no wildcard; the policy allows only the six read actions; the workflow uses
    `pull_request`, never `pull_request_target`, an empty workflow token, a minimal job token, the secret,
    `-refresh=false`, `-lock=false`, pinned actions, no apply. Each rule has a broken copy that must fail.
 
@@ -113,7 +121,21 @@ check that says "not run" means one of those two is missing.
 ## What this does not do
 
 - It does not apply anything. Applies stay on the laptop, after a plan is shown.
-- It does not catch a change made by hand in the account (a nightly drift check is a separate story).
+- It does not catch a change made by hand in the account (a nightly drift check is a separate story, `KAV-165`).
 - It does not plan staging, dev or the EKS lab.
 - It is not a second reviewer. On a one-person repository the person reading the table is the person who wrote
   the change; the table makes a mistake visible, it does not make one impossible.
+
+## Measured
+
+2026-11-18, through a throwaway draft pull request (closed without merging):
+
+| Step | Result |
+|---|---|
+| Apply | role and policy, 2 added; second plan no differences |
+| Policy simulator | read of prod's and state's record, the settings and the bucket name: allowed. Write, delete, lock file, staging's record, other bucket, other parameter, write parameter, RunInstances, CreateRole: all implicitly denied |
+| First run | login and record read worked; the plan stopped on `iam:ListOpenIDConnectProviders`; one read action added (a list has no resource-level permission), apply 2 = 1 changed |
+| Second run | production showed 4 changes the laptop plan did not (a Lambda zip builds differently on GitHub's machine); decision 6 follows |
+| Third run | production: "adds no change", 4 listed as already pending; state: only the throwaway edit; log checks: 0 twelve-digit numbers, 0 bucket names, 0 lines of plan text |
+| Time | production 64 s, state 47 s (two plans each) |
+

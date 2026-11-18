@@ -31,6 +31,7 @@ ALLOWED_ACTIONS = {
     "s3:GetObject",
     "ssm:GetParameter",
     "iam:GetOpenIDConnectProvider",
+    "iam:ListOpenIDConnectProviders",
     "ec2:DescribeSubnets",
 }
 
@@ -167,6 +168,9 @@ def workflow_problems(doc: dict[str, Any], raw: str) -> list[str]:
         found.append("the workflow applies")
     if re.search(r"terraform plan[^\n]*\|\s*tee|cat plan\.log", run):
         found.append("the plan's own text reaches the log")
+    base = [s for s in job["steps"] if s.get("with", {}).get("path") == "base"]
+    if len(base) != 1 or base[0]["with"].get("ref") != "${{ github.event.pull_request.base.sha }}":
+        found.append("the base plan must come from the pull request's base commit, not its branch")
     if "plan_summary.py" not in run:
         found.append("the summary is not built by plan_summary.py")
     for uses in re.findall(r"uses:\s*(\S+)", raw):
@@ -197,7 +201,8 @@ def test_the_workflow_plans_prod_and_state_only() -> None:
             "vars.AWS_PLAN_ROLE_ARN }}\n          mask",
             "secret",
         ),
-        ("terraform show -json plan.tfplan > plan.json", "cat plan.log", "log"),
+        ('terraform show -json plan.tfplan > "$GITHUB_WORKSPACE/$json" )', "cat plan.log )", "log"),
+        ("ref: ${{ github.event.pull_request.base.sha }}", "ref: ${{ github.head_ref }}", "base"),
     ],
 )
 def test_a_loosened_workflow_is_refused(old: str, new: str, expect: str) -> None:
