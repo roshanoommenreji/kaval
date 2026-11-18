@@ -147,7 +147,7 @@ resource "aws_ssm_parameter" "bucket" {
   type  = "String"
   value = aws_s3_bucket.state.id
 
-  tags = { Name = "kaval-tfstate-bucket" }
+  tags = { Name = "kaval-tfstate-bucket-proof" }
 }
 
 # IAM Access Analyzer, external-access type (KAV-160, ADR-0101 finding A-1).
