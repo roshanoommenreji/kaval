@@ -44,10 +44,26 @@ variable "instance_profile_name" {
   type = string
 }
 
-variable "instance_type" {
-  description = "Must be Graviton (arm64) — see CLAUDE.md constraint #2."
-  type        = string
-  default     = "t4g.medium"
+variable "instance_types" {
+  description = <<-EOT
+    The server sizes the node may run on, best first (KAV-163, ADR-0103). The group tries the first and
+    falls back to the next by itself when AWS has none of it (no t4g.medium anywhere in ap-south-1 on
+    2026-11-17 and 2026-11-18). Every size must be Graviton (arm64, CLAUDE.md constraint #2) and the
+    same shape as the first (2 CPUs, 4 GB), so the node behaves the same whichever one it gets.
+    scripts/dev/test_node_sizes.py checks all of that.
+  EOT
+  type        = list(string)
+  default     = ["t4g.medium", "c6g.large"]
+
+  validation {
+    condition     = length(var.instance_types) >= 1 && length(distinct(var.instance_types)) == length(var.instance_types)
+    error_message = "instance_types needs at least one size and no repeats."
+  }
+
+  validation {
+    condition     = alltrue([for t in var.instance_types : can(regex("^[a-z]+[0-9]+g[a-z]*[.][a-z0-9]+$", t))])
+    error_message = "Every size must be a Graviton (arm64) one, such as t4g.medium or c6g.large."
+  }
 }
 
 variable "disk_gb" {

@@ -180,6 +180,7 @@ module "node" {
   ssh_public_key        = var.ssh_public_key
   desired_capacity      = var.node_desired_capacity
   spot                  = var.node_spot
+  instance_types        = var.node_instance_types
   # The nightly dump timer (KAV-74, ADR-0038) is installed here too, into staging's OWN bucket.
   # It will rarely fire (staging parks itself after 4 idle hours), but it is the same code path
   # as prod's, so `systemctl start kaval-db-backup` on a staging node proves the dump for free.

@@ -72,6 +72,7 @@ indefinitely and resumes without loss.
 | Bedrock escalations (light use) — Claude Haiku 4.5, cross-region tier, verified 2026-09-30 against the AWS Price List API at $1.00 / $5.00 per 1M input/output tokens ([ADR-0019](../adr/0019-bedrock-escalation-and-the-mantle-client-rejection.md)); occasional escalations at that rate land well under this figure. **Parked, $0 spent so far:** no live call has ever run (future scope FS-13, [ADR-0098](../adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)) | 1.50 |
 | Jev risk rating — TypeSafe API, ~12M input tokens ([ADR-0006](../adr/0006-jev-as-proposal-risk-rater.md)). **Parked, $0:** not built (future scope FS-12, [ADR-0098](../adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)) | 0.50 |
 | Data transfer | 1.00 |
+| *Fallback size* (`KAV-163`, [ADR-0103](../adr/0103-the-app-server-falls-back-to-a-second-size.md)): when AWS has no `t4g.medium`, the group launches `c6g.large` at $0.0426/hr (+$0.0202/hr, about 2 cents an hour, only while the node runs and only while the fallback is in use; not in the subtotal, worst case if the node ran on it all month +$14.75, which it does not: parked between sessions, each start-up tries `t4g.medium` first) | +0.02/hr when used |
 | **App node subtotal** (every row above) | **~$26.10** |
 | Database server `t4g.small` on-demand, 730 hrs ($0.0112/hr) | 8.18 |
 | Database server root disk, 8 GB gp3 | 0.73 |

@@ -1,6 +1,6 @@
 # ADR-0028: The prod app node is On-Demand, and the cost ceiling rises to $50
 
-**Status:** Accepted
+**Status:** Accepted (the single-size weakness it left is addressed by [ADR-0103](0103-the-app-server-falls-back-to-a-second-size.md), 2026-11-18)
 **Date:** 2026-10-08
 **Related:** [ADR-0008](0008-production-database-on-its-own-server.md) (the previous ceiling raise,
 $25 to $40), [ADR-0024](0024-prod-landing-network-ecr-iam-node.md) (the Spot node this changes),

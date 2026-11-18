@@ -24,6 +24,7 @@ the permissions pass ran after Ready, and neither step 5 nor step 6 was needed. 
 2. A table the migration added has no per-service permissions yet (step 6; the second permissions pass should
    have run, `journalctl -u kaval-db-grants`)
 3. The app server's base image or boot script changed since the last boot (watch the first boot)
+4. **AWS has no `t4g.medium` in any zone** (seen on staging 2026-11-17 and production 2026-11-18: the group's scaling activity says "we currently do not have sufficient t4g.medium capacity"). Terraform gives up waiting but the group keeps retrying, so the apply can be re-run when the server appears. Since `KAV-163` ([ADR-0103](../adr/0103-the-app-server-falls-back-to-a-second-size.md)) the group falls back to `c6g.large` by itself, once that change is applied; until then, wait, or park again (step 8).
 
 ## Diagnosis
 

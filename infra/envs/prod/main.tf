@@ -205,7 +205,7 @@ module "node" {
   # script copies ecr-cred into the kyverno namespace, and refreshes it with the 6-hourly timer.
   # Same switch staging has had since KAV-140. Takes effect when the node next starts.
   image_checker_enabled = true
-  # instance_type, disk_gb, k3s_version, k3s_sha256_arm64 and spot keep their module defaults
+  # instance_types (t4g.medium, then c6g.large when AWS has no t4g.medium: KAV-163), disk_gb, k3s_version, k3s_sha256_arm64 and spot keep their module defaults
   # (t4g.medium, On-Demand). On-Demand became the default on 2026-10-08 (ADR-0028): Spot
   # t4g.medium/large had no capacity anywhere in ap-south-1 on 2026-10-06 and 2026-10-08, and
   # the ~$8.55/month always-on premium was accepted along with a raised cost ceiling.

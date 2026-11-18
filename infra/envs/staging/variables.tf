@@ -27,6 +27,12 @@ variable "node_spot" {
   default     = false
 }
 
+variable "node_instance_types" {
+  description = "The server sizes staging's node may run on, best first (KAV-163, ADR-0103). Normally the module's own list (t4g.medium, then c6g.large). A proof session puts c6g.large first to show the whole system runs on the fallback size."
+  type        = list(string)
+  default     = ["t4g.medium", "c6g.large"]
+}
+
 variable "idle_hours" {
   description = "Hours with nobody on the staging servers before they are parked (ADR-0004 says four, ADR-0029). Fractions work for drills; the module refuses anything under 0.1."
   type        = number
