@@ -35,7 +35,7 @@ Kaval already follows pattern 2 for most of its access: GitHub Actions, the serv
 - **The whole path:** nothing is deployed by this decision. The rehearsal goes staging first; the first real rotation is production's, in a session, on the owner's go.
 - **Security:** the owner reads and writes secret values; no assistant, log or pull request ever holds one. The page lists names and homes only.
 - **Failure:** a rotation that goes wrong leaves a service unable to log in. That is why it is rehearsed on staging, and why on production it is done in a session with `make prod-smoke` afterwards and the previous value still recoverable from Parameter Store's history.
-- **Observability:** the page's record table shows the last change; the laptop key's age is visible in IAM and in Access Analyzer's unused-access view; misuse signals are listed per secret.
+- **Observability:** the page's record table shows the last change; the laptop key's age is visible in IAM (not in Access Analyzer: its unused-access view is the paid kind, and `KAV-160` switched on only the free external-access kind, Lab 105); misuse signals are listed per secret.
 - **Cost:** $0 for the laptop key; a few cents for a session, once a year.
 - **Testing:** `KAV-159` is the test. Until it passes, the database row of the page is marked "not rehearsed".
 - **People:** the owner; the dates are on the [ownership page](../ownership.md)'s list of recurring duties.

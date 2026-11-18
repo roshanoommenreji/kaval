@@ -24,7 +24,7 @@ Phase 6 promised a permission boundary on the role that removes waste. The role 
 
 ## Decision
 
-1. **Switch on IAM Access Analyzer** (external access, the whole account), in the `state` folder next to the bucket that holds Terraform's record, not inside an environment that gets destroyed. Free. Then read its findings and record them. `KAV-160`.
+1. **Switch on IAM Access Analyzer** (external access, the whole account), in the `state` folder next to the bucket that holds Terraform's record, not inside an environment that gets destroyed. Free. Then read its findings and record them. `KAV-160`: **done 2026-11-18** ([Lab 105](../labs/lab-105-a-watcher-for-what-outsiders-can-reach.md)); three findings, all the expected GitHub sign-in roles.
 2. **Limit the budget brake to Kaval's own auto-scaling groups** (by their `Project` label). The brake's own proof (it fires, it stops staging's group) is repeated on staging. `KAV-161`.
 3. **Attach a permission boundary to the two roles that change things: the waste remover and the budget brake.** The other eleven read, or write one named parameter, and cannot do harm that a boundary would stop. The boundary is a ceiling that names only what each role may ever do (for the remover: disks and snapshots, Kaval's own parameters, its own logs) and nothing else. `KAV-161`.
 4. **Make the remover's snapshot delete require the `Env` label to match** (A-5). `KAV-161`.

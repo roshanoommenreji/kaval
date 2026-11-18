@@ -149,3 +149,22 @@ resource "aws_ssm_parameter" "bucket" {
 
   tags = { Name = "kaval-tfstate-bucket" }
 }
+
+# IAM Access Analyzer, external-access type (KAV-160, ADR-0101 finding A-1).
+#
+# It reads what the account lets outsiders reach (a bucket, a role, a key, a queue shared with
+# another account or with the public) and lists each as a finding. The review of 2026-11-16 found
+# none existed, so such a thing would not have been noticed. It lives in this folder, not in an
+# environment, because staging is destroyed every session and an analyzer that vanished with it
+# would keep no history. One analyzer covers the whole account in this region, where every Kaval
+# resource is.
+#
+# Cost: $0. AWS charges only for the other types (unused access, internal access) and for custom
+# policy checks; the type below is the free one. scripts/dev/test_access_analyzer.py fails if it
+# is ever changed to a paid type.
+resource "aws_accessanalyzer_analyzer" "account" {
+  analyzer_name = "kaval-account"
+  type          = "ACCOUNT"
+
+  tags = { Name = "kaval-account" }
+}

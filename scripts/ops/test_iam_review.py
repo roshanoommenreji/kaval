@@ -93,3 +93,39 @@ def test_an_account_number_is_masked() -> None:
     # Built from pieces: no realistic account id sits in the file (the secret scanners).
     number = "".join(["1234", "5678", "9012"])
     assert ir.mask(f"arn:aws:iam::{number}:role/x") == "arn:aws:iam::<account>:role/x"
+
+
+def finding(**over: Any) -> dict[str, Any]:
+    one: dict[str, Any] = {
+        "action": ["sts:AssumeRoleWithWebIdentity"],
+        "isPublic": False,
+        "principal": {"Federated": "arn:aws:iam::acct:" + ir.GITHUB_SIGN_IN},
+    }
+    one.update(over)
+    return {"externalAccessDetails": one}
+
+
+def test_a_github_sign_in_role_is_the_one_expected_finding() -> None:
+    assert ir.classify_finding(finding()) == "expected"
+
+
+def test_a_public_role_is_new() -> None:
+    assert ir.classify_finding(finding(isPublic=True)) == "NEW"
+
+
+def test_a_role_shared_with_another_account_is_new() -> None:
+    assert ir.classify_finding(finding(principal={"AWS": "arn:aws:iam::other:root"})) == "NEW"
+
+
+def test_another_sign_in_provider_is_new() -> None:
+    other = {"Federated": "arn:aws:iam::acct:oidc-provider/example.com"}
+    assert ir.classify_finding(finding(principal=other)) == "NEW"
+
+
+def test_any_other_action_is_new() -> None:
+    assert ir.classify_finding(finding(action=["sts:AssumeRole"])) == "NEW"
+
+
+def test_a_second_principal_beside_github_is_new() -> None:
+    both = {"Federated": "arn:aws:iam::acct:" + ir.GITHUB_SIGN_IN, "AWS": "*"}
+    assert ir.classify_finding(finding(principal=both)) == "NEW"
