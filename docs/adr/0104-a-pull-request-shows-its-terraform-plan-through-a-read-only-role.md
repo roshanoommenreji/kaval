@@ -35,7 +35,7 @@ Three facts make it harder than it sounds here:
    (`repo:<repository>:pull_request`), `StringEquals`, no wildcard. Not `main`, not a branch push, not a tag.
 2. **It can only read:** list the state bucket; read the two records it plans (prod's and the state folder's),
    nothing else in the bucket; read one Parameter Store folder (`/kaval/plan/`) and the bucket's name
-   parameter; read the public Amazon Linux image name; describe the GitHub sign-in provider and the subnets. It
+   parameter; read the public Amazon Linux image name; describe the GitHub sign-in provider (and list the providers, to find it) and the subnets. It
    cannot write the record (no `PutObject`, so no lock file either), cannot reach the backups, and has no
    action that changes anything.
 3. **The plan is made with `-refresh=false -lock=false`.** It compares the code with the record. It does not
@@ -49,16 +49,24 @@ Three facts make it harder than it sounds here:
    for a change only the *names* of the settings that differ. Never a value. On top of that every twelve-digit
    number is replaced and the bucket name and the alert email are masked. If a step fails, only the first
    lines of its message are printed, with the same masking.
-6. **Production's private settings** live in one Parameter Store entry, `/kaval/plan/prod-tfvars`, written
+6. **What the pull request adds is told apart from what is already pending.** The first live run (2026-11-18)
+   showed 4 changes on production that a laptop plan, made the same way, did not: GitHub's machine builds a
+   Lambda's zip file a little differently from Windows, so its fingerprint differs on every plan, and the
+   scheduler policy that names the function follows. Left alone, every pull request would show four false
+   changes. So the job also plans the pull request's **base commit** (`main`'s code) against the same record,
+   and `plan_summary.py` shows as the pull request's own only the rows the base plan does not have; the rest
+   are listed apart as "already pending without this pull request". It also cancels a change merged but not
+   yet applied. If `main` cannot be planned, every row is shown and a warning says why.
+7. **Production's private settings** live in one Parameter Store entry, `/kaval/plan/prod-tfvars`, written
    by the owner by hand (the role cannot write it). The plan assumes production is parked
    (`app_node_desired_capacity = 0`) and says so in its summary.
-7. **Production and the state folder only.** Staging is destroyed between sessions; its plan would say "all
+8. **Production and the state folder only.** Staging is destroyed between sessions; its plan would say "all
    new", which tells nobody anything (its code is still validated by the existing check).
-8. **Not a required check.** A broken AWS, an unset secret or a changed API must never block a merge. The job
+9. **Not a required check.** A broken AWS, an unset secret or a changed API must never block a merge. The job
    goes red on a real failure and says "not run" when the secret is missing. `terraform validate` stays the
    required guard.
-9. **One test file keeps it this way** (`scripts/dev/test_terraform_plan_workflow.py`): the trust is exactly
-   one `pull_request` sub with no wildcard; the policy allows only the five read actions; the workflow uses
+10. **One test file keeps it this way** (`scripts/dev/test_terraform_plan_workflow.py`): the trust is exactly
+   one `pull_request` sub with no wildcard; the policy allows only the six read actions; the workflow uses
    `pull_request`, never `pull_request_target`, an empty workflow token, a minimal job token, the secret,
    `-refresh=false`, `-lock=false`, pinned actions, no apply. Each rule has a broken copy that must fail.
 

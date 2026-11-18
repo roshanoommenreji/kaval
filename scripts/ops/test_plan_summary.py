@@ -118,3 +118,48 @@ def test_the_command_line_reads_a_file(tmp_path: Path, capsys: Any, monkeypatch:
 
 def test_wrong_usage_is_refused(capsys: Any) -> None:
     assert ps.main(["plan_summary.py"]) == 2
+
+
+def test_a_base_plan_cancels_what_main_has_too() -> None:
+    noise = rc(
+        "aws_lambda.hard_stop", ["update"], {"source_code_hash": "a"}, {"source_code_hash": "b"}
+    )
+    mine = rc("aws_x.new", ["create"], None, {})
+    base = {"resource_changes": [noise]}
+    out = ps.summarise({"resource_changes": [noise, mine]}, "prod", None, base)
+    assert "1 to add, 0 to change" in out
+    assert "aws_x.new" in out
+    # the noise is listed apart, not as this pull request's change
+    assert "1 already pending without this pull request" in out
+    assert out.index("aws_x.new") < out.index("aws_lambda.hard_stop")
+    assert "| change |" not in out
+
+
+def test_a_pull_request_that_adds_nothing_says_so() -> None:
+    noise = rc("aws_lambda.hard_stop", ["update"], {"h": "a"}, {"h": "b"})
+    plan = {"resource_changes": [noise]}
+    out = ps.summarise(plan, "prod", None, plan)
+    assert "adds no change" in out
+    assert "1 already pending" in out
+
+
+def test_a_change_that_differs_from_main_is_this_pull_requests() -> None:
+    on_main = rc("aws_db.a", ["update"], {"size": 1}, {"size": 2})
+    mine = rc("aws_db.a", ["update"], {"size": 1, "name": "x"}, {"size": 2, "name": "y"})
+    out = ps.summarise({"resource_changes": [mine]}, "prod", None, {"resource_changes": [on_main]})
+    assert "| change | `aws_db.a` | name, size |" in out
+
+
+def test_a_pending_change_the_pull_request_removes_is_counted() -> None:
+    on_main = rc("aws_db.a", ["update"], {"size": 1}, {"size": 2})
+    out = ps.summarise({"resource_changes": []}, "prod", None, {"resource_changes": [on_main]})
+    assert "removes 1 change" in out
+
+
+def test_the_command_line_takes_a_base_plan(tmp_path: Path, capsys: Any) -> None:
+    plan = {"resource_changes": [rc("aws_x.a", ["create"], None, {})]}
+    a, b = tmp_path / "a.json", tmp_path / "b.json"
+    a.write_text(json.dumps(plan), encoding="utf-8")
+    b.write_text(json.dumps(plan), encoding="utf-8")
+    assert ps.main(["plan_summary.py", "prod", str(a), str(b)]) == 0
+    assert "adds no change" in capsys.readouterr().out

@@ -114,6 +114,16 @@ data "aws_iam_policy_document" "plan" {
     resources = [data.aws_iam_openid_connect_provider.github.arn]
   }
 
+  # Terraform finds the GitHub sign-in provider by its address, which means listing the account's
+  # providers first (found by the first live run, KAV-89). A list has no resource-level permission, so
+  # the resource is "*"; it names the sign-in providers and nothing else.
+  statement {
+    sid       = "ListSignInProviders"
+    effect    = "Allow"
+    actions   = ["iam:ListOpenIDConnectProviders"]
+    resources = ["*"]
+  }
+
   # The database module looks up the subnet it sits in. This API has no resource-level permission, so
   # the resource is "*"; it is read-only and names networks, not data.
   statement {
