@@ -64,3 +64,18 @@ Old versions are kept at least 90 days (the newest 20 always).
 - Do not run `terraform destroy` in `infra/envs/state`: the bucket refuses (`prevent_destroy`) and for good reason. The
   record of everything built is in it
 - Do not paste a state file anywhere: it contains generated database passwords and the Slack tokens
+
+## The plan on pull requests: "Not run", or red (`KAV-89`)
+
+The check `terraform plan (prod|state)` on a pull request that changes `infra/` reads the record through the
+read-only role `kaval-ci-plan` ([ADR-0104](../adr/0104-a-pull-request-shows-its-terraform-plan-through-a-read-only-role.md),
+[Lab 106](../labs/lab-106-the-terraform-plan-on-every-pull-request.md)). It is not a required check.
+
+| It says | Cause | Fix |
+|---|---|---|
+| "Not run: the repository secret AWS_PLAN_ROLE_ARN is not set" | the secret was never set, or was deleted | `gh secret set AWS_PLAN_ROLE_ARN --body "$(terraform -chdir=infra/envs/state output -raw plan_role_arn)"` |
+| Red at "plan", an `AccessDenied` or "ParameterNotFound" in the first lines | production's settings entry is missing, or the role lacks a lookup the code gained | write `/kaval/plan/prod-tfvars` (Lab 106 Part 2); or add the one read to `modules/plan-reader` and apply the state folder |
+| Red at "init" | the bucket name parameter is unreadable, or a provider download failed | re-run the job; check `/kaval/tfstate/bucket` |
+| Skipped | a fork's or Dependabot's pull request, by design | nothing |
+
+To turn it off, delete the secret. A plan never changes anything and never holds the lock.

@@ -57,7 +57,7 @@ the laptop must be private and encrypted.
 
 - **Who can read it:** the AWS admin login the laptop already uses, and nobody else. No new key exists. A separate
   read-only role for CI to run plans belongs with the Phase 8 plan-in-CI work (a roadmap line and Jira story were
-  added with this change); it is not built here because CI has no AWS credentials today, deliberately.
+  added with this change); it is not built here because CI has no AWS credentials today, deliberately. (Built later by `KAV-89`, [ADR-0104](0104-a-pull-request-shows-its-terraform-plan-through-a-read-only-role.md).)
 - **What leaks if the bucket is opened:** the whole record, including generated passwords and the Slack tokens. That
   is why public access is blocked four ways, plain HTTP is refused (tried: `AccessDenied`) and nothing is ever made
   public by a policy.

@@ -26,13 +26,14 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_DIR = ROOT / ".github" / "workflows"
 LOGIN_ACTION = "aws-actions/configure-aws-credentials@"
 
-# The four workflows that log in to AWS today. A fifth must be added to the check by being found
+# The five workflows that log in to AWS today. A sixth must be added to the check by being found
 # here, so the count is pinned (see test_the_login_steps_are_all_found).
 EXPECTED_LOGIN_STEPS = {
     "backup-watch.yml": 1,
     "promote.yml": 1,
     "release.yml": 1,
     "rollback.yml": 1,
+    "terraform-plan.yml": 1,
 }
 
 
