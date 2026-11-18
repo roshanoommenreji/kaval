@@ -1,6 +1,6 @@
 # Lab 104 — A second size for the app server
 
-**Phase:** 8 (hardening) · **Story:** `KAV-163` · **Decision:** [ADR-0103](../adr/0103-the-app-server-falls-back-to-a-second-size.md) · **Status:** built and proved on staging 2026-11-18; production's apply is recorded in Part 4 when it happens
+**Phase:** 8 (hardening) · **Story:** `KAV-163` · **Decision:** [ADR-0103](../adr/0103-the-app-server-falls-back-to-a-second-size.md) · **Status:** built and proved on staging 2026-11-18, applied to production the same day; the fallback itself is seen at a start-up that meets a shortage
 
 ## What you will build
 
@@ -56,7 +56,8 @@ A real shortage is the only way to see the fallback itself; when it happens the 
 - **Torn down 11:06:** 93 destroyed, no staging backup copies existed; the sweep clean; production's 27 backup copies unchanged. About 10 cents.
 - **What this does not show:** the fallback itself (the group choosing the second size when the first is unavailable) can only be seen in a real shortage. What it shows is that the second size, which is what the fallback would give us, runs the whole system, and that AWS accepts the group's policy.
 
-### Production (not yet)
+### Production (2026-11-18, 11:20 IST, on his typed `go production plan` and `apply production`)
 
-Production's plan (only the group's policy changes) and its apply are separate gos; this section is filled in then.
-
+- **Plan first** (saved to a file): 0 to add, 1 to change, 0 to destroy; only the group `kaval-prod`, in place: a prioritised mixed-instances policy (`t4g.medium` then `c6g.large`, 100 percent On-Demand, no base capacity) over the same launch template (version 21). Desired and minimum size stayed 0; the database stayed stopped; nothing started.
+- **Applied exactly:** 0 added, 1 changed, 0 destroyed. A fresh plan said "No changes". Read back from AWS: desired 0, minimum 0, no instances, `OnDemandAllocationStrategy` `prioritized`, 100 percent On-Demand, overrides `t4g.medium,c6g.large`. Cost: none.
+- **Left:** the fallback itself shows only at a start-up that meets a shortage (the group's scaling activity then shows a `c6g.large` launch); until one does, the story stays open.
