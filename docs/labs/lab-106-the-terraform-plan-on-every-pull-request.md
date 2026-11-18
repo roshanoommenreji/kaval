@@ -72,8 +72,11 @@ and the merge is not blocked.
 1. Refuses a pull request from a fork, and one made by Dependabot.
 2. Logs in to AWS with the secret (account number hidden, ADR-0091).
 3. Reads the bucket's name and production's settings, hides both from the log.
-4. `terraform init`, then `terraform plan -refresh=false -lock=false`, all output to files.
-5. `terraform show -json`, then `scripts/ops/plan_summary.py` prints the table into the summary page.
+4. `terraform init`, then `terraform plan -refresh=false -lock=false`, all output to files. The same is done for the
+   pull request's **base commit** (`main`'s code), against the same record.
+5. `terraform show -json` of both, then `scripts/ops/plan_summary.py` prints into the summary page what the pull
+   request ADDS; a row `main` has too goes under "already pending without this pull request". (The first live
+   run showed why: GitHub builds a Lambda's zip differently from Windows, so 4 phantom changes appeared on production.)
 
 `-refresh=false` means the plan compares the code with the record and does not look at the live account (so the
 role needs no wide `Describe` permissions). `-lock=false` means it never writes the lock file (so the role has
