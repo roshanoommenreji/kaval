@@ -130,9 +130,10 @@ def test_poll_writes_a_new_signal_when_the_event_count_grows(db_session: Session
     assert len(lines) == 1 and "count=5" in lines[0]
     rows = db_session.scalars(
         select(Signal).where(Signal.target == f"{DEMO_NAMESPACE}/{target_name}")
-        .order_by(Signal.observed_at)
     ).all()
-    assert [r.value["count"] for r in rows] == [2, 5]
+    # Both polls ran at the same `now`, so the two rows share a time and the database may return
+    # them in either order (KAV-164): the point is that a row was written for each count.
+    assert sorted(r.value["count"] for r in rows) == [2, 5]
 
 
 def test_poll_ignores_events_not_involving_a_pod(db_session: Session) -> None:
