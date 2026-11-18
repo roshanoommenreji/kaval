@@ -1,6 +1,6 @@
 # Lab 104 — A second size for the app server
 
-**Phase:** 8 (hardening) · **Story:** `KAV-163` · **Decision:** [ADR-0103](../adr/0103-the-app-server-falls-back-to-a-second-size.md) · **Status:** built 2026-11-18; the staging proof and production's apply are recorded in Part 4 when they happen
+**Phase:** 8 (hardening) · **Story:** `KAV-163` · **Decision:** [ADR-0103](../adr/0103-the-app-server-falls-back-to-a-second-size.md) · **Status:** built and proved on staging 2026-11-18; production's apply is recorded in Part 4 when it happens
 
 ## What you will build
 
@@ -47,4 +47,16 @@ A real shortage is the only way to see the fallback itself; when it happens the 
 
 ## Part 4 — Live record
 
-(Filled in when the staging proof and production's apply have happened.)
+### Staging proof (2026-11-18, 10:50 to 11:06 IST, on his typed `go staging proof`)
+
+- **Plan first:** `TF_VAR_node_instance_types='["c6g.large","t4g.medium"]'`, 94 to add, 0 to change, 0 to destroy, nothing of production. The group in the plan: `prioritized`, 0 base, 100 percent On-Demand, overrides `c6g.large` then `t4g.medium`; the launch template's size `c6g.large`.
+- **Built** (94 added, 10:55). `describe-instances`: the app server is a **`c6g.large`** (zone `ap-south-1b`), the database server a `t4g.small`.
+- **Smoke test (`staging_smoke.py --no-record`)**: 7 of 7 on `sha-f280013` (9 pods ready, 0 restarts, digests equal the registry's, database at `d4f7a2c9e815`, both API calls 200). The eighth line, "build is a tagged release", fails by design here because production already runs v0.4.4; the pass was recorded on the first staging run and this run records nothing.
+- **Headroom on the fallback size:** 2 CPUs, 3,805 MB, 2,066 MB used and 1,547 MB available with the model loaded, node CPU 7 percent. Production's `t4g.medium` showed 2,251 MB used on the same system the same morning, so the fallback has at least the same room.
+- **Torn down 11:06:** 93 destroyed, no staging backup copies existed; the sweep clean; production's 27 backup copies unchanged. About 10 cents.
+- **What this does not show:** the fallback itself (the group choosing the second size when the first is unavailable) can only be seen in a real shortage. What it shows is that the second size, which is what the fallback would give us, runs the whole system, and that AWS accepts the group's policy.
+
+### Production (not yet)
+
+Production's plan (only the group's policy changes) and its apply are separate gos; this section is filled in then.
+

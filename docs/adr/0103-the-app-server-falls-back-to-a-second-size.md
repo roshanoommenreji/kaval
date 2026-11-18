@@ -1,6 +1,6 @@
 # ADR-0103: The app server falls back to a second size when AWS has none of the first
 
-**Status:** Accepted (built `KAV-163`; live after the staging proof and production's apply)
+**Status:** Accepted (built `KAV-163`; proved on staging 2026-11-18; live in production after its apply)
 **Date:** 2026-11-18
 **Related:** [ADR-0028](0028-prod-app-node-on-demand-and-ceiling-50.md) (the node went On-Demand because Spot
 ran out), [ADR-0004](0004-environment-strategy-and-promotion.md), [Lab 104](../labs/lab-104-a-second-size-for-the-app-server.md),
