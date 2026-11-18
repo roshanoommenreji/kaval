@@ -48,8 +48,10 @@ These are not rotated because there is nothing stored to steal:
 
 - The yearly change has a date: **each November, starting November 2027.** It is on the
   [ownership page](../ownership.md)'s calendar with the other recurring duties.
-- The laptop key: AWS shows each key's age in the IAM console, and IAM Access Analyzer's
-  unused-access view (part of the access review, `KAV-154`) lists keys older than 90 days.
+- The laptop key: AWS shows each key's age in the IAM console (and in its credential report). IAM
+  Access Analyzer's *unused-access* view would list keys older than 90 days too, but that kind is
+  paid per user and is not switched on; the analyzer that is on (`KAV-160`, Lab 105) is the free
+  external-access kind, which does not look at keys.
 - Each change is written in the table below, so the last date is always visible here.
 
 ## What tells us a secret is being misused

@@ -42,6 +42,32 @@ def as_list(value: Any) -> list[str]:
     return [value] if isinstance(value, str) else list(value)
 
 
+GITHUB_SIGN_IN = "oidc-provider/token.actions.githubusercontent.com"
+
+
+def classify_finding(details: dict[str, Any]) -> str:
+    """ "expected" or "NEW" for one external-access finding (KAV-160).
+
+    The analyzer reports every role that GitHub's sign-in service may assume, because that service
+    is outside the account. Each such role is locked to one repository and branch by its own trust
+    rule, which the access review reads; that is the one kind of finding accepted as expected. The
+    rest is NEW: anything public, anything shared with another AWS account, any other action.
+    """
+    one = details.get("externalAccessDetails", details)
+    principal = one.get("principal") or {}
+    federated = principal.get("Federated", "") if isinstance(principal, dict) else ""
+    return (
+        "expected"
+        if (
+            not one.get("isPublic")
+            and set(as_list(one.get("action"))) == {"sts:AssumeRoleWithWebIdentity"}
+            and set(principal) == {"Federated"}
+            and federated.endswith(GITHUB_SIGN_IN)
+        )
+        else "NEW"
+    )
+
+
 def wide_statements(policy: dict[str, Any]) -> list[tuple[str, str, str]]:
     """Every Allow statement that is wider than it should be.
 
@@ -128,10 +154,14 @@ def main() -> int:
         print("  none exists in", REGION)
     for a in analyzers:
         client = session.client("accessanalyzer")
-        count = 0
+        found: list[dict[str, Any]] = []
         for page in client.get_paginator("list_findings_v2").paginate(analyzerArn=a["arn"]):
-            count += len(page["findings"])
-        print(f"  {a['name']} ({a['type']}, {a['status']}): {count} findings")
+            found += [f for f in page["findings"] if f["status"] == "ACTIVE"]
+        print(f"  {a['name']} ({a['type']}, {a['status']}): {len(found)} active findings")
+        for f in found:
+            detail = client.get_finding_v2(analyzerArn=a["arn"], id=f["id"])["findingDetails"][0]
+            name = f["resource"].split("/")[-1]
+            print(mask(f"    {classify_finding(detail):8} {f['resourceType']} {name}"))
 
     print("\nTHE CALLING USER (name and keys are not printed)")
     sts_arn = session.client("sts").get_caller_identity()["Arn"]

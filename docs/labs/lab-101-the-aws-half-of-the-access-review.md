@@ -71,7 +71,7 @@ Five things, all in [access-review.md](../architecture/access-review.md): no Acc
 
 ## Still to do
 
-The changes themselves: `KAV-160` (the analyzer), `KAV-161` (the brake, the two boundaries, the label check), `KAV-162` (the cluster half's finding C-1). Each is staging first, then production, each on the owner's go.
+The changes themselves: `KAV-160` (the analyzer, done: [Lab 105](lab-105-a-watcher-for-what-outsiders-can-reach.md)), `KAV-161` (the brake, the two boundaries, the label check), `KAV-162` (the cluster half's finding C-1). Each is staging first, then production, each on the owner's go.
 
 ## Clean up
 
