@@ -11,7 +11,7 @@ ran out), [ADR-0004](0004-environment-strategy-and-promotion.md), [Lab 104](../l
 On 2026-11-17 staging's app server could not start: AWS answered "we currently do not have sufficient
 t4g.medium capacity" in `ap-south-1c`, then in every zone, and the server group failed every retry for
 about an hour (the launch finally succeeded at about 10:00 IST). On 2026-11-18, production's start-up met
-the same answer in all three zones at 09:18 and was still waiting an hour later. On-Demand (ADR-0028)
+the same answer in all three zones from 09:18, and the launch only succeeded at 09:47, about half an hour later. On-Demand (ADR-0028)
 removed Spot's reclaim risk, but On-Demand is not a guarantee either: one size is one pool, and a pool
 can be empty. With one size, every start-up of staging or production depends on that pool.
 
