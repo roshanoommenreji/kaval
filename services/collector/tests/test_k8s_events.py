@@ -133,7 +133,7 @@ def test_poll_writes_a_new_signal_when_the_event_count_grows(db_session: Session
     ).all()
     # Both polls ran at the same `now`, so the two rows share a time and the database may return
     # them in either order (KAV-164): the point is that a row was written for each count.
-    assert sorted(r.value["count"] for r in rows) == [2, 5]
+    assert sorted(str(r.value["count"]) for r in rows) == ["2", "5"]
 
 
 def test_poll_ignores_events_not_involving_a_pod(db_session: Session) -> None:
