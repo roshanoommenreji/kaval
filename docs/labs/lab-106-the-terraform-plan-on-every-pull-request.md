@@ -33,8 +33,8 @@ Three things make it delicate here, and each has an answer:
 values = ["repo:${var.github_repo_claim}:pull_request"]   # StringEquals: no wildcard
 ```
 
-The policy has five read actions (`ListBucket`, `GetObject` on the two records, `ssm:GetParameter` on two named
-places, `iam:GetOpenIDConnectProvider`, `ec2:DescribeSubnets`) and no write. `infra/envs/state/main.tf` calls it
+The policy has six read actions (`ListBucket`, `GetObject` on the two records, `ssm:GetParameter` on two named
+places, `iam:GetOpenIDConnectProvider` and `iam:ListOpenIDConnectProviders`, `ec2:DescribeSubnets`) and no write. `infra/envs/state/main.tf` calls it
 with the bucket and the two record names. It is in the `state` folder so it outlives production's parking.
 
 Apply (the owner's go, plan shown first, **2 to add**):

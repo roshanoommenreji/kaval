@@ -30,6 +30,7 @@ CANNOT_BE_NARROWED = (
     "ec2:Describe",
     "autoscaling:Describe",
     "ecr:GetAuthorizationToken",
+    "iam:ListOpenIDConnectProviders",
     "ce:Get",
     "cloudwatch:PutMetricData",
 )

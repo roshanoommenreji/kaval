@@ -35,7 +35,7 @@ Three facts make it harder than it sounds here:
    (`repo:<repository>:pull_request`), `StringEquals`, no wildcard. Not `main`, not a branch push, not a tag.
 2. **It can only read:** list the state bucket; read the two records it plans (prod's and the state folder's),
    nothing else in the bucket; read one Parameter Store folder (`/kaval/plan/`) and the bucket's name
-   parameter; read the public Amazon Linux image name; describe the GitHub sign-in provider and the subnets. It
+   parameter; read the public Amazon Linux image name; describe the GitHub sign-in provider (and list the providers, to find it) and the subnets. It
    cannot write the record (no `PutObject`, so no lock file either), cannot reach the backups, and has no
    action that changes anything.
 3. **The plan is made with `-refresh=false -lock=false`.** It compares the code with the record. It does not
@@ -58,7 +58,7 @@ Three facts make it harder than it sounds here:
    goes red on a real failure and says "not run" when the secret is missing. `terraform validate` stays the
    required guard.
 9. **One test file keeps it this way** (`scripts/dev/test_terraform_plan_workflow.py`): the trust is exactly
-   one `pull_request` sub with no wildcard; the policy allows only the five read actions; the workflow uses
+   one `pull_request` sub with no wildcard; the policy allows only the six read actions; the workflow uses
    `pull_request`, never `pull_request_target`, an empty workflow token, a minimal job token, the secret,
    `-refresh=false`, `-lock=false`, pinned actions, no apply. Each rule has a broken copy that must fail.
 

@@ -31,6 +31,7 @@ ALLOWED_ACTIONS = {
     "s3:GetObject",
     "ssm:GetParameter",
     "iam:GetOpenIDConnectProvider",
+    "iam:ListOpenIDConnectProviders",
     "ec2:DescribeSubnets",
 }
 
