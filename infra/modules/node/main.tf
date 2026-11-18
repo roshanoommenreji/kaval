@@ -1,4 +1,4 @@
-# One environment's node (prod or staging, by var.name_prefix): one spot t4g.medium in an ASG pinned to size 1, running k3s. A launch
+# One environment's node (prod or staging, by var.name_prefix): one t4g.medium (c6g.large when AWS has no t4g.medium, KAV-163) in an ASG pinned to size 1, running k3s. A launch
 # template + ASG rather than a bare instance (unlike infra/modules/devbox) because spot
 # capacity can be reclaimed with two minutes' notice — the ASG's job is to replace it
 # without anyone paged. See docs/cost/budget-plan.md for the spot math.
@@ -46,27 +46,16 @@ locals {
 }
 
 resource "aws_launch_template" "node" {
-  name_prefix   = "${var.name_prefix}-"
-  image_id      = data.aws_ssm_parameter.al2023_arm64.insecure_value
-  instance_type = var.instance_type
+  name_prefix = "${var.name_prefix}-"
+  image_id    = data.aws_ssm_parameter.al2023_arm64.insecure_value
+  # The first size; the group's own list below decides which size really launches (KAV-163).
+  instance_type = var.instance_types[0]
 
   iam_instance_profile {
     name = var.instance_profile_name
   }
 
   vpc_security_group_ids = [aws_security_group.node.id]
-
-  # ASG-managed spot only supports "one-time" requests (confirmed by AWS rejecting
-  # "persistent" here at apply time) -- the ASG itself is what re-launches a replacement
-  # on interruption, not a persistent spot request underneath it. var.spot = false omits
-  # this block entirely, which launches On-Demand -- the escape hatch for when Spot
-  # capacity genuinely isn't available anywhere (found live, KAV-32 Lab 28).
-  dynamic "instance_market_options" {
-    for_each = var.spot ? [1] : []
-    content {
-      market_type = "spot"
-    }
-  }
 
   metadata_options {
     http_tokens   = "required" # IMDSv2 only
@@ -133,9 +122,35 @@ resource "aws_autoscaling_group" "node" {
   enabled_metrics     = ["GroupDesiredCapacity"]
   metrics_granularity = "1Minute"
 
-  launch_template {
-    id      = aws_launch_template.node.id
-    version = aws_launch_template.node.latest_version
+  # A prioritised list of equivalent sizes (KAV-163, ADR-0103): the group tries var.instance_types in
+  # order and falls back by itself when AWS has none of the first. "prioritized" is what keeps
+  # t4g.medium the normal choice; the others are used only when it is unavailable.
+  #
+  # Spot vs On-Demand moved here from the launch template: with a list of sizes AWS reads the market
+  # from the group's distribution (a spot block left in the template is refused). var.spot = false
+  # (the default since ADR-0028) means 100 percent On-Demand, the escape hatch for when Spot has no
+  # capacity anywhere (found live, KAV-32 Lab 28). ASG-managed spot only supports one-time requests.
+  mixed_instances_policy {
+    instances_distribution {
+      on_demand_allocation_strategy            = "prioritized"
+      on_demand_base_capacity                  = 0
+      on_demand_percentage_above_base_capacity = var.spot ? 0 : 100
+      spot_allocation_strategy                 = "capacity-optimized-prioritized"
+    }
+
+    launch_template {
+      launch_template_specification {
+        launch_template_id = aws_launch_template.node.id
+        version            = aws_launch_template.node.latest_version
+      }
+
+      dynamic "override" {
+        for_each = var.instance_types
+        content {
+          instance_type = override.value
+        }
+      }
+    }
   }
 
   tag {

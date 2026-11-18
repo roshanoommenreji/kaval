@@ -4,7 +4,7 @@ Working title: **An AI Ops Agent You Can Trust, on a Hobby Budget**
 
 This file is a record, not a script. Every lab in `docs/labs/` is a candidate episode and every
 ADR is a candidate "why" segment. It was first written before the work (2026-08) and brought up
-to date with all 101 labs (Lab 00 to Lab 100) on 2026-11-15 (`KAV-158`); Labs 101 to 103 were added on 2026-11-16 and 2026-11-17. What changed against the
+to date with all 101 labs (Lab 00 to Lab 100) on 2026-11-15 (`KAV-158`); Labs 101 to 104 were added on 2026-11-16, 2026-11-17 and 2026-11-18. What changed against the
 first version is listed at the end, because the differences are part of the story.
 
 ---
