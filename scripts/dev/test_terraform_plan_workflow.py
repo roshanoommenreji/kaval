@@ -1,4 +1,4 @@
-"""The pull-request plan may read Terraform's record, so the way in is held shut (KAV-89, ADR-0102).
+"""The pull-request plan may read Terraform's record, so the way in is held shut (KAV-89, ADR-0104).
 
 Two things are checked, each with a made-up broken version that must be refused:
 

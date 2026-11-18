@@ -169,7 +169,7 @@ resource "aws_accessanalyzer_analyzer" "account" {
   tags = { Name = "kaval-account" }
 }
 
-# What a pull request borrows to show what an infrastructure change would do (KAV-89, ADR-0102).
+# What a pull request borrows to show what an infrastructure change would do (KAV-89, ADR-0104).
 # It lives in this folder, not in prod's, for the reasons the analyzer does: it must outlive prod's
 # parking and staging's destruction, and the record it reads is this folder's bucket. It can read two
 # records (prod's and this folder's) and nothing else; modules/plan-reader says why that is safe.

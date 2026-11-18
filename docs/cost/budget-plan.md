@@ -73,6 +73,7 @@ indefinitely and resumes without loss.
 | Jev risk rating — TypeSafe API, ~12M input tokens ([ADR-0006](../adr/0006-jev-as-proposal-risk-rater.md)). **Parked, $0:** not built (future scope FS-12, [ADR-0098](../adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)) | 0.50 |
 | Data transfer | 1.00 |
 | *Access Analyzer, external-access type* (`KAV-160`, [Lab 105](../labs/lab-105-a-watcher-for-what-outsiders-can-reach.md)): one analyzer for the account, in the `state` folder; AWS charges nothing for this type (checked on its pricing page 2026-11-18) and a test fails if it is ever changed to a paid one (unused access is per role, internal access per resource) | $0 |
+| *Terraform plan on pull requests* (`KAV-89`, [ADR-0104](../adr/0104-a-pull-request-shows-its-terraform-plan-through-a-read-only-role.md)): one IAM role, a few S3 and Parameter Store reads per pull request; GitHub's minutes are free on a public repository | $0 |
 | *Fallback size* (`KAV-163`, [ADR-0103](../adr/0103-the-app-server-falls-back-to-a-second-size.md)): when AWS has no `t4g.medium`, the group launches `c6g.large` at $0.0426/hr (+$0.0202/hr, about 2 cents an hour, only while the node runs and only while the fallback is in use; not in the subtotal, worst case if the node ran on it all month +$14.75, which it does not: parked between sessions, each start-up tries `t4g.medium` first) | +0.02/hr when used |
 | **App node subtotal** (every row above) | **~$26.10** |
 | Database server `t4g.small` on-demand, 730 hrs ($0.0112/hr) | 8.18 |

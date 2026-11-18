@@ -1,4 +1,4 @@
-# What would this pull request do to the account? (KAV-89, ADR-0102)
+# What would this pull request do to the account? (KAV-89, ADR-0104)
 #
 # On a pull request that touches infra/, plan production and the state folder and show the result on
 # the run's summary page: which resources would be added, changed, replaced or destroyed, and the NAMES

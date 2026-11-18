@@ -1,4 +1,4 @@
-# The role a pull request borrows from GitHub to show what a Terraform change would do (KAV-89, ADR-0102).
+# The role a pull request borrows from GitHub to show what a Terraform change would do (KAV-89, ADR-0104).
 #
 # `.github/workflows/terraform-plan.yml` runs `terraform plan` for production and the state folder on a
 # pull request that touches infra/. It needs Terraform's record of what exists, which holds generated

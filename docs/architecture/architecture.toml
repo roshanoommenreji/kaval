@@ -383,6 +383,18 @@ outputs = ["Terraform's record of what exists, with every earlier version kept 9
 note = "KAV-86, ADR-0058. One private, versioned, encrypted bucket in a folder of its own (infra/envs/state), so staging-down cannot destroy it. The lock is S3's own (use_lockfile), no lock table. The bucket's name is not in git: it is in Parameter Store and scripts/ops/tf-init.sh reads it. Replaces the files that sat only on the laptop. Proven 2026-10-16: a second run was refused while the first held the lock, a fresh clone planned staging with No changes, and a deliberately damaged record was restored from an earlier version. Costs well under $0.01 a month. The same folder also holds the account's free IAM Access Analyzer (KAV-160, Lab 105): it lists what outsiders can reach, and today that is three GitHub sign-in roles, each locked to one repository and branch."
 
 [[system.node]]
+id = "plan-reader"
+label = "plan on pull requests (GitHub)"
+kind = "platform"
+phase = 8
+col = 3
+row = 11
+credentials = "read-only: two Terraform records, one Parameter Store folder, a few lookups; trusted for this repository's pull_request trigger only; no write, no lock"
+inputs = ["Terraform's record of prod and the state folder", "Production's private settings (one Parameter Store entry the owner writes)"]
+outputs = ["A names-only table of what the pull request would add, change, replace or destroy, on the run's summary page"]
+note = "KAV-89, ADR-0104. Runs on a pull request that changes infra/, from this repository only (a fork or Dependabot cannot use the role). Plans without refreshing or locking, so it cannot write the record. The plan's own text never reaches the public log; scripts/ops/plan_summary.py prints names and never values. Not a required check."
+
+[[system.node]]
 id = "backup-watch"
 label = "backup watch (GitHub)"
 kind = "platform"
@@ -648,6 +660,12 @@ kind = "platform"
 from = "node"
 to = "still-alive"
 label = "datapoint every 2 min while the poller finishes passes"
+kind = "platform"
+
+[[system.edge]]
+from = "tfstate"
+to = "plan-reader"
+label = "read the record (read-only)"
 kind = "platform"
 
 [[system.edge]]

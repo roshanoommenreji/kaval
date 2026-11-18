@@ -27,7 +27,7 @@ referenced the action by tag ran it.
 | lint | `make lint`: ruff and mypy in strict mode | The same target as the laptop, so the two can't drift apart |
 | test | `alembic upgrade head` → `alembic check` → `downgrade base` → `upgrade head`, then pytest | The tests run against a **real `pgvector/pgvector:pg16` service container**, the image compose runs, not SQLite or mocks. `KAVAL_REQUIRE_DB=1` turns the fixtures' "skip if there's no database" into a failure, so 12 database tests can't quietly vanish from a green run |
 | secrets | gitleaks over the **full history** | The repo is public (from 2026-09-30; planned for v1 when this was written), so its history has to be clean too, not just the latest commit |
-| terraform | `fmt -check`, and `init -backend=false` + `validate` for every environment | Offline, with no AWS credentials. Planning against the real account needs OIDC and belongs with the Phase 4 deploy work |
+| terraform | `fmt -check`, and `init -backend=false` + `validate` for every environment | Offline, with no AWS credentials. Planning against the real account needs OIDC and belongs with the Phase 4 deploy work (done as its own workflow, `terraform-plan.yml`, by `KAV-89`, [ADR-0104](0104-a-pull-request-shows-its-terraform-plan-through-a-read-only-role.md); this job stays offline) |
 | images | Both images built on **`ubuntu-24.04-arm`**, checked for arm64 and uid 10001, then scanned by Trivy | Built natively on the architecture that runs them (CLAUDE.md constraint 2), with no QEMU emulation. Trivy fails on HIGH or CRITICAL findings **that have a fix**; unfixed ones are reported, since there's nothing to act on until the base image is patched |
 
 **What CI does not do.** It builds but never pushes. Publishing to ECR, SBOMs (syft), signing
