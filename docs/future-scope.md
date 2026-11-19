@@ -687,6 +687,19 @@ points of unbuilt work).
 | `KAV-53` (3 pts) | Alertmanager e-mailing Flux failures and recoveries through SES | Alertmanager not adopted ([ADR-0043](adr/0043-alertmanager-not-adopted-yet.md)); Slack messages straight from the signals; the stopped-reporting alarm e-mails from AWS ([ADR-0053](adr/0053-the-still-alive-alarm-lives-in-aws.md)); a stalled Flux release is reset by hand ([ADR-0076](adr/0076-a-stalled-flux-release-is-reset-not-rebuilt.md)) | A Flux release that stalled unnoticed, or a second maintainer |
 | `KAV-54` (5 pts) | A page that shows deployment state and can act on it | Never scoped. Its home was the phone app, retired ([ADR-0097](adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)); approval is in Slack; promotion and rollback are workflows | A real need to act on a release without the command line |
 
+### FS-17 — A nightly check for changes made by hand in the AWS account
+
+One story that left v1 on 2026-11-19, decided by the owner
+([ADR-0105](adr/0105-version-1-closes-and-the-nightly-drift-check-moves-to-future-scope.md)). It lives
+under the beyond-v1 epic `KAV-152` as `KAV-165`, still "To Do" (3 points).
+
+| | |
+|---|---|
+| **What it asks for** | A scheduled, read-only Terraform plan that *refreshes* from the live account, so a change made by hand in the console shows up as a difference |
+| **What covers it today** | The plan shown on every pull request ([ADR-0104](adr/0104-a-pull-request-shows-its-terraform-plan-through-a-read-only-role.md)) compares the code with Terraform's record and does not refresh from the account, so it cannot see a console change. Every apply on the laptop does refresh, and shows the plan first, so a hand change is seen at the next apply. There is one person with account access, so a hand change would be his own |
+| **What it would need first** | A second read-only login for CI that can read the live account (wider than the state-only login `KAV-89` made, so a reviewed Terraform change and his typed go), a schedule, and somewhere for the answer to go (a Slack message, not a failed job nobody reads) |
+| **Trigger** | A second person with console access, or a hand change that was found only by accident |
+
 ---
 
 ## Verdict

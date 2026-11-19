@@ -94,11 +94,12 @@ def test_the_real_roadmap_has_phase_2_closed_so_it_is_not_the_current_phase() ->
     assert dashboard.current_phase(real).num != 2
 
 
-def test_the_real_roadmap_has_phase_4_closed_and_phases_6_and_8_started() -> None:
-    """The clean-up of 2026-11-15 (KAV-153, ADR-0099): Phase 4's lines were all finished, Phase 6
-    had passed its exit gate and Phase 8 was most of the way through, yet they read "in progress",
-    "not started" and "not started"."""
+def test_the_real_roadmap_has_version_1_closed() -> None:
+    """The clean-up of 2026-11-15 (KAV-153, ADR-0099) closed Phase 4; version 1 closed on
+    2026-11-19 (KAV-158, ADR-0105), when Phase 6's last line (KAV-100) and Phase 8's were done.
+    Every phase from 0 to 8 is finished, so the board has no phase "in progress", and the
+    current phase is the last live one, never a retired one."""
     real = {p.num: p for p in dashboard.read_roadmap(dashboard.ROOT / "ROADMAP.md")}
-    assert real[4].marker == "x" and real[4].done == real[4].total
-    assert real[6].marker == "~" and real[8].marker == "~"
-    assert dashboard.current_phase(list(real.values())).num not in (2, 4)
+    for n in range(9):
+        assert real[n].marker == "x" and real[n].done == real[n].total, n
+    assert dashboard.current_phase(list(real.values())).num == 8

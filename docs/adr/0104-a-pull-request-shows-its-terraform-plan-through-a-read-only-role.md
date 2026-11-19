@@ -121,7 +121,7 @@ check that says "not run" means one of those two is missing.
 ## What this does not do
 
 - It does not apply anything. Applies stay on the laptop, after a plan is shown.
-- It does not catch a change made by hand in the account (a nightly drift check is a separate story, `KAV-165`).
+- It does not catch a change made by hand in the account (a nightly drift check was filed as `KAV-165` and moved to future scope on 2026-11-19, [ADR-0105](0105-version-1-closes-and-the-nightly-drift-check-moves-to-future-scope.md)).
 - It does not plan staging, dev or the EKS lab.
 - It is not a second reviewer. On a one-person repository the person reading the table is the person who wrote
   the change; the table makes a mistake visible, it does not make one impossible.

@@ -4,7 +4,7 @@ Working title: **An AI Ops Agent You Can Trust, on a Hobby Budget**
 
 This file is a record, not a script. Every lab in `docs/labs/` is a candidate episode and every
 ADR is a candidate "why" segment. It was first written before the work (2026-08) and brought up
-to date with all 101 labs (Lab 00 to Lab 100) on 2026-11-15 (`KAV-158`); Labs 101 to 106 were added on 2026-11-16, 2026-11-17 and 2026-11-18. What changed against the
+to date with all 101 labs (Lab 00 to Lab 100) on 2026-11-15 (`KAV-158`); Labs 101 to 107 were added between 2026-11-16 and 2026-11-19, and the outline closed with version 1 on 2026-11-19 (all 107 labs, Lab 00 to Lab 107). What changed against the
 first version is listed at the end, because the differences are part of the story.
 
 ---
@@ -138,12 +138,16 @@ Lab numbers are in brackets. A part is a season; an episode is one bullet.
 - The alarm's blind spot after a restart [98]
 - The exception list that never worked, and two "passes" that were not passes [99]
 
-### Part 11 — Who is allowed to do what (Labs 100 to 103, more to come)
+### Part 11 — Who is allowed to do what, and who can reach what (Labs 100 to 107)
 
 - The cluster half of an access review, from the chart [100]
 - The AWS half: every role, what AWS cannot narrow, the missing analyzer, the brake that was too wide, and why a boundary goes on two roles and not thirteen [101]
 - Taking away a login nothing uses, and a test that stops it coming back [102]
 - A ceiling over the two roles that act: a permission boundary, proved with a role widened to everything and checked against IAM's own simulator [103]
+- A second size for the app server when AWS has none of the first [104]
+- A watcher for what outsiders can reach [105]
+- The Terraform plan shown on every pull request, through a login that can only read [106]
+- Rehearsing a secret rotation on staging, and the password that does not change where you expect [107]
 - The rotation schedule and the ownership page (`KAV-155`)
 
 ---
@@ -151,7 +155,7 @@ Lab numbers are in brackets. A part is a season; an episode is one bullet.
 ## What is still to be written
 
 - **Episode scripts** (`episode-scripts/` is empty). Not planned for v1.
-- **The closing episode:** the retrospective from Jira and the journal, written 2026-11-16 (`KAV-158`): [retrospective-v1.md](../retrospective-v1.md).
+- **The closing episode:** the retrospective from Jira and the journal, written 2026-11-16 and given its final figures on 2026-11-19 (`KAV-158`): [retrospective-v1.md](../retrospective-v1.md).
 - **A demo video** would be the trailer for all of this. Its script is written (`KAV-157`); the
   recording is parked in future scope (FS-2).
 

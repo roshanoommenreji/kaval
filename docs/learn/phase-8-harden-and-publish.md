@@ -1,25 +1,33 @@
 # Phase 8 — Harden and publish
 
-> **Written from:** theory
-> **Lab:** to be written
-> **Cost:** no change — ~$14/mo while the demo stays live
+> **Written from:** experience (rewritten 2026-11-19, when the phase closed and version 1 with it; `KAV-158`). The concept sections below were written in August as theory and kept; the table "What we assumed, and what happened" is from the record
+> **Labs:** [71](../labs/lab-71-a-security-policy-owners-and-a-weekly-scorecard.md) to [107](../labs/lab-107-rehearsing-a-secret-rotation-on-staging.md), most of the last third of the course: the security policy, the threat model and its fixes, code scanning, the supply chain ([91](../labs/lab-91-a-parts-list-and-a-signed-build-record-for-every-image.md) to [99](../labs/lab-99-the-frozen-list-lets-old-releases-through.md)), the access review ([100](../labs/lab-100-the-cluster-half-of-the-access-review.md) to [105](../labs/lab-105-a-watcher-for-what-outsiders-can-reach.md)), the plan on pull requests (106) and the rotation rehearsal (107)
+> **Cost:** nothing recurring. Each proof session cost cents: a staging session about 1 to 14 cents, a production session about 1 to 2 cents, because both are switched off between sessions
 
 ## Where this sits
 
-Phases 0–7 built and proved the system. This phase makes it safe to show people, and turns seven
+Phases 0–7 built and proved the system. This phase makes it safe to show people, and turns three
 months of work into something a stranger can evaluate in ten minutes.
 
-It unlocks: the repository goes public, and the resume bullets become writable — because now they
-describe things that actually happened.
+It unlocks: the resume bullets become writable — because now they describe things that actually
+happened. The repository itself went public earlier than planned, on 2026-09-30, on purpose: the
+secret hygiene of Phase 0 made that safe, and this phase then had to live up to being watched.
+
+It is also the last phase of version 1. The phone app that was once Phase 9 was retired
+([ADR-0097](../adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)), and version 1 closed here
+on 2026-11-19 ([ADR-0105](../adr/0105-version-1-closes-and-the-nightly-drift-check-moves-to-future-scope.md)).
 
 ## What we're doing
 
-- A security pass — image scanning, signing, RBAC audit, narrowing that `AdministratorAccess`
+- A security pass — image scanning, signing that the cluster itself checks, an access review of every Kaval role and of the cluster
 - `gitleaks` over the **entire history**, not just the working tree
+- A threat model written for this system, with an attack test set for the model, and each gap it found fixed
+- Public-repo hygiene: a security policy, code owners, code scanning, a weekly Scorecard, a secret-rotation schedule and one rehearsed rotation
 - Architecture diagrams and a README written for a stranger
-- A demo video (the script is written; the recording moved to future scope, FS-2)
-- Repo public
 - Resume bullets, written from what shipped
+- A demo video (the script is written; the recording moved to future scope, FS-2)
+
+The phase was planned as one story and finished as 49. The reason is in the table below.
 
 ## Why this way
 
@@ -92,7 +100,7 @@ file in a later commit does not remove it from git history.
 ### Least privilege as a process
 
 Phase 0 granted `kaval-dev` `AdministratorAccess` with a written commitment to narrow it here.
-That commitment now comes due.
+That commitment came due, and was answered in part: the roles Kaval's own servers use were reviewed and bounded, but the laptop's key stayed an administrator's, by a written and accepted decision ([FS-15](../future-scope.md#fs-15--a-laptop-login-that-expires-and-needs-a-second-factor)).
 
 The honest method is empirical, not theoretical:
 
@@ -195,6 +203,27 @@ you have spent seven months earning the right to answer.
 
 ---
 
+## What we assumed, and what happened
+
+Every row is something this page or the plan assumed, next to what the record shows. The pattern that
+repeats: **the first version of a safety control was usually right in design and wrong in one
+small, checkable way, and a real run on staging found it, not review.**
+
+| We assumed | What actually happened | Where |
+|---|---|---|
+| Phase 8 is one story: "make it safe" | Asking the planning standard's questions (whole path, attacker, failure) turned it into 49 stories. The first estimate of a safety phase is a floor | [Retrospective](../retrospective-v1.md) |
+| The repository goes public at the end | It went public on 2026-09-30, on purpose, because Phase 0's secret checks were already in place. The history had to be clean from then on, not only at the end | [Roadmap](../../ROADMAP.md) |
+| The model is the dangerous part | The model did obey planted text in 2 of 7 marker cases of the injection set. What kept it harmless was everything around it: the schema, the policy, the human, the executor's own check. Gaps the threat model found were fixed as their own stories (a login on the approval route, escaped Slack text, the model's text labelled on the card) | Labs 72, 73, 84, 86 |
+| Scanning once is enough | The Scorecard found four `pip install` lines with no hashes (`KAV-111`). The fix removed a file the database migration needed, and the first staging run failed on 2026-11-12. Nothing reached production; the fix went out as v0.4.2 | Lab 88 |
+| A scan that finds nothing is good news | A pull request's code scan reports only the lines it changed, so its "nothing found" meant little. Four mistakes planted on purpose in a throwaway pull request proved it can find things (all four, two critical) | Lab 81 |
+| Signing images is the goal | The goal is that something *refuses* an unsigned image. Signatures are checked by `promote.yml`, then by the cluster: watching first, refusing on staging, then on production's next start-up. Each refusing step was proved by presenting something that should be refused and seeing it turned away | Labs 94 to 97 |
+| An image's version is obvious | Production still said `v0.1.0` after several promotions, because the readable tag was made only by a manual step nobody ran. A promotion now has to be a tagged release | Labs 83, 90 |
+| We have backups | The restore drill on 2026-11-08 restored in one second and was recorded as **failed**, because the newest dump was twelve days old. A dump is now taken as production is parked | Lab 89 |
+| Download servers are always up | On 2026-11-08 GitHub's download servers failed seven CI jobs in one day. The download lines now retry, and the pinned checksum check after each is unchanged | Lab 82 |
+| Least privilege means shrinking `AdministratorAccess` | The review read 13 Kaval roles: no wildcard action, but five findings. There was no Access Analyzer, the budget brake could scale any auto-scaling group, and no role had a permission boundary. The laptop key is an administrator's with no second factor; that one was accepted and parked (FS-15) | Lab 101, ADR-0101 |
+| A rotation is a Terraform apply | Postgres reads its admin password only when its disk is first made, so a new value in the store never reaches the database. One `ALTER ROLE` has to come first; no server restart is needed. An earlier decision record said a restart was; it was amended | Lab 107 |
+| A plan on every pull request catches drift | It compares the code with Terraform's record and does not refresh from the account, so a change made by hand is not shown until the next apply. The nightly check that would show it was moved to future scope | Lab 106, FS-17 |
+
 ## Common mistakes
 
 | Mistake | What it costs |
@@ -231,6 +260,10 @@ you have spent seven months earning the right to answer.
 | **Prompt injection** | Attacker-controlled text in the context altering model behaviour |
 | **`git filter-repo`** | Rewrites git history; the modern replacement for `filter-branch` |
 | **gitleaks** | Scans commits and history for credentials |
+| **Admission policy (Kyverno)** | A checker that the cluster asks before it starts a pod. Kaval's refuses an image whose signature does not verify |
+| **Permission boundary** | A ceiling on a role: whatever the role is later granted, it can never do more than the boundary allows |
+| **Access Analyzer** | AWS's free service that reports what outside accounts can reach |
+| **Drift** | A difference between what the code says exists and what the account really has, usually from a change made by hand |
 | **SAST / CodeQL** | Static application security testing: a program reads the source code without running it and looks for known kinds of mistake. CodeQL is GitHub's, and free on a public repository. A scan that finds nothing proves little until it has been seen finding something |
 
 ## Check yourself
@@ -242,6 +275,9 @@ you have spent seven months earning the right to answer.
 5. Why keep the journal's wrong turns and the superseded ADRs when publishing?
 6. What question does an SBOM let you answer quickly that you otherwise cannot?
 7. Rewrite "Built an AI-powered Kubernetes automation platform" as a bullet you could defend for ten minutes.
+8. A restore drill restores cleanly in one second and is still recorded as failed. Why, and what was changed?
+9. Why does a plan shown on every pull request not catch a change made by hand in the console?
+10. Why does replacing the database's admin password in the secret store not change the password the database accepts?
 
 ## In an interview
 
@@ -261,6 +297,19 @@ you have spent seven months earning the right to answer.
 
 Naming an unusual, system-specific threat and then walking the mitigation chain is considerably
 stronger than reciting OWASP.
+
+**"How do you know your controls work and are not just written down?"**
+
+> "I make each one refuse something, and I keep the record of it refusing. Image signing is the
+> example: it is not enough that images are signed, so the promotion workflow refuses one whose
+> signature does not verify, and the cluster refuses it too. That went in watching-only first, then
+> refusing on staging, then on production, and each refusing stage was proved by presenting an image
+> that should be refused and seeing it turned away. The same habit caught my own mistakes: a restore drill that restored in a
+> second but was recorded as failed because the backup was twelve days old, and a first staging run
+> of a change that looked fine in review and was broken. None of those reached production, because
+> staging is a rule, not a courtesy."
+
+A control you have watched say no is worth more than ten you have only written.
 
 ## Further reading
 

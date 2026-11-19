@@ -110,10 +110,10 @@ Said plainly, because a project like this is easy to oversell.
   buttons ([ADR-0097](docs/adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)).
 - **It does not yet act automatically on anything.** Every action class is `ask`. Promoting one to
   `auto` needs evidence that does not exist yet.
-- **Not yet finished:** the v1 close-out (a retrospective, an access
-  review and a rehearsed key rotation) is listed in [ROADMAP.md](ROADMAP.md) and
-  [ADR-0099](docs/adr/0099-roadmap-clean-up-what-v1-still-needs.md). A demo video is parked in
-  [future scope](docs/future-scope.md#fs-2--demo-craft).
+- **Parked on purpose:** a demo video, and a nightly check for changes made by hand in the AWS
+  account, are in [future scope](docs/future-scope.md) (FS-2 and FS-17) with what would bring each
+  back. Version 1 closed on 2026-11-19; [the retrospective](docs/retrospective-v1.md) says what
+  went to plan and what did not.
 
 ---
 
@@ -121,12 +121,12 @@ Said plainly, because a project like this is easy to oversell.
 
 | | |
 |---|---|
-| **Phase** | 8 — Harden & publish, in progress. Phases 0–4 and 7 are done; 5 and 6 each wait on one check in production; Phase 9 (a phone app) was retired. What v1 still needs: [ADR-0099](docs/adr/0099-roadmap-clean-up-what-v1-still-needs.md) |
+| **Phase** | Version 1 is complete (2026-11-19): Phases 0–8 are done and Phase 9 (a phone app) was retired. See [the retrospective](docs/retrospective-v1.md) and [ADR-0105](docs/adr/0105-version-1-closes-and-the-nightly-drift-check-moves-to-future-scope.md) |
 | **Started** | 2026-08-22 |
-| **Target v1** | ~March 2027 |
+| **Version 1** | Closed 2026-11-19, ahead of its March 2027 target |
 | **Running cost** | $0.00 billed through October. Usage was $1.39 in September and $15.31 in October, all covered by credits. Hard limit $50 a month |
 | **Visibility** | Public since 2026-09-30 (pulled forward from v1 on purpose) |
-| **Size** | 101 hands-on [labs](docs/labs/), 100 [decision records](docs/adr/), 27 [runbooks](docs/runbooks/), a [journal](docs/journal/) of every working day |
+| **Size** | 107 hands-on [labs](docs/labs/), 105 [decision records](docs/adr/), 28 [runbooks](docs/runbooks/), a [journal](docs/journal/) of every working day |
 
 Live progress: [ROADMAP.md](ROADMAP.md) · **[Dashboard](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c)** · [Delivery](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#delivery)
 

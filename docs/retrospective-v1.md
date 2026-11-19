@@ -1,27 +1,29 @@
 # Retrospective: version 1 (Phases 0 to 8)
 
-For `KAV-158`. Written on 2026-11-16 from Jira (read that day) and the daily journal, while version
-1's last pieces are still open (the list is at the bottom). Numbers come from those two sources and
-nothing else. Where a number moves when the open pieces close, the section says so.
+For `KAV-158`. First written on 2026-11-16 from Jira and the daily journal, and given its final figures
+on 2026-11-19, the day version 1 closed ([ADR-0105](adr/0105-version-1-closes-and-the-nightly-drift-check-moves-to-future-scope.md)).
+Numbers come from Jira (read on 19 November) and the repository, and nothing else.
 
 ## The short version
 
 Kaval was planned as ten phases and built as nine: the phone app (Phase 9) was dropped on purpose.
-Of the 133 stories filed under the nine phases, 122 are done. The plan on paper was small and the
-work that grew was safety: Phase 8 started as one story and ended as 44, and 43 of them were filed
-after the day the planning standard was written. The money limit held: the first two months used
-$1.39 and $15.31 of AWS usage, all covered by credits, against a ceiling of $50 a month.
+All 135 stories filed under the nine phases are done. The plan on paper was small and the work that
+grew was safety: Phase 8 started as one story and ended as 49, and 48 of them were filed after the
+day the planning standard was written. Version 1 closed on 2026-11-19 with one idea written down
+instead of built (a nightly check for changes made by hand in AWS, [FS-17](future-scope.md#fs-17--a-nightly-check-for-changes-made-by-hand-in-the-aws-account)).
+The money limit held: the first two months used $1.39 and $15.31 of AWS usage, all covered by
+credits, against a ceiling of $50 a month.
 
 ## The numbers
 
 | | |
 |---|---|
-| Stories in the nine phases | 133 (122 done, 11 not) |
-| Story points | 415 planned, 385 done |
-| Calendar span | first story filed 2026-09-14, planning from 2026-08-22, last story done so far 2026-11-16 |
-| Stories finished per month | September 22, October 52, November 47 (to the 16th) |
-| Commits and pull requests | about 1,050 commits, pull requests numbered to #439 |
-| Written down | 101 labs, 100 decision records, 27 runbooks, 52 journal days, 6 game-day write-ups |
+| Stories in the nine phases | 135, all done |
+| Story points | 411 planned, 411 done |
+| Calendar span | planning from 2026-08-22, first story filed 2026-09-14, last story done 2026-11-19 |
+| Stories finished per month | September 22, October 52, November 60 (to the 19th; one story has no finish date recorded) |
+| Commits and pull requests | about 1,110 commits, pull requests numbered to #465 |
+| Written down | 107 labs, 105 decision records, 28 runbooks, 55 journal days, 6 game-day write-ups |
 | Money | usage $1.39 (September), $15.31 (October); billed $0.00; November is not closed |
 
 ## What was planned and what happened, phase by phase
@@ -36,16 +38,16 @@ spans overlap.
 | 2 The agent loop | 8 / 8 | 40 / 40 | 28 Sep to 30 Sep | Two pieces parked, not dropped: a second model that rates risk (Jev) and a live hand-off to a larger model. Both wait on something outside the project ([ADR-0098](adr/0098-phase-2-closes-jev-and-live-bedrock-escalation-move-to-future-scope.md)). |
 | 3 Kubernetes local | 5 / 5 | 21 / 21 | 1 Oct to 11 Oct | Nothing. |
 | 4 AWS landing | 23 / 23 | 84 / 84 | 26 Sep to 31 Oct | The biggest phase by points. The cost ceiling moved twice here: $25 to $40 ([ADR-0008](adr/0008-production-database-on-its-own-server.md)), then to $50 ([ADR-0028](adr/0028-prod-app-node-on-demand-and-ceiling-50.md)) when cheap spare capacity ran out twice. |
-| 5 Chaos and proof | 14 / 17 | 59 / 72 | 2 Oct to 28 Oct | Three stories never built as written: Grafana and Loki (`KAV-52`), emailed deploy notices (`KAV-53`) and a deployment-status dashboard (`KAV-54`). What was built instead was Prometheus watching Kaval's own health ([ADR-0042](adr/0042-watching-the-watcher.md)). **Moved to future scope on 2026-11-16** ([ADR-0102](adr/0102-three-old-observability-stories-leave-v1-unbuilt.md)); with them out, the phase is 14 of 14 stories and 59 of 59 points. |
-| 6 FinOps | 8 / 9 | 32 / 35 | 16 Oct to 28 Oct | One story waits on a live production session (`KAV-100`). |
-| 7 EKS chapter | 11 / 12 | 31 / 34 | 16 Oct to 8 Nov | One story left on purpose in v1: the Terraform plan shown on every pull request (`KAV-89`). |
-| 8 Harden and publish | 38 / 44 | 85 / 96 | 30 Sep to 16 Nov | Grew from one story to 44 (below). |
+| 5 Chaos and proof | 14 / 14 | 59 / 59 | 11 Oct to 28 Oct | Three stories never built as written: Grafana and Loki (`KAV-52`), emailed deploy notices (`KAV-53`) and a deployment-status dashboard (`KAV-54`). What was built instead was Prometheus watching Kaval's own health ([ADR-0042](adr/0042-watching-the-watcher.md)). **Moved to future scope on 2026-11-16** ([ADR-0102](adr/0102-three-old-observability-stories-leave-v1-unbuilt.md)), so the phase counts only what it built: 14 of 14 stories and 59 of 59 points (the three were filed on 2 October, before the dates shown). |
+| 6 FinOps | 9 / 9 | 35 / 35 | 16 Oct to 19 Nov | The last story (`KAV-100`, one reminder and one escalation per unanswered question) waited on a live production session and was proved on 19 November. |
+| 7 EKS chapter | 12 / 12 | 34 / 34 | 16 Oct to 18 Nov | One story was left in v1 on purpose, the Terraform plan shown on every pull request (`KAV-89`), and was built and proved live on 18 November ([ADR-0104](adr/0104-a-pull-request-shows-its-terraform-plan-through-a-read-only-role.md)). |
+| 8 Harden and publish | 49 / 49 | 105 / 105 | 30 Sep to 19 Nov | Grew from one story to 49 (below). The nightly drift check (`KAV-165`) was filed late and moved to future scope instead of being built ([ADR-0105](adr/0105-version-1-closes-and-the-nightly-drift-check-moves-to-future-scope.md)). |
 | 9 Mobile app | retired | none | none | Put off on 2026-10-03 ([ADR-0026](adr/0026-slack-chatops-and-deferred-mobile.md)), retired on 2026-11-15 ([ADR-0097](adr/0097-phase-9-is-retired-slack-is-the-approval-surface.md)): Slack on a phone already shows Approve and Deny. |
 
 ## The five things that did not go to plan
 
-1. **Phase 8 grew from one story to 44.** The count was one on 11 October, the day the planning
-   standard was written ([CLAUDE.md](../CLAUDE.md)), and 43 of the 44 were filed after it. The
+1. **Phase 8 grew from one story to 49.** The count was one on 11 October, the day the planning
+   standard was written ([CLAUDE.md](../CLAUDE.md)), and 48 of the 49 were filed after it. The
    standard asks every plan what the whole path is, what an attacker could do, and how it fails.
    Asking those questions turned "make it safe" into a signed-image pipeline (eight stories), a
    threat model and its fixes, an access review, secret rotation and more. The work was worth
@@ -56,11 +58,11 @@ spans overlap.
 3. **The cost ceiling moved, in writing.** From $25 to $50 in two steps, each with a record, and
    the real bill stayed far below it. The ceiling was a design constraint that was allowed to be
    argued with, not a fixed number.
-4. **Three board stories were left behind.** `KAV-52`, `KAV-53` and `KAV-54` are still "To Do" in
-   Jira with no roadmap line. Some of what they described was built under other stories
+4. **Three board stories were left behind.** `KAV-52`, `KAV-53` and `KAV-54` sat "To Do" in
+   Jira with no roadmap line until 16 November. Some of what they described was built under other stories
    (Prometheus; the dashboard), the rest was not, and nobody closed them. `KAV-45` (go public early) has four of six boxes ticked; the other two
    (a build badge and a shared dashboard page) turned out to be already done; they were just not ticked. A board that lags the repo is
-   what the project's own rules warn about, so these were listed in "Still open". **Decided on
+   what the project's own rules warn about, so the retrospective listed them. **Decided on
    2026-11-16** ([ADR-0102](adr/0102-three-old-observability-stories-leave-v1-unbuilt.md)): the three left
    v1 as future scope (FS-16), not marked Done, because Jira has no "won't do" and Done would have counted
    13 unbuilt points; `KAV-45` closed, its badge turning out to be already there.
@@ -77,7 +79,7 @@ spans overlap.
 - **A real environment before the real thing.** A change to the gateway's image failed on staging on
   12 November (the migration job could not find its settings), nothing was promoted, and the fix
   went through a second round. Staging cost cents and caught what the tests could not.
-- **Writing things down at the time.** Fifty-two journal days, 100 decision records and six
+- **Writing things down at the time.** Fifty-five journal days, 105 decision records and six
   game-day write-ups meant most of this page could be read off, not remembered.
 - **Sweeping for stale facts.** Several times the sweep found an old fact in code, not only prose
   (a cost gauge on 26 September; the dashboard's phase links, one phase out, on 28 October; Phase 5
@@ -108,19 +110,31 @@ These are drawn from the journal, not from hindsight, and are for the owner to e
   (`policy/promotions.json` is empty).
 - One operator, one AWS account, nobody else's hands on it.
 - Production ran a day on 2026-11-16 and a person pressed the Slack buttons on real cards (two
-  approvals carried out, four denials recorded; [Lab 64 Part 5](labs/lab-64-closing-phase-6-on-production.md)).
-  That closed after the counts above were read from Jira, so they still show `KAV-147` open.
+  approvals carried out, four denials recorded; [Lab 64 Part 5](labs/lab-64-closing-phase-6-on-production.md)),
+  and on 2026-11-19 an unanswered question got exactly one reminder and one escalation with both
+  gateway copies running (`KAV-100`, [Lab 64 Part 6](labs/lab-64-closing-phase-6-on-production.md)).
+- Only some secrets have been rotated on purpose. The approver token, the gateway's database
+  password and the database's admin password were replaced on staging on 2026-11-19 (`KAV-159`,
+  [the runbook](runbooks/secret-rotation.md)); the agent, executor, collector and monitor database
+  passwords and the Slack and Atlassian tokens were not rehearsed, and production was never rotated.
+- A change made by hand in the AWS console is seen at the next apply, not overnight ([FS-17](future-scope.md#fs-17--a-nightly-check-for-changes-made-by-hand-in-the-aws-account)).
 - A demo video was not recorded; it is parked in [future scope](future-scope.md#fs-2--demo-craft).
 
-## Still open at this writing
+## How version 1 closed (2026-11-19)
 
-| Story | What is left |
+Nothing is open in Phases 0 to 8. The last stories closed in this order:
+
+| Story | How it closed |
 |---|---|
-| `KAV-147`, `KAV-100` | `KAV-147`: done on 2026-11-16 (parked at 21:12 IST, recorded in Lab 64 and Lab 98). `KAV-100` stays open: no count of reminders per question was recorded |
-| `KAV-154` | The AWS half of the access review (the cluster half is done) |
-| `KAV-89` | The Terraform plan on pull requests |
-| `KAV-150`, `KAV-162` | Four stale comments and the spare-token fix (finding C-1), in one gateway and executor release round |
-| `KAV-158` | This page's final figures, the Phase 8 learn page, and the Phase 8 and v1 markers, once the rows above close |
+| `KAV-147`, `KAV-100` | The production day of 2026-11-16 (`KAV-147`), then the once-only reminder proof of 2026-11-19 (`KAV-100`) |
+| `KAV-154`, `KAV-160`, `KAV-161`, `KAV-162` | The access review's two halves, and each change it led to (the analyzer, the brake's limit and two permission boundaries, the unused login), staging first |
+| `KAV-163` | The app server's second size, after AWS ran out of the first |
+| `KAV-89` | The Terraform plan on every pull request, built and proved live on 2026-11-18 |
+| `KAV-150` | The four stale comments, in one release round |
+| `KAV-159` | One secret rotation rehearsed on staging, 2026-11-19 |
+| `KAV-165` | **Not built.** Moved to future scope on 2026-11-19 ([ADR-0105](adr/0105-version-1-closes-and-the-nightly-drift-check-moves-to-future-scope.md)) |
+| `KAV-158` | This page, the Phase 8 learn page, and the roadmap markers |
 
-When those close, update the numbers in the two tables at the top and the row for Phase 8, then
-flip the Phase 8 page and the roadmap's Phase 8 marker.
+What waits beyond version 1 is on the [future-scope page](future-scope.md): FS-1 to FS-17, each with
+what would bring it back. Two are the likeliest next steps from this record: the demo video (FS-2)
+and the first real secret rotation, which is due by November 2027 or sooner on a suspected leak.
