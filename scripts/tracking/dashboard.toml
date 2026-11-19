@@ -162,6 +162,11 @@ url   = "https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c"
 note  = "Opens on the phone. Republish after `make dashboard`."
 
 [[links]]
+label = "Git and pull request flow (diagram)"
+url   = "kaval-git-pr-flow.html"
+note  = "How a change gets from a branch to main: the pull request, the checks, the merge. A separate page published beside this one; the source file is kept outside the repo."
+
+[[links]]
 label = "Full project plan"
 url   = "https://github.com/roshanoommenreji/kaval/blob/main/ROADMAP.md"
 note  = "The phase-by-phase plan and what is done."
