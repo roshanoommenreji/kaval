@@ -239,7 +239,7 @@ Run `make migrate` to bring a database up to date.
 | `docs/repo-guide.md` | This file | Working |
 | `docs/ownership.md` | Who answers for what (one owner, no stand-in), how each kind of problem reaches him, how an incident is declared, the escalation path and the recurring duties with their dates | Working |
 | `docs/contributing.md` | How branches, commits and merging work | Working |
-| `docs/retrospective-v1.md` | Version 1 looked back on: Jira's numbers phase by phase, what did not go to plan, what worked, what to do differently, and what is still open. Written from Jira and the journal | Working, final figures when v1 closes |
+| `docs/retrospective-v1.md` | Version 1 looked back on: Jira's numbers phase by phase, what did not go to plan, what worked, what to do differently, and how version 1 closed. Written from Jira and the journal | Working, final figures when v1 closes |
 | `docs/future-scope.md` | Ideas deliberately left out of the plan for after v1. Each `### FS-n` heading becomes a card in the dashboard's *Beyond v1* section, so keep a one-paragraph summary first and the epic on a `Jira epic:` line | Working |
 | `docs/labs/` | **Step-by-step guides**, one per session, detailed enough for a stranger to repeat from zero. Also mirrored to Confluence | Working (Labs 00–103) |
 | `docs/learn/` | **Concept pages**, one per phase: *why* things work the way they do, glossary, self-check questions, interview answers. Each is marked "written from theory" until the phase is done, then rewritten from experience | Working (all 11 written) |

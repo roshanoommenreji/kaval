@@ -106,7 +106,7 @@ cost      = "~$4/session"
 5 = "Breaking things on purpose (memory, crashes, a lost server, a full disk) to prove Kaval notices, proposes a fix and recovers, and measuring how long that takes."
 6 = "Kaval watches the AWS bill: it reads daily costs, labels every resource, finds waste, and removes it only after two approvals. A hard stop protects the budget."
 7 = "Proof that the same Kaval package runs unchanged on Amazon's managed Kubernetes (EKS), in a short-lived lab that deletes itself."
-8 = "Making Kaval safe and presentable in public: security scans, signed releases that the cluster itself checks, a review of how it could be attacked, then the public write-up and demo."
+8 = "Making Kaval safe and presentable in public: security scans, signed releases that the cluster itself checks, a review of how it could be attacked, then the public write-up. Closed on 2026-11-19, which ends version 1."
 9 = "Retired on purpose: approvals work in Slack, including on a phone, so no phone app of Kaval's own is built."
 
 # External links. Empty entries are rendered as "not yet created" rather than
@@ -114,7 +114,7 @@ cost      = "~$4/session"
 [[links]]
 label = "Jira — project KAV"
 url   = "https://roshanoommenreji.atlassian.net/jira/software/projects/KAV/boards/1"
-note  = "Ten phase epics (KAV-5..14), one sprint per phase, plus six for beyond-v1 work: KAV-99 (Petti, FS-6), KAV-118..121 (FS-7..10) and KAV-152 (FS-12 and FS-13, parked from Phase 2). Workflow: To Do → In Definition → Ready → In Progress → In Review → In Staging (UAT) → Ready for Prod → Done."
+note  = "Ten phase epics (KAV-5..14), one sprint per phase, plus six for beyond-v1 work: KAV-99 (Petti, FS-6), KAV-118..121 (FS-7..10) and KAV-152 (FS-12, FS-13, FS-16 and FS-17: parked work that left v1 unbuilt). Workflow: To Do → In Definition → Ready → In Progress → In Review → In Staging (UAT) → Ready for Prod → Done."
 
 [[links]]
 label = "Jira — Delivery dashboard"
