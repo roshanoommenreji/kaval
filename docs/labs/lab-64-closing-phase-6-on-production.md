@@ -121,9 +121,69 @@ Read back at 21:10 IST from AWS: both approved snapshots no longer exist (`Inval
 
 **Parked** by the runbook ([prod-rollout.md](../runbooks/prod-rollout.md) step 8): a fresh dump first (432K, uploaded), the plan showed one change (app server group 1 to 0), applied at 21:12 IST, the data volume snapshotted and the database stopped, the alarm `OK`. A read-only sweep found no running server, no loose disk, no address, no gateway or load balancer, no cluster. About 45 cents from running hours (the bill will confirm).
 
+## Part 6 — The session of 2026-11-18 (`KAV-100`, `KAV-163`)
+
+A third production session, about 1 hour 25 minutes, on the owner's typed gos (database resumed 23:34 IST on 18 November,
+parked 00:57 IST on 19 November). It had two jobs. **`KAV-100`:** let one real question sit unanswered while both gateway
+copies run, then count the messages Slack was sent against the two copies' logs. **`KAV-163`:** see whether the first
+start-up under the two-size policy ([ADR-0103](../adr/0103-the-app-server-falls-back-to-a-second-size.md)) behaved.
+
+**Start-up.** Database resumed 23:34; the plan was shown first (one change: the server group 0 to 1); applied at 23:41;
+`make prod-smoke` passed 9 of 9 at 23:46 on `sha-f280013` (`v0.4.4`). The group got a `t4g.medium` at once. AWS had no
+shortage this time, so **the second size was not used**, and the fallback is still proven on staging only (Lab 104).
+
+**Why a disk had to be made.** The planner only asks about something it has not asked about lately. The four old snapshots
+denied on 16 November are held back for seven days (`DENIED_COOLDOWN` in `removal.py`), and that is what happened: three
+scans and a cost copy found 8 snapshot sightings and filed no question. That silence is a free proof that a "no" is not
+asked again for a week. So a question had to come from something new: a 1 GiB disk (`vol-0ebbb4e58a35b100e`, tagged
+`Project=kaval`, `Env=prod`, `ManagedBy=manual`, named `kav100-planted-disk`, in the same zone as the server), made on his
+typed `go plant disk` at 00:12. A disk nobody has attached is the thing the waste scan looks for, and the plan for a lone
+new disk is "back it up, then mark it", which deletes nothing.
+
+**Getting the question out** (the order matters: scan first, copy after, because the planner ignores a sighting older than
+the newest scan; steps are in [prod-rollout.md](../runbooks/prod-rollout.md), the planted-disk part):
+
+1. `aws lambda invoke` of `kaval-prod-waste-scan`, three times (the first can run before a new disk is visible; here the
+   second and third saw it).
+2. `systemctl start kaval-cost-pull` on the app server, over Session Manager.
+3. Wait. The collector read the file at 00:19:38 IST (18:49:38 UTC), the signal `volume_unattached` landed, and the
+   planner filed the question at **00:20:35 IST**, posted to Slack at once. About five minutes from the scan (00:15) to the card.
+
+The owner pressed nothing. He had been told to leave it alone, because an answer would end the thing being measured.
+
+**The count.** The notifier writes one row per message into the `notification` table, keyed
+`approval-reminder:<id>`, `approval-escalated:<id>` or `approval-expired:<id>`, and the key is unique, so a second send
+would fail rather than duplicate. Read on the database server over Session Manager
+(`docker exec postgres psql -U kaval -d kaval -At -c "select key, created_at from notification where key like '%<id>%'"`),
+checked against `kubectl logs` of both gateway pods:
+
+| What | Time (UTC) | After the question |
+|---|---|---|
+| Question filed (`backup_and_mark_volume`, `4cd1383b-…`) | 18:50:35 | 0 |
+| `approval-reminder` row | 19:05:51 | 15 min 16 s |
+| `approval-escalated` row | 19:20:52 | 30 min 17 s |
+| Decisions recorded | none | the owner pressed nothing |
+
+**One reminder and one escalation, no duplicates.** The logs agree: the two gateway pods take turns, and the other one
+logged "another gateway copy is notifying, skipping this round". That is the lock from
+[ADR-0069](../adr/0069-only-one-gateway-copy-notifies-at-a-time.md) working in production with real timing. It is the
+check `KAV-100` was waiting for since the double alert of 27 October.
+
+**Then the clean-up**, each on its own typed go: the disk was deleted by hand (`go delete disk`) and `describe-volumes`
+now says it does not exist, with no loose available disk left; a fresh dump was taken at 00:56 (`kaval-20261118T192623Z.dump`,
+436 KB); the plan showed one change (group 1 to 0); `apply park` at 00:57; the database was paused with its snapshot;
+read back: server group 0 of 0, app server terminated, database stopped, alarm `kaval-prod-still-alive` `OK`.
+
+**Left open on purpose.** The question is still in Slack. Its disk is gone and no server is left to carry anything out, so
+it expires by itself and **must not be approved or denied** (the same rule as Part 5). It is the second time a question
+outlived production; the ordinary expiry notice is what the runbook already promises for that.
+
+**Cost:** about 7 cents (database server and app server for about an hour and a half, plus a 1 GiB disk for under an
+hour); an estimate from running time, the bill confirms it.
+
 ## What was found live
 
-1. **A double alert.** The "nobody has answered" alert appeared twice at the same minute. Production runs two copies of
+1. **A double alert** *(closed 2026-11-19, Part 6).* The "nobody has answered" alert appeared twice at the same minute. Production runs two copies of
    the gateway (staging runs one), and the reminder, escalation and expiry messages are sent by a pass that reads "already
    sent?" and then posts, with no lock between the two copies and no unique key on the record
    (`services/gateway/kaval_gateway/approvals.py`, `notify_pass`). Harmless, but production would double every one of
