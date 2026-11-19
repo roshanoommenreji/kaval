@@ -316,6 +316,19 @@ uncommitted, as FS-11 in [docs/future-scope.md](docs/future-scope.md).
 
 ---
 
+## After v1 — keeping watch · not a phase
+
+Version 1 closed on 2026-11-19 (Phases 0–8 done, Phase 9 retired). Kaval is parked between sessions, so the
+question is how anything new is noticed in the meantime. These are maintenance, not phases: they sit outside
+the nine phases on purpose, so version 1 stays 100% done, and they are not counted in progress. Jira epic
+[KAV-166](https://roshanoommenreji.atlassian.net/browse/KAV-166); decision [ADR-0106](docs/adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md).
+No AWS, $0.
+
+- [ ] A weekly scan for newly found problems in what production runs (`KAV-167`): Trivy re-reads the locked libraries, the base images and the chart's third-party images for `main` and for production's pinned commit, and opens one GitHub issue when something serious has a fix
+- [ ] A monthly check-in (`KAV-168`): a runbook, a table of dated reminders, and an automatic checklist issue on the first of each month
+
+---
+
 ## Beyond v1 — future scope · `[ ]`
 
 Not committed. Work that is out of scope for Phases 0–8 (v1; Phase 9 was retired) but worth doing afterward —

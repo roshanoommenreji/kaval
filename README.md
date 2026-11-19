@@ -126,7 +126,7 @@ Said plainly, because a project like this is easy to oversell.
 | **Version 1** | Closed 2026-11-19, ahead of its March 2027 target |
 | **Running cost** | $0.00 billed through October. Usage was $1.39 in September and $15.31 in October, all covered by credits. Hard limit $50 a month |
 | **Visibility** | Public since 2026-09-30 (pulled forward from v1 on purpose) |
-| **Size** | 107 hands-on [labs](docs/labs/), 105 [decision records](docs/adr/), 28 [runbooks](docs/runbooks/), a [journal](docs/journal/) of every working day |
+| **Size** | 108 hands-on [labs](docs/labs/), 106 [decision records](docs/adr/), 29 [runbooks](docs/runbooks/), a [journal](docs/journal/) of every working day |
 
 Live progress: [ROADMAP.md](ROADMAP.md) · **[Dashboard](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c)** · [Delivery](https://claude.ai/code/artifact/c6ca9411-2b4b-47a8-81c1-3f3cc4c34d0c#delivery)
 

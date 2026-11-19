@@ -1,0 +1,142 @@
+# The weekly image watch (KAV-167, ADR-0106): is anything production runs, or the next release would
+# ship, newly known to be vulnerable?
+#
+# Trivy runs in ci.yml and release.yml only when something changes, and Kaval is parked most of the
+# time, so a flaw announced after a release would wait for the next change. This asks the same
+# question every Monday against today's vulnerability list.
+#
+# It reads what is in git and in public registries (the locked libraries, the base image each
+# service ships, the third-party images the chart names), for `main` and for the commit production
+# is pinned to. It has NO AWS login and no secrets: pulling the live images from ECR would need a
+# second CI login into AWS (the reason KAV-165 was parked, ADR-0105). The rule it applies, and what
+# it cannot see, are in scripts/ops/image_watch.py and ADR-0106.
+#
+# Two jobs with different powers, as in backup-watch.yml, and no job has both:
+#   - `scan` can read the repository and the internet, and cannot write to the repository or open
+#     issues;
+#   - `tell` can open, edit or close ONE GitHub issue and cannot read anything else.
+# A person is told by that issue (GitHub e-mails it when it is opened) and by the run turning red
+# every week it stays unresolved. If the scan itself cannot run, `tell` says so: silence is never
+# read as "all fine". When a run is clean the issue is closed again.
+#
+# A hand run with `plant` adds a deliberately old library (built at run time, never committed, so it
+# raises no real alert) to prove the watch can find something. The next normal run closes that issue.
+# Every third-party action is pinned to a full commit SHA, as in ci.yml.
+
+name: image-watch
+
+on:
+  schedule:
+    - cron: "23 5 * * 1"   # Mondays 05:23 UTC (10:53 in India), after CodeQL's 04:41
+  workflow_dispatch:
+    inputs:
+      plant:
+        description: "Add a deliberately old library, to prove the watch can find something"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: image-watch
+  cancel-in-progress: false
+
+env:
+  TRIVY_VERSION: "0.74.0"
+  TRIVY_SHA256: "b94ce1976bbf3c15b514b605ee88be7c6d94a29be2302847ff01cb794d47aad5" # Linux-ARM64, as in ci.yml
+
+jobs:
+  scan:
+    # The images run on Graviton (arm64), so they are scanned as arm64, on the same kind of runner CI uses.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      status: ${{ steps.run.outputs.status }}
+      report: ${{ steps.run.outputs.report }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0   # the commit production is pinned to is older than a shallow clone holds
+          persist-credentials: false
+      - name: install Trivy (checksum-verified)
+        run: |
+          curl -fsSL --retry 5 --retry-all-errors -o trivy.tgz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-ARM64.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tgz" | sha256sum --check --strict
+          tar -xzf trivy.tgz trivy && rm trivy.tgz
+          sudo install -m 0755 trivy /usr/local/bin/trivy
+      - name: fetch today's vulnerability list (retrying; the download server has failed before)
+        run: |
+          for attempt in 1 2 3 4 5; do
+            trivy image --download-db-only --quiet && exit 0
+            echo "attempt $attempt failed; waiting" ; sleep $((attempt * 20))
+          done
+          echo "the vulnerability list could not be downloaded" ; exit 1
+      - id: run
+        env:
+          PLANT: ${{ inputs.plant && '--plant' || '' }}
+        run: |
+          set +e
+          python3 scripts/ops/image_watch.py $PLANT --report report.txt | tee watch.txt
+          code=${PIPESTATUS[0]}
+          set -e
+          case "$code" in
+            0) status=clean ;;
+            1) status=found ;;
+            *) status=broken ;;
+          esac
+          delimiter="END_$(openssl rand -hex 12)"
+          {
+            echo "status=$status"
+            echo "report<<$delimiter"
+            cat report.txt
+            echo
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+  tell:
+    needs: scan
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: open, update or close the one image-watch issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SCAN_RESULT: ${{ needs.scan.result }}
+          STATUS: ${{ needs.scan.outputs.status }}
+          REPORT: ${{ needs.scan.outputs.report }}
+          PLANTED: ${{ inputs.plant }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # The report is made of CVE ids, package names and versions; it is only ever read from an
+          # environment variable here, never pasted into a command.
+          if [ "$SCAN_RESULT" != "success" ]; then
+            STATUS=broken
+            REPORT="The weekly image watch could not run (it ended as: ${SCAN_RESULT}), so nobody knows if all is well."
+          fi
+          gh label create image-watch --color 0E8A16 --description "Raised by the weekly image watch" --force >/dev/null
+          existing="$(gh issue list --label image-watch --state open --json number --jq '.[0].number // empty')"
+          if [ "$STATUS" = "clean" ]; then
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" --comment "This week's run found nothing, so this is closed again. Run: ${RUN_URL}"
+            fi
+            exit 0
+          fi
+          note=""
+          if [ "$PLANTED" = "true" ]; then
+            note="THIS WAS A TEST RUN with a deliberately old library added. The next normal run closes this issue."$'\n\n'
+          fi
+          body="${note}${REPORT}"$'\n\n'"What to do: docs/runbooks/image-watch-finding.md"$'\n'"Run: ${RUN_URL}"
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body "$body"
+          else
+            gh issue create --label image-watch --title "Weekly image watch needs a person" --body "$body"
+          fi
+          # Turn the run red as well, so GitHub's own failed-run e-mail is a second way to be told.
+          exit 1
