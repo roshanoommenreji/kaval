@@ -181,6 +181,7 @@ make chaos-run [EXPERIMENT=oom|badrelease|slow|disk] # game day on staging (need
 make chaos-propose [EXPERIMENT=] (finds the proposal the diagnosis worker filed; CHAOS_BY_HAND=1 files one by hand) / chaos-approve ACTION=<id> / chaos-mttr / chaos-check (after slow|disk) / chaos-status / chaos-stop  # the rest of a staging game day; stop = the stop button
 make staging-measure-disk  # read-only: what can staging's metrics see about the disk (needs staging up)
 make restore-drill  # restore production's newest dump into a throwaway Postgres, time it, write docs/drills/restore-<date>.md (read-only on AWS, needs Docker; monthly)
+make rotation-check PHASE=before|applied|after|finish  # staging: prove a secret rotation worked (old values refused, new ones accepted) without ever printing a secret (KAV-159, docs/runbooks/secret-rotation.md)
 make approvals-file / approvals-report  # staging: rehearse an approval nobody answers (file one request; see its age and the messages the real notifier would send)
 make chaos-node    # game day: END staging's app server (laptop-run, you type the machine id) and time the self-heal
 make sync          # install exactly what uv.lock pins into .venv

@@ -23,8 +23,8 @@ owner reads and writes them; nobody else does.
 | Secret | What it opens | Where it lives | Changed | How it is changed | Rehearsed? |
 |---|---|---|---|---|---|
 | **AWS access key on the laptop** (profile `kaval`) | Everything Terraform manages in the account | The laptop's AWS credentials file | Every 90 days | IAM console: create a second key, put it in the credentials file, run `make cost-report` to prove it works, delete the old key | Yes, carried out 2026-11-16 |
-| **Database passwords**: `admin`, `gateway`, `agent`, `executor`, `collector`, `monitor` (per environment) | One database login each, with only that role's rights | Parameter Store, encrypted, under `/kaval/<env>/db/` | Yearly | `terraform apply -replace` on that role's `random_password` in the environment's folder (plan shown first), then a restart of the servers: the start-up script sets each role's password from Parameter Store and recreates the cluster's Secrets ([Lab 23](../labs/lab-23-automatic-secret-recreation.md)) | **No.** Never done; rehearse on staging first (`KAV-159`) |
-| **Approver token** (per environment) | Calling the gateway's approval route | Parameter Store, encrypted; copied into the `kaval-approver` Secret at start-up and every six hours | Yearly | `terraform apply -replace=module.approver_token.random_password.token`, then restart the gateway ([runbook](../runbooks/approval-refused.md)) | Steps written and the token created live; a replacement has not been done |
+| **Database passwords**: `admin`, `gateway`, `agent`, `executor`, `collector`, `monitor` (per environment) | One database login each, with only that role's rights | Parameter Store, encrypted, under `/kaval/<env>/db/` | Yearly | `terraform apply -replace` on that role's `random_password` in the environment's folder (plan shown first). For the admin password one `ALTER ROLE` inside the database comes first. Then the app server's start-up script is re-run, which sets each role's password from Parameter Store and recreates the cluster's Secrets ([Lab 23](../labs/lab-23-automatic-secret-recreation.md)), and the services that read the changed Secret are restarted. No server reboot. Full steps: [runbook](../runbooks/secret-rotation.md) | **Yes, on staging 2026-11-19** for the gateway and admin passwords ([Lab 107](../labs/lab-107-rehearsing-a-secret-rotation-on-staging.md)). Not rehearsed: agent, executor, collector, monitor |
+| **Approver token** (per environment) | Calling the gateway's approval route | Parameter Store, encrypted; copied into the `kaval-approver` Secret at start-up and every six hours | Yearly | `terraform apply -replace=module.approver_token.random_password.token`, then re-run the app server's start-up script and restart the gateway ([runbook](../runbooks/secret-rotation.md); refusals: [approval-refused](../runbooks/approval-refused.md)) | **Yes, on staging 2026-11-19**: new token believed, old one refused ([Lab 107](../labs/lab-107-rehearsing-a-secret-rotation-on-staging.md)) |
 | **Slack bot token and app token** (production) | Posting cards and receiving button presses as Kaval's Slack app | Parameter Store, encrypted, under `/kaval/kaval-prod/slack/` | Yearly | In Slack's app settings create new tokens, `aws ssm put-parameter --overwrite` for each, restart the gateway, then revoke the old ones in Slack | No |
 | **Atlassian API token** | Reading and writing Jira and Confluence as the owner | The laptop's `.env`, and GitHub's repository secret `JIRA_API_TOKEN` | Yearly (Atlassian also lets a token carry its own expiry date) | Create a new token at Atlassian, replace it in both places, run `make docs-sync`, revoke the old one | No |
 | **Alert email and the budget's contact** | Nothing; listed so nobody looks for it | `.env` | Not a secret | | |
@@ -59,7 +59,7 @@ These are not rotated because there is nothing stored to steal:
 | Secret | Signal |
 |---|---|
 | Approver token | The alert `KavalApprovalRefused`: more than two wrong or missing tokens in ten minutes ([runbook](../runbooks/approval-refused.md)) |
-| Database passwords | The database's failed-login lines in its log; the database server has no address reachable from outside the private network |
+| Database passwords | The database's failed-login lines in its log; the database server has no address reachable from outside the private network. `make rotation-check` reads these lines too, by login name only |
 | Slack tokens | A message from Kaval's app that the gateway's log does not account for |
 | AWS access key | The budget alarms at $42 and $46 and the hard stop at $48; CloudTrail's record of calls |
 | Any | gitleaks before every commit and over the whole history on every pull request |
@@ -69,15 +69,19 @@ These are not rotated because there is nothing stored to steal:
 | Date | Secret | Environment | Why | By |
 |---|---|---|---|---|
 | 2026-11-06 | Database passwords | production | **Not changed, on purpose:** four passwords had been printed into the server's own log; the log was on a disk that was destroyed, nothing left the server ([ADR-0077](../adr/0077-the-database-roles-script-keeps-passwords-out-of-psqls-output.md)) | Roshan |
+| 2026-11-19 | Approver token, gateway database password, admin database password | staging (a rehearsal, `KAV-159`) | Proving the steps before production relies on them. All three replaced on a running staging; new values accepted, old refused, no value shown. Found: the admin password needs one `ALTER ROLE` first ([Lab 107](../labs/lab-107-rehearsing-a-secret-rotation-on-staging.md)). Staging was destroyed afterwards, so nothing of it is kept | Roshan (his typed gos) |
 | 2026-11-16 | AWS access key on the laptop | the account | The first scheduled change. The old key's age had never been recorded, so it was treated as due. A new key was made in the IAM console and put in the credentials file by the owner; afterwards a login with it worked and IAM listed exactly one key, active, created that day (both read back, values never shown). **Next change due by 2027-02-14** | Roshan |
 
 ## Said plainly
 
-- **Only the laptop key has been changed end to end** (2026-11-16, in the record above). The steps for the
-  approver token are written and its creation was proven live; a database password has never been
-  replaced on a running environment. Until `KAV-159` rehearses one on staging, the database row
-  is a plan.
-- **Changing a database password needs the servers restarted,** so on production it is done in a
-  session that starts production anyway.
+- **Two procedures have been carried out end to end:** the laptop key (2026-11-16, on the account) and, on
+  staging, the approver token and two database passwords, the gateway's and the admin's (2026-11-19,
+  `KAV-159`, [Lab 107](../labs/lab-107-rehearsing-a-secret-rotation-on-staging.md)). **Production has not been
+  changed.**
+- **Not rehearsed:** the agent, executor, collector and monitor database passwords (same mechanism, not carried
+  out), the Slack tokens and the Atlassian token.
+- **Changing a database password needs no server restart,** but it does need the environment **up** (the app
+  server re-runs its start-up script, then the services restart), so on production it is done in a session that
+  starts production anyway. The old line here said the servers must be restarted; the rehearsal showed they need not.
 - **The laptop key is a long-lived key.** The stronger pattern is a login that expires by itself
   (AWS IAM Identity Center). That is a bigger change than this page and is not planned.
