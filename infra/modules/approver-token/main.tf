@@ -6,7 +6,7 @@
 # Read it yourself with `aws ssm get-parameter --with-decryption`, never through an assistant.
 # Rotating it is `terraform apply -replace=module.approver_token.random_password.token`, then
 # letting the node's next bootstrap run (or its 6-hour timer) rewrite the Secret and restarting the
-# gateway: docs/runbooks/approver-token.md.
+# gateway: docs/runbooks/secret-rotation.md (rehearsed on staging, KAV-159).
 #
 # The value is also in Terraform's state. That is the same position as the database passwords, and
 # the state lives in a private, versioned, encrypted bucket (ADR-0058).

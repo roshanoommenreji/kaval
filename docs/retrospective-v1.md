@@ -118,7 +118,6 @@ These are drawn from the journal, not from hindsight, and are for the owner to e
 |---|---|
 | `KAV-147`, `KAV-100` | `KAV-147`: done on 2026-11-16 (parked at 21:12 IST, recorded in Lab 64 and Lab 98). `KAV-100` stays open: no count of reminders per question was recorded |
 | `KAV-154` | The AWS half of the access review (the cluster half is done) |
-| `KAV-159` | A secret rotation rehearsed on staging |
 | `KAV-89` | The Terraform plan on pull requests |
 | `KAV-150`, `KAV-162` | Four stale comments and the spare-token fix (finding C-1), in one gateway and executor release round |
 | `KAV-158` | This page's final figures, the Phase 8 learn page, and the Phase 8 and v1 markers, once the rows above close |

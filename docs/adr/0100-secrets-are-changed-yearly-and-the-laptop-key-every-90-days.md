@@ -58,3 +58,14 @@ Kaval already follows pattern 2 for most of its access: GitHub Actions, the serv
 - The threat model's T-SLACK-3 and the roadmap's hygiene line close.
 - Two dates now exist that somebody has to keep: every 90 days and each November.
 - `KAV-159` is new v1 work, small, and rides on a staging session.
+
+## Amendment 2026-11-19: the rehearsal (`KAV-159`) passed, and two plan statements were wrong
+
+On staging, on the owner's typed gos, the approver token, the gateway's database password and the database's admin password were replaced on a running environment and checked: the new values were accepted, the old ones refused (13 of 13 checks), and the staging smoke test passed. Nobody saw a value. Steps: [runbook](../runbooks/secret-rotation.md); record: [Lab 107](../labs/lab-107-rehearsing-a-secret-rotation-on-staging.md).
+
+The decision stands (yearly; the laptop key every 90 days; at once on a leak). Two statements in the plan above were corrected by what happened:
+
+- **"Changing a database password needs the servers restarted"** (Context). It does not. The app server's start-up script is re-run and the services that read the changed Secret are restarted; the environment must still be up.
+- **The admin password cannot simply be replaced in Parameter Store.** Postgres reads it only when its disk is first made, so one `ALTER ROLE` inside the database must come first (found by reading the start-up code, then shown live: the database refused the new value until it was done).
+
+Still not rehearsed: the agent, executor, collector and monitor passwords (same mechanism), the Slack tokens and the Atlassian token. Production has not been rotated.
