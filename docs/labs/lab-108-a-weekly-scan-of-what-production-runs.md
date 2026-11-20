@@ -1,6 +1,6 @@
 # Lab 108 — A weekly scan of what production runs
 
-**Phase:** 8 (hardening; written after version 1 closed, in the "keeping watch" group, [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md)) · **Story:** `KAV-167` · **Decision:** [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md) · **Status:** carried out; the live proof is in Part 5
+**Phase:** 8 (hardening; written after version 1 closed, in the "keeping watch" group, [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md)) · **Story:** `KAV-167` · **Decision:** [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md) · **Status:** carried out and proved live 2026-11-19 (the clean-closes-it step waits for `KAV-169`)
 
 ## What you will build
 
@@ -72,15 +72,17 @@ The real findings, none of them reachable from the internet and none touching pr
 
 **No updater covers these three.** Dependabot reads the Dockerfiles, and these images are named in the chart's values, not in a Dockerfile. This is the most useful thing the watch found, and it was found before it was ever merged. `KAV-169` moves them.
 
-## Part 5 — The live proof
+## Part 5 — The live proof (2026-11-19, after the merge)
 
-After the pull request is merged:
+Run on GitHub with `gh workflow run image-watch.yml`:
 
-1. Run the workflow by hand (Actions, image-watch, Run workflow) with `plant` ticked. It must turn red and open one issue that starts "THIS WAS A TEST RUN".
-2. Run it again with `plant` unticked. It will still find the three real groups above, so the issue stays open and is edited to say so (not a second issue).
-3. When `KAV-169` clears the real findings, the next run must close the issue by itself.
+| Step | Result |
+|---|---|
+| Hand run with `plant=true` ([run 44582946083](https://github.com/roshanoommenreji/kaval/actions/runs/44582946083)) | `scan` passed in about 70 seconds on GitHub's arm64 runner; `tell` opened **one** issue (#469) that began "THIS WAS A TEST RUN", listed the three real image groups and the planted libraries (PyYAML, requests, urllib3), and turned the run red |
+| Normal hand run ([run 44583264571](https://github.com/roshanoommenreji/kaval/actions/runs/44583264571)) | The same issue #469 was **edited in place**: the test note and the planted lines were gone, the three real groups stayed, no second issue appeared, the run was red again |
+| A clean run closes the issue | **Not yet proved live.** It cannot be, while the real findings stand. It is covered by the workflow guard test (`gh issue close` is in `tell`) and will be proved when `KAV-169` clears the three images: the next run must close #469 by itself |
 
-The record of steps 1 and 2 is in the journal for the day they were done.
+The red `tell` job is by design (a second e-mail from GitHub while the problem stands), so "failure" on those runs is the watch working.
 
 ## Check yourself
 

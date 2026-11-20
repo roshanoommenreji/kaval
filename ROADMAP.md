@@ -324,7 +324,7 @@ the nine phases on purpose, so version 1 stays 100% done, and they are not count
 [KAV-166](https://roshanoommenreji.atlassian.net/browse/KAV-166); decision [ADR-0106](docs/adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md).
 No AWS, $0.
 
-- [ ] A weekly scan for newly found problems in what production runs (`KAV-167`): Trivy re-reads the locked libraries, the base images and the chart's third-party images for `main` and for production's pinned commit, and opens one GitHub issue when something serious has a fix
+- [x] A weekly scan for newly found problems in what production runs (`KAV-167`): Trivy re-reads the locked libraries, the base images and the chart's third-party images for `main` and for production's pinned commit, and opens one GitHub issue when something serious has a fix
 - [ ] A monthly check-in (`KAV-168`): a runbook, a table of dated reminders, and an automatic checklist issue on the first of each month
 
 ---
