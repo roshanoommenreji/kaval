@@ -4,7 +4,7 @@ Working title: **An AI Ops Agent You Can Trust, on a Hobby Budget**
 
 This file is a record, not a script. Every lab in `docs/labs/` is a candidate episode and every
 ADR is a candidate "why" segment. It was first written before the work (2026-08) and brought up
-to date with all 101 labs (Lab 00 to Lab 100) on 2026-11-15 (`KAV-158`); Labs 101 to 107 were added between 2026-11-16 and 2026-11-19, and the outline closed with version 1 on 2026-11-19 (all 107 labs, Lab 00 to Lab 107). Lab 108 came after version 1 (Part 12). What changed against the
+to date with all 101 labs (Lab 00 to Lab 100) on 2026-11-15 (`KAV-158`); Labs 101 to 107 were added between 2026-11-16 and 2026-11-19, and the outline closed with version 1 on 2026-11-19 (all 107 labs, Lab 00 to Lab 107). Labs 108 and 109 came after version 1 (Part 12). What changed against the
 first version is listed at the end, because the differences are part of the story.
 
 ---
@@ -150,9 +150,10 @@ Lab numbers are in brackets. A part is a season; an episode is one bullet.
 - Rehearsing a secret rotation on staging, and the password that does not change where you expect [107]
 - The rotation schedule and the ownership page (`KAV-155`)
 
-### Part 12 — Keeping watch while it is parked (Lab 108, after version 1)
+### Part 12 — Keeping watch while it is parked (Labs 108–109, after version 1)
 
 - A weekly scan for newly found problems in what production runs, read from the sources and not the live images, and what it found on its first real run: three images that no updater covered [108]
+- A monthly checklist that arrives by e-mail, because a scanner nobody reads is no scanner, and the one failure it cannot report: GitHub switching scheduled jobs off after 60 quiet days [109]
 
 ---
 

@@ -1,0 +1,56 @@
+# The monthly check-in (KAV-168, ADR-0106): on the 1st of each month, open ONE GitHub issue with the
+# checklist a person works through, so it arrives by e-mail and does not depend on remembering.
+#
+# Kaval is parked between sessions, so the scanners (Dependabot, CodeQL, the Scorecard, the backup check,
+# the weekly image watch) only help if someone reads them. The checklist is in
+# docs/runbooks/monthly-check-in.md; this workflow only puts a copy of it where a person will see it.
+#
+# The one thing it cannot do is notice that GitHub has switched SCHEDULED workflows off after 60 days with
+# no repository activity (this one included). So the checklist's first step is to look, and an issue that
+# does not arrive on the 1st is itself the signal to open the Actions tab.
+#
+# One job, one power: it can open and comment on issues and read nothing else. It has no AWS login, no
+# secret, no checkout of the code, and nothing in the issue text comes from outside this file. A hand run
+# (workflow_dispatch) is allowed so the first one can be proved; it never opens a second issue for a month
+# that already has one.
+
+name: monthly-check-in
+
+on:
+  schedule:
+    - cron: "17 3 1 * *"   # the 1st of each month, 03:17 UTC (08:47 in India)
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: monthly-check-in
+  cancel-in-progress: false
+
+jobs:
+  open:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: open this month's checklist issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          month="$(date -u +%Y-%m)"
+          title="Monthly check-in ${month}"
+          gh label create monthly-check-in --color 1D76DB --description "Raised by the monthly check-in workflow" --force >/dev/null
+          already="$(gh issue list --label monthly-check-in --state all --limit 100 --json title --jq "[.[]|select(.title==\"${title}\")]|length")"
+          if [ "$already" != "0" ]; then
+            echo "an issue for ${month} already exists; nothing to do"
+            exit 0
+          fi
+          older="$(gh issue list --label monthly-check-in --state open --limit 100 --json number --jq 'length')"
+          carried=""
+          if [ "$older" != "0" ]; then
+            carried="**${older} earlier monthly check-in issue(s) are still open.** An issue left unread is exactly what this check-in exists to catch: do those first, then close them."$'\n\n'
+          fi
+          body="${carried}About fifteen minutes. Nothing here starts production or changes AWS. Full steps and what to do when a line fails: docs/runbooks/monthly-check-in.md"$'\n\n'"- [ ] 1. Scheduled runs are alive: \`gh workflow list --all\` shows every workflow active, and image-watch, codeql, scorecard and backup-watch each ran in the last week. If one is disabled for inactivity, enable it and run it once"$'\n'"- [ ] 2. The weekly image watch: is its issue open? Read it (\`docs/runbooks/image-watch-finding.md\`). It is expected to stay open until KAV-169 fixes the three chart images"$'\n'"- [ ] 3. Dependabot: merge or close each open pull request after reading it; open alerts are 0 or each has a reason"$'\n'"- [ ] 4. The Scorecard score has not dropped since last month"$'\n'"- [ ] 5. CodeQL: every open alert is fixed or dismissed with a reason"$'\n'"- [ ] 6. The bill: \`make cost-report\` is a few dollars while production is parked"$'\n'"- [ ] 7. A restore drill is recorded in the last 35 days (\`make restore-drill\`, about a minute, read-only on AWS)"$'\n'"- [ ] 8. The dated reminders table in the runbook: nothing is due in the next 30 days (laptop AWS key by 2027-02-14; quarterly production start-up; first secret rotation by November 2027)"$'\n\n'"Close this issue when the list is done."
+          gh issue create --label monthly-check-in --title "$title" --body "$body"

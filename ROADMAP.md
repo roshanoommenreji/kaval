@@ -325,7 +325,7 @@ the nine phases on purpose, so version 1 stays 100% done, and they are not count
 No AWS, $0.
 
 - [x] A weekly scan for newly found problems in what production runs (`KAV-167`): Trivy re-reads the locked libraries, the base images and the chart's third-party images for `main` and for production's pinned commit, and opens one GitHub issue when something serious has a fix
-- [ ] A monthly check-in (`KAV-168`): a runbook, a table of dated reminders, and an automatic checklist issue on the first of each month
+- [x] A monthly check-in (`KAV-168`): a runbook, a table of dated reminders, and an automatic checklist issue on the first of each month ([Lab 109](docs/labs/lab-109-a-monthly-check-in-that-arrives-by-e-mail.md))
 
 ---
 
