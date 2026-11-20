@@ -1,6 +1,6 @@
 # Lab 109 — A monthly check-in that arrives by e-mail
 
-**Phase:** 8 (hardening; written after version 1 closed, in the "keeping watch" group, [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md)) · **Story:** `KAV-168` · **Decision:** [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md) · **Status:** built 2026-11-20; the live proof (Part 4) is recorded after the merge
+**Phase:** 8 (hardening; written after version 1 closed, in the "keeping watch" group, [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md)) · **Story:** `KAV-168` · **Decision:** [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md) · **Status:** built and proved live 2026-11-20
 
 ## What you will build
 
@@ -54,7 +54,14 @@ A workflow can only be started by hand once it is on the default branch. After t
 2. Run it again. Expect **no** second issue and the log line "already exists".
 3. Work the real checklist once, tick the boxes, close the issue.
 
-Recorded results are added here after the run.
+Recorded 2026-11-20 (after #471 merged):
+
+| Run | What happened |
+|---|---|
+| Hand run 1 | Succeeded in a few seconds; opened issue #472, "Monthly check-in 2026-11", with the label and the eight boxes |
+| Hand run 2 | Succeeded; log line "an issue for 2026-11 already exists; nothing to do"; still exactly one issue |
+
+The first real pass of the checklist was done the same day, on the GitHub side only: every workflow active; image-watch red (the three chart images, `KAV-169`), CodeQL, Scorecard and the backup check recent and green; no Dependabot pull requests; 0 open Dependabot alerts; no open CodeQL alerts. The Scorecard's own list holds four old best-practice items and one "vulnerabilities" alert (an OpenTelemetry advisory published 2026-11-13) that is already fixed in `uv.lock` (1.45.2), so it clears at the next Scorecard run. The bill and the restore drill (last one 2026-11-12, due before 2026-12-17) were left for the person doing the check-in.
 
 ## What it cannot do
 
