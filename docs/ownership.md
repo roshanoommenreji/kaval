@@ -65,6 +65,7 @@ There is no step where a second person is called, because there is no second per
 |---|---|---|
 | Every Monday | Read the weekly Scorecard and CodeQL results | [Lab 71](labs/lab-71-a-security-policy-owners-and-a-weekly-scorecard.md), [Lab 81](labs/lab-81-turning-on-codeql-and-reading-what-it-says.md) |
 | As they arrive | Read and merge, or close, each Dependabot pull request | [contributing.md](contributing.md) |
+| Monthly (an e-mailed issue on the 1st) | Work the check-in: scheduled runs alive, the image watch, Dependabot, the Scorecard, CodeQL, the bill, a restore drill, dated reminders | [monthly-check-in](runbooks/monthly-check-in.md) |
 | Monthly | A restore drill: `make restore-drill` | [restore-drill](runbooks/restore-drill.md) |
 | Monthly | The bill by service and environment: `make cost-showback` | `docs/cost/` |
 | Every 90 days (last 2026-11-16, next by 2027-02-14) | Change the AWS access key on the laptop | [secret-rotation.md](architecture/secret-rotation.md) |
