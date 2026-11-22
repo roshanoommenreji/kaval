@@ -22,7 +22,7 @@ postgres:
   # An environment with its own database server (ADR-0008, KAV-32) sets this false and
   # fills in secretNames below instead — postgres.yaml renders nothing at all in that case.
   enabled: true
-  image: pgvector/pgvector:pg16
+  image: pgvector/pgvector:0.8.7-pg16-bookworm@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f
   storage: 2Gi
   storageClassName: ""   # "" = the cluster's default StorageClass
   database: kaval
@@ -164,8 +164,8 @@ collector:
 # one, so a model changed upstream cannot get in unnoticed. Nothing is exposed outside the cluster.
 ollama:
   enabled: false
-  # Docker Hub; pinned by digest (the multi-architecture index of 0.34.4, checked 2026-10-14).
-  image: ollama/ollama:0.34.4@sha256:8262851b2846b87c649eddf3e76beb270c52f4d1bc94559f47efde16b0841551
+  # Docker Hub; pinned by digest (the multi-architecture index of 0.40.16, checked 2026-11-20, KAV-169).
+  image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
   model: gemma3:1b-it-qat
   # The id `ollama list` shows for it (the first 12 characters of its content hash).
   modelId: b491bd3989c6
@@ -238,7 +238,7 @@ imageChecker:
 prometheus:
   enabled: false
   # quay.io, not Docker Hub: no anonymous pull limit on a node that restarts. Pinned by digest.
-  image: quay.io/prometheus/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+  image: quay.io/prometheus/prometheus:v3.16.0@sha256:9332054523223e2ddc18d8101799d54a4a8d823b030c53216f063a6c117773cd
   scrapeIntervalSeconds: 30
   # How long measurements are kept. Short on purpose: the signal table is the record, and
   # retention is what Prometheus's memory scales with.

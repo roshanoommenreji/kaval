@@ -29,7 +29,7 @@ x-gateway-build: &gateway-build
 services:
   postgres:
     # Same image in dev, staging and prod (ADR-0008): only its placement differs.
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:0.8.7-pg16-bookworm@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -48,7 +48,7 @@ services:
     restart: unless-stopped
 
   ollama:
-    image: ollama/ollama:0.34.4          # pinned; checked on Docker Hub 2026-09-26
+    image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592  # pinned by digest; 0.40.16 checked 2026-11-20 (KAV-169)
     environment:
       OLLAMA_MAX_LOADED_MODELS: "1"      # one model in RAM at a time on a 4 GB box
       OLLAMA_CONTEXT_LENGTH: "4096"      # fixed, so memory figures are comparable
@@ -66,7 +66,7 @@ services:
 
   # One-shot: make sure LOCAL_MODEL is on disk. A no-op after the first run.
   model-pull:
-    image: ollama/ollama:0.34.4
+    image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
     environment:
       OLLAMA_HOST: ollama:11434
     command: ["pull", "${LOCAL_MODEL:?set LOCAL_MODEL in .env}"]
@@ -81,7 +81,7 @@ services:
   # after the first run. Only one model is resident at a time
   # (OLLAMA_MAX_LOADED_MODELS=1), so this costs disk, not RAM.
   model-pull-embed:
-    image: ollama/ollama:0.34.4
+    image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
     profiles: [tools]
     environment:
       OLLAMA_HOST: ollama:11434

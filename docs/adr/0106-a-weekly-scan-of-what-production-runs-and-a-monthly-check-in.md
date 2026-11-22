@@ -60,6 +60,8 @@ Run in a Linux container before the pull request was merged. `uv.lock` (77 packa
 
 **None of the three has an updater.** Dependabot's `docker` ecosystem reads the five Dockerfile folders; these images are named only in `deploy/charts/kaval/values.yaml`. They are pinned and nothing moves them. That is the finding that justifies the watch, and it is filed as `KAV-169`. Until `KAV-169` moves them the weekly run stays red and the one issue stays open: that is the watch working, not a fault. Production is parked, so nothing is exposed meanwhile.
 
+*Update 2026-11-21 ([ADR-0107](0107-the-chart-images-move-to-their-newest-releases-and-the-leftovers-get-end-dates.md), `KAV-169`): the three images moved to their newest releases, 28 leftovers are dated exceptions, and the "staging and local" cell above should read "local and the lab only": staging's and production's databases run on their own servers, whose start-up script is read once.*
+
 ## What it cannot see (accepted)
 
 1. **What the Dockerfiles install themselves** (`apt` steps in the build). Those packages are in the shipped image but not in the base image's digest, so this scan misses them. They are scanned at every build and release by `ci.yml` and `release.yml`.

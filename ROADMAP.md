@@ -325,6 +325,9 @@ the nine phases on purpose, so version 1 stays 100% done, and they are not count
 No AWS, $0.
 
 - [x] A weekly scan for newly found problems in what production runs (`KAV-167`): Trivy re-reads the locked libraries, the base images and the chart's third-party images for `main` and for production's pinned commit, and opens one GitHub issue when something serious has a fix
+- [ ] The three flagged chart images moved to their newest releases, with the leftovers as dated exceptions, proved on staging, promoted to production (`KAV-169`, [ADR-0107](docs/adr/0107-the-chart-images-move-to-their-newest-releases-and-the-leftovers-get-end-dates.md), [Lab 110](docs/labs/lab-110-moving-the-chart-images-past-the-problems-the-weekly-watch-found.md))
+- [ ] The prompt-injection set's smuggling case: the model copies "account-wide, not reversible" from planted text onto a harmless action; decide whether code should set those fields (`KAV-171`, found while proving `KAV-169`)
+- [ ] Dependabot watches the chart's third-party images, so they never go unnoticed again (`KAV-170`): a manifest Dependabot reads, kept in step with the chart, compose, CI and the database start-up script by a test
 - [x] A monthly check-in (`KAV-168`): a runbook, a table of dated reminders, and an automatic checklist issue on the first of each month ([Lab 109](docs/labs/lab-109-a-monthly-check-in-that-arrives-by-e-mail.md))
 
 ---

@@ -126,7 +126,7 @@ Postgres + pgvector (~250 MB) is **not** on this node. Since
 | Server | Size | Runs | Reached by |
 |---|---|---|---|
 | App node | `t4g.medium` spot, 4 GB | k3s, the services, the local model, Prometheus, Flux | Slack ChatOps, outbound only — no inbound ports, no tunnel (`KAV-55`) |
-| Database server | `t4g.small` on-demand, 2 GB | Postgres 16 + pgvector (`pgvector/pgvector:pg16`), 20 GB data volume | Port 5432 from the app node's security group only, TLS; admin via SSM |
+| Database server | `t4g.small` on-demand, 2 GB | Postgres 16 + pgvector (`pgvector/pgvector:0.8.7-pg16-bookworm`, pinned by digest, [ADR-0107](../adr/0107-the-chart-images-move-to-their-newest-releases-and-the-leftovers-get-end-dates.md)), 20 GB data volume | Port 5432 from the app node's security group only, TLS; admin via SSM |
 
 Staging gets the same pair from the same modules. In Phases 1–3, Postgres is a container on the
 dev server ([ADR-0007](../adr/0007-develop-on-an-aws-dev-server.md)): same image, different
