@@ -1,6 +1,6 @@
 # Lab 111 — A bot that watches the chart's three third-party images
 
-**Phase:** 8 (hardening; written after version 1 closed, in the "keeping watch" group, [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md)) · **Story:** `KAV-170` · **Decision:** [ADR-0108](../adr/0108-a-bot-watches-the-chart-images-through-one-manifest-and-a-sync-step.md) · **Status:** built and proved on the laptop on 2026-11-22; the first live run is Part 5 (filled in after the merge)
+**Phase:** 8 (hardening; written after version 1 closed, in the "keeping watch" group, [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md)) · **Story:** `KAV-170` · **Decision:** [ADR-0108](../adr/0108-a-bot-watches-the-chart-images-through-one-manifest-and-a-sync-step.md) · **Status:** built and proved on the laptop on 2026-11-22; proved live on 2026-11-22 (Part 5)
 
 ## What you will do
 
@@ -52,9 +52,11 @@ What it did on 2026-11-22, with pgvector 0.8.6, Ollama 0.40.15 and Prometheus v3
 - **Ollama 0.40.17 was skipped: "due to cooldown period"** (it was published that day), so the three-day wait works on Docker Hub
 - **quay.io has no publication date the updater trusts**, so the wait does not apply to Prometheus: its bumps arrive at once
 
-## Part 5 — The first live run (after the merge)
+## Part 5 — The first live run
 
-Dependabot reads a changed `dependabot.yml` on `main` and runs at once. Look in Actions, "Dependabot Updates", for the run on `/deploy/third-party-images`; its log must say `Checking if pgvector/pgvector ... needs updating`, then Ollama, then Prometheus. *Result: written in the record pull request that follows the merge.* On 2026-11-22 Ollama 0.40.17 already existed, so a real pull request is expected after the wait; follow the [runbook](../runbooks/third-party-image-bump.md) with it end to end.
+Dependabot reads a changed `dependabot.yml` on `main` and runs at once. Look in Actions, "Dependabot Updates", for the run on `/deploy/third-party-images`; its log must say `Checking if pgvector/pgvector ... needs updating`, then Ollama, then Prometheus. **Result, 2026-11-22 (16:16 UTC, seconds after the merge of #485):** the run `docker in /deploy/third-party-images` finished green. Its log says `Checking if pgvector/pgvector 0.8.7-pg16-bookworm needs updating`, then `ollama/ollama 0.40.16` (`Skipping tag 0.40.17 due to cooldown period`), then `prometheus/prometheus v3.16.0` (`No verified registry publication date source for quay.io; skipping cooldown`). It opened no pull request, which is right: nothing newer was past the wait. Ollama 0.40.17 was published on 2026-11-22, so its pull request is expected from about 2026-11-26; follow the [runbook](../runbooks/third-party-image-bump.md) with it end to end.
+
+Separately, the run for `terraform in /infra/envs/dev, /infra/envs/prod` failed in this run and in the one before it (an unknown error on Dependabot's side, not from this change); it is noted for a look, not part of this story.
 
 ## What can go wrong
 
