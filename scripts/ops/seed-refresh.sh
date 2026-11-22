@@ -30,7 +30,7 @@ export AWS_REGION="${AWS_REGION:-ap-south-1}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT="$ROOT/.build/seed"
-IMAGE="${SEED_IMAGE:-pgvector/pgvector:pg16}"   # same major version and pgvector as the real servers
+IMAGE="${SEED_IMAGE:-pgvector/pgvector:0.8.7-pg16-bookworm@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f}"   # same major version and pgvector as the real servers
 NAME="kaval-seed-$$"
 
 command -v docker > /dev/null || { echo "  docker is not installed"; exit 1; }
