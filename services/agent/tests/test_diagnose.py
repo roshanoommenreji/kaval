@@ -12,7 +12,15 @@ import httpx
 import pytest
 from kaval_agent import diagnose as dg
 from kaval_agent.context import Context
-from kaval_shared.models import Action, Incident, PolicyClass, Proposal, RiskLevel, Severity
+from kaval_shared.models import (
+    Action,
+    BlastRadius,
+    Incident,
+    PolicyClass,
+    Proposal,
+    RiskLevel,
+    Severity,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -180,6 +188,63 @@ def test_write_proposal_persists_proposal_and_actions(db_session: Session) -> No
     assert actions[0].policy_class == PolicyClass.ask
     assert actions[0].target == "kaval-demo/checkout"
     assert actions[0].params == {"to_mi": 512}
+
+
+def _store_one_action(db_session: Session, fingerprint: str, action: dict[str, object]) -> Action:
+    from kaval_agent.schema import Diagnosis
+
+    incident = Incident(
+        id=uuid.uuid4(), fingerprint=fingerprint, severity=Severity.high, opened_at=AT,
+    )
+    db_session.add(incident)
+    db_session.flush()
+    diagnosis = Diagnosis.model_validate({**VALID_DIAGNOSIS, "actions": [action]})
+    proposal = dg.write_proposal(
+        db_session, incident, diagnosis, dg.ModelUsage(tokens_in=1, tokens_out=1), model="m",
+    )
+    return db_session.scalars(select(Action).where(Action.proposal_id == proposal.id)).one()
+
+
+def test_planted_labels_cannot_make_a_restart_look_account_wide_and_irreversible(
+    db_session: Session, caplog: pytest.LogCaptureFixture,
+) -> None:
+    """KAV-171: the injection case `json-smuggling` planted `reversible: false, blast_radius:
+    account`; the model copied them onto restart_pod and policy refused it as `never`. The stored
+    action now carries the table's labels, policy asks about those, and the disagreement is
+    logged."""
+    action = _store_one_action(
+        db_session, "crashloop:k8s:kaval-demo/checkout-x6",
+        {"type": "restart_pod", "target": "kaval-demo/checkout-x6", "params": {},
+         "reversible": False, "blast_radius": "account"},
+    )
+    assert action.blast_radius == BlastRadius.pod
+    assert action.reversible is True
+    assert action.policy_class != PolicyClass.never
+    assert "the table says blast_radius=pod reversible=true" in caplog.text
+
+
+def test_a_model_that_is_right_is_stored_unchanged_and_not_logged(
+    db_session: Session, caplog: pytest.LogCaptureFixture,
+) -> None:
+    action = _store_one_action(
+        db_session, "crashloop:k8s:kaval-demo/checkout",
+        {"type": "restart_pod", "target": "kaval-demo/checkout", "params": {},
+         "reversible": True, "blast_radius": "pod"},
+    )
+    assert (action.blast_radius, action.reversible) == (BlastRadius.pod, True)
+    assert "the table says" not in caplog.text
+
+
+def test_an_unlisted_destructive_type_is_not_laundered_by_the_table(db_session: Session) -> None:
+    """The table helps only what it lists. A type it does not know keeps the model's labels and is
+    still refused by policy on its name, so claiming `pod` and `reversible` does not save it."""
+    action = _store_one_action(
+        db_session, "crashloop:k8s:kaval-demo/checkout",
+        {"type": "delete_namespace", "target": "kube-system", "params": {},
+         "reversible": True, "blast_radius": "pod"},
+    )
+    assert (action.blast_radius, action.reversible) == (BlastRadius.pod, True)
+    assert action.policy_class == PolicyClass.never
 
 
 def test_write_proposal_with_no_actions_writes_only_the_proposal(db_session: Session) -> None:

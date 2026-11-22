@@ -161,3 +161,36 @@ def test_the_type_stays_free_text_so_policy_can_still_see_what_the_model_wrote()
         "summary": "s", "root_cause": "r", "confidence": 0.5, "risk": "low", "actions": [action],
     })
     assert diagnosis.actions[0].type == "EC2 Instance Termination"
+
+
+# -- who decides the two risk labels (KAV-171, ADR-0109) ---------------------------------------
+
+
+def test_for_a_listed_fix_the_table_decides_whatever_the_model_wrote() -> None:
+    """Text planted in an incident made the model copy `reversible: false, blast_radius: account`
+    onto a harmless restart. For every fix on the list the stored labels are the table's."""
+    for fix in fixes.FIXES:
+        radius, reversible, overridden = fixes.risk_labels(fix.type, "account", False)
+        assert (radius, reversible) == (fix.blast_radius, fix.reversible), fix.type
+        assert overridden is True, fix.type
+
+
+def test_a_model_that_agrees_with_the_table_is_not_reported() -> None:
+    for fix in fixes.FIXES:
+        assert fixes.risk_labels(fix.type, fix.blast_radius, fix.reversible) == (
+            fix.blast_radius, fix.reversible, False,
+        )
+
+
+def test_an_unlisted_type_keeps_what_the_model_said_and_is_not_reported() -> None:
+    """Nothing true to substitute: policy still refuses such a type by its name or asks a person."""
+    for name in ("delete_namespace", "raise_memory_limit", "Restart_Pod", "restart_pod "):
+        assert fixes.risk_labels(name, "pod", True) == ("pod", True, False), name
+        assert fixes.risk_labels(name, "account", False) == ("account", False, False), name
+
+
+def test_the_table_never_lets_a_listed_fix_look_account_wide_or_irreversible() -> None:
+    """If someone edits the table into something policy would refuse, a fix the model is taught
+    would be refused on every run: caught here, not on a staging session."""
+    for fix in fixes.FIXES:
+        assert fix.reversible is True and fix.blast_radius in {"pod", "deployment"}, fix.type

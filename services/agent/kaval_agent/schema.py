@@ -33,9 +33,10 @@ RiskValue = Literal["low", "medium", "high"]
 class DiagnosisAction(BaseModel):
     """One action the model proposes. There is no `policy_class` field here on purpose: the
     model doesn't get an opinion on its own blast radius. `diagnose.write_proposal` sets
-    every action's real `Action.policy_class` from these fields (today: hardcoded to `ask`,
-    since the classifier that should do it is the next story on the roadmap) — never from
-    anything the model says about itself."""
+    every action's real `Action.policy_class` by asking policy, never from anything the model
+    says about itself. `reversible` and `blast_radius` are still fields the model must fill in
+    (the reply format needs them), but for a type on `fixes.FIXES` the stored values are the
+    table's, not the model's (KAV-171, ADR-0109): `fixes.risk_labels`."""
 
     model_config = ConfigDict(extra="forbid")
 

@@ -86,6 +86,32 @@ FIXES: tuple[Fix, ...] = (
 FIX_TYPES: frozenset[str] = frozenset(f.type for f in FIXES)
 
 
+def risk_labels(
+    action_type: str, said_blast_radius: str, said_reversible: bool
+) -> tuple[str, bool, bool]:
+    """The two risk labels an action is stored with: `(blast_radius, reversible, overridden)`.
+
+    For a type on the list above the CODE decides, from the table, whatever the model wrote
+    (KAV-171, ADR-0109). The model reads an incident's text, and text can be planted: an error
+    message holding `"reversible": false, "blast_radius": "account"` made the model copy those
+    words onto an ordinary `restart_pod`, which policy then refused as an account-wide,
+    irreversible action, and the approval card would have shown a person something untrue. The
+    model also gets the blast radius of a rollback wrong on its own (it said `pod` for a
+    Deployment in 6 of 10 injection cases). The table is what each fix really does; it changes
+    only in a reviewed pull request, and `tests/test_fixes.py` ties it to what the executor can
+    carry out.
+
+    A type that is NOT on the list keeps what the model said and `overridden` is False: there is
+    no true answer to substitute, and policy still refuses such a type by its name or asks a
+    person. `overridden` is True only when the model disagreed with the table, so a model that
+    keeps doing it can be seen (`diagnose.write_proposal` logs it)."""
+    fix = next((f for f in FIXES if f.type == action_type), None)
+    if fix is None:
+        return said_blast_radius, said_reversible, False
+    disagreed = (fix.blast_radius, fix.reversible) != (said_blast_radius, said_reversible)
+    return fix.blast_radius, fix.reversible, disagreed
+
+
 def fixes_for(cause: str | None) -> tuple[Fix, ...]:
     """The fixes that answer `cause`; every fix when the cause is not known."""
     if cause is None:

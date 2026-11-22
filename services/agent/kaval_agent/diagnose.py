@@ -35,6 +35,7 @@ module's CLI opts into that path; without it, this always was and still is local
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 import uuid
@@ -51,6 +52,8 @@ from sqlalchemy.orm import Session
 from kaval_agent import evidence, fixes, policy
 from kaval_agent.context import Context, build_context
 from kaval_agent.schema import Diagnosis
+
+log = logging.getLogger(__name__)
 
 BASE_SYSTEM_PROMPT = (
     "You are Kaval, an on-call diagnostic assistant for a Kubernetes cluster and its AWS "
@@ -247,21 +250,34 @@ def write_proposal(
     session.add(proposal)
     session.flush()  # assigns proposal.id, needed by the actions below
     for a in diagnosis.actions:
-        blast_radius = BlastRadius(a.blast_radius)
+        # KAV-171, ADR-0109: for a fix on the list in `fixes.py` the two risk labels come from that
+        # table, never from the model, so text planted in an incident cannot make a harmless action
+        # look account-wide and irreversible (or the other way round).
+        radius_text, reversible, overridden = fixes.risk_labels(
+            a.type, a.blast_radius, a.reversible,
+        )
+        if overridden:
+            log.warning(
+                "the model labelled %s as blast_radius=%s reversible=%s; the table says "
+                "blast_radius=%s reversible=%s, and that is what is stored (incident %s)",
+                a.type, a.blast_radius, str(a.reversible).lower(), radius_text,
+                str(reversible).lower(), incident.id,
+            )
+        blast_radius = BlastRadius(radius_text)
         session.add(Action(
             proposal_id=proposal.id,
             type=a.type,
             target=a.target,
             params=a.params,
-            reversible=a.reversible,
+            reversible=reversible,
             blast_radius=blast_radius,
             # KAV-42, ADR-0017: policy/policy.rego decides this, not the model — schema.py has
-            # no policy_class field for the model to set. The inputs are exactly what this
-            # module already validated (blast_radius, reversible from the action; confidence
-            # from the proposal as a whole), whoever produced them — Jev (ADR-0006) can supply
+            # no policy_class field for the model to set. The inputs are the two risk labels
+            # settled just above (the table's for a listed fix) and the confidence
+            # from the proposal as a whole, whoever produced them — Jev (ADR-0006) can supply
             # the same three fields later without this call changing.
             policy_class=policy.classify(
-                a.type, blast_radius, a.reversible, confidence,
+                a.type, blast_radius, reversible, confidence,
                 cause=health.cause_of_fingerprint(incident.fingerprint),
             ),
         ))
