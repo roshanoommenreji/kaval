@@ -61,7 +61,7 @@ aws ec2 wait snapshot-completed --snapshot-ids <the snapshot>
 
 ```bash
 bash scripts/ops/resume-database.sh                                # starts it, waits for SSM and a health check
-bash scripts/ops/db-image-refresh.sh                               # only when the database image pin in git has moved since this server last ran it (KAV-169, ADR-0107): shows the pin, asks for `yes`, restarts the database for a few seconds on the pinned build, prints the version. Needs his go; says "unchanged" if there is nothing to do
+bash scripts/ops/db-image-refresh.sh                               # only when the database image pin in git has moved since this server last ran it (KAV-169, ADR-0107): shows the pin, asks for `yes`, restarts the database for a few seconds on the pinned build, prints the version. Needs his go; says "unchanged" if there is nothing to do. First real run on production: 2026-11-22, it moved the old floating `pg16` image to the pinned `0.8.7-pg16-bookworm` (PostgreSQL 16.16); [Lab 110](../labs/lab-110-moving-the-chart-images-past-the-problems-the-weekly-watch-found.md) Part 6
 terraform -chdir=infra/envs/prod plan -var app_node_desired_capacity=1 -out=<file>   # show it: desired 0 -> 1, min 0 -> 1
                                                                    # (the -var beats node.auto.tfvars, the parked setting, so the file never has to be moved)
 ```

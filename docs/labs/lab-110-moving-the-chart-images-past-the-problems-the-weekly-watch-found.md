@@ -1,6 +1,6 @@
 # Lab 110 — Moving the chart's images past the problems the weekly watch found
 
-**Phase:** 8 (hardening; written after version 1 closed, in the "keeping watch" group, [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md)) · **Story:** `KAV-169` · **Decision:** [ADR-0107](../adr/0107-the-chart-images-move-to-their-newest-releases-and-the-leftovers-get-end-dates.md) · **Status:** built 2026-11-21; the staging proof and the promotion are recorded in Part 6 when they happen
+**Phase:** 8 (hardening; written after version 1 closed, in the "keeping watch" group, [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md)) · **Story:** `KAV-169` · **Decision:** [ADR-0107](../adr/0107-the-chart-images-move-to-their-newest-releases-and-the-leftovers-get-end-dates.md) · **Status:** built 2026-11-21, proved on staging and promoted to production on 2026-11-22 (Part 6)
 
 ## What you will do
 
@@ -62,8 +62,6 @@ python -m pytest scripts/dev/test_third_party_image_pins.py -q
 
 ## Part 6 — Release, staging, production
 
-Records are added here as each happens.
-
 **22 November 2026, release and staging (his go: "go staging smoke", then "keep it up and start the release round").**
 
 1. **Release round.** The first staging build (sha-1c044e9, from the Dependabot merges and the pins) passed the smoke test 7 of 7 but was **not recorded**: it had no release tag, and `staging_smoke.py` refuses to record such a build (ADR-0081, KAV-135). `release-prepare` then proposed Kaval 0.4.5 (#480, his "Approve and run", merged when green), the release built and tagged **v0.4.5 at sha-410aba1**, and the bot's staging pin (#481) was merged next.
@@ -74,7 +72,20 @@ Records are added here as each happens.
 6. **The database image:** staging's server runs `pgvector/pgvector:0.8.7-pg16-bookworm` and its unit names the pinned digest `484e8380...`. `DB_NAME_PREFIX=kaval-staging bash scripts/ops/db-image-refresh.sh` (first live run, his "yes") printed `unit: unchanged` / `already running the pin` and the health check passed: it is a no-op when the pin is already in place.
 7. **Cost:** staging ran about eight hours in two stretches, roughly 25 cents (estimate; AWS closes the month's bill later).
 
-Still to do, each on his own typed go: staging teardown and sweep; production start-up with the refresh step on its database server (the database there still runs the old image); `promote.yml` for v0.4.5.
+Staging was then torn down on his typed go and swept clean (no instances, volumes, snapshots, addresses or networks tagged staging left).
+
+**22 November 2026, promotion and production (his go: "GO" on `go promote sha-410aba1` and on production's start-up with the refresh step; then his typed `apply production`).**
+
+8. **Promotion.** `promote.yml` for **v0.4.5 / sha-410aba1** opened #483 (the promotion guard and signature checks passed; its checks waited for his "Approve and run workflows" click); he merged it. Production's pin moved from v0.4.4 to v0.4.5. Production was parked, so nothing ran yet.
+9. **Preflight and plan (read-only).** All four images exist in ECR. Plan: **0 to add, 2 to change, 0 to destroy**: the app server group's desired size 0 to 1, and the launch template's base image (a newer Amazon Linux image, used only by servers started from now on). He typed `apply production` after seeing it.
+10. **The database refresh on production's server (the real change, unlike staging).** `resume-database.sh` started the stopped server; its health check passed. `db-image-refresh.sh` then printed the pin, replaced the unit (`unit: changed pgvector/pgvector:pg16`), pulled the pinned image, restarted the database for a few seconds, and read back: **pgvector 0.8.7, PostgreSQL 16.16** (still the 16 line, bookworm), `accepting connections`, health check passed. The app was not up at the time.
+11. **Apply and smoke.** The plan applied cleanly (19:52 IST). `make prod-smoke` passed **9 of 9 on the first try** about six minutes later (earlier bring-ups needed three tries): ten pods running, no restarts, every service on sha-410aba1, running digests equal to ECR, database migrated to head, both API reads 200, the exact images passed staging, three timers set. The model server was still loading when it ran (a note, not gated); node memory showed 1,400 MB available.
+12. **Chart images on production's own pods:** Ollama `910d0d81...` and Prometheus `93320545...`, both equal to the pins in `values.yaml`.
+13. **Parked again at 20:02 IST.** `dump-before-park.sh` took a fresh dump first (480 KB, checked); the park plan was one change (desired 1 to 0, minimum 1 to 0); `pause-database.sh` took a snapshot of the data volume and stopped the server. Checked after: group 0/0, database stopped, "still alive" alarm OK. The restore drill was not due (last 12 November, due before 17 December).
+14. **The weekly image watch, run by hand after the pin moved: green, and it closed issue #469.** This is the proof that was waiting since KAV-167: a clean run closes the issue it opened. It stayed red before this because the watch reads production's pinned commit, and that pin only moved with #483.
+15. **Cost:** production's database server ran about 16 minutes and the app server about 10, so 1 to 2 cents (estimate).
+
+What is left: nothing for KAV-169. The two dated exceptions end on 2026-12-04 and 2026-12-18 (look for newer releases first), and `KAV-170` / `KAV-171` are filed and not started.
 
 ## What can go wrong
 
