@@ -20,7 +20,7 @@ nobody knows whether all is well.
    update pull request open already
 2. **The base image** (`python:3.11-slim-bookworm`, pinned by digest). The Debian packages inside it have a new
    flaw with a fix; the pin has to move to a newer digest
-3. **A third-party image the chart names** (pgvector, Ollama, Prometheus). Until `KAV-170` no updater covers these: they are named in `deploy/charts/kaval/values.yaml`, which Dependabot does not read. On 2026-11-19 all three had findings; `KAV-169` moved them to the newest releases and wrote the leftovers into `.github/trivy-ignore.yaml` with end dates (ADR-0107). **When an exception ends the run goes red again by itself: look for a newer release first**
+3. **A third-party image the chart names** (pgvector, Ollama, Prometheus). Since `KAV-170` Dependabot reads them from `deploy/third-party-images/Dockerfile.images` and opens one pull request per image ([third-party-image-bump](third-party-image-bump.md), ADR-0108): **look for its pull request first**. On 2026-11-19 all three had findings; `KAV-169` moved them to the newest releases and wrote the leftovers into `.github/trivy-ignore.yaml` with end dates (ADR-0107). **When an exception ends the run goes red again by itself: look for a newer release first**
 4. **The watch could not look.** The vulnerability list did not download, a registry was unreachable, or a pin no
    longer exists. A scan that reads too little is reported as "broken", never as "clean"
 5. **A test run.** The issue says "THIS WAS A TEST RUN". Ignore it; the next normal run closes it

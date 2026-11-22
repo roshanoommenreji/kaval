@@ -7,7 +7,10 @@
 # Dependabot security updates, or `gh api -X PUT repos/{owner}/{repo}/automated-security-fixes`).
 #
 # Not covered here: the gitleaks and Trivy binaries in ci.yml (pinned by version and
-# sha256, bumped by hand) and the pgvector service image in ci.yml.
+# sha256, bumped by hand). The three third-party images the chart runs (pgvector, Ollama,
+# Prometheus) are read from one manifest, deploy/third-party-images/Dockerfile.images (KAV-170,
+# ADR-0108, the last entry below), and copied into the other files that name them by
+# scripts/dev/sync_third_party_images.py.
 
 version: 2
 updates:
@@ -46,6 +49,16 @@ updates:
       # build prints it.
       - dependency-name: golang
         update-types: [version-update:semver-minor, version-update:semver-major]
+    commit-message: { prefix: chore }
+
+  - package-ecosystem: docker # the three third-party images the chart runs (KAV-170, ADR-0108)
+    directory: /deploy/third-party-images
+    schedule: { interval: weekly, day: saturday }
+    # No group: one pull request per image, so a bad Ollama bump cannot hold up a safe Prometheus one,
+    # and each is judged on its own (Ollama needs the golden evals compared; the database image needs
+    # the refresh at production's next start-up). A brand-new release waits three days before it is
+    # proposed, so a poisoned release has time to be noticed. Security updates ignore the wait.
+    cooldown: { default-days: 3 }
     commit-message: { prefix: chore }
 
   - package-ecosystem: terraform

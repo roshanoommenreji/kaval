@@ -8,7 +8,7 @@ Take the three third-party images the weekly image watch flagged (Prometheus, Ol
 
 ## Why
 
-The watch (`KAV-167`) turned red for three images that no updater covers. Real companies fix this with a bot (Dependabot or Renovate) that opens a pull request per image; Dependabot does not read a Helm values file, which is `KAV-170`. Until then it is done by hand, once, carefully.
+The watch (`KAV-167`) turned red for three images that no updater covers. Real companies fix this with a bot (Dependabot or Renovate) that opens a pull request per image; that bot is `KAV-170` ([Lab 111](lab-111-a-bot-that-watches-the-chart-images.md)). (*Correction, 2026-11-22: this first said Dependabot does not read a Helm values file. It can; it was just never pointed at one.*) Until then it is done by hand, once, carefully.
 
 ## Part 1 — Scan the candidates before changing anything
 

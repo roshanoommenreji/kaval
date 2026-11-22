@@ -1,9 +1,12 @@
 """The third-party images are pinned by digest and every place that names one agrees (KAV-169).
 
 The weekly image watch (KAV-167) found Prometheus, Ollama and pgvector with known problems
-because they were named in several places and nothing moved them together. Until a bot opens
-the pull requests (KAV-170), this test stops one place being updated and the others forgotten.
+because they were named in several places and nothing moved them together. Since KAV-170 a bot
+(Dependabot) reads ONE manifest, deploy/third-party-images/Dockerfile.images, and opens the pull
+requests; this test fails when any place disagrees with that manifest, and the fix is one command
+(scripts/dev/sync_third_party_images.py), so a bot's pull request is red until it has been run.
 
+  * every place agrees with the bot's manifest (the point of KAV-170)
   * the database image: chart, compose, CI, the database server's start-up script and the two
     scripts that start a throwaway copy all name the SAME build, pinned by digest, PostgreSQL 16
     on Debian bookworm (a newer Debian changes the text sort order and can corrupt indexes)
@@ -29,6 +32,17 @@ PROM = re.compile(r"quay\.io/prometheus/prometheus:v[0-9.]+@sha256:[0-9a-f]{64}"
 
 def _text(rel: str) -> str:
     return (ROOT / rel).read_text(encoding="utf-8")
+
+
+def test_every_place_agrees_with_the_bots_manifest() -> None:
+    """Dependabot moves the manifest; the other files follow once the sync script has run."""
+    import sync_third_party_images as sync
+
+    problems = sync.drift(ROOT)
+    fix = "`python scripts/dev/sync_third_party_images.py` and commit the result"
+    lines = "\n  ".join(problems)
+    manifest = "deploy/third-party-images/Dockerfile.images"
+    assert not problems, f"these places disagree with {manifest}; run {fix}:\n  {lines}"
 
 
 def test_the_database_image_is_one_pinned_build_everywhere() -> None:
