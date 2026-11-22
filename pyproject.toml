@@ -7,7 +7,7 @@ dependencies = [
     "sqlalchemy>=2.1.9",
     "alembic>=1.20.1",
     "psycopg[binary]>=3.3.9",
-    "pydantic>=2.14.3",
+    "pydantic>=2.14.4",
     # The Vector column type (KAV-40). Core, not an extra: kaval_shared.models imports it,
     # and every image — gateway, collector, agent — imports kaval_shared.models.
     "pgvector>=0.5.1",
@@ -18,7 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gateway = [
-    "fastapi>=0.163.2",
+    "fastapi>=0.165.0",
     "uvicorn[standard]>=0.54.0",
     "httpx>=0.27",
     # Slack ChatOps (KAV-55, ADR-0026): the outbound Socket Mode connection and chat.postMessage.
@@ -39,7 +39,7 @@ agent = [
     # dependency here, not incidental. Laptop-only for the same reason httpx above is: nothing
     # decides how the deployed agent gets triggered yet (ADR-0016).
     "anthropic>=2.10.0",
-    "boto3>=1.44.5",
+    "boto3>=1.44.6",
 ]
 diagnoser = [
     # The diagnosis worker that runs in the agent image (KAV-87, ADR-0055): it calls Ollama for
@@ -53,18 +53,18 @@ executor = [
     # AWS directly — cost actions (Phase 7) will add boto3 then, scoped the same way. Core,
     # not laptop-only like agent's httpx/boto3 above: kaval_executor.executor's entrypoint
     # loop calls it every pass, deployed or not.
-    "kubernetes>=31.0",
+    "kubernetes>=37.0.3",
 ]
 collector = [
     # Real Kubernetes events (KAV-48): kaval_collector.k8s_events' entrypoint loop calls it
     # every pass, deployed or not — core, same reasoning as executor's own kubernetes extra.
     # kaval_collector.synthetic doesn't need it (no network call, pure fixture generation),
     # so this stays its own extra rather than merging into the always-installed core deps.
-    "kubernetes>=31.0",
+    "kubernetes>=37.0.3",
 ]
 dev = [
     "pytest>=9.2.0",
-    "ruff>=0.17.5",
+    "ruff>=0.17.6",
     "mypy>=2.4.1",
     "httpx2>=2.16.2",     # Starlette's TestClient (successor to httpx; Tom Christie, maintained by Pydantic)
 ]
