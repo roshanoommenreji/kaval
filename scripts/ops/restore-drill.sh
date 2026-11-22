@@ -28,7 +28,7 @@ export AWS_PROFILE="${AWS_PROFILE:-kaval}"
 export AWS_REGION="${AWS_REGION:-ap-south-1}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE="${SEED_IMAGE:-pgvector/pgvector:pg16}"
+IMAGE="${SEED_IMAGE:-pgvector/pgvector:0.8.7-pg16-bookworm@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f}"
 NAME="kaval-drill-$$"
 PYTHON="${PYTHON:-python}"
 TABLES="signal incident incident_signal proposal action decision execution outcome notification alembic_version"
