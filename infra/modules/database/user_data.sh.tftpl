@@ -97,7 +97,7 @@ ExecStart=/usr/bin/docker run --rm --name postgres \\
   -v /data/pg_hba.conf:/data/pg_hba.conf:ro \\
   -v /etc/kaval-db-password:/run/secrets/postgres_password:ro \\
   -p 5432:5432 \\
-  pgvector/pgvector:pg16 \\
+  pgvector/pgvector:0.8.7-pg16-bookworm@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f \\
   -c ssl=on -c ssl_cert_file=/tls/server.crt -c ssl_key_file=/tls/server.key -c hba_file=/data/pg_hba.conf
 ExecStop=/usr/bin/docker stop -t 60 postgres
 TimeoutStopSec=90
