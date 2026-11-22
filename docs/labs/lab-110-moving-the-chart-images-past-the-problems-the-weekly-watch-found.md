@@ -62,7 +62,19 @@ python -m pytest scripts/dev/test_third_party_image_pins.py -q
 
 ## Part 6 — Release, staging, production
 
-Records are added here as each happens. Not yet done: the release round, the staging session (smoke test, Ollama's memory, the database image), the refresh step on production's server, the promotion. Each needs its own typed go.
+Records are added here as each happens.
+
+**22 November 2026, release and staging (his go: "go staging smoke", then "keep it up and start the release round").**
+
+1. **Release round.** The first staging build (sha-1c044e9, from the Dependabot merges and the pins) passed the smoke test 7 of 7 but was **not recorded**: it had no release tag, and `staging_smoke.py` refuses to record such a build (ADR-0081, KAV-135). `release-prepare` then proposed Kaval 0.4.5 (#480, his "Approve and run", merged when green), the release built and tagged **v0.4.5 at sha-410aba1**, and the bot's staging pin (#481) was merged next.
+2. **Staging parked itself while the approvals were pending** (the four-idle-hours rule worked as designed; the app server was gone, the database stopped). `make staging-up` resumed it on the new build. Lesson: with a long wait for approvals, expect to resume rather than find staging running.
+3. **Smoke test on v0.4.5: 7 of 7**, recorded in `deploy/promotion/passed-staging.json` ("v0.4.5 (prod runs v0.4.4)").
+4. **Ollama 0.40.16 on the real 4 GB node:** 12 MiB idle; **1,069 MiB with the model (gemma3:1b-it-qat) loaded**; the node then had **558 MB available** of 3,829. The last measurement with the model loaded on production (Lab 97) was 414 MB available, so the new version is not worse. Nothing restarted.
+5. **Digests read from the running pods:** Ollama `910d0d81...`, Prometheus `93320545...`, both equal to the pins in `values.yaml`.
+6. **The database image:** staging's server runs `pgvector/pgvector:0.8.7-pg16-bookworm` and its unit names the pinned digest `484e8380...`. `DB_NAME_PREFIX=kaval-staging bash scripts/ops/db-image-refresh.sh` (first live run, his "yes") printed `unit: unchanged` / `already running the pin` and the health check passed: it is a no-op when the pin is already in place.
+7. **Cost:** staging ran about eight hours in two stretches, roughly 25 cents (estimate; AWS closes the month's bill later).
+
+Still to do, each on his own typed go: staging teardown and sweep; production start-up with the refresh step on its database server (the database there still runs the old image); `promote.yml` for v0.4.5.
 
 ## What can go wrong
 

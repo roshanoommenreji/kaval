@@ -1,6 +1,6 @@
 # ADR-0107: The chart's three third-party images move to their newest releases, and what is left gets an end date
 
-**Status:** Accepted on 2026-11-20 (the move and the dated exceptions); the staging proof and the promotion are recorded in Lab 110 when they happen. Roshan was shown the scan of every candidate, the plan and the leftovers, and answered "go" to both the plan and the exceptions.
+**Status:** Accepted on 2026-11-20 (the move and the dated exceptions); the staging proof (22 November: v0.4.5, smoke 7 of 7, Ollama 1,069 MiB loaded with 558 MB free, the refresh step a no-op there) is in [Lab 110](../labs/lab-110-moving-the-chart-images-past-the-problems-the-weekly-watch-found.md) Part 6; the promotion is recorded there when it happens. Roshan was shown the scan of every candidate, the plan and the leftovers, and answered "go" to both the plan and the exceptions.
 **Deciders:** Roshan
 **Related:** [ADR-0106](0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md) (the weekly watch that found them), [ADR-0033](0033-dated-trivy-exception-for-the-bundled-opa-binary.md) (the rules for exceptions), [ADR-0008](0008-production-database-on-its-own-server.md) (the database has its own server)
 **Story:** `KAV-169`, epic `KAV-166`. The reason it will not happen again (a bot that opens these pull requests) is `KAV-170`.
