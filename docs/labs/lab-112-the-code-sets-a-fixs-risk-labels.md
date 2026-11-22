@@ -1,6 +1,6 @@
 # Lab 112 — The code, not the model, sets a fix's risk labels
 
-**Phase:** 8 (hardening; written after version 1 closed, in the "keeping watch" group, [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md)) · **Story:** `KAV-171` · **Decision:** [ADR-0109](../adr/0109-the-code-not-the-model-sets-a-fixs-risk-labels.md) · **Status:** built and proved on the laptop on 2026-11-23; passed staging as v0.4.6 the same night (Part 5); production follows on his own go
+**Phase:** 8 (hardening; written after version 1 closed, in the "keeping watch" group, [ADR-0106](../adr/0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md)) · **Story:** `KAV-171` · **Decision:** [ADR-0109](../adr/0109-the-code-not-the-model-sets-a-fixs-risk-labels.md) · **Status:** built and proved on the laptop on 2026-11-23; passed staging as v0.4.6 and was promoted to production the same night (Part 5)
 
 ## What you will do
 
@@ -42,6 +42,8 @@ The branch's injection run logged six overrides: five rollbacks the model called
 It changes the agent image, so it is a normal release: the release round, then `go staging smoke` (the seven checks), then `go promote <tag>` on his own words. The labels are not visible in the smoke test; the injection set on the laptop is the proof of behaviour, and the log line is how a live model that keeps disagreeing with the table would show up (`kubectl logs` of the diagnosis worker: `the table says`).
 
 **Result, 2026-11-23 (his `go staging smoke`):** pull request #490 merged; the release round ran: #491 (staging pin), #492 (release 0.4.6: gateway 0.4.6, collector 0.3.4, agent 0.4.5, executor 0.3.5, which also carries the library updates of #487), #493 (staging pin to the tagged build). Staging up at about 01:00 IST, `make staging-smoke` **7 of 7** on `sha-87c3780`, recognised as the tagged release **v0.4.6** (production runs v0.4.5) and recorded in `deploy/promotion/passed-staging.json`; staging destroyed (93 resources), sweep clean (nothing tagged staging left, production's group 0 of 0). About 25 cents.
+
+**Promotion:** after the record pull request (#494), his `go promote v0.4.6` ran `promote.yml` (the gate found all four images and checked they are the ones that passed staging) and opened #495, which he merged; production now pins `sha-87c3780` with the generated change record `docs/releases/2026-11-22-v0.4.6.md` (stories KAV-169, KAV-170, KAV-171). Production is parked, so v0.4.6 starts running at its next start-up, on its own typed go; that start-up needs no database refresh (this release does not change the database image).
 
 ## What can go wrong
 

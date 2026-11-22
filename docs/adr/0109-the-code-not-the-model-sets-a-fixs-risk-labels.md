@@ -1,6 +1,6 @@
 # ADR-0109: The code, not the model, sets a fix's two risk labels
 
-**Status:** Accepted on 2026-11-23 (built and proved on the laptop; passed staging on 2026-11-23 as v0.4.6, smoke 7 of 7; production follows on its own typed go)
+**Status:** Accepted on 2026-11-23 (built and proved on the laptop; passed staging on 2026-11-23 as v0.4.6, smoke 7 of 7, and was promoted to production the same night (#495); production runs it from its next start-up)
 **Deciders:** Roshan
 **Related:** [ADR-0054](0054-telling-the-model-which-fixes-exist.md) (the list of fixes and the narrowed reply format), [ADR-0017](0017-opa-policy-engine-and-earned-autonomy.md) (policy, not the model, classifies), [ADR-0072](0072-a-written-threat-model-and-a-prompt-injection-set.md) (the injection set that found this), [ADR-0107](0107-the-chart-images-move-to-their-newest-releases-and-the-leftovers-get-end-dates.md) (the upgrade proof that surfaced it)
 **Story:** `KAV-171`, epic `KAV-166`
