@@ -1,6 +1,6 @@
 # ADR-0108: A bot watches the three chart images through one manifest and a sync step
 
-**Status:** Accepted on 2026-11-22 (built and proved on the laptop with Dependabot's own command-line tool; the first live run is recorded in [Lab 111](../labs/lab-111-a-bot-that-watches-the-chart-images.md) after the merge)
+**Status:** Accepted on 2026-11-22 (built and proved on the laptop with Dependabot's own command-line tool; proved live the same day: its first run on `main` checked all three images and skipped Ollama 0.40.17 by the cooldown, [Lab 111](../labs/lab-111-a-bot-that-watches-the-chart-images.md) Part 5)
 **Deciders:** Roshan
 **Related:** [ADR-0107](0107-the-chart-images-move-to-their-newest-releases-and-the-leftovers-get-end-dates.md) (the move that this keeps from happening again), [ADR-0106](0106-a-weekly-scan-of-what-production-runs-and-a-monthly-check-in.md) (the weekly watch and the monthly check-in), [ADR-0010](0010-ci-pipeline-and-supply-chain.md) (Dependabot and the CI gate)
 **Story:** `KAV-170`, epic `KAV-166`
