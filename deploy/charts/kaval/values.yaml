@@ -164,7 +164,8 @@ collector:
 # one, so a model changed upstream cannot get in unnoticed. Nothing is exposed outside the cluster.
 ollama:
   enabled: false
-  # Docker Hub; pinned by digest (the multi-architecture index of 0.40.16, checked 2026-11-20, KAV-169).
+  # Docker Hub; pinned by digest (the multi-architecture index). Moved by the bot's pull request, then copied here by
+  # scripts/dev/sync_third_party_images.py (the source is deploy/third-party-images/Dockerfile.images, KAV-170).
   image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
   model: gemma3:1b-it-qat
   # The id `ollama list` shows for it (the first 12 characters of its content hash).
@@ -237,7 +238,8 @@ imageChecker:
 
 prometheus:
   enabled: false
-  # quay.io, not Docker Hub: no anonymous pull limit on a node that restarts. Pinned by digest.
+  # quay.io, not Docker Hub: no anonymous pull limit on a node that restarts. Pinned by digest; moved the same way as
+  # Ollama's image above (deploy/third-party-images/Dockerfile.images).
   image: quay.io/prometheus/prometheus:v3.16.0@sha256:9332054523223e2ddc18d8101799d54a4a8d823b030c53216f063a6c117773cd
   scrapeIntervalSeconds: 30
   # How long measurements are kept. Short on purpose: the signal table is the record, and

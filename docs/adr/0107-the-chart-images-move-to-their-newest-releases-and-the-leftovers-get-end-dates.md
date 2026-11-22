@@ -14,7 +14,7 @@ The weekly image watch (`KAV-167`) found known, fixable HIGH and CRITICAL proble
 
 ## What real companies do
 
-1. A bot opens a pull request for every new version of every image, pinned by digest (Dependabot or Renovate). The usual answer; for these three it is `KAV-170`, because Dependabot does not read the chart's values file.
+1. A bot opens a pull request for every new version of every image, pinned by digest (Dependabot or Renovate). The usual answer; for these three it is `KAV-170` ([ADR-0108](0108-a-bot-watches-the-chart-images-through-one-manifest-and-a-sync-step.md)). *Correction, 2026-11-22: this line first said Dependabot cannot read the chart's values file. It can (its Docker updater reads image lines in any YAML file in a folder it is pointed at); it was never pointed at the chart. `KAV-170` uses a small manifest instead, because the same images are named in six other files a bot cannot all read.*
 2. Float a tag and rebuild often. Easy, and nobody knows what is running.
 3. Build and patch your own copies. Heavy for one person; rejected.
 

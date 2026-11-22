@@ -23,12 +23,14 @@ Do these in order. The issue carries the same list as tick boxes; tick them ther
    from the last week. If one says `disabled_inactivity`, switch it on again (`gh workflow enable <name>`, or
    Actions, the workflow, "Enable workflow") and run it once by hand.
 2. **The weekly image watch.** Is the issue "Weekly image watch needs a person" open? If so, open it and follow
-   [image-watch-finding](image-watch-finding.md). It stays open and red until a finding is fixed; what matters
-   is that the list is shorter than last month or that you know why not (`KAV-169` holds the three chart images).
+   [image-watch-finding](image-watch-finding.md). It closes by itself when nothing serious with a fix is left, so an open one is new: a pinned image or
+   library needs a newer release. The three chart images (pgvector, Ollama, Prometheus) are moved by Dependabot's
+   pull requests (`KAV-170`, [third-party-image-bump](third-party-image-bump.md)).
 3. **Dependabot.** Pull requests: `gh pr list --author "app/dependabot"`. Merge or close each (a merge that
    touches a service starts a release round, so read before merging). Alerts: `gh api
    repos/{owner}/{repo}/dependabot/alerts --jq '[.[]|select(.state=="open")]|length'` should be 0, or each one
-   should have a reason.
+   should have a reason. Then Actions, "Dependabot Updates": the run for `/deploy/third-party-images` is green and
+   its log names all three images (pgvector, Ollama, Prometheus); if it does not, the bot has stopped reading the file.
 4. **The Scorecard.** Read the newest score on the repository's Security tab (or the Scorecard badge). A drop of
    more than a point since last month has a cause worth finding.
 5. **CodeQL.** The Security tab's code scanning list: any open alert is read, then fixed or dismissed with a reason.
@@ -46,8 +48,8 @@ Do these in order. The issue carries the same list as tick boxes; tick them ther
 | Every month | A restore drill on the newest dump (step 7) | [restore-drill](restore-drill.md) |
 | Every 90 days: next by **2027-02-14** | Change the AWS access key on the laptop (done 2026-11-16) | [secret-rotation](../architecture/secret-rotation.md), [ADR-0100](../adr/0100-secrets-are-changed-yearly-and-the-laptop-key-every-90-days.md) |
 | Each November: first by **November 2027** | Change every other secret, on staging first (rehearsed 2026-11-19, never yet done on production) | [secret-rotation runbook](secret-rotation.md) |
+| **2026-12-04** and **2026-12-18** | The dated Trivy exceptions for the chart images end (`.github/trivy-ignore.yaml`). **Look for a newer release first**: Dependabot may already have proposed it | [third-party-image-bump](third-party-image-bump.md), [ADR-0107](../adr/0107-the-chart-images-move-to-their-newest-releases-and-the-leftovers-get-end-dates.md) |
 | Every three months | Start production up, run `make prod-smoke`, take a fresh dump, park it again (about 2 cents). Proves the thing still starts, keeps the restore drill honest and lets the images get fixed ones | [prod-rollout](prod-rollout.md) |
-| After `KAV-169` is done | Check that the weekly run went green and closed its issue by itself (the one step never proved live) | [image-watch-finding](image-watch-finding.md) |
 
 Any production start-up needs Roshan's own typed go, as always; this table only says when to think about one.
 
@@ -55,7 +57,8 @@ Any production start-up needs Roshan's own typed go, as always; this table only 
 
 1. **A workflow is disabled** (step 1): sixty quiet days. Re-enable it. GitHub does not say what counts as
    activity, so this can happen again; that is why step 1 comes first
-2. **The watch is red for the same three images** (step 2): expected until `KAV-169`; not a new problem
+2. **The watch is red** (step 2): a pinned image or library has a serious finding with a fix; follow
+   [image-watch-finding](image-watch-finding.md) (for the three chart images, look for a Dependabot pull request first)
 3. **A Dependabot pull request fails CI:** read the failing check before merging; often a flaky download, re-run it
 4. **The drill is older than 35 days:** it is simply due (step 7)
 
