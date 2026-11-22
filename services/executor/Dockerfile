@@ -18,7 +18,7 @@
 # linux/arm64 always (CLAUDE.md constraint 2). Base images pinned by digest (KAV-24).
 
 # ── Stage 1: uv.lock → hash-pinned requirements, core deps + the executor extra only ───────
-FROM ghcr.io/astral-sh/uv:0.13.8@sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d AS uv
 FROM python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39 AS lock
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
@@ -29,7 +29,7 @@ RUN uv export --frozen --no-dev --no-emit-project --extra executor -o /requireme
 # ── Stage 1b: the opa binary, built from OPA's release commit (KAV-132, ADR-0079, Lab 80) ────
 # The identical stage to the agent's image: see services/agent/Dockerfile for why it is built here and for what each pin
 # means. scripts/dev/test_opa_build_pins.py fails if the two stages ever differ.
-FROM --platform=$BUILDPLATFORM golang:1.27.4-trixie@sha256:b54b2639de8c1bfe538ec5ffc45f29b1932235ac5f6d63c059853646677112d9 AS opa
+FROM --platform=$BUILDPLATFORM golang:1.27.4-trixie@sha256:f18c3d73a184fb0582828510722e723b63a93f7188d11dd223d9be6f6880e65d AS opa
 ARG TARGETARCH
 ARG OPA_VERSION=1.21.4
 ARG OPA_COMMIT=05c845177c80747a2aabb607f9318f981993cc76

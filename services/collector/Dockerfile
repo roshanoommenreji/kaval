@@ -16,7 +16,7 @@
 # linux/arm64 always (CLAUDE.md constraint 2). Base images pinned by digest (KAV-24).
 
 # ── Stage 1: uv.lock → hash-pinned requirements, core deps + the collector extra only ──────
-FROM ghcr.io/astral-sh/uv:0.13.8@sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d AS uv
 FROM python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39 AS lock
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
