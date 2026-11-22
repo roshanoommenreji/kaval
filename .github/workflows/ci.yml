@@ -82,7 +82,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: pgvector/pgvector:pg16 # the same image compose.yaml runs
+        image: pgvector/pgvector:0.8.7-pg16-bookworm@sha256:484e838076e04939d27d3e176e91c86eea96236126023be8d3059761122e579f # the same image compose.yaml runs
         env:
           POSTGRES_DB: kaval
           POSTGRES_USER: kaval

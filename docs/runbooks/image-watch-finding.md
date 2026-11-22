@@ -20,7 +20,7 @@ nobody knows whether all is well.
    update pull request open already
 2. **The base image** (`python:3.11-slim-bookworm`, pinned by digest). The Debian packages inside it have a new
    flaw with a fix; the pin has to move to a newer digest
-3. **A third-party image the chart names** (pgvector, Ollama, Prometheus). No updater covers these: they are named in `deploy/charts/kaval/values.yaml`, which Dependabot does not read. On 2026-11-19 all three had findings (`KAV-169`)
+3. **A third-party image the chart names** (pgvector, Ollama, Prometheus). Until `KAV-170` no updater covers these: they are named in `deploy/charts/kaval/values.yaml`, which Dependabot does not read. On 2026-11-19 all three had findings; `KAV-169` moved them to the newest releases and wrote the leftovers into `.github/trivy-ignore.yaml` with end dates (ADR-0107). **When an exception ends the run goes red again by itself: look for a newer release first**
 4. **The watch could not look.** The vulnerability list did not download, a registry was unreachable, or a pin no
    longer exists. A scan that reads too little is reported as "broken", never as "clean"
 5. **A test run.** The issue says "THIS WAS A TEST RUN". Ignore it; the next normal run closes it
@@ -47,7 +47,7 @@ release is promoted.
 |---|---|
 | A library (`uv.lock`) | Merge Dependabot's update pull request if there is one; otherwise `make lock` after raising the pin in `pyproject.toml`. Then a normal release round (`release-a-version.md`), staging, and only then a promotion. |
 | The base image | Move the digest in the Dockerfiles to the newest one (Dependabot's `docker` updates do this), then a release round as above. |
-| A third-party image in the chart | Raise the tag and digest in `deploy/charts/kaval/values.yaml` (nothing opens this for you), prove it on staging, then promote. Pick a release built with a fixed Go, then check by hand that the finding is gone: `python scripts/ops/image_watch.py` |
+| A third-party image in the chart | Raise the tag and digest in every place that names it (`deploy/charts/kaval/values.yaml`, `compose.yaml`, and for the database also `ci.yml`, the database start-up script and the two throwaway-database scripts; `scripts/dev/test_third_party_image_pins.py` fails if they disagree), prove it on staging, then promote. A database image also needs `scripts/ops/db-image-refresh.sh` on production's server at its next start-up (its start-up script is never re-read). Never move the database to a newer Debian ("trixie") or PostgreSQL major version: the text sort order changes and can corrupt indexes. Pick a release built with a fixed Go, then check by hand that the finding is gone: `python scripts/ops/image_watch.py` |
 | "Could not look" | Re-run the workflow by hand once (Actions, image-watch, Run workflow). If it fails twice, open the log: a download failure is usually gone on the next try; a missing pin means `deploy/environments/prod/values.yaml` names a tag whose commit is gone. |
 
 Production does not need to be started for any of this. The fix reaches production at its next start-up, after
@@ -55,7 +55,7 @@ it has passed staging, like any other change.
 
 ## Do not
 
-- Do not add the finding to `.github/trivy-ignore.yaml` to make the issue go away. An exception needs a reason and
+- Do not add the finding to `.github/trivy-ignore.yaml` to make the issue go away, and do not renew one that has ended without first looking for the release that fixes it. An exception needs a reason and
   an end date (ADR-0033), and only for something that cannot be fixed yet.
 - Do not promote a rebuilt image straight to production. Build once, pass staging, promote that digest
   (ADR-0004).

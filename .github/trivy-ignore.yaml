@@ -7,10 +7,167 @@
 #     again by itself, so an exception cannot be forgotten;
 #   - `statement` says why it is safe and what ends it.
 
-# Empty since KAV-132 (ADR-0079, accepted 2026-11-07). The bundled OPA is no longer the file OPA publishes: stage 1b of
-# services/agent/Dockerfile and services/executor/Dockerfile builds it from OPA's release commit with the fixed libraries, so the
-# scan passes with no exception. Five exceptions for that binary came before: CVE-2026-78667, -97031, -78669 and -111943 (the
-# first four, ended when OPA v1.21.3 and then v1.21.4 were pinned) and CVE-2026-78661 (KAV-130, to 2026-11-21, ended by KAV-132).
-# The file stays, empty, because both scans still read it and the next finding needs a place to be written down under the
-# rules above. A finding in OPA itself is no longer a reason to add an entry: raise the library in OPA_GO_GET (see the Dockerfile).
-vulnerabilities: []
+# Exceptions added by KAV-169 (ADR-0107, 2026-11-20), with Roshan's approval. The weekly image watch (KAV-167) found
+# problems in the three third-party images the chart names. Moving them to the newest releases (Prometheus v3.16.0,
+# Ollama 0.40.16, pgvector 0.8.7 on PostgreSQL 16 / Debian bookworm) cleared all but the entries below; for each, the fix
+# exists upstream but is in no release image yet (checked 2026-11-20). Each is scoped to the one file or package that
+# carries it and ends in two or four weeks; at the end date the weekly scan goes red again by itself.
+# (The OPA exceptions of KAV-64, KAV-65 and KAV-130 are gone: OPA is built from source since KAV-132.)
+vulnerabilities:
+  # golang.org/x/net v0.61.0 inside Prometheus and Ollama: the html package's parser does quadratic work on crafted
+  # input (GHSA-75pg-wvh3-34jr). Fixed in x/net v0.62.0, in no Prometheus (v3.16.0 is the newest) or Ollama (0.40.16 is the
+  # newest stable) release yet. Both run inside the cluster, take no HTML from anyone and are not reachable from the
+  # internet. Ends when a release built with x/net 0.62.0 or later is pinned (values.yaml and compose.yaml).
+  - id: CVE-2026-78661
+    paths:
+      - bin/prometheus
+      - bin/promtool
+      - usr/bin/ollama
+    statement: x/net html parser denial of service; neither program is given HTML or reachable from outside the cluster
+    expired_at: 2026-12-04
+
+  # apt 2.8.3 in the Ollama image (Ubuntu 24.04): fixed in Ubuntu's 2.8.4ubuntu0.1, but Ollama has not rebuilt its image
+  # since. apt only runs while an image is being built; nothing in the running container calls it. Ends when an Ollama
+  # image built after the Ubuntu update is pinned.
+  - id: CVE-2026-109518
+    purls:
+      - pkg:deb/ubuntu/apt
+      - pkg:deb/ubuntu/libapt-pkg6.0t64
+    statement: apt is a package installer that never runs in the finished container
+    expired_at: 2026-12-04
+
+  # gosu (Go 1.24.6) in the pgvector image, inherited from the official PostgreSQL image, whose 16-bookworm build of
+  # 2026-11-18 has the same findings (checked 2026-11-20). gosu 1.20 (2026-10-25) is built with a newer Go, but neither
+  # the official image nor pgvector's has picked it up. gosu runs once, at container start, to drop administrator
+  # rights: it listens on nothing and reads nothing from the network. Ends when a pgvector pg16 bookworm image with a
+  # fixed gosu is pinned (the database server's start-up script, values.yaml, compose.yaml, ci.yml, the two scripts).
+  - id: CVE-2025-61726
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2025-61729
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2025-68121
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-111943
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-25679
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-27145
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-32280
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-32281
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-32283
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-33811
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-33814
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-33818
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-39820
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-39821
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-39822
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-39836
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-42499
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-42504
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-56853
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-56858
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-56859
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-56860
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-56862
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-78667
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-78669
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18
+  - id: CVE-2026-97031
+    paths:
+      - usr/local/bin/gosu
+    statement: gosu runs once at start-up to drop rights; no network input
+    expired_at: 2026-12-18

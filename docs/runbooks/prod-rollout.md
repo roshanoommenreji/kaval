@@ -61,6 +61,7 @@ aws ec2 wait snapshot-completed --snapshot-ids <the snapshot>
 
 ```bash
 bash scripts/ops/resume-database.sh                                # starts it, waits for SSM and a health check
+bash scripts/ops/db-image-refresh.sh                               # only when the database image pin in git has moved since this server last ran it (KAV-169, ADR-0107): shows the pin, asks for `yes`, restarts the database for a few seconds on the pinned build, prints the version. Needs his go; says "unchanged" if there is nothing to do
 terraform -chdir=infra/envs/prod plan -var app_node_desired_capacity=1 -out=<file>   # show it: desired 0 -> 1, min 0 -> 1
                                                                    # (the -var beats node.auto.tfvars, the parked setting, so the file never has to be moved)
 ```
