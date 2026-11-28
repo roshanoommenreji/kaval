@@ -16,8 +16,8 @@
 # linux/arm64 always (CLAUDE.md constraint 2). Base images pinned by digest (KAV-24).
 
 # ── Stage 1: uv.lock → hash-pinned requirements, core deps + the collector extra only ──────
-FROM ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d AS uv
-FROM python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39 AS lock
+FROM ghcr.io/astral-sh/uv:0.13.10@sha256:a3ea1357342c1a4bf9a0c53a3deb1b55379aefa037338d8113d5771efa01774f AS uv
+FROM python:3.11-slim-bookworm@sha256:ef56ae98435cc40d8a27020b0b32a9941515acd5840f0fba34858bb34dd362d1 AS lock
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
 COPY pyproject.toml uv.lock ./
@@ -29,7 +29,7 @@ RUN uv export --frozen --no-dev --no-emit-project --extra collector -o /requirem
 # the build is told not to fetch anything else (--no-build-isolation, --no-deps). Before this
 # stage `pip install .` let pip download the tool unchecked on every build. The runtime image
 # below receives only the finished wheel, so it never holds the tool or a second copy of the code.
-FROM python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39 AS wheel
+FROM python:3.11-slim-bookworm@sha256:ef56ae98435cc40d8a27020b0b32a9941515acd5840f0fba34858bb34dd362d1 AS wheel
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
@@ -44,7 +44,7 @@ COPY services/agent/kaval_agent services/agent/kaval_agent
 RUN pip wheel --no-deps --no-build-isolation --wheel-dir /wheels .
 
 # ── Stage 2: the runtime image ──────────────────────────────────────────────
-FROM python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39
+FROM python:3.11-slim-bookworm@sha256:ef56ae98435cc40d8a27020b0b32a9941515acd5840f0fba34858bb34dd362d1
 
 # OS-level patch, independent of uv.lock: Debian shipped a fix for CVE-2026-103111
 # (libpcre2-8-0, HIGH) after this digest was pinned. Trivy flags the base image's own
