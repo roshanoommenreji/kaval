@@ -28,8 +28,8 @@
 # linux/arm64 always (CLAUDE.md constraint 2). Base images pinned by digest (KAV-24).
 
 # ── Stage 1: uv.lock → hash-pinned requirements (core dependencies only) ─────
-FROM ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d AS uv
-FROM python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39 AS lock
+FROM ghcr.io/astral-sh/uv:0.13.10@sha256:a3ea1357342c1a4bf9a0c53a3deb1b55379aefa037338d8113d5771efa01774f AS uv
+FROM python:3.11-slim-bookworm@sha256:ef56ae98435cc40d8a27020b0b32a9941515acd5840f0fba34858bb34dd362d1 AS lock
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
 COPY pyproject.toml uv.lock ./
@@ -51,7 +51,7 @@ RUN uv export --frozen --no-dev --no-emit-project --extra diagnoser -o /requirem
 # The images are linux/arm64 only (CLAUDE.md constraint 2). This stage runs on the build machine and cross-compiles: native on
 # CI's arm64 runner, fast on a laptop. ci.yml installs OPA's own linux_amd64 release for `opa test` and the pytest suite; that
 # file is neither shipped nor scanned.
-FROM --platform=$BUILDPLATFORM golang:1.27.4-trixie@sha256:f18c3d73a184fb0582828510722e723b63a93f7188d11dd223d9be6f6880e65d AS opa
+FROM --platform=$BUILDPLATFORM golang:1.27.4-trixie@sha256:430985542100b871e108ccc00e8dcc5eef08ca14ee5825e98ebf563d8ffec4ee AS opa
 ARG TARGETARCH
 ARG OPA_VERSION=1.21.4
 ARG OPA_COMMIT=05c845177c80747a2aabb607f9318f981993cc76
@@ -83,7 +83,7 @@ RUN set -eu; \
 # the build is told not to fetch anything else (--no-build-isolation, --no-deps). Before this
 # stage `pip install .` let pip download the tool unchecked on every build. The runtime image
 # below receives only the finished wheel, so it never holds the tool or a second copy of the code.
-FROM python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39 AS wheel
+FROM python:3.11-slim-bookworm@sha256:ef56ae98435cc40d8a27020b0b32a9941515acd5840f0fba34858bb34dd362d1 AS wheel
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
@@ -98,7 +98,7 @@ COPY services/agent/kaval_agent services/agent/kaval_agent
 RUN pip wheel --no-deps --no-build-isolation --wheel-dir /wheels .
 
 # ── Stage 2: the runtime image ──────────────────────────────────────────────
-FROM python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39
+FROM python:3.11-slim-bookworm@sha256:ef56ae98435cc40d8a27020b0b32a9941515acd5840f0fba34858bb34dd362d1
 
 # OS-level patch, independent of uv.lock: Debian shipped a fix for CVE-2026-103111
 # (libpcre2-8-0, HIGH) after this digest was pinned. Trivy flags the base image's own
